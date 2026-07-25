@@ -134,12 +134,7 @@ fn parse_media_locator(transport: &[u8], session: &TcpSession, flags: &mut Vec<R
 
     // Interleaved: media muxed into the control TCP connection.
     if let Some(chs) = param(&t, "interleaved") {
-        let (rtp, rtcp) = parse_port_pair(&chs);
-
-        return Some(RtspMediaLocator::Interleaved {
-            rtp_channel: rtp as u8,
-            rtcp_channel: rtcp.map(|v| v as u8),
-        });
+        return Some(RtspMediaLocator::Interleaved);
     }
 
     // UDP unicast: separate media flow on negotiated ports.
@@ -175,7 +170,7 @@ fn derive_auth(cts: &[u8], stc: &[u8], flags: &mut Vec<RtspFlag>) -> RtspAuthPos
     let failures = count_status(stc, b"401");
 
     if failures > 0 {
-        flags.push(RtspFlag::AuthFailures(failures));
+        flags.push(RtspFlag::AuthFailures);
     }
 
     let challenge = header_value(stc, b"www-authenticate")
@@ -187,10 +182,10 @@ fn derive_auth(cts: &[u8], stc: &[u8], flags: &mut Vec<RtspFlag>) -> RtspAuthPos
     let saw_ok = count_status(stc, b"200") > 0;
 
     match challenge.as_deref() {
-        Some(c) if c.contains("digest") => RtspAuthPosture::Digest { authenticated: saw_ok },
+        Some(c) if c.contains("digest") => RtspAuthPosture::Digest,
         Some(c) if c.contains("basic") => {
             flags.push(RtspFlag::BasicAuthCleartext);
-            RtspAuthPosture::Basic { authenticated: saw_ok }
+            RtspAuthPosture::Basic
         }
         _ => {
             // No challenge. If the client never sent credentials, and we saw a 200 to a
@@ -200,9 +195,9 @@ fn derive_auth(cts: &[u8], stc: &[u8], flags: &mut Vec<RtspFlag>) -> RtspAuthPos
                 RtspAuthPosture::None
             } else if client_authz.as_deref().map_or(false, |a| a.contains("basic")) {
                 flags.push(RtspFlag::BasicAuthCleartext);
-                RtspAuthPosture::Basic { authenticated: saw_ok }
+                RtspAuthPosture::Basic
             } else if client_authz.as_deref().map_or(false, |a| a.contains("digest")) {
-                RtspAuthPosture::Digest { authenticated: saw_ok }
+                RtspAuthPosture::Digest
             } else {
                 RtspAuthPosture::Unknown
             }

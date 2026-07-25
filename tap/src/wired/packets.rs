@@ -353,7 +353,7 @@ pub enum RtspState {
 
 #[derive(Debug, Clone)]
 pub enum RtspMediaLocator {
-    Interleaved { rtp_channel: u8, rtcp_channel: Option<u8> },
+    Interleaved,
 
     Udp {
         client_rtp_port: u16,
@@ -370,8 +370,8 @@ pub enum RtspMediaLocator {
 pub enum RtspAuthPosture {
     Unknown,
     None,
-    Basic { authenticated: bool },
-    Digest { authenticated: bool }
+    Basic,
+    Digest
 }
 
 #[derive(Debug, Clone, Default)]
@@ -387,7 +387,7 @@ pub struct RtspMediaDescription {
 pub enum RtspFlag {
     UnauthenticatedStream,
     BasicAuthCleartext,
-    AuthFailures(u32),
+    AuthFailures,
     MediaRedirect,
     PublishAttempt,
     UnusualTransport

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::panic;
 use std::sync::{Arc, Mutex, MutexGuard};
-use log::{error, info};
+use log::error;
 use strum_macros::Display;
 use crate::protocols::detection::l7_tagger::L7Tag::{HTTP, Unencrypted, SOCKS, SSH, RTSP};
 use crate::state::tables::tcp_table::TcpSession;
@@ -221,8 +221,6 @@ fn tag_all_tcp(client_to_server: &[u8],
             "tables.tcp.timer.sessions.tagging.rtsp.tagged",
             metrics
         );
-
-        info!("state: {:?}", rtsp.state);
 
         let len = rtsp.estimate_struct_size();
         to_pipeline!(
