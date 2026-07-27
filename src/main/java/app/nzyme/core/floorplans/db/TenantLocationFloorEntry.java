@@ -13,6 +13,7 @@ public abstract class TenantLocationFloorEntry {
     public abstract UUID uuid();
     public abstract UUID locationId();
     public abstract long number();
+    @Nullable
     public abstract String name();
     @Nullable
     public abstract byte[] plan();

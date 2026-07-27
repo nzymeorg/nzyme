@@ -311,7 +311,7 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                         fsr.floor().uuid(),
                         fsr.floor().locationId(),
                         fsr.floor().number(),
-                        fsr.floor().name(),
+                        fsr.floor().name() == null ? "Floor #" + fsr.floor().number() : fsr.floor().name(),
                         true, // It has if we reached here.
                         fsr.tapPositions().size(),
                         fsr.tapPositions(),
