@@ -1,5 +1,5 @@
 use std::net::IpAddr;
-
+use crate::protocols::parsers::tcp::tcp_tools::determine_tcp_session_state;
 use crate::state::tables::tcp_table::{TcpSession};
 use crate::wired::packets::{
     RtspAuthPosture, RtspMediaDescription, RtspMediaLocator, RtspFlag, RtspSession, RtspState
@@ -10,9 +10,11 @@ pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspSession> 
         return None;
     }
 
+    let (req, resp) = orient(cts, stc);
+
     let mut flags: Vec<RtspFlag> = Vec::new();
 
-    let (state, saw_publish) = derive_state(cts);
+    let (state, saw_publish) = derive_state(req);
 
     if saw_publish {
         flags.push(RtspFlag::PublishAttempt);
@@ -22,25 +24,35 @@ pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspSession> 
      * Transport/media locator from the SETUP exchange. Prefer the authoritative server reply,
      * but fall back to the request.
      */
-    let media = find_transport(stc)
-        .or_else(|| find_transport(cts))
+    let media = find_transport(resp)
+        .or_else(|| find_transport(req))
         .and_then(|t| parse_media_locator(t, session, &mut flags));
 
     // Request URI.
-    let request_uri = first_request_uri(cts);
+    let request_uri = first_request_uri(req);
 
     // Client software and server/camera identity.
-    let client_agent = header_value(cts, b"user-agent").map(lossy);
-    let server_info = header_value(stc, b"server").map(lossy);
+    let client_agent = header_value(req, b"user-agent").map(lossy);
+    let server_info = header_value(resp, b"server").map(lossy);
 
     // Auth posture from the challenge/response exchange.
-    let auth = derive_auth(cts, stc, &mut flags);
+    let auth = derive_auth(req, resp, &mut flags);
 
     // Session Description Protocol (SDP) parse.
-    let media_desc = parse_sdp(stc);
+    let media_desc = parse_sdp(resp);
+
+    let (connection_status, terminated_at) = determine_tcp_session_state(session);
 
     Some(RtspSession {
         setup_tcp_session_key: session.session_key.clone(),
+        setup_source_address: session.source_address,
+        setup_source_port: session.source_port,
+        setup_destination_address: session.destination_address,
+        setup_destination_port: session.destination_port,
+        setup_connection_status: connection_status,
+        setup_established_at: session.start_time,
+        setup_terminated_at: terminated_at,
+        setup_most_recent_segment_time: session.most_recent_segment_time,
         state,
         media,
         request_uri,
@@ -54,6 +66,25 @@ pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspSession> 
 
 fn is_rtsp(buf: &[u8]) -> bool {
     contains_ci(buf, b"RTSP/1.") && contains_ci(buf, b"\r\ncseq:")
+}
+
+/*
+ * We've seen issues wher client-to-server and server-to-client was swapped, breaking parsing.
+ * This re-orients the streams into the correct direction. We may be able to get rid of this once
+ * we implement https://github.com/nzymeorg/nzyme/issues/1354
+ */
+fn orient<'a>(cts: &'a [u8], stc: &'a [u8]) -> (&'a [u8], &'a [u8]) {
+    if looks_like_requests(cts) {
+        (cts, stc)
+    } else if looks_like_requests(stc) {
+        (stc, cts) // Caller handed them to us swapped.
+    } else {
+        (cts, stc) // Neither is clearly requests. Keep caller's order.
+    }
+}
+
+fn looks_like_requests(buf: &[u8]) -> bool {
+    iter_lines(buf).any(|l| request_method(l).is_some())
 }
 
 fn derive_state(cts: &[u8]) -> (RtspState, bool) {

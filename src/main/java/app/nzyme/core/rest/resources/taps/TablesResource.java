@@ -9,6 +9,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsRe
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dot11.Dot11TablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
@@ -216,6 +217,22 @@ public class TablesResource {
 
         LOG.debug("Received NTP transactions report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().ntp().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/rtsp/sessions")
+    public Response rtspSessions(@Context SecurityContext sc, RtspSessionsReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting RTSP transactions report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received RTSP transactions report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().rtsp().handleReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

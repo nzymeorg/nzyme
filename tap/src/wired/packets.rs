@@ -343,7 +343,7 @@ impl SshSession {
 
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 pub enum RtspState {
     Probing,
     Describing,
@@ -366,7 +366,7 @@ pub enum RtspMediaLocator {
     Multicast { group: IpAddr, port: u16 }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 pub enum RtspAuthPosture {
     Unknown,
     None,
@@ -383,7 +383,7 @@ pub struct RtspMediaDescription {
     pub resolution: Option<String>
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
 pub enum RtspFlag {
     UnauthenticatedStream,
     BasicAuthCleartext,
@@ -396,6 +396,14 @@ pub enum RtspFlag {
 #[derive(Debug, Clone)]
 pub struct RtspSession {
     pub setup_tcp_session_key: L4Key,
+    pub setup_source_address: IpAddr,
+    pub setup_source_port: u16,
+    pub setup_destination_address: IpAddr,
+    pub setup_destination_port: u16,
+    pub setup_connection_status: GenericConnectionStatus,
+    pub setup_established_at: DateTime<Utc>,
+    pub setup_terminated_at: Option<DateTime<Utc>>,
+    pub setup_most_recent_segment_time: DateTime<Utc>,
     pub state: RtspState,
     pub media: Option<RtspMediaLocator>,
     pub request_uri: Option<String>,
@@ -409,13 +417,7 @@ pub struct RtspSession {
 impl RtspSession {
 
     pub fn estimate_struct_size(&self) -> u32 {
-        let mut size = mem::size_of::<L4Key>() as u32
-            + mem::size_of::<RtspState>() as u32
-            + mem::size_of::<Option<RtspMediaLocator>>() as u32
-            + mem::size_of::<RtspAuthPosture>() as u32
-            + mem::size_of::<Option<String>>() as u32 * 3
-            + mem::size_of::<Option<RtspMediaDescription>>() as u32
-            + mem::size_of::<Vec<RtspFlag>>() as u32;
+        let mut size = mem::size_of::<Self>() as u32;
 
         if let Some(uri) = &self.request_uri {
             size += uri.len() as u32;

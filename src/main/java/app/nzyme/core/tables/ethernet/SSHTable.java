@@ -7,8 +7,6 @@ import app.nzyme.core.tables.TablesService;
 import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.Tools;
 import com.codahale.metrics.Timer;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
@@ -18,8 +16,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class SSHTable implements DataTable {
-
-    private static final Logger LOG = LogManager.getLogger(SSHTable.class);
 
     private final TablesService tablesService;
 
@@ -70,7 +66,6 @@ public class SSHTable implements DataTable {
                     .bind("established_at", session.establishedAt())
                     .bind("tap_uuid", tapUuid)
                     .bind("connection_status", "Active")
-                    .bind("most_recent_segment_time", session.mostRecentSegmentTime())
                     .mapTo(Long.class)
                     .findOne();
 

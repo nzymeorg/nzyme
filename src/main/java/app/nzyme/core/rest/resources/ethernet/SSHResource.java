@@ -3,7 +3,6 @@ package app.nzyme.core.rest.resources.ethernet;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.L4Type;
-import app.nzyme.core.ethernet.dhcp.DHCP;
 import app.nzyme.core.ethernet.ssh.SSH;
 import app.nzyme.core.ethernet.ssh.db.SSHSessionEntry;
 import app.nzyme.core.ethernet.l4.tcp.db.TcpSessionEntry;

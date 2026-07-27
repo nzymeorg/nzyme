@@ -230,7 +230,7 @@ fn tag_all_tcp(client_to_server: &[u8],
             len
         );
 
-        tags.extend([RTSP]);
+        tags.extend([RTSP, Unencrypted]);
     } else {
         rtsp_timer_untagged.stop();
         record_timer(

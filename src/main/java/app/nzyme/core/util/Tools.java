@@ -122,6 +122,15 @@ public class Tools {
                 .toString();
     }
 
+    public static String buildUntimedL4Key(String sourceAddress,
+                                           String destinationAddress,
+                                           int sourcePort,
+                                           int destinationPort) {
+        return Hashing.sha256()
+                .hashString(sourceAddress + destinationAddress + sourcePort + destinationPort, Charsets.UTF_8)
+                .toString();
+    }
+
     public static InetAddress stringtoInetAddress(String address) {
         try {
             return InetAddress.getByName(address);

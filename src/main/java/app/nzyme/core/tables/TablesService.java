@@ -57,6 +57,7 @@ public class TablesService {
                 .put("ssh", new SSHTable(this))
                 .put("socks", new SOCKSTable(this))
                 .put("ntp", new NTPTable(this))
+                .put("rtsp", new RTSPTable(this))
                 .build();
 
         this.processorPool = Executors.newFixedThreadPool(
@@ -119,6 +120,10 @@ public class TablesService {
 
     public NTPTable ntp() {
         return (NTPTable) tables.get("ntp");
+    }
+
+    public RTSPTable rtsp() {
+        return (RTSPTable) tables.get("rtsp");
     }
 
     public UAVTable uav() { return (UAVTable) tables.get("uav"); }

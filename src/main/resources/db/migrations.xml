@@ -8049,4 +8049,114 @@
         <dropColumn tableName="taps" columnName="gnss_elevation_mask_cutoff" />
     </changeSet>
 
+    <changeSet id="create_rtsp_sessions" author="lennartkoopmann">
+        <createTable tableName="rtsp_sessions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="state" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="media_locator" type="jsonb">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="request_uri" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="client_agent" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="server_info" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="authentication" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="media_description" type="jsonb">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="flags" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="setup_established_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="setup_terminated_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="setup_most_recent_segment_time" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="add_setup_tcp_session_key_to_rtsp_sessions" author="lennartkoopmann">
+        <addColumn tableName="rtsp_sessions">
+            <column name="setup_tcp_session_key" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_setup_connection_status_to_rtsp_sessions" author="lennartkoopmann">
+        <addColumn tableName="rtsp_sessions">
+            <column name="setup_connection_status" type="text">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_setup_stream_l4_session_key_to_rtsp_sessions" author="lennartkoopmann">
+        <addColumn tableName="rtsp_sessions">
+            <column name="stream_l4_session_key" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rename_rtsp_stream_l4_session_key" author="lennartkoopmann">
+        <renameColumn tableName="rtsp_sessions" oldColumnName="stream_l4_session_key" newColumnName="stream_l4_untimed_session_key" />
+    </changeSet>
+
+    <changeSet id="add_l4_sessions_untimed_session_key" author="lennartkoopmann">
+        <addColumn tableName="l4_sessions">
+            <column name="untimed_session_key" type="varchar(64)">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_l4_sessions_untimed_session_key_index" author="lennartkoopmann">
+        <createIndex tableName="l4_sessions" indexName="l4_sessions_lookup_untimed_session_key">
+            <column name="untimed_session_key" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

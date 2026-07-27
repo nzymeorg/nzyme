@@ -88,7 +88,7 @@ public class TCPTable implements DataTable {
 
     private void writeSessions(Handle handle, Tap tap, DateTime timestamp, List<TcpSessionReport> sessions) {
         PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
-                "session_key, source_mac, source_address, source_address_is_site_local, " +
+                "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
                 "destination_address, destination_address_is_site_local, destination_address_is_loopback, " +
                 "destination_address_is_multicast, destination_port, bytes_rx_count, bytes_tx_count, segments_count, " +
@@ -101,7 +101,7 @@ public class TCPTable implements DataTable {
                 "destination_address_geo_latitude, destination_address_geo_longitude, ip_ttl, ip_tos, ip_df, " +
                 "tcp_syn_window_size, tcp_syn_maximum_segment_size, tcp_syn_window_scale_multiplier, tcp_syn_cwr, " +
                 "tcp_syn_ece, tcp_syn_options, fingerprint, tags, created_at) " +
-                "VALUES(:tap_uuid, :l4_type, :session_key, :source_mac, :source_address::inet, " +
+                "VALUES(:tap_uuid, :l4_type, :session_key, :untimed_session_key, :source_mac, :source_address::inet, " +
                 ":source_address_is_site_local, :source_address_is_loopback, :source_address_is_multicast, " +
                 ":source_port, :destination_mac, :destination_address::inet, " +
                 ":destination_address_is_site_local, :destination_address_is_loopback, " +
@@ -147,6 +147,13 @@ public class TCPTable implements DataTable {
                 try {
                     String sessionKey = Tools.buildL4Key(
                             session.startTime(),
+                            session.sourceAddress(),
+                            session.destinationAddress(),
+                            session.sourcePort(),
+                            session.destinationPort()
+                    );
+
+                    String untimedSessionKey = Tools.buildUntimedL4Key(
                             session.sourceAddress(),
                             session.destinationAddress(),
                             session.sourcePort(),
@@ -204,6 +211,7 @@ public class TCPTable implements DataTable {
                                 .bind("tap_uuid", tap.uuid())
                                 .bind("l4_type", "TCP")
                                 .bind("session_key", sessionKey)
+                                .bind("untimed_session_key", untimedSessionKey)
                                 .bind("source_mac", session.sourceMac())
                                 .bind("source_address", session.sourceAddress())
                                 .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())

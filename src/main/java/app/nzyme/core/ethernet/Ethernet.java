@@ -5,6 +5,7 @@ import app.nzyme.core.ethernet.arp.ARP;
 import app.nzyme.core.ethernet.dhcp.DHCP;
 import app.nzyme.core.ethernet.dns.DNS;
 import app.nzyme.core.ethernet.l4.L4;
+import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
 import app.nzyme.core.ethernet.ssh.SSH;
 import app.nzyme.core.ethernet.l4.tcp.TCP;
@@ -22,6 +23,7 @@ public class Ethernet {
     private final SSH ssh;
     private final SOCKS socks;
     private final NTP ntp;
+    private final RTSP rtsp;
 
     public Ethernet(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -34,6 +36,7 @@ public class Ethernet {
         this.ssh = new SSH(this);
         this.socks = new SOCKS(this);
         this.ntp = new NTP(this);
+        this.rtsp = new RTSP(this);
     }
 
     public NzymeNode getNzyme() {
@@ -70,6 +73,10 @@ public class Ethernet {
 
     public NTP ntp() {
         return ntp;
+    }
+
+    public RTSP rtsp() {
+        return rtsp;
     }
 
 }

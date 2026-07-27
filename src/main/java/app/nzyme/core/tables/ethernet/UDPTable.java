@@ -93,7 +93,7 @@ public class UDPTable implements DataTable {
                                     DateTime timestamp,
                                     List<UdpConversationReport> conversations) {
         PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
-                "session_key, source_mac, source_address, source_address_is_site_local, " +
+                "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
                 "destination_address, destination_address_is_site_local, destination_address_is_loopback, " +
                 "destination_address_is_multicast, destination_port, bytes_rx_count, bytes_tx_count, segments_count, " +
@@ -104,7 +104,7 @@ public class UDPTable implements DataTable {
                 "destination_address_geo_asn_name, destination_address_geo_asn_domain, " +
                 "destination_address_geo_city, destination_address_geo_country_code, " +
                 "destination_address_geo_latitude, destination_address_geo_longitude, tags, created_at) " +
-                "VALUES(:tap_uuid, :l4_type, :session_key, :source_mac, :source_address::inet, " +
+                "VALUES(:tap_uuid, :l4_type, :session_key, :untimed_session_key, :source_mac, :source_address::inet, " +
                 ":source_address_is_site_local, :source_address_is_loopback, :source_address_is_multicast, " +
                 ":source_port, :destination_mac, :destination_address::inet, " +
                 ":destination_address_is_site_local, :destination_address_is_loopback, " +
@@ -151,6 +151,12 @@ public class UDPTable implements DataTable {
                         conversation.sourcePort(),
                         conversation.destinationPort()
                 );
+                String untimedSessionKey = Tools.buildUntimedL4Key(
+                        conversation.sourceAddress(),
+                        conversation.destinationAddress(),
+                        conversation.sourcePort(),
+                        conversation.destinationPort()
+                );
 
                 InetAddress sourceAddress = stringtoInetAddress(conversation.sourceAddress());
                 InetAddress destinationAddress = stringtoInetAddress(conversation.destinationAddress());
@@ -186,6 +192,7 @@ public class UDPTable implements DataTable {
                             .bind("tap_uuid", tap.uuid())
                             .bind("l4_type", "UDP")
                             .bind("session_key", sessionKey)
+                            .bind("untimed_session_key", untimedSessionKey)
                             .bind("source_mac", conversation.sourceMac())
                             .bind("source_address", conversation.sourceAddress())
                             .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
