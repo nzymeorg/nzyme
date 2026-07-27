@@ -42,7 +42,7 @@ public class SyslogAction implements Action {
         payload.put("event_type_category", event.type().getCategory());
         payload.put("event_type_human_readable", event.type().getHumanReadableName());
 
-        return execute(payload, "system", event.details());
+        return execute(event.timestamp(), payload, "system", event.details());
     }
 
     @Override
@@ -56,10 +56,10 @@ public class SyslogAction implements Action {
         payload.put("event_type_subsystem", event.detectionType().getSubsystem().name());
         payload.put("event_type_human_readable", event.detectionType().getTitle());
 
-        return execute(payload, "detection", event.details());
+        return execute(event.timestamp(), payload, "detection", event.details());
     }
 
-    private ActionExecutionResult execute(Map<String, Object> payload, String eventIdentifier, String messageDetails) {
+    private ActionExecutionResult execute(DateTime timestamp, Map<String, Object> payload, String eventIdentifier, String messageDetails) {
         if (!protocol.equals("UDP_RFC5424")) {
             throw new IllegalArgumentException("Unsupported protocol: " + protocol);
         }
@@ -73,7 +73,6 @@ public class SyslogAction implements Action {
         int pri = facility * 8 + severity;
 
         String version = "1";
-        String timestamp = DateTime.now().toString();
         String appName = "nzyme";
         String procId = "-";
         String msgId = "-";
@@ -93,7 +92,7 @@ public class SyslogAction implements Action {
         String header = String.format("<%d>%s %s %s %s %s %s %s ",
                 pri,
                 version,
-                timestamp,
+                timestamp.toString(),
                 sanitizeHostname(syslogHostname),
                 appName,
                 procId,
