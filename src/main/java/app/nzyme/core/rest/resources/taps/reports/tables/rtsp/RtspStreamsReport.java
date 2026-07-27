@@ -7,25 +7,25 @@ import com.google.auto.value.AutoValue;
 import java.util.List;
 
 @AutoValue
-public abstract class RtspSessionsReport {
+public abstract class RtspStreamsReport {
 
-    public abstract List<RtspSessionReport> sessions();
+    public abstract List<RtspStreamReport> streams();
 
     @JsonCreator
-    public static RtspSessionsReport create(@JsonProperty("sessions") List<RtspSessionReport> sessions) {
+    public static RtspStreamsReport create(@JsonProperty("streams") List<RtspStreamReport> sessions) {
         return builder()
-                .sessions(sessions)
+                .streams(sessions)
                 .build();
     }
 
     public static Builder builder() {
-        return new AutoValue_RtspSessionsReport.Builder();
+        return new AutoValue_RtspStreamsReport.Builder();
     }
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder sessions(List<RtspSessionReport> sessions);
+        public abstract Builder streams(List<RtspStreamReport> streams);
 
-        public abstract RtspSessionsReport build();
+        public abstract RtspStreamsReport build();
     }
 }

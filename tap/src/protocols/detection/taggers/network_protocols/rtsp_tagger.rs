@@ -2,10 +2,10 @@ use std::net::IpAddr;
 use crate::protocols::parsers::tcp::tcp_tools::determine_tcp_session_state;
 use crate::state::tables::tcp_table::{TcpSession};
 use crate::wired::packets::{
-    RtspAuthPosture, RtspMediaDescription, RtspMediaLocator, RtspFlag, RtspSession, RtspState
+    RtspAuthPosture, RtspMediaDescription, RtspMediaLocator, RtspFlag, RtspStream, RtspState
 };
 
-pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspSession> {
+pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspStream> {
     if !is_rtsp(cts) && !is_rtsp(stc) {
         return None;
     }
@@ -43,7 +43,7 @@ pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspSession> 
 
     let (connection_status, terminated_at) = determine_tcp_session_state(session);
 
-    Some(RtspSession {
+    Some(RtspStream {
         setup_tcp_session_key: session.session_key.clone(),
         setup_source_address: session.source_address,
         setup_source_port: session.source_port,

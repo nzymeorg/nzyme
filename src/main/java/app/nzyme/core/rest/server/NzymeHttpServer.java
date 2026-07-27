@@ -179,6 +179,7 @@ public class NzymeHttpServer {
         resourceConfig.register(MonitorsResource.class);
         resourceConfig.register(TimelinesResource.class);
         resourceConfig.register(LocationsResource.class);
+        resourceConfig.register(RTSPResource.class);
 
         // Plugin-supplied REST resources.
         for (Object resource : pluginRestResources) {

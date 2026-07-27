@@ -3,16 +3,16 @@ use std::sync::{Arc, Mutex};
 use log::error;
 use crate::helpers::timer::{record_timer, Timer};
 use crate::link::leaderlink::Leaderlink;
-use crate::link::reports::rtsp_sessions_report;
+use crate::link::reports::rtsp_streams_report;
 use crate::metrics::Metrics;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::state::tables::table_helpers::clear_mutex_hashmap;
-use crate::wired::packets::RtspSession;
+use crate::wired::packets::RtspStream;
 
 pub struct RtspTable {
     leaderlink: Arc<Mutex<Leaderlink>>,
     metrics: Arc<Mutex<Metrics>>,
-    sessions: Mutex<HashMap<L4Key, RtspSession>>
+    streams: Mutex<HashMap<L4Key, RtspStream>>
 }
 
 impl RtspTable {
@@ -21,34 +21,34 @@ impl RtspTable {
         Self {
             leaderlink,
             metrics,
-            sessions: Mutex::new(HashMap::new())
+            streams: Mutex::new(HashMap::new())
         }
     }
 
-    pub fn register_session(&self, session_ref: Arc<RtspSession>) {
-        let session = (*session_ref).clone(); // Escape Arc.
+    pub fn register_stream(&self, stream_ref: Arc<RtspStream>) {
+        let stream = (*stream_ref).clone(); // Escape Arc.
 
-        match self.sessions.lock() {
-            Ok(mut sessions) => {
+        match self.streams.lock() {
+            Ok(mut streams) => {
                 /*
-                 * We insert new session or overwrite existing one. The tagger always returns a
-                 * fully up-to-date representation of the session with all members accurate.
+                 * We insert new stream or overwrite existing one. The tagger always returns a
+                 * fully up-to-date representation of the stream with all members accurate.
                  */
-                sessions.insert(session.setup_tcp_session_key.clone(), session);
-            },
-            Err(e) => error!("Could not acquired RTSP sessions table mutex: {}", e)
+                streams.insert(stream.setup_tcp_session_key.clone(), stream);
+            }
+            Err(e) => error!("Could not acquired RTSP streams table mutex: {}", e)
         }
     }
 
     pub fn process_report(&self) {
-        match self.sessions.lock() {
-            Ok(sessions) => {
+        match self.streams.lock() {
+            Ok(streams) => {
                 // Generate JSON.
                 let mut timer = Timer::new();
-                let report = match serde_json::to_string(&rtsp_sessions_report::generate(&sessions)) {
+                let report = match serde_json::to_string(&rtsp_streams_report::generate(&streams)) {
                     Ok(report) => report,
                     Err(e) => {
-                        error!("Could not serialize RTSP sessions report: {}", e);
+                        error!("Could not serialize RTSP streams report: {}", e);
                         return;
                     }
                 };
@@ -62,28 +62,28 @@ impl RtspTable {
                 // Send report.
                 match self.leaderlink.lock() {
                     Ok(link) => {
-                        if let Err(e) = link.send_report("rtsp/sessions", report) {
-                            error!("Could not submit RTSP sessions report: {}", e);
+                        if let Err(e) = link.send_report("rtsp/streams", report) {
+                            error!("Could not submit RTSP streams report: {}", e);
                         }
                     },
-                    Err(e) => error!("Could not acquire leader link lock for RTSP sessions \
+                    Err(e) => error!("Could not acquire leader link lock for RTSP streams \
                                         report submission: {}", e)
                 }
-            },
+            }
             Err(e) => {
-                error!("Could not acquire RTSP sessions table mutex for report generation: {}", e);
+                error!("Could not acquire RTSP streams table mutex for report generation: {}", e);
             }
         }
 
         // Clean up.
-        clear_mutex_hashmap(&self.sessions);
+        clear_mutex_hashmap(&self.streams);
     }
 
     pub fn calculate_metrics(&self) {
-        let sessions_size: i128 = match self.sessions.lock() {
+        let streams_size: i128 = match self.streams.lock() {
             Ok(s) => s.len() as i128,
             Err(e) => {
-                error!("Could not acquire mutex to calculate RTSP sessions table size: {}", e);
+                error!("Could not acquire mutex to calculate RTSP streams table size: {}", e);
 
                 -1
             }
@@ -91,7 +91,7 @@ impl RtspTable {
 
         match self.metrics.lock() {
             Ok(mut metrics) => {
-                metrics.set_gauge("tables.rtsp.sessions.size", sessions_size);
+                metrics.set_gauge("tables.rtsp.streams.size", streams_size);
             },
             Err(e) => error!("Could not acquire metrics mutex: {}", e)
         }

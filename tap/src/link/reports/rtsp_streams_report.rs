@@ -4,15 +4,15 @@ use std::sync::MutexGuard;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use crate::protocols::parsers::l4_key::L4Key;
-use crate::wired::packets::{RtspMediaDescription, RtspMediaLocator, RtspSession};
+use crate::wired::packets::{RtspMediaDescription, RtspMediaLocator, RtspStream};
 
 #[derive(Serialize)]
-pub struct RtspSessionsReport {
-    pub sessions: Vec<RtspSessionReport>
+pub struct RtspStreamsReport {
+    pub streams: Vec<RtspStreamReport>
 }
 
 #[derive(Serialize)]
-pub struct RtspSessionReport {
+pub struct RtspStreamReport {
     pub setup_source_address: String,
     pub setup_source_port: u16,
     pub setup_destination_address: String,
@@ -89,29 +89,29 @@ impl From<&RtspMediaLocator> for RtspMediaLocatorReport {
     }
 }
 
-pub fn generate(s: &MutexGuard<HashMap<L4Key, RtspSession>>) -> RtspSessionsReport {
-    let mut sessions: Vec<RtspSessionReport> = Vec::new();
+pub fn generate(s: &MutexGuard<HashMap<L4Key, RtspStream>>) -> RtspStreamsReport {
+    let mut streams: Vec<RtspStreamReport> = Vec::new();
 
-    for session in s.values() {
-        sessions.push(RtspSessionReport {
-            setup_source_address: session.setup_source_address.to_string(),
-            setup_source_port: session.setup_source_port,
-            setup_destination_address: session.setup_destination_address.to_string(),
-            setup_destination_port: session.setup_destination_port,
-            setup_connection_status: session.setup_connection_status.to_string(),
-            setup_established_at: session.setup_established_at,
-            setup_terminated_at: session.setup_terminated_at,
-            setup_most_recent_segment_time: session.setup_most_recent_segment_time,
-            state: session.state.to_string(),
-            media_locator: session.media.as_ref().map(RtspMediaLocatorReport::from),
-            request_uri: session.request_uri.clone(),
-            client_agent: session.client_agent.clone(),
-            server_info: session.server_info.clone(),
-            authentication: session.auth.to_string(),
-            media_description: session.media_desc.as_ref().map(RtspMediaDescriptionReport::from),
-            flags: session.flags.iter().map(ToString::to_string).collect(),
+    for stream in s.values() {
+        streams.push(RtspStreamReport {
+            setup_source_address: stream.setup_source_address.to_string(),
+            setup_source_port: stream.setup_source_port,
+            setup_destination_address: stream.setup_destination_address.to_string(),
+            setup_destination_port: stream.setup_destination_port,
+            setup_connection_status: stream.setup_connection_status.to_string(),
+            setup_established_at: stream.setup_established_at,
+            setup_terminated_at: stream.setup_terminated_at,
+            setup_most_recent_segment_time: stream.setup_most_recent_segment_time,
+            state: stream.state.to_string(),
+            media_locator: stream.media.as_ref().map(RtspMediaLocatorReport::from),
+            request_uri: stream.request_uri.clone(),
+            client_agent: stream.client_agent.clone(),
+            server_info: stream.server_info.clone(),
+            authentication: stream.auth.to_string(),
+            media_description: stream.media_desc.as_ref().map(RtspMediaDescriptionReport::from),
+            flags: stream.flags.iter().map(ToString::to_string).collect(),
         })
     }
 
-    RtspSessionsReport { sessions }
+    RtspStreamsReport { streams }
 }

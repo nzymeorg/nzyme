@@ -3,7 +3,7 @@ package app.nzyme.core.ethernet.rtsp;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
-import app.nzyme.core.ethernet.rtsp.db.RTSPSessionEntry;
+import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -38,13 +38,52 @@ public class RTSP {
         this.nzyme = ethernet.getNzyme();
     }
 
-    public List<RTSPSessionEntry> findAllSessions(TimeRange timeRange,
-                                                  Filters filters,
-                                                  RTSP.OrderColumn orderColumn,
-                                                  OrderDirection orderDirection,
-                                                  int limit,
-                                                  int offset,
-                                                  List<UUID> taps) {
+    public long countAllStreams(TimeRange timeRange,
+                                Filters filters,
+                                List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT rtsp.setup_tcp_session_key " +
+                                "FROM rtsp_streams AS rtsp " +
+                                "LEFT JOIN l4_sessions AS setup " +
+                                "ON setup.session_key = rtsp.setup_tcp_session_key " +
+                                "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                "AND setup.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                "AND setup.tap_uuid = rtsp.tap_uuid " +
+                                "LEFT JOIN l4_sessions AS stream " +
+                                "ON stream.untimed_session_key = rtsp.stream_l4_untimed_session_key " +
+                                "AND stream.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                "AND stream.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                "AND stream.tap_uuid = rtsp.tap_uuid " +
+                                "WHERE ((rtsp.setup_most_recent_segment_time >= :tr_from " +
+                                "AND rtsp.setup_most_recent_segment_time <= :tr_to) " +
+                                "OR stream.most_recent_segment_time >= :tr_from " +
+                                "AND stream.most_recent_segment_time <= :tr_to) " +
+                                "AND rtsp.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                                "GROUP BY rtsp.setup_tcp_session_key HAVING 1=1 " + filterFragment.havingSql() +
+                                ") AS sessions")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<RTSPStreamEntry> findAllStreams(TimeRange timeRange,
+                                                Filters filters,
+                                                RTSP.OrderColumn orderColumn,
+                                                OrderDirection orderDirection,
+                                                int limit,
+                                                int offset,
+                                                List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -121,7 +160,7 @@ public class RTSP {
                                 "BOOL_OR(stream.destination_address_is_multicast) AS stream_destination_address_is_multicast, " +
                                 "MAX(stream.bytes_rx_count) AS stream_bytes_rx, " +
                                 "MAX(stream.bytes_tx_count) AS stream_bytes_tx " +
-                                "FROM rtsp_sessions AS rtsp " +
+                                "FROM rtsp_streams AS rtsp " +
                                 "LEFT JOIN l4_sessions AS setup " +
                                 "ON setup.session_key = rtsp.setup_tcp_session_key " +
                                 "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
@@ -148,7 +187,7 @@ public class RTSP {
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
-                        .mapTo(RTSPSessionEntry.class)
+                        .mapTo(RTSPStreamEntry.class)
                         .list()
         );
     }

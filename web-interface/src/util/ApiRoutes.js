@@ -58,12 +58,6 @@ const ApiRoutes = {
             }
           },
           INTEGRATIONS: {
-            COT: {
-              DETAILS:  (organizationId, tenantId, outputId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/integrations/cot/show/${outputId}`,
-              CREATE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/integrations/cot/create`,
-              EDIT:  (organizationId, tenantId, outputId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/integrations/cot/show/${outputId}/edit`,
-              EDIT_CLIENT_CERTIFICATE:  (organizationId, tenantId, outputId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/integrations/cot/show/${outputId}/edit-client-cert`,
-            }
           }
         },
         USERS: {
@@ -187,6 +181,11 @@ const ApiRoutes = {
       SSH: {
         INDEX: '/ethernet/remoteaccess/ssh',
         SESSION_DETAILS: sessionId => `/ethernet/remoteaccess/ssh/sessions/show/${sessionId}`
+      }
+    },
+    STREAMS: {
+      RTSP: {
+        INDEX: '/ethernet/streams/rtsp',
       }
     },
     TIME: {

@@ -10,10 +10,10 @@ import org.joda.time.DateTime;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class RTSPSessionEntryMapper implements RowMapper<RTSPSessionEntry> {
+public class RTSPStreamEntryMapper implements RowMapper<RTSPStreamEntry> {
 
     @Override
-    public RTSPSessionEntry map(ResultSet rs, StatementContext ctx) throws SQLException {
+    public RTSPStreamEntry map(ResultSet rs, StatementContext ctx) throws SQLException {
         DateTime setupTerminatedAt = rs.getTimestamp("setup_terminated_at") == null ?
                 null : new DateTime(rs.getTimestamp("setup_terminated_at"));
 
@@ -27,7 +27,7 @@ public class RTSPSessionEntryMapper implements RowMapper<RTSPSessionEntry> {
         L4AddressData streamDestinationAddress = rs.getString("stream_destination_address") == null
                 ? null : L4MapperTools.fieldsToAddressData("stream_destination", rs);
 
-        return RTSPSessionEntry.create(
+        return RTSPStreamEntry.create(
                 rs.getString("setup_tcp_session_key"),
                 rs.getString("state"),
                 rs.getString("media_locator"),

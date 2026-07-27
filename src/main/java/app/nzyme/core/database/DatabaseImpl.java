@@ -33,7 +33,7 @@ import app.nzyme.core.ethernet.l4.db.L4AddressDataMapper;
 import app.nzyme.core.ethernet.l4.db.L4NumbersMapper;
 import app.nzyme.core.ethernet.l4.db.L4SessionMapper;
 import app.nzyme.core.ethernet.l4.db.L4StatisticsBucketMapper;
-import app.nzyme.core.ethernet.rtsp.db.RTSPSessionEntryMapper;
+import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntryMapper;
 import app.nzyme.core.ethernet.socks.db.SocksTunnelEntryMapper;
 import app.nzyme.core.ethernet.ssh.db.SSHSessionEntryMapper;
 import app.nzyme.core.ethernet.l4.tcp.db.TcpSessionEntryMapper;
@@ -217,7 +217,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new L4AddressDataMapper())
                 .registerRowMapper(new MonitorEntryMapper())
                 .registerRowMapper(new TimelineEventEntryMapper())
-                .registerRowMapper(new RTSPSessionEntryMapper());
+                .registerRowMapper(new RTSPStreamEntryMapper());
 
         if (configuration.slowQueryLogThreshold().isPresent()) {
             LOG.info("Slow query log enabled with threshold <{}ms>.", configuration.slowQueryLogThreshold().get());

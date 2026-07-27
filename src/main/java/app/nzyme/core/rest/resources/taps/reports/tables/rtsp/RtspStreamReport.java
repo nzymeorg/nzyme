@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 @AutoValue
-public abstract class RtspSessionReport {
+public abstract class RtspStreamReport {
 
     public abstract String setupSourceAddress();
     public abstract int setupSourcePort();
@@ -36,22 +36,22 @@ public abstract class RtspSessionReport {
     public abstract Set<String> flags();
 
     @JsonCreator
-    public static RtspSessionReport create(@JsonProperty("setup_source_address") String setupSourceAddress,
-                                           @JsonProperty("setup_source_port") int setupSourcePort,
-                                           @JsonProperty("setup_destination_address") String setupDestinationAddress,
-                                           @JsonProperty("setup_destination_port") int setupDestinationPort,
-                                           @JsonProperty("setup_connection_status") String setupConnectionStatus,
-                                           @JsonProperty("setup_established_at") DateTime setupEstablishedAt,
-                                           @JsonProperty("setup_terminated_at") DateTime setupTerminatedAt,
-                                           @JsonProperty("setup_most_recent_segment_time") DateTime setupMostRecentSegmentTime,
-                                           @JsonProperty("state") String state,
-                                           @JsonProperty("media_locator") Map<String, Object> mediaLocator,
-                                           @JsonProperty("request_uri") String requestUri,
-                                           @JsonProperty("client_agent") String clientAgent,
-                                           @JsonProperty("server_info") String serverInfo,
-                                           @JsonProperty("authentication") String authentication,
-                                           @JsonProperty("media_description") RtspMediaDescriptionReport mediaDescription,
-                                           @JsonProperty("flags") Set<String> flags) {
+    public static RtspStreamReport create(@JsonProperty("setup_source_address") String setupSourceAddress,
+                                          @JsonProperty("setup_source_port") int setupSourcePort,
+                                          @JsonProperty("setup_destination_address") String setupDestinationAddress,
+                                          @JsonProperty("setup_destination_port") int setupDestinationPort,
+                                          @JsonProperty("setup_connection_status") String setupConnectionStatus,
+                                          @JsonProperty("setup_established_at") DateTime setupEstablishedAt,
+                                          @JsonProperty("setup_terminated_at") DateTime setupTerminatedAt,
+                                          @JsonProperty("setup_most_recent_segment_time") DateTime setupMostRecentSegmentTime,
+                                          @JsonProperty("state") String state,
+                                          @JsonProperty("media_locator") Map<String, Object> mediaLocator,
+                                          @JsonProperty("request_uri") String requestUri,
+                                          @JsonProperty("client_agent") String clientAgent,
+                                          @JsonProperty("server_info") String serverInfo,
+                                          @JsonProperty("authentication") String authentication,
+                                          @JsonProperty("media_description") RtspMediaDescriptionReport mediaDescription,
+                                          @JsonProperty("flags") Set<String> flags) {
         return builder()
                 .setupSourceAddress(setupSourceAddress)
                 .setupSourcePort(setupSourcePort)
@@ -73,7 +73,7 @@ public abstract class RtspSessionReport {
     }
 
     public static Builder builder() {
-        return new AutoValue_RtspSessionReport.Builder();
+        return new AutoValue_RtspStreamReport.Builder();
     }
 
     @AutoValue.Builder
@@ -110,6 +110,6 @@ public abstract class RtspSessionReport {
 
         public abstract Builder flags(Set<String> flags);
 
-        public abstract RtspSessionReport build();
+        public abstract RtspStreamReport build();
     }
 }

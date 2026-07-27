@@ -394,7 +394,7 @@ pub enum RtspFlag {
 }
 
 #[derive(Debug, Clone)]
-pub struct RtspSession {
+pub struct RtspStream {
     pub setup_tcp_session_key: L4Key,
     pub setup_source_address: IpAddr,
     pub setup_source_port: u16,
@@ -414,7 +414,7 @@ pub struct RtspSession {
     pub flags: Vec<RtspFlag>
 }
 
-impl RtspSession {
+impl RtspStream {
 
     pub fn estimate_struct_size(&self) -> u32 {
         let mut size = mem::size_of::<Self>() as u32;

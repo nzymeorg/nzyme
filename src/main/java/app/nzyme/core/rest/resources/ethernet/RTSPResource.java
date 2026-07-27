@@ -3,11 +3,15 @@ package app.nzyme.core.rest.resources.ethernet;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.rtsp.RTSP;
+import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;
 import app.nzyme.core.rest.TapDataHandlingResource;
+import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamDetailsResponse;
+import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamsListResponse;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
+import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -34,17 +38,17 @@ public class RTSPResource extends TapDataHandlingResource {
     private NzymeNode nzyme;
 
     @GET
-    @Path("/sessions")
-    public Response sessions(@Context SecurityContext sc,
-                             @QueryParam("organization_id") UUID organizationId,
-                             @QueryParam("tenant_id") UUID tenantId,
-                             @QueryParam("time_range") @Valid String timeRangeParameter,
-                             @QueryParam("filters") String filtersParameter,
-                             @QueryParam("order_column") @Nullable String orderColumnParam,
-                             @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                             @QueryParam("limit") int limit,
-                             @QueryParam("offset") int offset,
-                             @QueryParam("taps") String tapIds) {
+    @Path("/streams")
+    public Response streams(@Context SecurityContext sc,
+                            @QueryParam("organization_id") UUID organizationId,
+                            @QueryParam("tenant_id") UUID tenantId,
+                            @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @QueryParam("filters") String filtersParameter,
+                            @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @QueryParam("limit") int limit,
+                            @QueryParam("offset") int offset,
+                            @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -64,12 +68,15 @@ public class RTSPResource extends TapDataHandlingResource {
             }
         }
 
-        //long total = nzyme.getEthernet().rtsp().countAllSessions(timeRange, filters, taps);
-        long total = 0;
+        long total = nzyme.getEthernet().rtsp().countAllStreams(timeRange, filters, taps);
 
+        List<RTSPStreamDetailsResponse> sessions = Lists.newArrayList();
+        for (RTSPStreamEntry session : nzyme.getEthernet().rtsp()
+                .findAllStreams(timeRange, filters, orderColumn, orderDirection, limit, offset, taps)) {
+            sessions.add(RTSPStreamDetailsResponse.create(session.setupTcpSessionKey(), session.state()));
+        }
 
-
-        return Response.ok().build();
+        return Response.ok(RTSPStreamsListResponse.create(total, sessions)).build();
     }
 
 }

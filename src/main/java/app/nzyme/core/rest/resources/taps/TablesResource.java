@@ -9,7 +9,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsRe
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dot11.Dot11TablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsReport;
-import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspSessionsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
@@ -222,8 +222,8 @@ public class TablesResource {
     }
 
     @POST
-    @Path("/rtsp/sessions")
-    public Response rtspSessions(@Context SecurityContext sc, RtspSessionsReport report) {
+    @Path("/rtsp/streams")
+    public Response rtspStreams(@Context SecurityContext sc, RtspStreamsReport report) {
         AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
 
         if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {

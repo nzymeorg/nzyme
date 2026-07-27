@@ -8159,4 +8159,8 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="renmae_rtsp_sessions_to_streams" author="lennartkoopmann">
+        <renameTable oldTableName="rtsp_sessions" newTableName="rtsp_streams" />
+    </changeSet>
+
 </databaseChangeLog>

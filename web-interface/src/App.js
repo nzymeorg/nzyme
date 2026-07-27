@@ -179,6 +179,7 @@ import BSSIDTimelinePage from "./components/dot11/bssids/BSSIDTimelinePage";
 import LocationsOverviewPage from "./components/locations/LocationsOverviewPage";
 import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
+import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -570,6 +571,9 @@ function App() {
                                 { /* Ethernet/Tunnels. */}
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX} element={<SOCKSTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.TUNNEL_DETAILS(':sessionId')} element={<SOCKSTunnelDetailsPage />}/>
+
+                                { /* Ethernet/Streams. */}
+                                <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX} element={<RTSPStreamsPage />}/>
 
                                 { /* Ethernet/Time. */}
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.INDEX} element={<NTPOverviewPage />}/>

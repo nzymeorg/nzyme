@@ -8,4 +8,4 @@ pub mod uavs_report;
 pub mod dhcp_transactions_report;
 pub mod arp_packets_report;
 pub mod ntp_transactions_report;
-pub mod rtsp_sessions_report;
+pub mod rtsp_streams_report;

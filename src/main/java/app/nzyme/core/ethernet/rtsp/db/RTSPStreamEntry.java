@@ -8,7 +8,7 @@ import org.joda.time.DateTime;
 import java.util.Set;
 
 @AutoValue
-public abstract class RTSPSessionEntry {
+public abstract class RTSPStreamEntry {
 
     public abstract String setupTcpSessionKey();
     public abstract String state();
@@ -45,7 +45,7 @@ public abstract class RTSPSessionEntry {
     @Nullable
     public abstract Long streamBytesTx();
 
-    public static RTSPSessionEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
+    public static RTSPStreamEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
         return builder()
                 .setupTcpSessionKey(setupTcpSessionKey)
                 .state(state)
@@ -71,7 +71,7 @@ public abstract class RTSPSessionEntry {
     }
 
     public static Builder builder() {
-        return new AutoValue_RTSPSessionEntry.Builder();
+        return new AutoValue_RTSPStreamEntry.Builder();
     }
 
     @AutoValue.Builder
@@ -116,6 +116,6 @@ public abstract class RTSPSessionEntry {
 
         public abstract Builder streamBytesTx(Long streamBytesTx);
 
-        public abstract RTSPSessionEntry build();
+        public abstract RTSPStreamEntry build();
     }
 }
