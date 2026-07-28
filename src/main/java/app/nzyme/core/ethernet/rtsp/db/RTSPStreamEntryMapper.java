@@ -20,6 +20,9 @@ public class RTSPStreamEntryMapper implements RowMapper<RTSPStreamEntry> {
         DateTime streamMostRecentSegmentTime = rs.getTimestamp("stream_most_recent_segment_time") == null ?
                 null : new DateTime(rs.getTimestamp("stream_most_recent_segment_time"));
 
+        DateTime lastActivity = rs.getTimestamp("last_activity") == null ?
+                null : new DateTime(rs.getTimestamp("last_activity"));
+
         // Guard against NULL attributes if we have no underlying connection JOINed.
         L4AddressData setupSourceAddress = rs.getString("setup_source_address") == null
                 ? null : L4MapperTools.fieldsToAddressData("setup_source", rs);
@@ -43,6 +46,9 @@ public class RTSPStreamEntryMapper implements RowMapper<RTSPStreamEntry> {
                 new DateTime(rs.getTimestamp("setup_established_at")),
                 setupTerminatedAt,
                 new DateTime(rs.getTimestamp("setup_most_recent_segment_time")),
+                lastActivity,
+                rs.getBoolean("is_active"),
+                rs.getLong("duration_ms"),
                 setupSourceAddress,
                 setupDestinationAddress,
                 rs.getLong("setup_bytes_exchanged"),

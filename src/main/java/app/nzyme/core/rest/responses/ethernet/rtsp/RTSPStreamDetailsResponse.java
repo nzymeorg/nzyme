@@ -30,8 +30,10 @@ public abstract class RTSPStreamDetailsResponse {
     public abstract String authentication();
     @JsonProperty("flags")
     public abstract Set<String> flags();
-    @JsonProperty("last_activity")
+    @JsonProperty("last_activity") @Nullable
     public abstract DateTime lastActivity();
+    @JsonProperty("duration_ms") @Nullable
+    public abstract Long durationMs();
 
     @JsonProperty("setup_connection_status")
     public abstract String setupConnectionStatus();
@@ -59,7 +61,7 @@ public abstract class RTSPStreamDetailsResponse {
     @Nullable @JsonProperty("stream_bytes_tx")
     public abstract Long streamBytesTx();
 
-    public static RTSPStreamDetailsResponse create(String setupTcpSessionKey, Boolean isActive, String state, Map<String, Object> mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, DateTime lastActivity, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressResponse setupSource, L4AddressResponse setupDestination, Long setupBytesExchanged, String streamL4Type, L4AddressResponse streamSource, L4AddressResponse streamDestination, Long streamBytesRx, Long streamBytesTx) {
+    public static RTSPStreamDetailsResponse create(String setupTcpSessionKey, Boolean isActive, String state, Map<String, Object> mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, DateTime lastActivity, Long durationMs, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressResponse setupSource, L4AddressResponse setupDestination, Long setupBytesExchanged, String streamL4Type, L4AddressResponse streamSource, L4AddressResponse streamDestination, Long streamBytesRx, Long streamBytesTx) {
         return builder()
                 .setupTcpSessionKey(setupTcpSessionKey)
                 .isActive(isActive)
@@ -71,6 +73,7 @@ public abstract class RTSPStreamDetailsResponse {
                 .authentication(authentication)
                 .flags(flags)
                 .lastActivity(lastActivity)
+                .durationMs(durationMs)
                 .setupConnectionStatus(setupConnectionStatus)
                 .setupEstablishedAt(setupEstablishedAt)
                 .setupTerminatedAt(setupTerminatedAt)
@@ -111,6 +114,8 @@ public abstract class RTSPStreamDetailsResponse {
         public abstract Builder flags(Set<String> flags);
 
         public abstract Builder lastActivity(DateTime lastActivity);
+
+        public abstract Builder durationMs(Long durationMs);
 
         public abstract Builder setupConnectionStatus(String setupConnectionStatus);
 

@@ -27,6 +27,12 @@ public abstract class RTSPStreamEntry {
     @Nullable
     public abstract DateTime setupTerminatedAt();
     public abstract DateTime setupMostRecentSegmentTime();
+    @Nullable
+    public abstract DateTime lastActivity();
+    @Nullable
+    public abstract Boolean isActive();
+    @Nullable
+    public abstract Long durationMs();
 
     @Nullable
     public abstract L4AddressData setupSource();
@@ -47,7 +53,7 @@ public abstract class RTSPStreamEntry {
     @Nullable
     public abstract Long streamBytesTx();
 
-    public static RTSPStreamEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, DateTime streamMostRecentSegmentTime, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
+    public static RTSPStreamEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, DateTime lastActivity, Boolean isActive, Long durationMs, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, DateTime streamMostRecentSegmentTime, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
         return builder()
                 .setupTcpSessionKey(setupTcpSessionKey)
                 .state(state)
@@ -61,6 +67,9 @@ public abstract class RTSPStreamEntry {
                 .setupEstablishedAt(setupEstablishedAt)
                 .setupTerminatedAt(setupTerminatedAt)
                 .setupMostRecentSegmentTime(setupMostRecentSegmentTime)
+                .lastActivity(lastActivity)
+                .isActive(isActive)
+                .durationMs(durationMs)
                 .setupSource(setupSource)
                 .setupDestination(setupDestination)
                 .setupBytesExchanged(setupBytesExchanged)
@@ -102,6 +111,12 @@ public abstract class RTSPStreamEntry {
         public abstract Builder setupTerminatedAt(DateTime setupTerminatedAt);
 
         public abstract Builder setupMostRecentSegmentTime(DateTime setupMostRecentSegmentTime);
+
+        public abstract Builder lastActivity(DateTime lastActivity);
+
+        public abstract Builder isActive(Boolean isActive);
+
+        public abstract Builder durationMs(Long durationMs);
 
         public abstract Builder setupSource(L4AddressData setupSource);
 

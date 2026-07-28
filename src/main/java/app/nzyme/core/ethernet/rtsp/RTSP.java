@@ -8,6 +8,7 @@ import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
 import app.nzyme.core.util.filters.Filters;
+import org.joda.time.DateTime;
 
 import java.util.Collections;
 import java.util.List;
@@ -160,7 +161,23 @@ public class RTSP {
                                 "BOOL_OR(stream.destination_address_is_loopback) AS stream_destination_address_is_loopback, " +
                                 "BOOL_OR(stream.destination_address_is_multicast) AS stream_destination_address_is_multicast, " +
                                 "MAX(stream.bytes_rx_count) AS stream_bytes_rx, " +
-                                "MAX(stream.bytes_tx_count) AS stream_bytes_tx " +
+                                "MAX(stream.bytes_tx_count) AS stream_bytes_tx, " +
+                                "CASE WHEN MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) " +
+                                "ELSE NULL END AS last_activity, " +
+                                "CASE WHEN MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) > :active_cutoff " +
+                                "ELSE NULL END AS is_active, " +
+                                "CASE WHEN MIN(rtsp.setup_established_at) IS NOT NULL " +
+                                "AND MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN (EXTRACT(EPOCH FROM (GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) - MIN(rtsp.setup_established_at))) * 1000)::bigint " +
+                                "ELSE NULL END AS duration_ms " +
                                 "FROM rtsp_streams AS rtsp " +
                                 "LEFT JOIN l4_sessions AS setup " +
                                 "ON setup.session_key = rtsp.setup_tcp_session_key " +
@@ -184,6 +201,7 @@ public class RTSP {
                         .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
+                        .bind("active_cutoff", DateTime.now().minusMinutes(1))
                         .bind("limit", limit)
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())

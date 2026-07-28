@@ -117,21 +117,9 @@ public class RTSPResource extends TapDataHandlingResource {
                 );
             }
 
-            DateTime lastActivity = null;
-            Boolean isActive = null;
-            if (stream.setupMostRecentSegmentTime() != null && stream.streamMostRecentSegmentTime() != null) {
-                if (stream.setupMostRecentSegmentTime().isAfter(stream.streamMostRecentSegmentTime())) {
-                    lastActivity = stream.setupMostRecentSegmentTime();
-                } else {
-                    lastActivity = stream.streamMostRecentSegmentTime();
-                }
-
-                isActive = lastActivity.isAfter(DateTime.now().minusMinutes(1));
-            }
-
             streams.add(RTSPStreamDetailsResponse.create(
                     stream.setupTcpSessionKey(),
-                    isActive,
+                    stream.isActive(),
                     stream.state(),
                     mediaLocatorResponse,
                     stream.requestUri(),
@@ -139,7 +127,8 @@ public class RTSPResource extends TapDataHandlingResource {
                     stream.serverInfo(),
                     stream.authentication(),
                     stream.flags(),
-                    lastActivity,
+                    stream.lastActivity(),
+                    stream.durationMs(),
                     stream.setupConnectionStatus(),
                     stream.setupEstablishedAt(),
                     stream.setupTerminatedAt(),
