@@ -47,7 +47,7 @@ function MacAddress(props) {
 
   const assetNameElement = () => {
     if (withAssetName && context && context.name) {
-      return <span className="context-name" style={{marginLeft: 5}}>{context.name}</span>;
+      return <span className="context-name hide-narrow" style={{marginLeft: 5}}>{context.name}</span>;
     }
 
     return null;

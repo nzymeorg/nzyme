@@ -180,6 +180,7 @@ import LocationsOverviewPage from "./components/locations/LocationsOverviewPage"
 import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
 import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
+import NarrowMode from "./components/layout/NarrowMode";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -190,6 +191,10 @@ const isAuthenticated = function() {
 
 const isDarkMode = function() {
   return Store.get("dark_mode") === undefined ? false : Store.get("dark_mode");
+}
+
+const isNarrowMode = function() {
+  return Store.get("narrow_mode") === undefined ? false : Store.get("narrow_mode");
 }
 
 export const AppContext = createContext(null);
@@ -203,6 +208,7 @@ function App() {
   const [apiConnected, setApiConnected] = useState(true);
   const [authenticated, setAuthenticated] = useState(isAuthenticated());
   const [darkModeEnabled, setDarkModeEnabled] = useState(isDarkMode());
+  const [narrowModeEnabled, setNarrowModeEnabled] = useState(isNarrowMode());
   const [mfaRequired, setMfaRequired] = useState(true);
   const [mfaSetup, setMfaSetup] = useState(false);
   const [mfaEntryExpiresAt, setMfaEntryExpiresAt] = useState(null);
@@ -279,6 +285,7 @@ function App() {
       fetchSessionInfo(function() {
         setAuthenticated(isAuthenticated());
         setDarkModeEnabled(isDarkMode());
+        setNarrowModeEnabled(isNarrowMode());
         setFullyLoaded(true);
       });
     }, function () {
@@ -290,6 +297,11 @@ function App() {
     Store.set("dark_mode", darkModeEnabled);
     setRevision(new Date());
   }, [darkModeEnabled]);
+
+  useEffect(() => {
+    Store.set("narrow_mode", narrowModeEnabled);
+    setRevision(new Date());
+  }, [narrowModeEnabled]);
 
   const onLogout = (e) => {
     e.preventDefault()
@@ -423,6 +435,7 @@ function App() {
       return (
           <Router>
             <DarkMode enabled={darkModeEnabled} />
+            <NarrowMode enabled={narrowModeEnabled} />
 
             <div className="nzyme d-flex">
               <AppContext.Provider value={{logout: logout, setRevision: setRevision}}>
@@ -435,6 +448,8 @@ function App() {
                         <Toast />
                         <NavigationBar darkModeEnabled={darkModeEnabled}
                                        setDarkModeEnabled={setDarkModeEnabled}
+                                       narrowModeEnabled={narrowModeEnabled}
+                                       setNarrowModeEnabled={setNarrowModeEnabled}
                                        onLogout={onLogout} />
 
                         <div className="container-fluid">

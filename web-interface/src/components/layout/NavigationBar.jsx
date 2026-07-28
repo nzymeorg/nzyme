@@ -1,15 +1,11 @@
 import React from 'react'
 import DarkModeButton from './DarkModeButton'
 import TapSelector from "../misc/TapSelector";
-import ApiRoutes from "../../util/ApiRoutes";
 import GlobalTenantSelectorButton from "../system/tenantselector/GlobalTenantSelectorButton";
 import WithMinimumRole from "../misc/WithMinimumRole";
+import NarrowModeButton from "./NarrowModeButton";
 
-function NavigationBar(props) {
-
-  const onLogout = props.onLogout;
-  const darkModeEnabled = props.darkModeEnabled;
-  const setDarkModeEnabled = props.setDarkModeEnabled;
+function NavigationBar({onLogout, darkModeEnabled, setDarkModeEnabled, narrowModeEnabled, setNarrowModeEnabled}) {
 
   return (
     <nav className="navbar">
@@ -31,7 +27,8 @@ function NavigationBar(props) {
         </div>
 
         <div className="d-flex flex-row">
-          <DarkModeButton darkModeEnabled={darkModeEnabled} setDarkModeEnabled={setDarkModeEnabled} />
+          <DarkModeButton darkModeEnabled={darkModeEnabled} setDarkModeEnabled={setDarkModeEnabled} />&nbsp;
+          <NarrowModeButton narrowModeEnabled={narrowModeEnabled} setNarrowModeEnabled={setNarrowModeEnabled} />
 
           <a href="https://go.nzyme.org/help" className="btn btn-outline-secondary main-help"
              title="Help"
@@ -39,7 +36,7 @@ function NavigationBar(props) {
             Help
           </a>
           <WithMinimumRole role="ORGADMIN">
-            <GlobalTenantSelectorButton />
+            <GlobalTenantSelectorButton />&nbsp;
           </WithMinimumRole>
           <button className="btn btn-outline-secondary" title="Sign out" onClick={onLogout} >
             Sign Out &nbsp;<i className="fa-solid fa-arrow-right-from-bracket" />
