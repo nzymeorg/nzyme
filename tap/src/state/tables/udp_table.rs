@@ -66,8 +66,6 @@ impl UdpTable {
     }
 
     pub fn register_datagram(&mut self, datagram: Arc<Datagram>) {
-        let traffic_direction = datagram.determine_direction();
-
         let tags = match datagram.tags.lock() {
             Ok(tags) => tags.clone(),
             Err(e) => {
@@ -76,29 +74,17 @@ impl UdpTable {
             }
         };
 
-        // TODO only write to existing conversation if < 5 sec (configurable)
-
         match self.conversations.lock() {
             Ok(mut conversations) => {
                 match conversations.get_mut(&datagram.session_key) {
                     Some(c) => {
-                        // Existing conversation.
-
-                        /*
-                         * Unlike TCP, UDP has no observable connection setup and teardown. This is
-                         * why we need to expire inactive conversations very fast. For example,
-                         * fast-acting NTP clients would be summarized into a single UDP
-                         * conversation, making it impossible to correlate the individual NTP
-                         * transactions to the underlying UDP conversation.
-                         */
-
                         if c.most_recent_segment_time < Utc::now() - Duration::seconds(3) {
-                            self.insert_new_conversation(
-                                &traffic_direction, datagram, tags, &mut conversations
-                            )
+                            // Stale: treat as a brand-new conversation.
+                            self.insert_new_conversation(datagram, tags, &mut conversations)
                         } else {
                             let mut timer = Timer::new();
-                            let (bytes_tx, bytes_rx) = datagram.get_directional_byte_counts();
+                            let traffic_direction = datagram.determine_direction(c);
+                            let (bytes_tx, bytes_rx) = datagram.get_directional_byte_counts(c);
 
                             c.bytes_count_rx += bytes_rx;
                             c.bytes_count_tx += bytes_tx;
@@ -127,9 +113,7 @@ impl UdpTable {
                         }
                     },
                     None => {
-                        self.insert_new_conversation(
-                            &traffic_direction, datagram, tags, &mut conversations
-                        )
+                        self.insert_new_conversation(datagram, tags, &mut conversations)
                     }
                 }
             }
@@ -139,22 +123,20 @@ impl UdpTable {
         }
     }
 
-
-    fn insert_new_conversation(&self, traffic_direction: &TrafficDirection, datagram: Arc<Datagram>, tags: HashSet<L7Tag>, conversations: &mut MutexGuard<HashMap<L4Key, UdpConversation>>) {
-        // New conversation.
+    fn insert_new_conversation(&self, datagram: Arc<Datagram>, tags: HashSet<L7Tag>,
+                               conversations: &mut MutexGuard<HashMap<L4Key, UdpConversation>>) {
         let mut timer = Timer::new();
 
-        let (bytes_tx, bytes_rx) = datagram.get_directional_byte_counts();
+        /*
+         * The datagram that creates a conversation defines its client (source_*),
+         * so its direction is by definition ClientToServer.
+         */
+        let (bytes_tx, bytes_rx) = (datagram.size as u64, 0);
 
         let mut datagrams_client_to_server = VecDeque::new();
-        let mut datagrams_server_to_client = VecDeque::new();
+        let datagrams_server_to_client = VecDeque::new();
 
-        match traffic_direction {
-            TrafficDirection::ClientToServer =>
-                push_bounded(&mut datagrams_client_to_server, datagram.payload.clone()),
-            TrafficDirection::ServerToClient =>
-                push_bounded(&mut datagrams_server_to_client, datagram.payload.clone())
-        }
+        push_bounded(&mut datagrams_client_to_server, datagram.payload.clone());
 
         conversations.insert(
             datagram.session_key.clone(),
@@ -171,8 +153,8 @@ impl UdpTable {
                 most_recent_segment_time: datagram.timestamp,
                 datagrams_count: 1,
                 datagrams_count_incremental: 1,
-                bytes_count_rx: bytes_rx,
-                bytes_count_tx: bytes_tx,
+                bytes_count_rx: bytes_rx,   // 0
+                bytes_count_tx: bytes_tx,   // size
                 bytes_count_rx_incremental: bytes_rx,
                 bytes_count_tx_incremental: bytes_tx,
                 datagrams_client_to_server,

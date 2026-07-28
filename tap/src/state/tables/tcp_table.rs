@@ -109,7 +109,7 @@ impl TcpTable {
                         session.segments_count += 1;
                         session.segments_count_incremental += 1;
 
-                        let (bytes_tx, bytes_rx) = segment.get_directional_byte_counts();
+                        let (bytes_tx, bytes_rx) = segment.get_directional_byte_counts(session);
 
                         session.bytes_count_rx += bytes_rx;
                         session.bytes_count_tx += bytes_tx;
@@ -122,7 +122,7 @@ impl TcpTable {
 
                         if !segment.payload.is_empty() {
                             if session.bytes_count() <= self.reassembly_buffer_size as u64 {
-                                match segment.determine_direction() {
+                                match segment.determine_direction(session) {
                                     TrafficDirection::ClientToServer => {
                                         insert_session_segment(segment, &mut session.segments_client_to_server);
                                     }
@@ -154,7 +154,11 @@ impl TcpTable {
 
                         // We only record new sessions, not mid-session.
                         if session_state == SynSent {
-                            let (bytes_tx, bytes_rx) = segment.get_directional_byte_counts();
+                            /*
+                             * This branch only runs for a bare SYN, which is by definition
+                             * the client opening segment, so direction is always ClientToServer.
+                             */
+                            let (bytes_tx, bytes_rx) = (segment.size as u64, 0);
 
                             let new_session = TcpSession {
                                 session_key: segment.session_key.clone(),

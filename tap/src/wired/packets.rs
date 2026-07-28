@@ -7,6 +7,8 @@ use strum_macros::Display;
 use crate::protocols::detection::l7_tagger::L7Tag;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::protocols::parsers::ntp_parser::NtpReferenceId;
+use crate::state::tables::tcp_table::TcpSession;
+use crate::state::tables::udp_table::UdpConversation;
 use crate::wired::traffic_direction::TrafficDirection;
 
 use crate::wired::types::{HardwareType, EtherType, ArpOpCode, DNSType, DNSClass, DNSDataType, Dhcpv4MessageType, Dhcpv4OpCode, Dhcp4TransactionType};
@@ -84,19 +86,19 @@ pub struct TcpSegment {
 }
 
 impl TcpSegment {
-    pub fn determine_direction(&self) -> TrafficDirection {
-        if self.session_key.address_low == self.source_address
-            && self.session_key.port_low == self.source_port {
-            TrafficDirection::ServerToClient
-        } else {
+    pub fn determine_direction(&self, session: &TcpSession) -> TrafficDirection {
+        if self.source_address == session.source_address
+            && self.source_port == session.source_port {
             TrafficDirection::ClientToServer
+        } else {
+            TrafficDirection::ServerToClient
         }
     }
 
-    pub fn get_directional_byte_counts(&self) -> (u64, u64) {
-        match self.determine_direction() {
+    pub fn get_directional_byte_counts(&self, session: &TcpSession) -> (u64, u64) {
+        match self.determine_direction(session) {
             TrafficDirection::ClientToServer => (self.size as u64, 0),
-            TrafficDirection::ServerToClient => (0, self.size as u64)
+            TrafficDirection::ServerToClient => (0, self.size as u64),
         }
     }
 }
@@ -127,19 +129,19 @@ pub struct Datagram {
 }
 
 impl Datagram {
-    pub fn determine_direction(&self) -> TrafficDirection {
-        if self.session_key.address_low == self.source_address
-            && self.session_key.port_low == self.source_port {
-            TrafficDirection::ServerToClient
-        } else {
+    pub fn determine_direction(&self, conversation: &UdpConversation) -> TrafficDirection {
+        if self.source_address == conversation.source_address
+            && self.source_port == conversation.source_port {
             TrafficDirection::ClientToServer
+        } else {
+            TrafficDirection::ServerToClient
         }
     }
 
-    pub fn get_directional_byte_counts(&self) -> (u64, u64) {
-        match self.determine_direction() {
+    pub fn get_directional_byte_counts(&self, conversation: &UdpConversation) -> (u64, u64) {
+        match self.determine_direction(conversation) {
             TrafficDirection::ClientToServer => (self.size as u64, 0),
-            TrafficDirection::ServerToClient => (0, self.size as u64)
+            TrafficDirection::ServerToClient => (0, self.size as u64),
         }
     }
 }
