@@ -69,7 +69,7 @@ function Sidebar(props) {
             <NavigationLink
               href={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX}
               title="Streams"
-              icon={<i className="sidebar-icon fa-solid fa-car-tunnel"/>}/>
+              icon={<i className="sidebar-icon fa-solid fa-water"/>}/>
             <NavigationLink
               href={ApiRoutes.ETHERNET.TIME.NTP.INDEX}
               title="Time"

@@ -147,6 +147,7 @@ public class RTSP {
                                 "MAX(stream.destination_mac) AS stream_destination_mac, " +
                                 "MAX(stream.destination_address) AS stream_destination_address, " +
                                 "MAX(stream.destination_port) AS stream_destination_port, " +
+                                "MAX(stream.most_recent_segment_time) AS stream_most_recent_segment_time, " +
                                 "MAX(stream.destination_address_geo_asn_number) AS stream_destination_address_geo_asn_number, " +
                                 "MAX(stream.destination_address_geo_asn_name) AS stream_destination_address_geo_asn_name, " +
                                 "MAX(stream.destination_address_geo_asn_domain) AS stream_destination_address_geo_asn_domain, " +

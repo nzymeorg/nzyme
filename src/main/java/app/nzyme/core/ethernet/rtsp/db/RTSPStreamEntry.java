@@ -37,6 +37,8 @@ public abstract class RTSPStreamEntry {
     @Nullable
     public abstract String streamL4Type();
     @Nullable
+    public abstract DateTime streamMostRecentSegmentTime();
+    @Nullable
     public abstract L4AddressData streamSource();
     @Nullable
     public abstract L4AddressData streamDestination();
@@ -45,7 +47,7 @@ public abstract class RTSPStreamEntry {
     @Nullable
     public abstract Long streamBytesTx();
 
-    public static RTSPStreamEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
+    public static RTSPStreamEntry create(String setupTcpSessionKey, String state, String mediaLocator, String requestUri, String clientAgent, String serverInfo, String authentication, Set<String> flags, String setupConnectionStatus, DateTime setupEstablishedAt, DateTime setupTerminatedAt, DateTime setupMostRecentSegmentTime, L4AddressData setupSource, L4AddressData setupDestination, Long setupBytesExchanged, String streamL4Type, DateTime streamMostRecentSegmentTime, L4AddressData streamSource, L4AddressData streamDestination, Long streamBytesRx, Long streamBytesTx) {
         return builder()
                 .setupTcpSessionKey(setupTcpSessionKey)
                 .state(state)
@@ -63,6 +65,7 @@ public abstract class RTSPStreamEntry {
                 .setupDestination(setupDestination)
                 .setupBytesExchanged(setupBytesExchanged)
                 .streamL4Type(streamL4Type)
+                .streamMostRecentSegmentTime(streamMostRecentSegmentTime)
                 .streamSource(streamSource)
                 .streamDestination(streamDestination)
                 .streamBytesRx(streamBytesRx)
@@ -107,6 +110,8 @@ public abstract class RTSPStreamEntry {
         public abstract Builder setupBytesExchanged(Long setupBytesExchanged);
 
         public abstract Builder streamL4Type(String streamL4Type);
+
+        public abstract Builder streamMostRecentSegmentTime(DateTime streamMostRecentSegmentTime);
 
         public abstract Builder streamSource(L4AddressData streamSource);
 
