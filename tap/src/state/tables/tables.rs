@@ -17,6 +17,7 @@ use crate::state::tables::arp_table::ArpTable;
 use crate::state::tables::dhcp_table::DhcpTable;
 use crate::state::tables::ntp_table::NtpTable;
 use crate::state::tables::rtsp_table::RtspTable;
+use crate::state::tables::stun_table::StunTable;
 use crate::state::tables::uav_table::UavTable;
 use crate::wireless::dot11::engagement::engagement_control::EngagementControl;
 
@@ -32,6 +33,7 @@ pub struct Tables {
     pub socks: Arc<Mutex<SocksTable>>,
     pub ntp: Arc<Mutex<NtpTable>>,
     pub rtsp: Arc<Mutex<RtspTable>>,
+    pub stun: Arc<Mutex<StunTable>>,
     pub uav: Arc<Mutex<UavTable>>,
     has_ethernet: bool,
     has_dot11: bool,
@@ -78,6 +80,7 @@ impl Tables {
             socks: Arc::new(Mutex::new(SocksTable::new(leaderlink.clone(), metrics.clone()))),
             ntp: Arc::new(Mutex::new(NtpTable::new(leaderlink.clone(), metrics.clone()))),
             rtsp: Arc::new(Mutex::new(RtspTable::new(leaderlink.clone(), metrics.clone()))),
+            stun: Arc::new(Mutex::new(StunTable::new(leaderlink.clone(), metrics.clone()))),
             uav: Arc::new(Mutex::new(UavTable::new(leaderlink.clone(), metrics.clone(), engagement_control))),
             has_ethernet,
             has_dot11,
@@ -177,6 +180,14 @@ impl Tables {
                         rtsp.process_report();
                     },
                     Err(e) => error!("Could not acquire RTSP table lock for report processing: {}", e)
+                }
+
+                match self.stun.lock() {
+                    Ok(stun) => {
+                        stun.calculate_metrics();
+                        stun.process_report();
+                    },
+                    Err(e) => error!("Could not acquire STUN table lock for report processing: {}", e)
                 }
             }
 

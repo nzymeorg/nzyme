@@ -1,6 +1,6 @@
 use anyhow::{bail, Error};
 use byteorder::{BigEndian, ByteOrder};
-use chrono::{DateTime, Utc};
+use chrono::{Utc};
 use log::{debug};
 use crate::wired::packets::{GenericConnectionStatus, SocksAuthenticationMethod, SocksAuthenticationResult, SocksConnectionHandshakeStatus, SocksTunnel, SocksType};
 use crate::wired::packets::SocksType::{Socks4, Socks4A};

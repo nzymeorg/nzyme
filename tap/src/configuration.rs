@@ -126,6 +126,7 @@ pub struct Protocols {
     pub dhcpv4: ProtocolsDhcpv4,
     pub ntp: ProtocolsNtp,
     pub rtsp: ProtocolsRtsp,
+    pub stun: ProtocolsStun,
     pub uav_remote_id: ProtocolsUavRemoteId,
 }
 
@@ -184,6 +185,11 @@ pub struct ProtocolsNtp {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProtocolsRtsp {
+    pub pipeline_size: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProtocolsStun {
     pub pipeline_size: i32
 }
 

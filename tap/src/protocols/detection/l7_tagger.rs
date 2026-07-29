@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 use std::panic;
 use std::sync::{Arc, Mutex, MutexGuard};
-use log::error;
+use log::{error, info};
 use strum_macros::Display;
-use crate::protocols::detection::l7_tagger::L7Tag::{HTTP, Unencrypted, SOCKS, SSH, RTSP};
+use crate::protocols::detection::l7_tagger::L7Tag::{HTTP, Unencrypted, SOCKS, SSH, RTSP, STUN, TURN};
 use crate::state::tables::tcp_table::TcpSession;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::helpers::timer::{record_timer, Timer};
@@ -11,6 +11,7 @@ use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::metrics::Metrics;
 use crate::protocols::detection::taggers::network_protocols::{http_tagger, rtsp_tagger, socks_tagger, ssh_tagger};
+use crate::protocols::parsers::stun_tagger;
 use crate::state::tables::udp_table::UdpConversation;
 use crate::to_pipeline;
 
@@ -30,7 +31,9 @@ pub enum L7Tag {
     RTSP,
     SOCKS,
     DHCP4,
-    NTP
+    NTP,
+    STUN,
+    TURN
 }
 
 pub fn tag_tcp_sessions(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession>>,
@@ -103,6 +106,7 @@ pub fn tag_udp_sessions(conversations: &mut MutexGuard<HashMap<L4Key, UdpConvers
         let result = panic::catch_unwind(|| tag_all_udp(
             &client_to_server_data,
             &server_to_client_data,
+            conversation,
             &bus,
             &metrics
         ));
@@ -240,16 +244,79 @@ fn tag_all_tcp(client_to_server: &[u8],
         );
     }
 
+    // STUN / TURN.
+    let mut stun_timer_untagged = Timer::new();
+    let mut stun_timer_tagged = Timer::new();
+    if let Some(stun) = stun_tagger::tag_tcp(client_to_server, server_to_client, session) {
+        stun_timer_tagged.stop();
+        record_timer(
+            stun_timer_tagged.elapsed_microseconds(),
+            "tables.tcp.timer.sessions.tagging.stun.tagged",
+            metrics
+        );
+
+        tags.extend([STUN]);
+        if stun.is_turn {
+            tags.extend([TURN]);
+        }
+
+        let len = stun.estimate_struct_size();
+        to_pipeline!(
+            WiredChannelName::StunPipeline,
+            bus.stun_pipeline.sender,
+            Arc::new(stun),
+            len
+        );
+    } else {
+        stun_timer_untagged.stop();
+        record_timer(
+            stun_timer_untagged.elapsed_microseconds(),
+            "tables.tcp.timer.sessions.tagging.stun.untagged",
+            metrics
+        );
+    }
+
     tags
 }
 
 fn tag_all_udp(client_to_server: &[u8],
                server_to_client: &[u8],
+               conversation: &UdpConversation,
                bus: &Arc<Bus>,
                metrics: &Arc<Mutex<Metrics>>) -> HashSet<L7Tag> {
     let mut tags = HashSet::new();
 
-    // UDP taggers go here.
+    // STUN / TURN.
+    let mut stun_timer_untagged = Timer::new();
+    let mut stun_timer_tagged = Timer::new();
+    if let Some(stun) = stun_tagger::tag_udp(client_to_server, server_to_client, conversation) {
+        stun_timer_tagged.stop();
+        record_timer(
+            stun_timer_tagged.elapsed_microseconds(),
+            "tables.udp.timer.sessions.tagging.stun.tagged",
+            metrics
+        );
+
+        tags.extend([STUN]);
+        if stun.is_turn {
+            tags.extend([TURN]);
+        }
+
+        let len = stun.estimate_struct_size();
+        to_pipeline!(
+            WiredChannelName::StunPipeline,
+            bus.stun_pipeline.sender,
+            Arc::new(stun),
+            len
+        );
+    } else {
+        stun_timer_untagged.stop();
+        record_timer(
+            stun_timer_untagged.elapsed_microseconds(),
+            "tables.udp.timer.sessions.tagging.stun.untagged",
+            metrics
+        );
+    }
 
     tags
 }

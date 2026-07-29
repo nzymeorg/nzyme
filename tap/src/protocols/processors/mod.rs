@@ -10,3 +10,4 @@ pub mod uav_remote_id_processor;
 pub mod bluetooth_device_processor;
 pub mod ntp_processor;
 pub mod rtsp_processor;
+pub mod stun_processor;
