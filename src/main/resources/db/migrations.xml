@@ -8163,4 +8163,145 @@
         <renameTable oldTableName="rtsp_sessions" newTableName="rtsp_streams" />
     </changeSet>
 
+    <changeSet id="create_nat_traversal_discoveries" author="lennartkoopmann">
+        <createTable tableName="nat_traversal_discoveries">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="host_address" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="host_mac" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="server_addresses" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="public_addresses" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="nat_mapping" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="flow_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="rebuild_nat_traversal_discoveries" author="lennartkoopmann">
+        <dropTable tableName="nat_traversal_discoveries" />
+
+        <createTable tableName="nat_traversal_discoveries">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="l4_session_key" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="transport" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_mac" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="mapped_addresses" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="most_recent_segment_time" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="declutter_nat_traversal_discoveries" author="lennartkoopmann">
+        <dropColumn tableName="nat_traversal_discoveries" columnName="source_mac" />
+        <dropColumn tableName="nat_traversal_discoveries" columnName="source_address" />
+        <dropColumn tableName="nat_traversal_discoveries" columnName="source_port" />
+        <dropColumn tableName="nat_traversal_discoveries" columnName="destination_address" />
+        <dropColumn tableName="nat_traversal_discoveries" columnName="destination_port" />
+    </changeSet>
+
+    <changeSet id="change_nat_traversal_discovery_mapped_addresses_to_jsonb" author="lennartkoopmann">
+        <sql>DELETE FROM nat_traversal_discoveries ;</sql>
+
+        <dropColumn tableName="nat_traversal_discoveries" columnName="mapped_addresses" />
+        <addColumn tableName="nat_traversal_discoveries">
+            <column name="mapped_addresses" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

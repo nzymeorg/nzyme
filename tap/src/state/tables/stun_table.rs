@@ -2,80 +2,76 @@ use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
-use log::{error, info};
+use log::error;
+use crate::helpers::timer::{record_timer, Timer};
 use crate::link::leaderlink::Leaderlink;
+use crate::link::reports::nat_traversal_report;
 use crate::metrics::Metrics;
 use crate::protocols::parsers::l4_key::L4Key;
-use crate::protocols::parsers::stun_tagger::StunFlow;
+use crate::protocols::parsers::stun_tagger::{StunFlow, StunTransport};
 
 const STALE_AFTER_MINUTES: i64 = 1;
 
 pub struct StunTable {
     leaderlink: Arc<Mutex<Leaderlink>>,
     metrics: Arc<Mutex<Metrics>>,
-    negotiations: Mutex<HashMap<NegotiationKey, IceNegotiation>>,
-    turn_activity: Mutex<HashMap<IpAddr, TurnActivity>>,
-    discoveries: Mutex<HashMap<IpAddr, StunDiscovery>>,
-}
-
-/// How the observed public port relates to the internal source port.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum NatMapping {
-    /// No mapped address observed yet. NAT behavior unknown.
-    Unknown,
-    /// Every observed mapping preserved the source port. Direct traversal generally works.
-    Preserved,
-    /// At least one mapping used a different public port than the source (symmetric NAT). Likely
-    /// to be forced onto a relay.
-    Varies,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NegotiationKey {
-    pub host_address: IpAddr,
-    pub ufrag_pair: String,
+    negotiations: Mutex<HashMap<L4Key, NegotiationFlow>>,
+    turn_activity: Mutex<HashMap<L4Key, TurnFlow>>,
+    discoveries: Mutex<HashMap<L4Key, DiscoveryFlow>>,
 }
 
 #[derive(Debug, Clone)]
-pub struct IceNegotiation {
+pub struct NegotiationFlow {
+    pub session_key: L4Key,
+    pub transport: StunTransport,
     pub host_address: IpAddr,
     pub host_mac: Option<String>,
-    pub ufrag_pair: String,
-    pub ufrag_a: String,
-    pub ufrag_b: String,
-    pub member_flows: Vec<L4Key>,
+    pub source_port: u16,
+    pub destination_address: IpAddr,
+    pub destination_port: u16,
+
+    pub ufrags: Vec<String>,
     pub is_turn: bool,
     pub turn_usernames: Vec<String>,
     pub mapped_addresses: Vec<SocketAddr>,
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
-    pub probed_remotes: Vec<SocketAddr>,
+
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TurnActivity {
+pub struct TurnFlow {
+    pub session_key: L4Key,
+    pub transport: StunTransport,
     pub host_address: IpAddr,
     pub host_mac: Option<String>,
-    pub server_addresses: Vec<SocketAddr>,
+    pub source_port: u16,
+    pub destination_address: IpAddr,
+    pub destination_port: u16,
+
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
     pub mapped_addresses: Vec<SocketAddr>,
     pub turn_usernames: Vec<String>,
-    pub member_flows: Vec<L4Key>,
+
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StunDiscovery {
-    pub host_address: IpAddr,
-    pub host_mac: Option<String>,
-    pub server_addresses: Vec<SocketAddr>,
-    pub public_addresses: Vec<IpAddr>,
-    pub nat_mapping: NatMapping,
-    pub flow_count: u64,
+pub struct DiscoveryFlow {
+    pub session_key: L4Key,
+    pub transport: StunTransport,
+    pub source_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub source_port: u16,
+    pub destination_address: IpAddr,
+    pub destination_port: u16,
+
+    pub mapped_addresses: Vec<SocketAddr>,
+
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -94,15 +90,19 @@ impl StunTable {
 
     pub fn register_flow(&self, flow_ref: Arc<StunFlow>) {
         let flow = (*flow_ref).clone(); // Escape Arc.
+        let key = flow.session_key.clone();
 
         if canonical_ice_ufrag(&flow.ufrags).is_some() {
+            remove_flow(&self.turn_activity, &key, "TURN-activity");
+            remove_flow(&self.discoveries, &key, "discoveries");
             match self.negotiations.lock() {
                 Ok(mut negotiations) => upsert_negotiation(&mut negotiations, &flow),
-                Err(e) => error!("Could not acquire STUN negotiations table mutex: {}", e),
+                Err(e) => error!("Could not acquire ICE negotiations table mutex: {}", e),
             }
         } else if flow.is_turn {
+            remove_flow(&self.discoveries, &key, "discoveries");
             match self.turn_activity.lock() {
-                Ok(mut turn_activity) => upsert_turn_activity(&mut turn_activity, &flow),
+                Ok(mut turn_activity) => upsert_turn(&mut turn_activity, &flow),
                 Err(e) => error!("Could not acquire STUN TURN-activity table mutex: {}", e),
             }
         } else {
@@ -115,29 +115,37 @@ impl StunTable {
 
     pub fn process_report(&self) {
         let cutoff = Utc::now() - Duration::minutes(STALE_AFTER_MINUTES);
+        let mut timer = Timer::new();
 
-        match self.negotiations.lock() {
-            Ok(mut negotiations) => {
-                info!("negotiations: {:?}", negotiations);
-                negotiations.retain(|_, n| n.last_activity >= cutoff);
-            }
-            Err(e) => error!("Could not acquire STUN negotiations table mutex: {}", e),
-        }
+        let negotiations = drain_active(&self.negotiations, cutoff, "ICE negotiations", |n| n.last_activity);
+        let turn_activity = drain_active(&self.turn_activity, cutoff, "STUN TURN-activity", |t| t.last_activity);
 
-        match self.turn_activity.lock() {
-            Ok(mut turn_activity) => {
-                info!("turn_activity: {:?}", turn_activity);
-                turn_activity.retain(|_, t| t.last_activity >= cutoff);
-            }
-            Err(e) => error!("Could not acquire STUN TURN-activity table mutex: {}", e),
-        }
+        let discoveries = take_all(&self.discoveries, "STUN discoveries");
 
-        match self.discoveries.lock() {
-            Ok(mut discoveries) => {
-                info!("discoveries: {:?}", discoveries);
-                discoveries.retain(|_, d| d.last_activity >= cutoff);
+        let report = nat_traversal_report::generate(&negotiations, &turn_activity, &discoveries);
+        let report_json = match serde_json::to_string(&report) {
+            Ok(json) => json,
+            Err(e) => {
+                error!("Could not serialize NAT traversal report: {}", e);
+                return;
             }
-            Err(e) => error!("Could not acquire STUN discoveries table mutex: {}", e),
+        };
+
+        timer.stop();
+        record_timer(
+            timer.elapsed_microseconds(),
+            "tables.stun.timer.report_generation",
+            &self.metrics
+        );
+
+        match self.leaderlink.lock() {
+            Ok(link) => {
+                if let Err(e) = link.send_report("nat/traversal", report_json) {
+                    error!("Could not submit NAT traversal report: {}", e);
+                }
+            }
+            Err(e) => error!("Could not acquire leader link lock for NAT traversal report \
+                              submission: {}", e),
         }
     }
 
@@ -147,133 +155,112 @@ impl StunTable {
 
 }
 
-fn upsert_negotiation(table: &mut HashMap<NegotiationKey, IceNegotiation>, flow: &StunFlow) {
-    let host_address = flow.source_address;
+fn drain_active<V: Clone>(
+    table: &Mutex<HashMap<L4Key, V>>,
+    cutoff: DateTime<Utc>,
+    name: &str,
+    last_activity: impl Fn(&V) -> DateTime<Utc>,
+) -> HashMap<L4Key, V> {
+    match table.lock() {
+        Ok(mut t) => {
+            t.retain(|_, v| last_activity(v) >= cutoff);
+            t.clone()
+        }
+        Err(e) => {
+            error!("Could not acquire {} table mutex: {}", name, e);
+            HashMap::new()
+        }
+    }
+}
 
-    let Some((ufrag_pair, ufrag_a, ufrag_b)) = canonical_ice_ufrag(&flow.ufrags) else {
-        return;
-    };
+fn take_all<V>(table: &Mutex<HashMap<L4Key, V>>, name: &str) -> HashMap<L4Key, V> {
+    match table.lock() {
+        Ok(mut t) => std::mem::take(&mut *t),
+        Err(e) => {
+            error!("Could not acquire {} table mutex: {}", name, e);
+            HashMap::new()
+        }
+    }
+}
 
-    let key = NegotiationKey {
-        host_address,
-        ufrag_pair: ufrag_pair.clone(),
-    };
+fn remove_flow<V>(table: &Mutex<HashMap<L4Key, V>>, key: &L4Key, name: &str) {
+    match table.lock() {
+        Ok(mut t) => { t.remove(key); }
+        Err(e) => error!("Could not acquire STUN {} table mutex for reclassification: {}", name, e),
+    }
+}
 
-    let negotiation = table.entry(key).or_insert_with(|| IceNegotiation {
-        host_address,
+fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFlow) {
+    let record = table.entry(flow.session_key.clone()).or_insert_with(|| NegotiationFlow {
+        session_key: flow.session_key.clone(),
+        transport: flow.transport,
+        host_address: flow.source_address,
         host_mac: flow.source_mac.clone(),
-        ufrag_pair,
-        ufrag_a,
-        ufrag_b,
-        member_flows: Vec::new(),
+        source_port: flow.source_port,
+        destination_address: flow.destination_address,
+        destination_port: flow.destination_port,
+        ufrags: Vec::new(),
         is_turn: false,
         turn_usernames: Vec::new(),
         mapped_addresses: Vec::new(),
         relayed_addresses: Vec::new(),
         peer_addresses: Vec::new(),
-        probed_remotes: Vec::new(),
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
 
-    backfill_mac(&mut negotiation.host_mac, flow);
-
-    push_unique(&mut negotiation.member_flows, flow.session_key.clone());
-    negotiation.is_turn |= flow.is_turn;
-
-    extend_unique(&mut negotiation.turn_usernames, &flow.turn_usernames);
-    extend_unique(&mut negotiation.mapped_addresses, &flow.mapped_addresses);
-    extend_unique(&mut negotiation.relayed_addresses, &flow.relayed_addresses);
-    extend_unique(&mut negotiation.peer_addresses, &flow.peer_addresses);
-
-    push_unique(
-        &mut negotiation.probed_remotes,
-        SocketAddr::new(flow.destination_address, flow.destination_port),
-    );
-
-    widen_window(&mut negotiation.first_seen, &mut negotiation.last_activity, flow);
+    backfill_mac(&mut record.host_mac, flow);
+    record.is_turn |= flow.is_turn;
+    extend_unique(&mut record.ufrags, &flow.ufrags);
+    extend_unique(&mut record.turn_usernames, &flow.turn_usernames);
+    extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
+    extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
+    extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
+    widen_window(&mut record.first_seen, &mut record.last_activity, flow);
 }
 
-fn upsert_turn_activity(table: &mut HashMap<IpAddr, TurnActivity>, flow: &StunFlow) {
-    let host_address = flow.source_address;
-
-    let activity = table.entry(host_address).or_insert_with(|| TurnActivity {
-        host_address,
+fn upsert_turn(table: &mut HashMap<L4Key, TurnFlow>, flow: &StunFlow) {
+    let record = table.entry(flow.session_key.clone()).or_insert_with(|| TurnFlow {
+        session_key: flow.session_key.clone(),
+        transport: flow.transport,
+        host_address: flow.source_address,
         host_mac: flow.source_mac.clone(),
-        server_addresses: Vec::new(),
+        source_port: flow.source_port,
+        destination_address: flow.destination_address,
+        destination_port: flow.destination_port,
         relayed_addresses: Vec::new(),
         peer_addresses: Vec::new(),
         mapped_addresses: Vec::new(),
         turn_usernames: Vec::new(),
-        member_flows: Vec::new(),
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
 
-    backfill_mac(&mut activity.host_mac, flow);
-
-    push_unique(&mut activity.member_flows, flow.session_key.clone());
-    push_unique(
-        &mut activity.server_addresses,
-        SocketAddr::new(flow.destination_address, flow.destination_port),
-    );
-
-    extend_unique(&mut activity.relayed_addresses, &flow.relayed_addresses);
-    extend_unique(&mut activity.peer_addresses, &flow.peer_addresses);
-    extend_unique(&mut activity.mapped_addresses, &flow.mapped_addresses);
-    extend_unique(&mut activity.turn_usernames, &flow.turn_usernames);
-
-    widen_window(&mut activity.first_seen, &mut activity.last_activity, flow);
+    backfill_mac(&mut record.host_mac, flow);
+    extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
+    extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
+    extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
+    extend_unique(&mut record.turn_usernames, &flow.turn_usernames);
+    widen_window(&mut record.first_seen, &mut record.last_activity, flow);
 }
 
-fn upsert_discovery(table: &mut HashMap<IpAddr, StunDiscovery>, flow: &StunFlow) {
-    let host_address = flow.source_address;
-
-    let discovery = table.entry(host_address).or_insert_with(|| StunDiscovery {
-        host_address,
-        host_mac: flow.source_mac.clone(),
-        server_addresses: Vec::new(),
-        public_addresses: Vec::new(),
-        nat_mapping: NatMapping::Unknown,
-        flow_count: 0,
+fn upsert_discovery(table: &mut HashMap<L4Key, DiscoveryFlow>, flow: &StunFlow) {
+    let record = table.entry(flow.session_key.clone()).or_insert_with(|| DiscoveryFlow {
+        session_key: flow.session_key.clone(),
+        transport: flow.transport,
+        source_address: flow.source_address,
+        source_mac: flow.source_mac.clone(),
+        source_port: flow.source_port,
+        destination_address: flow.destination_address,
+        destination_port: flow.destination_port,
+        mapped_addresses: Vec::new(),
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
 
-    backfill_mac(&mut discovery.host_mac, flow);
-
-    push_unique(
-        &mut discovery.server_addresses,
-        SocketAddr::new(flow.destination_address, flow.destination_port),
-    );
-
-    for mapped in &flow.mapped_addresses {
-        push_unique(&mut discovery.public_addresses, mapped.ip());
-    }
-    discovery.nat_mapping = update_nat_mapping(discovery.nat_mapping, flow);
-
-    discovery.flow_count += 1;
-
-    widen_window(&mut discovery.first_seen, &mut discovery.last_activity, flow);
-}
-
-fn update_nat_mapping(current: NatMapping, flow: &StunFlow) -> NatMapping {
-    if current == NatMapping::Varies {
-        return NatMapping::Varies;
-    }
-
-    let mut result = current;
-    for mapped in &flow.mapped_addresses {
-        if mapped.port() == flow.source_port {
-            if result == NatMapping::Unknown {
-                result = NatMapping::Preserved;
-            }
-        } else {
-            return NatMapping::Varies;
-        }
-    }
-
-    result
+    backfill_mac(&mut record.source_mac, flow);
+    extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
+    widen_window(&mut record.first_seen, &mut record.last_activity, flow);
 }
 
 fn backfill_mac(host_mac: &mut Option<String>, flow: &StunFlow) {
@@ -288,12 +275,6 @@ fn widen_window(first_seen: &mut DateTime<Utc>, last_activity: &mut DateTime<Utc
     }
     if flow.most_recent_segment_time > *last_activity {
         *last_activity = flow.most_recent_segment_time;
-    }
-}
-
-fn push_unique<T: PartialEq>(target: &mut Vec<T>, value: T) {
-    if !target.contains(&value) {
-        target.push(value);
     }
 }
 

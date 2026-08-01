@@ -8,6 +8,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.bluetooth.BluetoothDevi
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dot11.Dot11TablesReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.nat.NatTraversalReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
@@ -237,4 +238,19 @@ public class TablesResource {
         return Response.status(Response.Status.CREATED).build();
     }
 
+    @POST
+    @Path("/nat/traversal")
+    public Response natTraversals(@Context SecurityContext sc, NatTraversalReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting NAT traversals report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received NAT traversals report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().nat().handleTraversalReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
 }

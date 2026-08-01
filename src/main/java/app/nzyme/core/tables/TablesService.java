@@ -58,6 +58,7 @@ public class TablesService {
                 .put("socks", new SOCKSTable(this))
                 .put("ntp", new NTPTable(this))
                 .put("rtsp", new RTSPTable(this))
+                .put("nat", new NATTable(this))
                 .build();
 
         this.processorPool = Executors.newFixedThreadPool(
@@ -124,6 +125,10 @@ public class TablesService {
 
     public RTSPTable rtsp() {
         return (RTSPTable) tables.get("rtsp");
+    }
+
+    public NATTable nat() {
+        return (NATTable) tables.get("nat");
     }
 
     public UAVTable uav() { return (UAVTable) tables.get("uav"); }
