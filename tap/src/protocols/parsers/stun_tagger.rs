@@ -52,6 +52,9 @@ pub struct StunFlow {
     pub terminated_at: Option<DateTime<Utc>>,
     pub most_recent_segment_time: DateTime<Utc>,
 
+    pub saw_success_response: bool,
+    pub saw_error_response: bool,
+
     pub is_turn: bool,
     pub turn_usernames: Vec<String>,
     pub ufrags: Vec<String>,
@@ -104,6 +107,8 @@ pub struct StunTag {
     pub mapped_addresses: Vec<SocketAddr>,
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
+    pub saw_success_response: bool,
+    pub saw_error_response: bool,
 }
 
 fn is_turn_method(method: u16) -> bool {
@@ -144,6 +149,8 @@ pub fn tag_tcp(client_to_server: &[u8], server_to_client: &[u8], session: &TcpSe
         mapped_addresses: stun.mapped_addresses,
         relayed_addresses: stun.relayed_addresses,
         peer_addresses: stun.peer_addresses,
+        saw_success_response: stun.saw_success_response,
+        saw_error_response: stun.saw_error_response
     })
 }
 
@@ -177,6 +184,8 @@ pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &
         mapped_addresses: stun.mapped_addresses,
         relayed_addresses: stun.relayed_addresses,
         peer_addresses: stun.peer_addresses,
+        saw_success_response: stun.saw_success_response,
+        saw_error_response: stun.saw_error_response
     })
 }
 
@@ -215,13 +224,18 @@ fn tag(client_to_server: &[u8], server_to_client: &[u8]) -> Option<StunTag> {
         push_unique(&mut peer_addresses, message.xor_peer_address);
     }
 
+    let saw_success_response = messages.iter().any(|m| m.class == StunClass::SuccessResponse);
+    let saw_error_response = messages.iter().any(|m| m.class == StunClass::ErrorResponse);
+
     Some(StunTag {
         is_turn,
         ice_ufrags,
         turn_usernames,
         mapped_addresses,
         relayed_addresses,
-        peer_addresses
+        peer_addresses,
+        saw_success_response,
+        saw_error_response
     })
 }
 

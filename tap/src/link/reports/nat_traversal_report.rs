@@ -93,6 +93,8 @@ pub struct DiscoveryFlowReport {
     pub destination_port: u16,
     #[serde(serialize_with = "serialize_socketaddrs")]
     pub mapped_addresses: Vec<SocketAddr>,
+    pub saw_success_response: bool,
+    pub saw_error_response: bool,
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -154,6 +156,8 @@ fn discovery_to_report(d: &DiscoveryFlow) -> DiscoveryFlowReport {
         destination_address: d.destination_address.to_string(),
         destination_port: d.destination_port,
         mapped_addresses: d.mapped_addresses.clone(),
+        saw_error_response: d.saw_error_response,
+        saw_success_response: d.saw_success_response,
         first_seen: d.first_seen,
         last_activity: d.last_activity,
     }

@@ -72,6 +72,9 @@ pub struct DiscoveryFlow {
 
     pub mapped_addresses: Vec<SocketAddr>,
 
+    pub saw_success_response: bool,
+    pub saw_error_response: bool,
+
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -254,9 +257,14 @@ fn upsert_discovery(table: &mut HashMap<L4Key, DiscoveryFlow>, flow: &StunFlow) 
         destination_address: flow.destination_address,
         destination_port: flow.destination_port,
         mapped_addresses: Vec::new(),
+        saw_success_response: false,
+        saw_error_response: false,
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
+
+    record.saw_success_response |= flow.saw_success_response;
+    record.saw_error_response |= flow.saw_error_response;
 
     backfill_mac(&mut record.source_mac, flow);
     extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
