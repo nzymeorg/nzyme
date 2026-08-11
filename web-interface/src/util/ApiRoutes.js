@@ -197,6 +197,13 @@ const ApiRoutes = {
         INDEX: '/ethernet/time/ptp'
       }
     },
+    NAT: {
+      TRAVERSAL: {
+        DISCOVERY: {
+          INDEX: '/ethernet/nat/traversal/discovery'
+        }
+      }
+    },
     BEACONS: {
       INDEX: '/ethernet/beacons'
     },

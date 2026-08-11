@@ -10,6 +10,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dot11.Dot11TablesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.nat.NatTraversalReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.portalintegrity.PortalIntegrityUrlReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
@@ -250,6 +251,22 @@ public class TablesResource {
 
         LOG.debug("Received NAT traversals report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().nat().handleTraversalReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/portalintegrity/url")
+    public Response portalintegrityUrl(@Context SecurityContext sc, PortalIntegrityUrlReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting portal integrity URL report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.info("Received portal integrity URL report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().portalIntegrity().handleUrlReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

@@ -4,7 +4,6 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntry;
-import app.nzyme.core.ethernet.rtsp.RTSPFilters;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -16,13 +15,17 @@ import java.util.UUID;
 
 public class NAT {
 
-    public enum OrderColumn {
+    public enum DiscoveryOrderColumn {
 
-        SETUP_ESTABLISHED_AT("first_seen");
+        SOURCE_MAC("source_mac"),
+        SOURCE_ADDRESS("source_address"),
+        DESTINATION_ADDRESS("destination_address"),
+        MAPPED_ADDRESSES("mapped_addresses"),
+        INITIATED_AT("first_seen");
 
         private final String columnName;
 
-        OrderColumn(String columnName) {
+        DiscoveryOrderColumn(String columnName) {
             this.columnName = columnName;
         }
 
@@ -74,7 +77,7 @@ public class NAT {
 
     public List<NATTraversalDiscoveryEntry> findAllDiscoveries(TimeRange timeRange,
                                                                Filters filters,
-                                                               OrderColumn orderColumn,
+                                                               DiscoveryOrderColumn orderColumn,
                                                                OrderDirection orderDirection,
                                                                int limit,
                                                                int offset,
@@ -88,8 +91,7 @@ public class NAT {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT MAX(d.l4_session_key) AS session_key, " +
                                 "UPPER(MAX(d.transport)) AS transport, " +
-                                "COALESCE(jsonb_agg(DISTINCT m.elem) FILTER (WHERE m.elem IS NOT NULL), '[]'::jsonb) " +
-                                "AS mapped_addresses, MAX(d.most_recent_segment_time) AS most_recent_segment_time, " +
+                                "MAX(d.most_recent_segment_time) AS most_recent_segment_time, " +
                                 "MIN(d.first_seen) AS first_seen, MAX(s.source_mac) AS source_mac, " +
                                 "MAX(s.end_time) AS terminated_at, " +
                                 "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
@@ -100,7 +102,6 @@ public class NAT {
                                 "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
                                 "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
                                 "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
-                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
                                 "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
                                 "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
                                 "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
@@ -114,15 +115,16 @@ public class NAT {
                                 "MAX(s.destination_address_geo_country_code) AS destination_address_geo_country_code, " +
                                 "MAX(s.destination_address_geo_latitude) AS destination_address_geo_latitude, " +
                                 "MAX(s.destination_address_geo_longitude) AS destination_address_geo_longitude, " +
-                                "MAX(s.destination_address_geo_latitude) AS destination_address_geo_latitude, " +
                                 "BOOL_OR(s.destination_address_is_site_local) AS destination_address_is_site_local, " +
                                 "BOOL_OR(s.destination_address_is_loopback) AS destination_address_is_loopback, " +
-                                "BOOL_OR(s.destination_address_is_multicast) AS destination_address_is_multicast " +
+                                "BOOL_OR(s.destination_address_is_multicast) AS destination_address_is_multicast, " +
+                                "COALESCE(jsonb_agg(DISTINCT m.elem) FILTER (WHERE m.elem IS NOT NULL), " +
+                                "'[]'::jsonb) AS mapped_addresses " +
                                 "FROM nat_traversal_discoveries AS d " +
                                 "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
                                 "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
                                 "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
-                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid  " +
+                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
                                 "LEFT JOIN LATERAL jsonb_array_elements(" +
                                 "CASE WHEN jsonb_typeof(d.mapped_addresses) = 'array' THEN d.mapped_addresses " +
                                 "ELSE '[]'::jsonb END) AS m(elem) ON true " +

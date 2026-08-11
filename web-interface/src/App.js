@@ -181,6 +181,7 @@ import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
 import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
 import NarrowMode from "./components/layout/NarrowMode";
+import NATTraversalDiscoveryPage from "./components/ethernet/nat/traversal/NATTraversalDiscoveryPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -593,6 +594,9 @@ function App() {
                                 { /* Ethernet/Time. */}
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.INDEX} element={<NTPOverviewPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.TRANSACTION_DETAILS(':transactionId')} element={<NTPTransactionDetailsPage />}/>
+
+                                { /* Ethernet/NAT. */}
+                                <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.DISCOVERY.INDEX} element={<NATTraversalDiscoveryPage />}/>
 
                                 { /* Ethernet/Beacons. */}
                                 <Route path={ApiRoutes.ETHERNET.BEACONS.INDEX} element={<BeaconsPage />}/>

@@ -5,12 +5,13 @@ import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
+import java.util.List;
+
 @AutoValue
 public abstract class NATTraversalDiscoveryEntry {
 
     public abstract String sessionKey();
     public abstract String transport();
-    public abstract String mappedAddresses();
     public abstract DateTime mostRecentSegmentTime();
     public abstract DateTime firstSeen();
     @Nullable
@@ -19,17 +20,18 @@ public abstract class NATTraversalDiscoveryEntry {
     public abstract L4AddressData source();
     @Nullable
     public abstract L4AddressData destination();
+    public abstract List<L4AddressData> mappedAddresses();
 
-    public static NATTraversalDiscoveryEntry create(String sessionKey, String transport, String mappedAddresses, DateTime mostRecentSegmentTime, DateTime firstSeen, DateTime terminatedAt, L4AddressData source, L4AddressData destination) {
+    public static NATTraversalDiscoveryEntry create(String sessionKey, String transport, DateTime mostRecentSegmentTime, DateTime firstSeen, DateTime terminatedAt, L4AddressData source, L4AddressData destination, List<L4AddressData> mappedAddresses) {
         return builder()
                 .sessionKey(sessionKey)
                 .transport(transport)
-                .mappedAddresses(mappedAddresses)
                 .mostRecentSegmentTime(mostRecentSegmentTime)
                 .firstSeen(firstSeen)
                 .terminatedAt(terminatedAt)
                 .source(source)
                 .destination(destination)
+                .mappedAddresses(mappedAddresses)
                 .build();
     }
 
@@ -43,8 +45,6 @@ public abstract class NATTraversalDiscoveryEntry {
 
         public abstract Builder transport(String transport);
 
-        public abstract Builder mappedAddresses(String mappedAddresses);
-
         public abstract Builder mostRecentSegmentTime(DateTime mostRecentSegmentTime);
 
         public abstract Builder firstSeen(DateTime firstSeen);
@@ -54,6 +54,8 @@ public abstract class NATTraversalDiscoveryEntry {
         public abstract Builder source(L4AddressData source);
 
         public abstract Builder destination(L4AddressData destination);
+
+        public abstract Builder mappedAddresses(List<L4AddressData> mappedAddresses);
 
         public abstract NATTraversalDiscoveryEntry build();
     }

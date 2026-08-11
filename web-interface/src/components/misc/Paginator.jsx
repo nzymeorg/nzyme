@@ -16,7 +16,7 @@ function Paginator(props) {
   }
 
   return (
-      <nav aria-label="Page navigation example">
+      <nav>
 
         <ul className="pagination justify-content-center mb-0">
           <li className={"page-item " + (page === 1 ? "disabled" : "")}>

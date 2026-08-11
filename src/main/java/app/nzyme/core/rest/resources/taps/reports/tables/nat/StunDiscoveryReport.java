@@ -20,8 +20,12 @@ public abstract class StunDiscoveryReport {
     public abstract String destinationAddress();
     public abstract int destinationPort();
     public abstract List<SocketAddressReport> mappedAddresses();
+    public abstract boolean sawErrorResponse();
+    public abstract boolean sawSuccessResponse();
     public abstract DateTime firstSeen();
     public abstract DateTime lastActivity();
+
+    // saw_error_response
 
     @JsonCreator
     public static StunDiscoveryReport create(@JsonProperty("transport") String transport,
@@ -31,6 +35,8 @@ public abstract class StunDiscoveryReport {
                                              @JsonProperty("destination_address") String destinationAddress,
                                              @JsonProperty("destination_port") int destinationPort,
                                              @JsonProperty("mapped_addresses") List<SocketAddressReport> mappedAddresses,
+                                             @JsonProperty("saw_error_response") boolean sawErrorResponse,
+                                             @JsonProperty("saw_success_response") boolean sawSuccessResponse,
                                              @JsonProperty("first_seen") DateTime firstSeen,
                                              @JsonProperty("last_activity") DateTime lastActivity) {
         return builder()
@@ -41,6 +47,8 @@ public abstract class StunDiscoveryReport {
                 .destinationAddress(destinationAddress)
                 .destinationPort(destinationPort)
                 .mappedAddresses(mappedAddresses)
+                .sawErrorResponse(sawErrorResponse)
+                .sawSuccessResponse(sawSuccessResponse)
                 .firstSeen(firstSeen)
                 .lastActivity(lastActivity)
                 .build();
@@ -65,6 +73,10 @@ public abstract class StunDiscoveryReport {
         public abstract Builder destinationPort(int destinationPort);
 
         public abstract Builder mappedAddresses(List<SocketAddressReport> mappedAddresses);
+
+        public abstract Builder sawErrorResponse(boolean sawErrorResponse);
+
+        public abstract Builder sawSuccessResponse(boolean sawSuccessResponse);
 
         public abstract Builder firstSeen(DateTime firstSeen);
 

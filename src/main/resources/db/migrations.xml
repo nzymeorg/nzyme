@@ -8303,5 +8303,185 @@
             </column>
         </addColumn>
     </changeSet>
+    
+    <changeSet id="add_portal_integrity_tables" author="lennartkoopmann">
+        <createTable tableName="certificates">
+            <column name="sha256" type="bytea">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="der" type="bytea">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createTable tableName="portal_integrity_reports">
+            <column name="uuid" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="control_url" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="error" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="probed_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="portal_integrity_reports" indexName="portal_integrity_reports_portal_lookup">
+            <column name="tap_uuid" />
+            <column name="control_url" />
+            <column name="probed_at" />
+        </createIndex>
+
+        <createTable tableName="portal_integrity_dhcp_leases">
+            <column name="uuid" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="report_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="assigned_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="gateway_address" type="inet">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="dhcp_server_address" type="inet">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="dns_servers" type="inet[]">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint constraintName="link_portal2dhcp"
+                                 baseTableName="portal_integrity_dhcp_leases"
+                                 baseColumnNames="report_uuid"
+                                 referencedTableName="portal_integrity_reports"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="portal_integrity_hops">
+            <column name="uuid" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="report_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="hop_index" type="smallint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="url" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="resolved_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="status" type="smallint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="followed_to" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="completeness" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="raw" type="bytea">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="body_sha256" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="tls_leaf_sha256" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="tls" type="jsonb">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint constraintName="link_portal2hops"
+                                 baseTableName="portal_integrity_hops"
+                                 baseColumnNames="report_uuid"
+                                 referencedTableName="portal_integrity_reports"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createIndex tableName="portal_integrity_hops" indexName="portal_integrity_hops_lookup">
+            <column name="report_uuid" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="fix_portal_integrity_error_nullability" author="lennartkoopmann">
+        <dropNotNullConstraint tableName="portal_integrity_reports" columnName="error" />
+    </changeSet>
+
+    <changeSet id="add_portal_integrity_probe_net_details" author="lennartkoopmann">
+        <addColumn tableName="portal_integrity_reports">
+            <column name="probe_interface" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="probe_mac" type="text">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_status_to_nat_discoveries" author="lennartkoopmann">
+        <addColumn tableName="nat_traversal_discoveries">
+            <column name="saw_error_response" type="boolean" defaultValue="false">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="saw_success_response" type="boolean" defaultValue="true">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
 
 </databaseChangeLog>

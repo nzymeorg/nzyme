@@ -87,6 +87,7 @@ public class MetricNames {
     public static final String RTSP_TOTAL_REPORT_PROCESSING_TIMER = name(RTSPTable.class, "total-report-processing-timing");
     public static final String NAT_TOTAL_REPORT_PROCESSING_TIMER = name(NATTable.class, "total-report-processing-timing");
     public static final String NAT_DISCOVERIES_REPORT_PROCESSING_TIMER = name(NATTable.class, "discoveries-report-processing-timing");
+    public static final String PORTAL_INTEGRITY_URL_REPORT_PROCESSING_TIMER = name(PortalIntegrityTable.class, "url-report-processing-timing");
 
     public static final String UAV_TOTAL_REPORT_PROCESSING_TIMER = name(UAVTable.class, "total-report-processing-timing");
     public static final String UAV_CONNECT_TYPE_LOOKUP_TIMING = name(Uav.class, "connect-type-lookup-timing");

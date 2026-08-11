@@ -170,6 +170,23 @@ public class FilterSql {
         }
     }
 
+    public static String jsonbNestedFieldMatchAny(String bindId, String fieldName, String nestedField, FilterOperator operator) {
+        String condition = "elem ->> '" + nestedField + "' = :" + bindId;
+
+        switch (operator) {
+            case CONTAINS:
+                return "EXISTS (SELECT 1 FROM jsonb_array_elements(" + fieldName + ") AS elem WHERE " + condition + ")";
+            case NOT_CONTAINS:
+                return "NOT EXISTS (SELECT 1 FROM jsonb_array_elements(" + fieldName + ") AS elem WHERE " + condition + ")";
+            case IS_EMPTY:
+                return "(" + fieldName + " IS NULL OR " + fieldName + " = '[]'::jsonb)";
+            case IS_NOT_EMPTY:
+                return "(" + fieldName + " IS NOT NULL AND " + fieldName + " <> '[]'::jsonb)";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for jsonb nested field [" + nestedField + "].");
+        }
+    }
+
     public static String textArrayStringMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case CONTAINS:

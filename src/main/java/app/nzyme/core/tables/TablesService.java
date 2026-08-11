@@ -59,6 +59,7 @@ public class TablesService {
                 .put("ntp", new NTPTable(this))
                 .put("rtsp", new RTSPTable(this))
                 .put("nat", new NATTable(this))
+                .put("portalintegrity", new PortalIntegrityTable(this))
                 .build();
 
         this.processorPool = Executors.newFixedThreadPool(
@@ -132,6 +133,10 @@ public class TablesService {
     }
 
     public UAVTable uav() { return (UAVTable) tables.get("uav"); }
+
+    public PortalIntegrityTable portalIntegrity() {
+        return (PortalIntegrityTable) tables.get("portalintegrity");
+    }
 
     public ExecutorService getProcessorPool() {
         return processorPool;
