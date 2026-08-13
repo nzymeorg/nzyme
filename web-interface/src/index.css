@@ -1966,5 +1966,5 @@ div.arp-description p {
 }
 
 .hide-narrow {
-    display: block; /* Overwritten in narrow.css when enabled */
+    display: inherit; /* Overwritten in narrow.css when enabled */
 }
