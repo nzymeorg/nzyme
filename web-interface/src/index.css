@@ -1964,3 +1964,7 @@ div.arp-description p {
     opacity: 0.6;
     font-weight: normal;
 }
+
+.hide-narrow {
+    display: block; /* Overwritten in narrow.css when enabled */
+}
