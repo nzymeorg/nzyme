@@ -44,6 +44,7 @@ public class NATTraversalDiscoveryEntryMapper implements RowMapper<NATTraversalD
         return NATTraversalDiscoveryEntry.create(
                 rs.getString("session_key"),
                 rs.getString("transport"),
+                rs.getString("status"),
                 new DateTime(rs.getTimestamp("most_recent_segment_time")),
                 new DateTime(rs.getTimestamp("first_seen")),
                 terminatedAt,

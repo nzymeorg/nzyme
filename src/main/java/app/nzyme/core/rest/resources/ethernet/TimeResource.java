@@ -145,14 +145,14 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/clients/requestresponseratio/histogram")
-    public Response ClientRequestResponseRatioHistogram(@Context SecurityContext sc,
-                                         @QueryParam("organization_id") UUID organizationId,
-                                         @QueryParam("tenant_id") UUID tenantId,
-                                         @QueryParam("time_range") String timeRangeParameter,
-                                         @QueryParam("filters") String filtersParameter,
-                                         @QueryParam("limit") int limit,
-                                         @QueryParam("offset") int offset,
-                                         @QueryParam("taps") String tapIds) {
+    public Response clientRequestResponseRatioHistogram(@Context SecurityContext sc,
+                                                        @QueryParam("organization_id") UUID organizationId,
+                                                        @QueryParam("tenant_id") UUID tenantId,
+                                                        @QueryParam("time_range") String timeRangeParameter,
+                                                        @QueryParam("filters") String filtersParameter,
+                                                        @QueryParam("limit") int limit,
+                                                        @QueryParam("offset") int offset,
+                                                        @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -219,7 +219,7 @@ public class TimeResource extends TapDataHandlingResource {
                 .getTopServersHistogram(timeRange, filters, limit, offset, taps)) {
 
             Optional<MacAddressContextEntry> serverContext = nzyme.getContextService().findMacAddressContext(
-                    s.key(),
+                    s.value1(),
                     organizationId,
                     tenantId
             );

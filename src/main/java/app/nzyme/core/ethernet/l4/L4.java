@@ -625,4 +625,32 @@ public class L4 {
         );
     }
 
+    public Optional<L4AddressData> findMostRecentSourceAddressData(List<UUID> taps, String address) {
+        if (taps.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT source_mac AS mac, source_address AS address, " +
+                                "source_port AS port, source_address_geo_asn_number AS geo_asn_number, " +
+                                "source_address_geo_asn_name AS geo_asn_name, " +
+                                "source_address_geo_asn_domain AS geo_asn_domain, " +
+                                "source_address_geo_city AS geo_city, " +
+                                "source_address_geo_country_code AS geo_country_code, " +
+                                "source_address_geo_latitude AS geo_latitude, " +
+                                "source_address_geo_longitude AS geo_longitude, " +
+                                "source_address_is_site_local AS is_site_local, " +
+                                "source_address_is_loopback AS is_loopback, " +
+                                "source_address_is_multicast AS is_multicast " +
+                                "FROM l4_sessions WHERE source_address = :address::inet AND " +
+                                "tap_uuid IN (<taps>) " +
+                                "ORDER BY most_recent_segment_time " +
+                                "DESC LIMIT 1")
+                        .bindList("taps", taps)
+                        .bind("address", address)
+                        .mapTo(L4AddressData.class)
+                        .findOne()
+        );
+    }
+
 }

@@ -8484,4 +8484,31 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="change_l4_sessions_session_key_to_text_type" author="lennartkoopmann">
+        <sql>
+            BEGIN;
+            ALTER TABLE l4_sessions
+            ALTER COLUMN session_key TYPE text;
+            COMMIT;
+        </sql>
+    </changeSet>
+    
+    <changeSet id="add_nat_traversal_discoveries_idx_08112026" author="lennartkoopmann">
+        <createIndex tableName="nat_traversal_discoveries" indexName="nat_disc_time_tap">
+            <column name="most_recent_segment_time" />
+            <column name="tap_uuid" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="change_status_structure_of_nat_discoveries" author="lennartkoopmann">
+        <dropColumn tableName="nat_traversal_discoveries" columnName="saw_error_response" />
+        <dropColumn tableName="nat_traversal_discoveries" columnName="saw_success_response" />
+
+        <addColumn tableName="nat_traversal_discoveries">
+            <column name="status" type="text" defaultValue="SUCCESS">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

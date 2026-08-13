@@ -38,12 +38,26 @@ export default function FilterValueInput(props) {
     }
   }
 
-  return (
-      <input className="form-control" type={fieldTypeAsInputType()}
-             disabled={disabled}
-             value={filterValue}
-             placeholder={placeHolder()}
-             onChange={onChange} />
-  )
+  switch (operator.field_type) {
+    case FIELD_TYPE.SELECT:
+      return (
+        <select className="form-select"
+                disabled={disabled}
+                onChange={onChange}>
+          <option selected>Please Choose</option>
+          {operator.options.map((o, i) => {
+            return <option key={i} value={o.value}>{o.name}</option>
+          })}
+        </select>
+      )
+    default:
+      return (
+        <input className="form-control" type={fieldTypeAsInputType()}
+               disabled={disabled}
+               value={filterValue}
+               placeholder={placeHolder()}
+               onChange={onChange} />
+      )
+  }
 
 }

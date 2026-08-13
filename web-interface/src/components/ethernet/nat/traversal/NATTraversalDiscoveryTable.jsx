@@ -15,6 +15,8 @@ import {SSH_FILTER_FIELDS} from "../../remote/ssh/SSHFilterFields";
 import {NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} from "./NATTraversalDiscoveryFilterFields";
 import InternalAddressOnlyWrapper from "../../shared/InternalAddressOnlyWrapper";
 import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
+import NATTraversalDiscoveryStatus from "./NATTraversalDiscoveryStatus";
+import AutomaticL4SessionLink from "../../shared/AutomaticL4SessionLink";
 
 const natService = new NATService();
 
@@ -73,6 +75,7 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
       <table className="table table-sm table-hover table-striped mb-4 mt-3">
         <thead>
         <tr>
+          <th>{columnSorting("status")}</th>
           <th>ID</th>
           <th>Source MAC {columnSorting("source_mac")}</th>
           <th>Source Address {columnSorting("source_address")}</th>
@@ -85,7 +88,10 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
         {data.discoveries.map((d, i) => {
           return (
             <tr key={i}>
-              <td><FullCopyShortenedId value={d.session_key} /></td>
+              <td><NATTraversalDiscoveryStatus status={d.status} /></td>
+              <td>
+                <AutomaticL4SessionLink l4Type={d.transport} sessionId={d.session_key} startTime={d.first_seen} />
+              </td>
               <td>
                 <InternalAddressOnlyWrapper
                   address={d.source}

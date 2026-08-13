@@ -4,6 +4,7 @@ import SSHSessionDetails from "../remote/ssh/SSHSessionDetails";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SOCKSTunnelDetails from "../tunnels/socks/SOCKSTunnelDetails";
 import NTPTransactionDetails from "../time/ntp/NTPTransactionDetails";
+import STUNSessionDetails from "../nat/stun/STUNSessionDetails";
 
 export default function L4TagDetails({session}) {
 
@@ -67,11 +68,30 @@ export default function L4TagDetails({session}) {
     }
   }
 
+  const stun = () => {
+    if (session.tags.includes("STUN")) {
+      return (
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body card-container">
+                <CardTitleWithControls title="Encapsulated STUN Session" />
+
+                <STUNSessionDetails sessionId={session.session_key} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  }
+
   return (
       <React.Fragment>
         {ssh()}
         {socks()}
         {ntp()}
+        {stun()}
       </React.Fragment>
   )
 

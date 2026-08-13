@@ -16,10 +16,12 @@ public class FilterFactory {
     public static Filter fromRestQuery(FiltersParameter parameter) {
         switch (parameter.operator().toLowerCase()) {
             case "equals":
+            case "completion_status_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );
             case "not_equals":
+            case "completion_status_not_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );

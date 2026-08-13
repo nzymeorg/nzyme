@@ -15,6 +15,8 @@ public abstract class NATTraversalDiscoveryDetailsResponse {
     public abstract String sessionKey();
     @JsonProperty("transport")
     public abstract String transport();
+    @JsonProperty("status")
+    public abstract String status();
     @JsonProperty("mapped_addresses")
     public abstract List<L4AddressResponse> mappedAddresses();
     @JsonProperty("most_recent_segment_time")
@@ -28,10 +30,11 @@ public abstract class NATTraversalDiscoveryDetailsResponse {
     @Nullable @JsonProperty("destination")
     public abstract L4AddressResponse destination();
 
-    public static NATTraversalDiscoveryDetailsResponse create(String sessionKey, String transport, List<L4AddressResponse> mappedAddresses, DateTime mostRecentSegmentTime, DateTime firstSeen, DateTime terminatedAt, L4AddressResponse source, L4AddressResponse destination) {
+    public static NATTraversalDiscoveryDetailsResponse create(String sessionKey, String transport, String status, List<L4AddressResponse> mappedAddresses, DateTime mostRecentSegmentTime, DateTime firstSeen, DateTime terminatedAt, L4AddressResponse source, L4AddressResponse destination) {
         return builder()
                 .sessionKey(sessionKey)
                 .transport(transport)
+                .status(status)
                 .mappedAddresses(mappedAddresses)
                 .mostRecentSegmentTime(mostRecentSegmentTime)
                 .firstSeen(firstSeen)
@@ -50,6 +53,8 @@ public abstract class NATTraversalDiscoveryDetailsResponse {
         public abstract Builder sessionKey(String sessionKey);
 
         public abstract Builder transport(String transport);
+
+        public abstract Builder status(String status);
 
         public abstract Builder mappedAddresses(List<L4AddressResponse> mappedAddresses);
 

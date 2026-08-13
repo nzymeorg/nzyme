@@ -99,6 +99,13 @@ struct StunMessage {
     xor_peer_address: Option<SocketAddr>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StunDirection {
+    Forward,
+    Reversed,
+    Unknown,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StunTag {
     pub is_turn: bool,
@@ -109,6 +116,7 @@ pub struct StunTag {
     pub peer_addresses: Vec<SocketAddr>,
     pub saw_success_response: bool,
     pub saw_error_response: bool,
+    pub direction: StunDirection
 }
 
 fn is_turn_method(method: u16) -> bool {
@@ -155,25 +163,36 @@ pub fn tag_tcp(client_to_server: &[u8], server_to_client: &[u8], session: &TcpSe
 }
 
 pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &UdpConversation)
-    -> Option<StunFlow> {
+               -> Option<StunFlow> {
 
     let stun = tag(client_to_server, server_to_client)?;
 
+    // Orient by STUN message class and don't trust the UDP direction.
+    let reversed = stun.direction == StunDirection::Reversed;
+
+    let (source_address, source_port, destination_address, destination_port) = if reversed {
+        (conversation.destination_address, conversation.destination_port,
+         conversation.source_address, conversation.source_port)
+    } else {
+        (conversation.source_address, conversation.source_port,
+         conversation.destination_address, conversation.destination_port)
+    };
+
     let session_key = L4Key::new(
-        conversation.source_address,
-        conversation.source_port,
-        conversation.destination_address,
-        conversation.destination_port,
+        source_address,
+        source_port,
+        destination_address,
+        destination_port,
     );
 
     Some(StunFlow {
         session_key,
         transport: StunTransport::Udp,
-        source_address: conversation.source_address,
-        source_port: conversation.source_port,
-        source_mac: conversation.source_mac.clone(),
-        destination_address: conversation.destination_address,
-        destination_port: conversation.destination_port,
+        source_address,
+        source_port,
+        source_mac: if reversed { None } else { conversation.source_mac.clone() },
+        destination_address,
+        destination_port,
         connection_status: None,
         established_at: conversation.start_time,
         terminated_at: conversation.end_time,
@@ -185,17 +204,30 @@ pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &
         relayed_addresses: stun.relayed_addresses,
         peer_addresses: stun.peer_addresses,
         saw_success_response: stun.saw_success_response,
-        saw_error_response: stun.saw_error_response
+        saw_error_response: stun.saw_error_response,
     })
 }
 
 fn tag(client_to_server: &[u8], server_to_client: &[u8]) -> Option<StunTag> {
-    let mut messages = scan_stun_messages(client_to_server);
-    messages.extend(scan_stun_messages(server_to_client));
+    let c2s = scan_stun_messages(client_to_server);
+    let s2c = scan_stun_messages(server_to_client);
 
-    if messages.is_empty() {
+    if c2s.is_empty() && s2c.is_empty() {
         return None;
     }
+
+    let request_in_c2s = c2s.iter().any(|m| m.class == StunClass::Request);
+    let request_in_s2c = s2c.iter().any(|m| m.class == StunClass::Request);
+    let direction = if request_in_c2s {
+        StunDirection::Forward
+    } else if request_in_s2c {
+        StunDirection::Reversed
+    } else {
+        StunDirection::Unknown
+    };
+
+    let mut messages = c2s;
+    messages.extend(s2c);
 
     let is_turn = messages.iter().any(|m| is_turn_method(m.method));
 
@@ -214,7 +246,6 @@ fn tag(client_to_server: &[u8], server_to_client: &[u8]) -> Option<StunTag> {
         }
     }
 
-    // Collect the address attributes, deduplicated, preserving first-seen order.
     let mut mapped_addresses: Vec<SocketAddr> = Vec::new();
     let mut relayed_addresses: Vec<SocketAddr> = Vec::new();
     let mut peer_addresses: Vec<SocketAddr> = Vec::new();
@@ -235,7 +266,8 @@ fn tag(client_to_server: &[u8], server_to_client: &[u8]) -> Option<StunTag> {
         relayed_addresses,
         peer_addresses,
         saw_success_response,
-        saw_error_response
+        saw_error_response,
+        direction,
     })
 }
 

@@ -3,6 +3,7 @@ package app.nzyme.core.tables.ethernet;
 import app.nzyme.core.ethernet.GeoData;
 import app.nzyme.core.ethernet.l4.db.L4AddressAttributes;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
+import app.nzyme.core.ethernet.nat.NATTraversalDiscoveryStatus;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.rest.resources.taps.reports.tables.nat.NatTraversalReport;
@@ -63,14 +64,12 @@ public class NATTable implements DataTable  {
 
     public void writeStunDiscoveries(Handle handle, UUID tapUuid, List<StunDiscoveryReport> discoveries) {
         PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO nat_traversal_discoveries(uuid, " +
-                "tap_uuid, l4_session_key, transport, mapped_addresses, saw_error_response, saw_success_response, " +
-                "most_recent_segment_time, first_seen, updated_at, created_at) VALUES(:uuid, :tap_uuid, " +
-                ":l4_session_key, :transport, :mapped_addresses::jsonb, :saw_error_response, :saw_success_response, " +
-                ":most_recent_segment_time, :first_seen, NOW(), NOW())");
+                "tap_uuid, l4_session_key, transport, mapped_addresses, status, most_recent_segment_time, " +
+                "first_seen, updated_at, created_at) VALUES(:uuid, :tap_uuid, :l4_session_key, :transport, " +
+                ":mapped_addresses::jsonb, :status, :most_recent_segment_time, :first_seen, NOW(), NOW())");
 
         PreparedBatch updateBatch = handle.prepareBatch("UPDATE nat_traversal_discoveries " +
-                "SET mapped_addresses = :mapped_addresses::jsonb, saw_error_response = :saw_error_response, " +
-                "saw_success_response = :saw_success_response, " +
+                "SET mapped_addresses = :mapped_addresses::jsonb, status = :status, " +
                 "most_recent_segment_time = :most_recent_segment_time, updated_at = NOW() WHERE uuid = :uuid");
 
         for (StunDiscoveryReport discovery : discoveries) {
@@ -85,6 +84,15 @@ public class NATTable implements DataTable  {
 
                 List<L4AddressData> mappedAddresses = buildMappedAddresses(discovery);
                 String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
+
+                NATTraversalDiscoveryStatus status;
+                if (discovery.sawSuccessResponse()) {
+                    status = NATTraversalDiscoveryStatus.COMPLETE;
+                } else if (discovery.sawErrorResponse()) {
+                    status = NATTraversalDiscoveryStatus.ERROR;
+                } else {
+                    status = NATTraversalDiscoveryStatus.INCOMPLETE;
+                }
 
                 Optional<UUID> existing = handle.createQuery("SELECT uuid FROM nat_traversal_discoveries " +
                                 "WHERE l4_session_key = :l4_session_key AND first_seen = :first_seen " +
@@ -103,8 +111,7 @@ public class NATTable implements DataTable  {
                             .bind("l4_session_key", sessionKey)
                             .bind("transport", discovery.transport())
                             .bind("mapped_addresses", mappedAddressesJson)
-                            .bind("saw_error_response", discovery.sawErrorResponse())
-                            .bind("saw_success_response", discovery.sawSuccessResponse())
+                            .bind("status", status)
                             .bind("most_recent_segment_time", discovery.lastActivity())
                             .bind("first_seen", discovery.firstSeen())
                             .add();
@@ -112,8 +119,7 @@ public class NATTable implements DataTable  {
                     // Update previously seen flow.
                     updateBatch
                             .bind("mapped_addresses", mappedAddressesJson)
-                            .bind("saw_error_response", discovery.sawErrorResponse())
-                            .bind("saw_success_response", discovery.sawSuccessResponse())
+                            .bind("status", status)
                             .bind("most_recent_segment_time", discovery.lastActivity())
                             .bind("uuid", existing.get())
                             .add();

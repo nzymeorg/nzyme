@@ -22,6 +22,9 @@ import MonitorsService from "../../../services/MonitorsService";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import WithPermission from "../../misc/WithPermission";
 import requiredUserPermissionForMonitorWriteAccess from "../../monitors/shared/MonitorUserPermission";
+import {
+  ALLOWED_COMPLETION_STATUS_VALUES, COMPLETION_STATUS_SELECT_OPTIONS,
+} from "./validators/CompletionStatusValidator";
 
 export const FILTER_TYPE = {
   STRING: {
@@ -80,6 +83,13 @@ export const FILTER_TYPE = {
         )
     ],
     placeholder: "Established"
+  },
+  COMPLETION_STATUS: {
+    name: "completion_status",
+    validators: [
+      (value) => validateEnum(ALLOWED_COMPLETION_STATUS_VALUES, value, true)
+    ],
+    placeholder: "Complete"
   }
 }
 
@@ -88,6 +98,7 @@ export const FIELD_TYPE = {
   REGEX_TEXT: "regex_text",
   NUMBER: "any_number",
   CIDR: "cidr",
+  SELECT: "select",
   NO_VALUE: "none"
 }
 
@@ -220,6 +231,24 @@ export const OPERATORS = {
     validators: [() => { return true; }],
     field_type: FIELD_TYPE.NO_VALUE
   },
+  COMPLETION_STATUS_EQUALS: {
+    name: "completion_status_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: COMPLETION_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  COMPLETION_STATUS_NOT_EQUALS: {
+    name: "completion_status_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: COMPLETION_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
 }
 
 const monitorsService = new MonitorsService();
@@ -338,6 +367,11 @@ export default function Filters(props) {
               OPERATORS.IS_NOT_EMPTY
           ])
           break;
+        case FILTER_TYPE.COMPLETION_STATUS:
+          setAllowedOperators([
+            OPERATORS.COMPLETION_STATUS_EQUALS,
+            OPERATORS.COMPLETION_STATUS_NOT_EQUALS
+          ])
       }
     }
 

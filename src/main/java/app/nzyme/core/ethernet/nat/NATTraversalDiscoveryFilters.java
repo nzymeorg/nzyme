@@ -11,6 +11,8 @@ public class NATTraversalDiscoveryFilters implements SqlFilterProvider {
     @Override
     public GeneratedSql buildSql(String bindId, String fieldName, FilterOperator operator) {
         switch (fieldName) {
+            case "status":
+                return GeneratedSql.create(stringMatch(bindId, "status", operator), "");
             case "session_key":
                 return GeneratedSql.create(stringMatch(bindId, "session_key", operator), "");
             case "source_mac":

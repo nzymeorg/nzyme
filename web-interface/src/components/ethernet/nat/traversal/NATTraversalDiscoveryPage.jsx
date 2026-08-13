@@ -13,10 +13,16 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
 import {NAT_MENU_ITEMS} from "../NATMenuItems";
 import NATTraversalDiscoveryTable from "./NATTraversalDiscoveryTable";
+import NATService from "../../../../services/ethernet/NATService";
+import NATTraversalDiscoveryHistogram from "./NATTraversalDiscoveryHistogram";
+import NATTraversalDiscoveryTopClientsHistogram from "./NATTraversalDiscoveryTopClientsHistogram";
+import NATTraversalDiscoveryTopServersHistogram from "./NATTraversalDiscoveryTopServersHistogram";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
 }
+
+const natService = new NATService();
 
 export default function NATTraversalDiscoveryPage() {
 
@@ -24,11 +30,14 @@ export default function NATTraversalDiscoveryPage() {
 
   const tapContext = useContext(TapContext);
   const urlQuery = useQuery();
+  const selectedTaps = tapContext.taps;
 
   const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
   const [filters, setFilters] = useState(
     queryParametersToFilters(urlQuery.get("filters"), NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS)
   );
+
+  const [histogram, setHistogram] = useState(null);
 
   const [revision, setRevision] = useState(new Date());
 
@@ -39,6 +48,14 @@ export default function NATTraversalDiscoveryPage() {
       disableTapSelector(tapContext);
     }
   }, [tapContext]);
+
+  useEffect(() => {
+    setHistogram(null);
+
+    natService.getTraversalDiscoveriesHistogram(timeRange, filters, selectedTaps, setHistogram);
+  }, [selectedTaps, timeRange, filters, revision]);
+
+  console.log(histogram);
 
   return (
     <React.Fragment>
@@ -51,7 +68,49 @@ export default function NATTraversalDiscoveryPage() {
 
       <div className="row mt-3">
         <div className="col-md-12">
-          <h1>NAT Traversal Discoveries</h1>
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Filters"
+                                     helpLink="https://go.nzyme.org/nat-traversal-discoveries"
+                                     timeRange={timeRange}
+                                     setTimeRange={setTimeRange} />
+
+              <Filters filters={filters}
+                       setFilters={setFilters}
+                       fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Top Clients"
+                                     fixedTimeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())}/>
+
+              <NATTraversalDiscoveryTopClientsHistogram filters={filters}
+                                                        setFilters={setFilters}
+                                                        timeRange={timeRange}
+                                                        revision={revision} />
+            </div>
+          </div>
+        </div>
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Top Servers"
+                                     fixedTimeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())}/>
+
+              <NATTraversalDiscoveryTopServersHistogram filters={filters}
+                                                        setFilters={setFilters}
+                                                        timeRange={timeRange}
+                                                        revision={revision} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -60,16 +119,22 @@ export default function NATTraversalDiscoveryPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="All Discoveries"
-                                     helpLink="https://go.nzyme.org/nat-traversal-discoveries"
                                      timeRange={timeRange}
-                                     setTimeRange={setTimeRange}
                                      refreshAction={() => setRevision(new Date())} />
 
-              <Filters filters={filters}
-                       setFilters={setFilters}
-                       fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} />
+              <NATTraversalDiscoveryHistogram data={histogram} setTimeRange={setTimeRange} />
+            </div>
+          </div>
+        </div>
+      </div>
 
-              <hr />
+      <div className="row mt-3">
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="All Discoveries"
+                                     timeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())} />
 
               <NATTraversalDiscoveryTable timeRange={timeRange}
                                           filters={filters}
