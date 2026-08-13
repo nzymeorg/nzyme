@@ -252,7 +252,7 @@ public class NATResource extends TapDataHandlingResource {
         }
 
         long total = nzyme.getEthernet().nat()
-                .countTraversalDiscoveryTopClientsHistogram(timeRange, filters, taps);
+                .countTraversalDiscoveryTopServersHistogram(timeRange, filters, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
         for (StringStringNumberAggregationResult s : nzyme.getEthernet().nat()

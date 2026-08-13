@@ -8511,4 +8511,15 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_l4_sessions_join_idx_08132026" author="lennartkoopmann" runInTransaction="false">
+        <sql>
+            CREATE INDEX CONCURRENTLY idx_l4_sessions_join
+                ON l4_sessions (session_key)
+                INCLUDE (tap_uuid, start_time, l4_type, source_address, source_mac);
+        </sql>
+        <rollback>
+            DROP INDEX CONCURRENTLY idx_l4_sessions_join;
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

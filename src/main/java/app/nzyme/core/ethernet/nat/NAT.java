@@ -314,7 +314,7 @@ public class NAT {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new NATTraversalDiscoveryFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM (SELECT s.destination AS key, " +
+                handle.createQuery("SELECT COUNT(*) FROM (SELECT s.destination_address AS key, " +
                                 "s.destination_mac AS value1, COUNT(*) AS value2 " +
                                 "FROM nat_traversal_discoveries AS d " +
                                 "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
