@@ -31,7 +31,7 @@ export default function NATTraversalDiscoveryTopServersHistogram({filters, setFi
   if (data.total === 0) {
     return (
       <div className="alert alert-info mb-0 mt-2">
-        No discoveries matching filters recorded.
+        No NAT discovery attempts were observed during selected time range.
       </div>
     )
   }
