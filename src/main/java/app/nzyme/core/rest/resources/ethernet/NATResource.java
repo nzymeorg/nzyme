@@ -218,7 +218,7 @@ public class NATResource extends TapDataHandlingResource {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
                             l4AddressResponse,
-                            HistogramValueType.L4_ADDRESS,
+                            HistogramValueType.L4_ADDRESS_NO_PORT,
                             null),
                     HistogramValueStructureResponse.create(s.value1(),
                             HistogramValueType.ETHERNET_MAC_NO_INTERNAL,
@@ -309,7 +309,7 @@ public class NATResource extends TapDataHandlingResource {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
                             l4AddressResponse,
-                            HistogramValueType.L4_ADDRESS,
+                            HistogramValueType.L4_ADDRESS_NO_PORT,
                             null),
                     HistogramValueStructureResponse.create(s.value1(),
                             HistogramValueType.ETHERNET_MAC_NO_INTERNAL,

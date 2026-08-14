@@ -9,6 +9,7 @@ public enum HistogramValueType {
     ETHERNET_MAC,
     ETHERNET_MAC_NO_INTERNAL,
     L4_ADDRESS,
+    L4_ADDRESS_NO_PORT,
     L4_PORT,
     BYTES,
     DNS_TRANSACTION_LOG_LINK,
