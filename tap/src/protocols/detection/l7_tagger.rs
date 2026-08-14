@@ -11,6 +11,7 @@ use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::metrics::Metrics;
 use crate::protocols::detection::taggers::network_protocols::{http_tagger, rtsp_tagger, socks_tagger, ssh_tagger};
+use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
 use crate::protocols::parsers::stun_tagger;
 use crate::state::tables::udp_table::UdpConversation;
 use crate::to_pipeline;
@@ -83,6 +84,7 @@ pub fn tag_tcp_sessions(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession>>,
     }
 }
 
+
 pub fn tag_udp_sessions(conversations: &mut MutexGuard<HashMap<L4Key, UdpConversation>>,
                         bus: Arc<Bus>,
                         metrics: Arc<Mutex<Metrics>>) {
@@ -93,10 +95,10 @@ pub fn tag_udp_sessions(conversations: &mut MutexGuard<HashMap<L4Key, UdpConvers
         for segment_data in &conversation.datagrams_client_to_server {
             client_to_server_data.extend(segment_data);
         }
-
         for segment_data in &conversation.datagrams_server_to_client {
             server_to_client_data.extend(segment_data);
         }
+
 
         /*
          * The taggers should always be written extremely defensively and never throw any panics.
@@ -112,9 +114,14 @@ pub fn tag_udp_sessions(conversations: &mut MutexGuard<HashMap<L4Key, UdpConvers
         ));
 
         match result {
-            Ok(tags) => {
+            Ok((tags, commands)) => {
                 // UDP tags are extended because there is tagging already fed by initial datagrams.
-                conversation.tags.extend(tags)
+                conversation.tags.extend(tags);
+
+                // Apply any commands issued by the taggers.
+                for command in commands {
+                    command.apply(conversation);
+                }
             },
             Err(e) => {
                 match e.downcast_ref::<&str>() { Some(s) => {
@@ -283,13 +290,14 @@ fn tag_all_udp(client_to_server: &[u8],
                server_to_client: &[u8],
                conversation: &UdpConversation,
                bus: &Arc<Bus>,
-               metrics: &Arc<Mutex<Metrics>>) -> HashSet<L7Tag> {
+               metrics: &Arc<Mutex<Metrics>>) -> (HashSet<L7Tag>, Vec<TaggerCommand>) {
     let mut tags = HashSet::new();
+    let mut commands = Vec::new();
 
     // STUN / TURN.
     let mut stun_timer_untagged = Timer::new();
     let mut stun_timer_tagged = Timer::new();
-    if let Some(stun) = stun_tagger::tag_udp(client_to_server, server_to_client, conversation) {
+    if let Some((stun, stun_commands)) = stun_tagger::tag_udp(client_to_server, server_to_client, conversation) {
         stun_timer_tagged.stop();
         record_timer(
             stun_timer_tagged.elapsed_microseconds(),
@@ -301,6 +309,7 @@ fn tag_all_udp(client_to_server: &[u8],
         if stun.is_turn {
             tags.extend([TURN]);
         }
+        commands.extend(stun_commands);
 
         let len = stun.estimate_struct_size();
         to_pipeline!(
@@ -318,5 +327,5 @@ fn tag_all_udp(client_to_server: &[u8],
         );
     }
 
-    tags
+    (tags, commands)
 }

@@ -1,6 +1,7 @@
 use std::mem;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use chrono::{DateTime, Utc};
+use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::protocols::parsers::tcp::tcp_tools::determine_tcp_session_state;
 use crate::state::tables::tcp_table::TcpSession;
@@ -163,34 +164,42 @@ pub fn tag_tcp(client_to_server: &[u8], server_to_client: &[u8], session: &TcpSe
 }
 
 pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &UdpConversation)
-               -> Option<StunFlow> {
+               -> Option<(StunFlow, Vec<TaggerCommand>)> {
 
     let stun = tag(client_to_server, server_to_client)?;
 
-    // Orient by STUN message class and don't trust the UDP direction.
     let reversed = stun.direction == StunDirection::Reversed;
 
-    let (source_address, source_port, destination_address, destination_port) = if reversed {
+    let (source_address, source_port, source_mac,
+        destination_address, destination_port) = if reversed {
         (conversation.destination_address, conversation.destination_port,
+         conversation.destination_mac.clone(),   // <- real client MAC, not None
          conversation.source_address, conversation.source_port)
     } else {
         (conversation.source_address, conversation.source_port,
+         conversation.source_mac.clone(),
          conversation.destination_address, conversation.destination_port)
     };
 
-    let session_key = L4Key::new(
-        source_address,
-        source_port,
-        destination_address,
-        destination_port,
-    );
+    let mut commands = Vec::new();
+    match stun.direction {
+        StunDirection::Forward =>
+            commands.push(TaggerCommand::OrientClientTo {
+                address: conversation.source_address, port: conversation.source_port }),
+        StunDirection::Reversed =>
+            commands.push(TaggerCommand::OrientClientTo {
+                address: conversation.destination_address, port: conversation.destination_port }),
+        StunDirection::Unknown => {}
+    }
 
-    Some(StunFlow {
+    let session_key = L4Key::new(source_address, source_port, destination_address, destination_port);
+
+    let flow = StunFlow {
         session_key,
         transport: StunTransport::Udp,
         source_address,
         source_port,
-        source_mac: if reversed { None } else { conversation.source_mac.clone() },
+        source_mac,
         destination_address,
         destination_port,
         connection_status: None,
@@ -205,7 +214,9 @@ pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &
         peer_addresses: stun.peer_addresses,
         saw_success_response: stun.saw_success_response,
         saw_error_response: stun.saw_error_response,
-    })
+    };
+
+    Some((flow, commands))
 }
 
 fn tag(client_to_server: &[u8], server_to_client: &[u8]) -> Option<StunTag> {
