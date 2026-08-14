@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 use log::{debug, error};
 use crate::messagebus::bus::Bus;
@@ -40,5 +41,12 @@ pub fn route_ipv4_packet(packet: IPv4Packet, bus: &Arc<Bus>) {
         Err(..) => {
             debug!("IPv4 type not implemented: {}", packet.protocol);
         }
+    }
+}
+
+pub fn is_site_local(addr: IpAddr) -> bool {
+    match addr {
+        IpAddr::V4(v4) => v4.is_private(),
+        IpAddr::V6(v6) => (v6.segments()[0] & 0xfe00) == 0xfc00,
     }
 }

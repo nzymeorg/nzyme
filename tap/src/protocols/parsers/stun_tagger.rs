@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::protocols::parsers::tcp::tcp_tools::determine_tcp_session_state;
+use crate::protocols::tools::ip_tools::is_site_local;
 use crate::state::tables::tcp_table::TcpSession;
 use crate::state::tables::udp_table::UdpConversation;
 use crate::wired::packets::GenericConnectionStatus;
@@ -168,12 +169,33 @@ pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &
 
     let stun = tag(client_to_server, server_to_client)?;
 
-    let reversed = stun.direction == StunDirection::Reversed;
+    /*
+     * Figure out which endpoint is the client.
+     * Primary signal is the STUN request direction. Fallback is looking at which of the
+     * addresses is site-local, because it will always be local clients making the request.
+     * The fallback can be required if we only see a single packet and can't determine
+     * direction from protocol attributes.
+     */
+    let reversed = match stun.direction {
+        StunDirection::Forward => false,
+        StunDirection::Reversed => true,
+        StunDirection::Unknown => {
+            let src_local = is_site_local(conversation.source_address);
+            let dst_local = is_site_local(conversation.destination_address);
+            match (src_local, dst_local) {
+                // Exactly one side is site-local: that is the client.
+                (true, false) => false,
+                (false, true) => true,
+                // Both or none are site-local: can't decide.
+                _ => false,
+            }
+        }
+    };
 
     let (source_address, source_port, source_mac,
         destination_address, destination_port) = if reversed {
         (conversation.destination_address, conversation.destination_port,
-         conversation.destination_mac.clone(),   // <- real client MAC, not None
+         conversation.destination_mac.clone(),
          conversation.source_address, conversation.source_port)
     } else {
         (conversation.source_address, conversation.source_port,
@@ -181,15 +203,25 @@ pub fn tag_udp(client_to_server: &[u8], server_to_client: &[u8], conversation: &
          conversation.destination_address, conversation.destination_port)
     };
 
+    /*
+     * Emit the orientation command for the table, matching the same decision.
+     * Only emit when we actually have an opinion (not the ambiguous both/neither case).
+     */
     let mut commands = Vec::new();
-    match stun.direction {
-        StunDirection::Forward =>
-            commands.push(TaggerCommand::OrientClientTo {
-                address: conversation.source_address, port: conversation.source_port }),
-        StunDirection::Reversed =>
-            commands.push(TaggerCommand::OrientClientTo {
-                address: conversation.destination_address, port: conversation.destination_port }),
-        StunDirection::Unknown => {}
+    let client_endpoint = if reversed {
+        Some((conversation.destination_address, conversation.destination_port))
+    } else {
+        // Only assert "source is client" when we have a real signal for it.
+        match stun.direction {
+            StunDirection::Forward => Some((conversation.source_address, conversation.source_port)),
+            StunDirection::Unknown if is_site_local(conversation.source_address)
+                && !is_site_local(conversation.destination_address) =>
+                Some((conversation.source_address, conversation.source_port)),
+            _ => None,
+        }
+    };
+    if let Some((address, port)) = client_endpoint {
+        commands.push(TaggerCommand::OrientClientTo { address, port });
     }
 
     let session_key = L4Key::new(source_address, source_port, destination_address, destination_port);
