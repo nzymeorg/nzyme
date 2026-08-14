@@ -6,8 +6,7 @@ import LoadingSpinner from "../../../misc/LoadingSpinner";
 import NATService from "../../../../services/ethernet/NATService";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import L4Address from "../../shared/L4Address";
-import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
-import {NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} from "../traversal/NATTraversalDiscoveryFilterFields";
+import {capitalizeFirstLetterAndLowercase} from "../../../../util/Tools";
 
 const natService = new NATService();
 
@@ -36,6 +35,28 @@ export default function STUNSessionDetails({sessionId}) {
     natService.findOneTraversalDiscovery(sessionId, organizationId, tenantId, selectedTaps, setSession)
   }, [sessionId, organizationId, tenantId, selectedTaps])
 
+  const mappedAddresses = () => {
+    if (session.mapped_addresses === null || session.mapped_addresses.length === 0) {
+      return (
+        <ul className="mb-0">
+          <li>None</li>
+        </ul>
+      )
+    }
+
+    return (
+      <ol className="mb-0">
+        {session.mapped_addresses.map((a, i) => {
+          return (
+            <li key={i}>
+              <L4Address address={a} />
+            </li>
+          )
+        })}
+      </ol>
+    )
+  }
+
   if (session == null) {
     return <LoadingSpinner />
   }
@@ -46,17 +67,22 @@ export default function STUNSessionDetails({sessionId}) {
         <div className="col-md-3">
           <div className="card">
             <div className="card-body">
+              <CardTitleWithControls title="Metadata" />
+
+              <dl className="mb-0">
+                <dt>Status</dt>
+                <dd>{capitalizeFirstLetterAndLowercase(session.status)}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-3">
+          <div className="card">
+            <div className="card-body">
               <CardTitleWithControls title="Mapped Addresses" />
 
-              <ol>
-              {session.mapped_addresses.map((a, i) => {
-                return (
-                  <li key={i}>
-                    <L4Address address={a} />
-                  </li>
-                )
-              })}
-              </ol>
+              {mappedAddresses()}
             </div>
           </div>
         </div>
