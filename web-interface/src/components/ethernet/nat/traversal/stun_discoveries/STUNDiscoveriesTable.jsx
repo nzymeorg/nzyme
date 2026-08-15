@@ -1,26 +1,24 @@
 import React, {useContext, useEffect, useState} from "react";
-import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
-import {TapContext} from "../../../../App";
-import ColumnSorting from "../../../shared/ColumnSorting";
-import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
-import NATService from "../../../../services/ethernet/NATService";
+import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
+import {TapContext} from "../../../../../App";
+import ColumnSorting from "../../../../shared/ColumnSorting";
+import GenericWidgetLoadingSpinner from "../../../../widgets/GenericWidgetLoadingSpinner";
+import NATService from "../../../../../services/ethernet/NATService";
 import numeral from "numeral";
-import Paginator from "../../../misc/Paginator";
-import FullCopyShortenedId from "../../../shared/FullCopyShortenedId";
+import Paginator from "../../../../misc/Paginator";
 import moment from "moment";
-import NATMappedAddressesList from "../NATMappedAddressesList";
-import L4Address from "../../shared/L4Address";
-import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
-import {SSH_FILTER_FIELDS} from "../../remote/ssh/SSHFilterFields";
-import {NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} from "./NATTraversalDiscoveryFilterFields";
-import InternalAddressOnlyWrapper from "../../shared/InternalAddressOnlyWrapper";
-import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
-import NATTraversalDiscoveryStatus from "./NATTraversalDiscoveryStatus";
-import AutomaticL4SessionLink from "../../shared/AutomaticL4SessionLink";
+import L4AddressList from "../../../shared/L4AddressList";
+import L4Address from "../../../shared/L4Address";
+import FilterValueIcon from "../../../../shared/filtering/FilterValueIcon";
+import {STUN_DISCOVERY_FILTER_FIELDS} from "./STUNDiscoveriesFilterFields";
+import InternalAddressOnlyWrapper from "../../../shared/InternalAddressOnlyWrapper";
+import EthernetMacAddress from "../../../../shared/context/macs/EthernetMacAddress";
+import STUNDiscoveriesStatus from "./STUNDiscoveriesStatus";
+import AutomaticL4SessionLink from "../../../shared/AutomaticL4SessionLink";
 
 const natService = new NATService();
 
-export default function NATTraversalDiscoveryTable({timeRange, filters, setFilters, revision, perPage}) {
+export default function STUNDiscoveriesTable({timeRange, filters, setFilters, revision, perPage}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -37,7 +35,7 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
 
   useEffect(() => {
     setData(null);
-    natService.findAllTraversalDiscoveries(organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, selectedTaps, perPageSel, (page-1)*perPageSel, setData);
+    natService.findAllSTUNDiscoveries(organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, selectedTaps, perPageSel, (page-1)*perPageSel, setData);
   }, [organizationId, tenantId, selectedTaps, timeRange, filters, orderColumn, orderDirection, page, revision]);
 
   const columnSorting = (columnName) => {
@@ -54,7 +52,7 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
     }
 
     return <FilterValueIcon setFilters={setFilters}
-                            fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS}
+                            fields={STUN_DISCOVERY_FILTER_FIELDS}
                             field={fieldName}
                             value={address.address} />
   }
@@ -88,7 +86,7 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
         {data.discoveries.map((d, i) => {
           return (
             <tr key={i}>
-              <td><NATTraversalDiscoveryStatus status={d.status} /></td>
+              <td><STUNDiscoveriesStatus status={d.status} /></td>
               <td>
                 <AutomaticL4SessionLink l4Type={d.transport} sessionId={d.session_key} startTime={d.first_seen} />
               </td>
@@ -103,7 +101,7 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
                 <L4Address address={d.source}
                            hidePort={true}
                            filterElement={d.source ? <FilterValueIcon setFilters={setFilters}
-                                                                      fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS}
+                                                                      fields={STUN_DISCOVERY_FILTER_FIELDS}
                                                                       field="source_address"
                                                                       value={d.source.address} /> : null } />
               </td>
@@ -111,11 +109,16 @@ export default function NATTraversalDiscoveryTable({timeRange, filters, setFilte
                 <L4Address address={d.destination}
                            hidePort={true}
                            filterElement={d.destination ? <FilterValueIcon setFilters={setFilters}
-                                                                           fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS}
+                                                                           fields={STUN_DISCOVERY_FILTER_FIELDS}
                                                                            field="destination_address"
                                                                            value={d.destination.address} /> : null } />
               </td>
-              <td><NATMappedAddressesList addresses={d.mapped_addresses} setFilters={setFilters} /></td>
+              <td>
+                <L4AddressList addresses={d.mapped_addresses}
+                               setFilters={setFilters}
+                               fields={STUN_DISCOVERY_FILTER_FIELDS}
+                               field="mapped_address" />
+              </td>
               <td title={moment(d.first_seen).fromNow()}>
                 {moment(d.first_seen).format()}
               </td>

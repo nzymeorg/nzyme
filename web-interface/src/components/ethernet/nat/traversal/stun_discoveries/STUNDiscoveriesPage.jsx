@@ -1,22 +1,22 @@
 import React, {useContext, useEffect, useState} from "react";
 import {useLocation} from "react-router-dom";
-import usePageTitle from "../../../../util/UsePageTitle";
-import {TapContext} from "../../../../App";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
-import {Presets} from "../../../shared/timerange/TimeRange";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
-import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
-import {NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} from "./NATTraversalDiscoveryFilterFields";
-import SectionMenuBar from "../../../shared/SectionMenuBar";
-import ApiRoutes from "../../../../util/ApiRoutes";
-import CardTitleWithControls from "../../../shared/CardTitleWithControls";
-import Filters from "../../../shared/filtering/Filters";
-import {NAT_MENU_ITEMS} from "../NATMenuItems";
-import NATTraversalDiscoveryTable from "./NATTraversalDiscoveryTable";
-import NATService from "../../../../services/ethernet/NATService";
-import NATTraversalDiscoveryHistogram from "./NATTraversalDiscoveryHistogram";
-import NATTraversalDiscoveryTopClientsHistogram from "./NATTraversalDiscoveryTopClientsHistogram";
-import NATTraversalDiscoveryTopServersHistogram from "./NATTraversalDiscoveryTopServersHistogram";
+import usePageTitle from "../../../../../util/UsePageTitle";
+import {TapContext} from "../../../../../App";
+import {timeRangeFromURLOrDefault} from "../../../../shared/timerange/TimeRangeSelector";
+import {Presets} from "../../../../shared/timerange/TimeRange";
+import {queryParametersToFilters} from "../../../../shared/filtering/FilterQueryParameters";
+import {disableTapSelector, enableTapSelector} from "../../../../misc/TapSelector";
+import {STUN_DISCOVERY_FILTER_FIELDS} from "./STUNDiscoveriesFilterFields";
+import SectionMenuBar from "../../../../shared/SectionMenuBar";
+import ApiRoutes from "../../../../../util/ApiRoutes";
+import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
+import Filters from "../../../../shared/filtering/Filters";
+import {NAT_MENU_ITEMS} from "../../NATMenuItems";
+import STUNDiscoveriesTable from "./STUNDiscoveriesTable";
+import NATService from "../../../../../services/ethernet/NATService";
+import STUNDiscoveriesHistogram from "./STUNDiscoveriesHistogram";
+import STUNDiscoveriesTopClientsHistogram from "./STUNDiscoveriesTopClientsHistogram";
+import STUNDiscoveriesTopServersHistogram from "./STUNDiscoveriesTopServersHistogram";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -24,9 +24,9 @@ const useQuery = () => {
 
 const natService = new NATService();
 
-export default function NATTraversalDiscoveryPage() {
+export default function STUNDiscoveriesPage() {
 
-  usePageTitle("NAT Traversal Discoveries");
+  usePageTitle("STUN Discoveries");
 
   const tapContext = useContext(TapContext);
   const urlQuery = useQuery();
@@ -34,7 +34,7 @@ export default function NATTraversalDiscoveryPage() {
 
   const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
   const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS)
+    queryParametersToFilters(urlQuery.get("filters"), STUN_DISCOVERY_FILTER_FIELDS)
   );
 
   const [histogram, setHistogram] = useState(null);
@@ -52,7 +52,7 @@ export default function NATTraversalDiscoveryPage() {
   useEffect(() => {
     setHistogram(null);
 
-    natService.getTraversalDiscoveriesHistogram(timeRange, filters, selectedTaps, setHistogram);
+    natService.getSTUNDiscoveriesHistogram(timeRange, filters, selectedTaps, setHistogram);
   }, [selectedTaps, timeRange, filters, revision]);
 
   return (
@@ -60,7 +60,7 @@ export default function NATTraversalDiscoveryPage() {
       <div className="row">
         <div className="col-md-12">
           <SectionMenuBar items={NAT_MENU_ITEMS}
-                          activeRoute={ApiRoutes.ETHERNET.NAT.TRAVERSAL.DISCOVERY.INDEX} />
+                          activeRoute={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_DISCOVERY.INDEX} />
         </div>
       </div>
 
@@ -69,13 +69,13 @@ export default function NATTraversalDiscoveryPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Filters"
-                                     helpLink="https://go.nzyme.org/nat-traversal-discoveries"
+                                     helpLink="https://go.nzyme.org/stun-discoveries"
                                      timeRange={timeRange}
                                      setTimeRange={setTimeRange} />
 
               <Filters filters={filters}
                        setFilters={setFilters}
-                       fields={NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} />
+                       fields={STUN_DISCOVERY_FILTER_FIELDS} />
             </div>
           </div>
         </div>
@@ -89,10 +89,10 @@ export default function NATTraversalDiscoveryPage() {
                                      fixedTimeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())}/>
 
-              <NATTraversalDiscoveryTopClientsHistogram filters={filters}
-                                                        setFilters={setFilters}
-                                                        timeRange={timeRange}
-                                                        revision={revision} />
+              <STUNDiscoveriesTopClientsHistogram filters={filters}
+                                                  setFilters={setFilters}
+                                                  timeRange={timeRange}
+                                                  revision={revision} />
             </div>
           </div>
         </div>
@@ -103,10 +103,10 @@ export default function NATTraversalDiscoveryPage() {
                                      fixedTimeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())}/>
 
-              <NATTraversalDiscoveryTopServersHistogram filters={filters}
-                                                        setFilters={setFilters}
-                                                        timeRange={timeRange}
-                                                        revision={revision} />
+              <STUNDiscoveriesTopServersHistogram filters={filters}
+                                                  setFilters={setFilters}
+                                                  timeRange={timeRange}
+                                                  revision={revision} />
             </div>
           </div>
         </div>
@@ -120,7 +120,7 @@ export default function NATTraversalDiscoveryPage() {
                                      timeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())} />
 
-              <NATTraversalDiscoveryHistogram data={histogram} setTimeRange={setTimeRange} />
+              <STUNDiscoveriesHistogram data={histogram} setTimeRange={setTimeRange} />
             </div>
           </div>
         </div>
@@ -134,10 +134,10 @@ export default function NATTraversalDiscoveryPage() {
                                      timeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())} />
 
-              <NATTraversalDiscoveryTable timeRange={timeRange}
-                                          filters={filters}
-                                          setFilters={setFilters}
-                                          revision={revision} />
+              <STUNDiscoveriesTable timeRange={timeRange}
+                                    filters={filters}
+                                    setFilters={setFilters}
+                                    revision={revision} />
             </div>
           </div>
         </div>

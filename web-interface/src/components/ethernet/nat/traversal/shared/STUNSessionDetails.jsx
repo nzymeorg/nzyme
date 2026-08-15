@@ -1,12 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import {TapContext} from "../../../../App";
-import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
-import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
-import LoadingSpinner from "../../../misc/LoadingSpinner";
-import NATService from "../../../../services/ethernet/NATService";
-import CardTitleWithControls from "../../../shared/CardTitleWithControls";
-import L4Address from "../../shared/L4Address";
-import {capitalizeFirstLetterAndLowercase} from "../../../../util/Tools";
+import {TapContext} from "../../../../../App";
+import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
+import {disableTapSelector, enableTapSelector} from "../../../../misc/TapSelector";
+import LoadingSpinner from "../../../../misc/LoadingSpinner";
+import NATService from "../../../../../services/ethernet/NATService";
+import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
+import L4Address from "../../../shared/L4Address";
+import {capitalizeFirstLetterAndLowercase} from "../../../../../util/Tools";
 
 const natService = new NATService();
 
@@ -32,7 +32,7 @@ export default function STUNSessionDetails({sessionId}) {
   useEffect(() => {
     setSession(null);
 
-    natService.findOneTraversalDiscovery(sessionId, organizationId, tenantId, selectedTaps, setSession)
+    natService.findOneSTUNDiscovery(sessionId, organizationId, tenantId, selectedTaps, setSession)
   }, [sessionId, organizationId, tenantId, selectedTaps])
 
   const mappedAddresses = () => {

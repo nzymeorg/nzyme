@@ -67,7 +67,8 @@ function Sidebar(props) {
                 title="Tunnels"
                 icon={<i className="sidebar-icon fa-solid fa-car-tunnel"/>}/>
             <NavigationLink
-              href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.DISCOVERY.INDEX}
+              href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX}
+              pathMatch="/ethernet/nat/"
               title="NAT"
               icon={<i className="sidebar-icon fa-solid fa-table-cells-large "/>}/>
             <NavigationLink

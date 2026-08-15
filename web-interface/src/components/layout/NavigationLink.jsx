@@ -5,6 +5,7 @@ function NavigationLink(props) {
   const href = props.href;
   const icon = props.icon;
   const title = props.title;
+  const pathMatch = props.pathMatch ? props.pathMatch : href;
 
   const show = props.show === undefined ? true : props.show;
 
@@ -16,7 +17,7 @@ function NavigationLink(props) {
   let className = inactiveClassName;
   let liClassName = "";
   if ((window.location.pathname === "/" && href === "/")
-      || (href !== '/' && window.location.pathname.startsWith(href))) {
+      || (href !== '/' && window.location.pathname.startsWith(pathMatch))) {
     className += ' nav-link-active'
     liClassName = 'nav-item-active'
   }

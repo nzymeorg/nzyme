@@ -16,6 +16,7 @@ import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.Tools;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
+import com.google.common.hash.Hashing;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
@@ -24,6 +25,7 @@ import org.joda.time.DateTime;
 import tools.jackson.databind.ObjectMapper;
 
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.sql.Types;
 import java.util.List;
 import java.util.Optional;
@@ -145,12 +147,12 @@ public class NATTable implements DataTable  {
 
     private void writeStunNegotiationFlows(Handle handle, UUID tapUuid, List<StunNegotiationFlowReport> negotiations) {
         PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO nat_stun_negotiation_flows(uuid, " +
-                "tap_uuid, negotiation_key, l4_session_key, transport, ufrags, successful, is_turn, turn_usernames, " +
-                "mapped_addresses, relayed_addresses, peer_addresses, first_seen, last_activity, updated_at, " +
-                "created_at) VALUES(:uuid, :tap_uuid, :negotiation_key, :l4_session_key, :transport, :ufrags," +
-                ":successful, :is_turn, :turn_usernames, :mapped_addresses::jsonb, :relayed_addresses::jsonb, " +
-                ":peer_addresses::jsonb, :first_seen, :last_activity, NOW(), NOW())");
-
+                "tap_uuid, negotiation_key, negotiation_key_sha256, l4_session_key, transport, ufrags, successful, " +
+                "is_turn, turn_usernames, mapped_addresses, relayed_addresses, peer_addresses, first_seen, " +
+                "last_activity, updated_at, created_at) VALUES(:uuid, :tap_uuid, :negotiation_key, " +
+                ":negotiation_key_sha256, :l4_session_key, :transport, :ufrags, :successful, :is_turn, " +
+                ":turn_usernames, :mapped_addresses::jsonb, :relayed_addresses::jsonb, :peer_addresses::jsonb, " +
+                ":first_seen, :last_activity, NOW(), NOW())");
         PreparedBatch updateBatch = handle.prepareBatch("UPDATE nat_stun_negotiation_flows " +
                 "SET ufrags = :ufrags, successful = :successful, is_turn = :is_turn," +
                 "turn_usernames = :turn_usernames, mapped_addresses = :mapped_addresses::jsonb, " +
@@ -158,6 +160,16 @@ public class NATTable implements DataTable  {
                 "last_activity = :last_activity, updated_at = NOW() WHERE uuid = :uuid");
 
         for (StunNegotiationFlowReport negotiation : negotiations) {
+            if (negotiation.negotiationKey() == null) {
+                // Not useful for us unless the tap has all parts of the negotiation to compute the key. We wait.
+                LOG.debug("Received negotiation flow report without negotiation key. Skipping.");
+                continue;
+            }
+
+            String negotiationKeySha256 = Hashing.sha256()
+                    .hashString(negotiation.negotiationKey(), StandardCharsets.UTF_8)
+                    .toString();
+
             String sessionKey = Tools.buildL4Key(
                     negotiation.firstSeen(),
                     negotiation.sourceAddress(),
@@ -191,6 +203,7 @@ public class NATTable implements DataTable  {
                         .bind("uuid", UUID.randomUUID())
                         .bind("tap_uuid", tapUuid)
                         .bind("negotiation_key", negotiation.negotiationKey())
+                        .bind("negotiation_key_sha256", negotiationKeySha256)
                         .bind("l4_session_key", sessionKey)
                         .bind("transport", negotiation.transport())
                         .bindBySqlType("ufrags", ufrags, Types.ARRAY)

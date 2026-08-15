@@ -1,15 +1,15 @@
 import React, {useContext, useEffect, useState} from "react";
-import {TapContext} from "../../../../App";
-import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
-import {DEFAULT_LIMIT} from "../../../widgets/LimitSelector";
-import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
-import ThreeColumnHistogram from "../../../widgets/histograms/ThreeColumnHistogram";
-import NATService from "../../../../services/ethernet/NATService";
-import {NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS} from "./NATTraversalDiscoveryFilterFields";
+import {TapContext} from "../../../../../App";
+import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
+import {DEFAULT_LIMIT} from "../../../../widgets/LimitSelector";
+import GenericWidgetLoadingSpinner from "../../../../widgets/GenericWidgetLoadingSpinner";
+import ThreeColumnHistogram from "../../../../widgets/histograms/ThreeColumnHistogram";
+import NATService from "../../../../../services/ethernet/NATService";
+import {STUN_DISCOVERY_FILTER_FIELDS} from "./STUNDiscoveriesFilterFields";
 
 const natService = new NATService();
 
-export default function NATTraversalDiscoveryTopClientsHistogram({filters, setFilters, timeRange, revision}) {
+export default function STUNDiscoveriesTopServersHistogram({filters, setFilters, timeRange, revision}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -21,7 +21,7 @@ export default function NATTraversalDiscoveryTopClientsHistogram({filters, setFi
 
   useEffect(() => {
     setData(null);
-    natService.getTraversalTopClientsHistogram(organizationId, tenantId, timeRange, filters, selectedTaps, limit, 0, setData);
+    natService.getSTUNTopServersHistogram(organizationId, tenantId, timeRange, filters, selectedTaps, limit, 0, setData);
   }, [organizationId, tenantId, selectedTaps, limit, filters, timeRange, revision])
 
   if (!data) {
@@ -38,10 +38,10 @@ export default function NATTraversalDiscoveryTopClientsHistogram({filters, setFi
 
   return <ThreeColumnHistogram data={data}
                                columnFilterElements={[
-                                 {field: "source_address", valueSubField: "address", fields: NAT_TRAVERSAL_DISCOVERY_FILTER_FIELDS, setFilters: setFilters},
+                                 {field: "destination_address", valueSubField: "address", fields: STUN_DISCOVERY_FILTER_FIELDS, setFilters: setFilters},
                                  null, null
                                ]}
-                               columnTitles={["Client Address", "Client Asset", "Discoveries"]}
+                               columnTitles={["Server Address", "Server Asset", "Discoveries"]}
                                limit={limit}
                                setLimit={setLimit} />
 

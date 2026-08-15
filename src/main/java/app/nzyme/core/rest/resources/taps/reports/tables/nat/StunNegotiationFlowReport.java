@@ -12,6 +12,7 @@ import java.util.List;
 @AutoValue
 public abstract class StunNegotiationFlowReport {
 
+    @Nullable
     public abstract String negotiationKey();
     public abstract String sourceAddress();
     @Nullable

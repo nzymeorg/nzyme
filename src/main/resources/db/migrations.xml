@@ -8607,4 +8607,14 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_negotiation_key_sha_to_nat_stun_negotiation_flows" author="lennartkoopmann">
+        <sql>DELETE FROM nat_stun_negotiation_flows;</sql>
+
+        <addColumn tableName="nat_stun_negotiation_flows">
+            <column name="negotiation_key_sha256" type="text">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

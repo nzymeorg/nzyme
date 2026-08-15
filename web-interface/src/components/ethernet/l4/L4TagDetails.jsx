@@ -4,7 +4,7 @@ import SSHSessionDetails from "../remote/ssh/SSHSessionDetails";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SOCKSTunnelDetails from "../tunnels/socks/SOCKSTunnelDetails";
 import NTPTransactionDetails from "../time/ntp/NTPTransactionDetails";
-import STUNSessionDetails from "../nat/stun/STUNSessionDetails";
+import STUNSessionDetails from "../nat/traversal/shared/STUNSessionDetails";
 
 export default function L4TagDetails({session}) {
 

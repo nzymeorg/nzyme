@@ -199,8 +199,14 @@ const ApiRoutes = {
     },
     NAT: {
       TRAVERSAL: {
-        DISCOVERY: {
-          INDEX: '/ethernet/nat/traversal/discovery'
+        STUN_DISCOVERY: {
+          INDEX: '/ethernet/nat/traversal/stun/discovery'
+        },
+        STUN_CONNECTIONS: {
+          INDEX: '/ethernet/nat/traversal/stun/connections'
+        },
+        TURN_CONNECTIONS: {
+          INDEX: '/ethernet/nat/traversal/turn/connections'
         }
       }
     },

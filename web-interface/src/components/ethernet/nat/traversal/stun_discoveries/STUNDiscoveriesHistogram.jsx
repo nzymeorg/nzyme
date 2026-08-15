@@ -1,6 +1,6 @@
 import React from 'react'
-import LoadingSpinner from "../../../misc/LoadingSpinner";
-import SimpleBarChart from "../../../widgets/charts/SimpleBarChart";
+import LoadingSpinner from "../../../../misc/LoadingSpinner";
+import SimpleBarChart from "../../../../widgets/charts/SimpleBarChart";
 
 const STATUS_SERIES = [
   { key: 'complete', name: 'Complete' },
@@ -8,7 +8,7 @@ const STATUS_SERIES = [
   { key: 'error', name: 'Error', color: '#cf3b3b' },
 ]
 
-export default function NATTraversalDiscoveryHistogram({data, setTimeRange}) {
+export default function STUNDiscoveriesHistogram({data, setTimeRange}) {
   if (data === null) {
     return <LoadingSpinner />
   }

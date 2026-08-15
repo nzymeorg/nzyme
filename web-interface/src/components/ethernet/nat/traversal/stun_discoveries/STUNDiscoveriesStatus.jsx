@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function NATTraversalDiscoveryStatus({status}) {
+export default function STUNDiscoveriesStatus({status}) {
   if (status === "COMPLETE") {
     return <i className="fa fa-circle text-success" title="Discovery Session Complete" />
   } else if (status === "ERROR") {

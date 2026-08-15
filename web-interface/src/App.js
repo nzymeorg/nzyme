@@ -181,7 +181,8 @@ import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
 import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
 import NarrowMode from "./components/layout/NarrowMode";
-import NATTraversalDiscoveryPage from "./components/ethernet/nat/traversal/NATTraversalDiscoveryPage";
+import STUNDiscoveriesPage from "./components/ethernet/nat/traversal/stun_discoveries/STUNDiscoveriesPage";
+import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -596,7 +597,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.TRANSACTION_DETAILS(':transactionId')} element={<NTPTransactionDetailsPage />}/>
 
                                 { /* Ethernet/NAT. */}
-                                <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.DISCOVERY.INDEX} element={<NATTraversalDiscoveryPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX} element={<STUNConnectionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_DISCOVERY.INDEX} element={<STUNDiscoveriesPage />}/>
 
                                 { /* Ethernet/Beacons. */}
                                 <Route path={ApiRoutes.ETHERNET.BEACONS.INDEX} element={<BeaconsPage />}/>

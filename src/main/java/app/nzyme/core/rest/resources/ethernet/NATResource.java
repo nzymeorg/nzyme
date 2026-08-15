@@ -58,11 +58,11 @@ public class NATResource extends TapDataHandlingResource {
 
     @GET
     @Path("/traversal/stun/discoveries/show/{id}")
-    public Response oneTraversalDiscovery(@Context SecurityContext sc,
-                                          @PathParam("id") String id,
-                                          @QueryParam("organization_id") UUID organizationId,
-                                          @QueryParam("tenant_id") UUID tenantId,
-                                          @QueryParam("taps") String tapIds) {
+    public Response oneSTUNDiscovery(@Context SecurityContext sc,
+                                     @PathParam("id") String id,
+                                     @QueryParam("organization_id") UUID organizationId,
+                                     @QueryParam("tenant_id") UUID tenantId,
+                                     @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -80,16 +80,16 @@ public class NATResource extends TapDataHandlingResource {
 
     @GET
     @Path("/traversal/stun/discoveries")
-    public Response allTraversalDiscoveries(@Context SecurityContext sc,
-                                            @QueryParam("organization_id") UUID organizationId,
-                                            @QueryParam("tenant_id") UUID tenantId,
-                                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                                            @QueryParam("filters") String filtersParameter,
-                                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                            @QueryParam("limit") int limit,
-                                            @QueryParam("offset") int offset,
-                                            @QueryParam("taps") String tapIds) {
+    public Response allSTUNDiscoveries(@Context SecurityContext sc,
+                                       @QueryParam("organization_id") UUID organizationId,
+                                       @QueryParam("tenant_id") UUID tenantId,
+                                       @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @QueryParam("filters") String filtersParameter,
+                                       @QueryParam("order_column") @Nullable String orderColumnParam,
+                                       @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                       @QueryParam("limit") int limit,
+                                       @QueryParam("offset") int offset,
+                                       @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -123,10 +123,10 @@ public class NATResource extends TapDataHandlingResource {
 
     @GET
     @Path("/traversal/stun/discoveries/histogram")
-    public Response traversalHistogram(@Context SecurityContext sc,
-                                       @QueryParam("time_range") @Valid String timeRangeParameter,
-                                       @QueryParam("filters") String filtersParameter,
-                                       @QueryParam("taps") String tapIds) {
+    public Response stunDiscoveriesHistogram(@Context SecurityContext sc,
+                                             @QueryParam("time_range") @Valid String timeRangeParameter,
+                                             @QueryParam("filters") String filtersParameter,
+                                             @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -147,14 +147,14 @@ public class NATResource extends TapDataHandlingResource {
 
     @GET
     @Path("/traversal/stun/clients/histogram")
-    public Response traversalTopClientsHistogram(@Context SecurityContext sc,
-                                                 @QueryParam("organization_id") UUID organizationId,
-                                                 @QueryParam("tenant_id") UUID tenantId,
-                                                 @QueryParam("time_range") String timeRangeParameter,
-                                                 @QueryParam("filters") String filtersParameter,
-                                                 @QueryParam("limit") int limit,
-                                                 @QueryParam("offset") int offset,
-                                                 @QueryParam("taps") String tapIds) {
+    public Response stunDiscoveriesTopClientsHistogram(@Context SecurityContext sc,
+                                                       @QueryParam("organization_id") UUID organizationId,
+                                                       @QueryParam("tenant_id") UUID tenantId,
+                                                       @QueryParam("time_range") String timeRangeParameter,
+                                                       @QueryParam("filters") String filtersParameter,
+                                                       @QueryParam("limit") int limit,
+                                                       @QueryParam("offset") int offset,
+                                                       @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -238,14 +238,14 @@ public class NATResource extends TapDataHandlingResource {
 
     @GET
     @Path("/traversal/stun/servers/histogram")
-    public Response traversalTopServersHistogram(@Context SecurityContext sc,
-                                                 @QueryParam("organization_id") UUID organizationId,
-                                                 @QueryParam("tenant_id") UUID tenantId,
-                                                 @QueryParam("time_range") String timeRangeParameter,
-                                                 @QueryParam("filters") String filtersParameter,
-                                                 @QueryParam("limit") int limit,
-                                                 @QueryParam("offset") int offset,
-                                                 @QueryParam("taps") String tapIds) {
+    public Response stunDiscoveriesTopServersHistogram(@Context SecurityContext sc,
+                                                       @QueryParam("organization_id") UUID organizationId,
+                                                       @QueryParam("tenant_id") UUID tenantId,
+                                                       @QueryParam("time_range") String timeRangeParameter,
+                                                       @QueryParam("filters") String filtersParameter,
+                                                       @QueryParam("limit") int limit,
+                                                       @QueryParam("offset") int offset,
+                                                       @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -327,17 +327,17 @@ public class NATResource extends TapDataHandlingResource {
     }
 
     @GET
-    @Path("/traversal/stun/negotiations")
-    public Response allNegotiations(@Context SecurityContext sc,
-                                    @QueryParam("organization_id") UUID organizationId,
-                                    @QueryParam("tenant_id") UUID tenantId,
-                                    @QueryParam("time_range") @Valid String timeRangeParameter,
-                                    @QueryParam("filters") String filtersParameter,
-                                    @QueryParam("order_column") @Nullable String orderColumnParam,
-                                    @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                    @QueryParam("limit") int limit,
-                                    @QueryParam("offset") int offset,
-                                    @QueryParam("taps") String tapIds) {
+    @Path("/traversal/stun/connections")
+    public Response allSTUNConnections(@Context SecurityContext sc,
+                                       @QueryParam("organization_id") UUID organizationId,
+                                       @QueryParam("tenant_id") UUID tenantId,
+                                       @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @QueryParam("filters") String filtersParameter,
+                                       @QueryParam("order_column") @Nullable String orderColumnParam,
+                                       @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                       @QueryParam("limit") int limit,
+                                       @QueryParam("offset") int offset,
+                                       @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -423,6 +423,7 @@ public class NATResource extends TapDataHandlingResource {
 
         return NATSTUNNegotiationDetailsResponse.create(
                 negotiation.negotiationKey(),
+                negotiation.negotiationKeySha256(),
                 negotiation.transport(),
                 negotiation.successful(),
                 negotiation.isTurn(),

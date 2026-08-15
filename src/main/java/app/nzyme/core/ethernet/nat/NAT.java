@@ -424,12 +424,10 @@ public class NAT {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT MAX(n.negotiation_key) AS negotiation_key, " +
-                                "UPPER(MAX(n.transport)) AS transport, " +
-                                "BOOL_OR(n.successful) AS successful, " +
-                                "BOOL_OR(n.is_turn) AS is_turn, " +
-                                "MAX(n.first_seen) AS first_seen, " +
-                                "MAX(n.last_activity) AS last_activity, " +
-                                "MAX(s.source_mac) AS source_mac, " +
+                                "MAX(n.negotiation_key_sha256) AS negotiation_key_sha256, " +
+                                "UPPER(MAX(n.transport)) AS transport, BOOL_OR(n.successful) AS successful, " +
+                                "BOOL_OR(n.is_turn) AS is_turn, MAX(n.first_seen) AS first_seen, " +
+                                "MAX(n.last_activity) AS last_activity, MAX(s.source_mac) AS source_mac, " +
                                 "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
                                 "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
                                 "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +

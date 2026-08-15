@@ -11,8 +11,11 @@ import java.util.List;
 @AutoValue
 public abstract class NATSTUNNegotiationDetailsResponse {
 
-    @JsonProperty("negotiations_key")
+    @JsonProperty("negotiation_key")
     public abstract String negotiationKey();
+
+    @JsonProperty("negotiation_key_sha256")
+    public abstract String negotiationKeySha256();
 
     @JsonProperty("transport")
     public abstract String transport();
@@ -43,9 +46,10 @@ public abstract class NATSTUNNegotiationDetailsResponse {
     @JsonProperty("last_activity")
     public abstract DateTime lastActivity();
 
-    public static NATSTUNNegotiationDetailsResponse create(String negotiationKey, String transport, boolean successful, boolean isTurn, L4AddressResponse source, L4AddressResponse destination, List<L4AddressResponse> mappedAddresses, List<L4AddressResponse> peerAddresses, List<L4AddressResponse> relayedAddresses, DateTime firstSeen, DateTime lastActivity) {
+    public static NATSTUNNegotiationDetailsResponse create(String negotiationKey, String negotiationKeySha256, String transport, boolean successful, boolean isTurn, L4AddressResponse source, L4AddressResponse destination, List<L4AddressResponse> mappedAddresses, List<L4AddressResponse> peerAddresses, List<L4AddressResponse> relayedAddresses, DateTime firstSeen, DateTime lastActivity) {
         return builder()
                 .negotiationKey(negotiationKey)
+                .negotiationKeySha256(negotiationKeySha256)
                 .transport(transport)
                 .successful(successful)
                 .isTurn(isTurn)
@@ -66,6 +70,8 @@ public abstract class NATSTUNNegotiationDetailsResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder negotiationKey(String negotiationKey);
+
+        public abstract Builder negotiationKeySha256(String negotiationKeySha256);
 
         public abstract Builder transport(String transport);
 

@@ -11,6 +11,7 @@ import java.util.List;
 public abstract class STUNNegotiationEntry {
 
     public abstract String negotiationKey();
+    public abstract String negotiationKeySha256();
     public abstract String transport();
     public abstract boolean successful();
     public abstract boolean isTurn();
@@ -24,9 +25,10 @@ public abstract class STUNNegotiationEntry {
     public abstract DateTime firstSeen();
     public abstract DateTime lastActivity();
 
-    public static STUNNegotiationEntry create(String negotiationKey, String transport, boolean successful, boolean isTurn, L4AddressData source, L4AddressData destination, List<L4AddressData> mappedAddresses, List<L4AddressData> peerAddresses, List<L4AddressData> relayedAddresses, DateTime firstSeen, DateTime lastActivity) {
+    public static STUNNegotiationEntry create(String negotiationKey, String negotiationKeySha256, String transport, boolean successful, boolean isTurn, L4AddressData source, L4AddressData destination, List<L4AddressData> mappedAddresses, List<L4AddressData> peerAddresses, List<L4AddressData> relayedAddresses, DateTime firstSeen, DateTime lastActivity) {
         return builder()
                 .negotiationKey(negotiationKey)
+                .negotiationKeySha256(negotiationKeySha256)
                 .transport(transport)
                 .successful(successful)
                 .isTurn(isTurn)
@@ -47,6 +49,8 @@ public abstract class STUNNegotiationEntry {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder negotiationKey(String negotiationKey);
+
+        public abstract Builder negotiationKeySha256(String negotiationKeySha256);
 
         public abstract Builder transport(String transport);
 
