@@ -55,8 +55,6 @@ export default function NATTraversalDiscoveryPage() {
     natService.getTraversalDiscoveriesHistogram(timeRange, filters, selectedTaps, setHistogram);
   }, [selectedTaps, timeRange, filters, revision]);
 
-  console.log(histogram);
-
   return (
     <React.Fragment>
       <div className="row">

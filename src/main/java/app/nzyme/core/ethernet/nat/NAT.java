@@ -6,6 +6,8 @@ import app.nzyme.core.database.generic.StringStringNumberAggregationResult;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntry;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryHistogramBucket;
+import app.nzyme.core.ethernet.nat.db.STUNNegotiationEntry;
+import app.nzyme.core.ethernet.nat.db.STUNNegotiationFilters;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
@@ -31,6 +33,22 @@ public class NAT {
         private final String columnName;
 
         DiscoveryOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+
+    }
+
+    public enum NegotiationOrderColumn {
+
+        FIRST_SEEN("first_seen");
+
+        private final String columnName;
+
+        NegotiationOrderColumn(String columnName) {
             this.columnName = columnName;
         }
 
@@ -363,6 +381,103 @@ public class NAT {
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
                         .mapTo(StringStringNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    public long countAllNegotiations(TimeRange timeRange, Filters filters, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT 1 FROM nat_stun_negotiation_flows AS n " +
+                                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                                "WHERE n.last_activity >= :tr_from AND n.last_activity <= :tr_to " +
+                                "AND n.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                                " GROUP BY n.negotiation_key HAVING 1=1 " + filterFragment.havingSql() +
+                                ") AS ignored")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<STUNNegotiationEntry> findAllNegotiations(TimeRange timeRange,
+                                                          Filters filters,
+                                                          NegotiationOrderColumn orderColumn,
+                                                          OrderDirection orderDirection,
+                                                          int limit, int offset,
+                                                          List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT MAX(n.negotiation_key) AS negotiation_key, " +
+                                "UPPER(MAX(n.transport)) AS transport, " +
+                                "BOOL_OR(n.successful) AS successful, " +
+                                "BOOL_OR(n.is_turn) AS is_turn, " +
+                                "MAX(n.first_seen) AS first_seen, " +
+                                "MAX(n.last_activity) AS last_activity, " +
+                                "MAX(s.source_mac) AS source_mac, " +
+                                "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
+                                "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
+                                "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
+                                "MAX(s.source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
+                                "MAX(s.source_address_geo_city) AS source_address_geo_city, " +
+                                "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
+                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
+                                "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
+                                "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
+                                "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
+                                "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
+                                "MAX(s.destination_mac) FILTER (WHERE n.successful) AS destination_mac, " +
+                                "MAX(s.destination_address) FILTER (WHERE n.successful) AS destination_address, " +
+                                "MAX(s.destination_port) FILTER (WHERE n.successful) AS destination_port, " +
+                                "MAX(s.destination_address_geo_asn_number) FILTER (WHERE n.successful) AS destination_address_geo_asn_number, " +
+                                "MAX(s.destination_address_geo_asn_name) FILTER (WHERE n.successful) AS destination_address_geo_asn_name, " +
+                                "MAX(s.destination_address_geo_asn_domain) FILTER (WHERE n.successful) AS destination_address_geo_asn_domain, " +
+                                "MAX(s.destination_address_geo_city) FILTER (WHERE n.successful) AS destination_address_geo_city, " +
+                                "MAX(s.destination_address_geo_country_code) FILTER (WHERE n.successful) AS destination_address_geo_country_code, " +
+                                "MAX(s.destination_address_geo_latitude) FILTER (WHERE n.successful) AS destination_address_geo_latitude, " +
+                                "MAX(s.destination_address_geo_longitude) FILTER (WHERE n.successful) AS destination_address_geo_longitude, " +
+                                "BOOL_OR(s.destination_address_is_site_local) FILTER (WHERE n.successful) AS destination_address_is_site_local, " +
+                                "BOOL_OR(s.destination_address_is_loopback) FILTER (WHERE n.successful) AS destination_address_is_loopback, " +
+                                "BOOL_OR(s.destination_address_is_multicast) FILTER (WHERE n.successful) AS destination_address_is_multicast, " +
+                                "COALESCE(jsonb_agg(DISTINCT me.elem) FILTER (WHERE me.elem IS NOT NULL), '[]'::jsonb) AS mapped_addresses, " +
+                                "COALESCE(jsonb_agg(DISTINCT pe.elem) FILTER (WHERE pe.elem IS NOT NULL), '[]'::jsonb) AS peer_addresses, " +
+                                "COALESCE(jsonb_agg(DISTINCT re.elem) FILTER (WHERE re.elem IS NOT NULL), '[]'::jsonb) AS relayed_addresses " +
+                                "FROM nat_stun_negotiation_flows AS n " +
+                                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.mapped_addresses) = 'array' THEN n.mapped_addresses ELSE '[]'::jsonb END) AS me(elem) ON true " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.peer_addresses) = 'array' THEN n.peer_addresses ELSE '[]'::jsonb END) AS pe(elem) ON true " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.relayed_addresses) = 'array' THEN n.relayed_addresses ELSE '[]'::jsonb END) AS re(elem) ON true " +
+                                "WHERE n.last_activity >= :tr_from AND n.last_activity <= :tr_to " +
+                                "AND n.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                                " GROUP BY n.negotiation_key HAVING 1=1 " + filterFragment.havingSql() +
+                                " ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(STUNNegotiationEntry.class)
                         .list()
         );
     }
