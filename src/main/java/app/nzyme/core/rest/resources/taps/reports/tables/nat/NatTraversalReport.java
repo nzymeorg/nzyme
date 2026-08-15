@@ -10,11 +10,14 @@ import java.util.List;
 public abstract class NatTraversalReport {
 
     public abstract List<StunDiscoveryReport> discoveries();
+    public abstract List<StunNegotiationFlowReport> negotiationFlows();
 
     @JsonCreator
-    public static NatTraversalReport create(@JsonProperty("discoveries") List<StunDiscoveryReport> discoveries) {
+    public static NatTraversalReport create(@JsonProperty("discoveries") List<StunDiscoveryReport> discoveries,
+                                            @JsonProperty("negotiations") List<StunNegotiationFlowReport> negotiationFlows) {
         return builder()
                 .discoveries(discoveries)
+                .negotiationFlows(negotiationFlows)
                 .build();
     }
 
@@ -25,6 +28,8 @@ public abstract class NatTraversalReport {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder discoveries(List<StunDiscoveryReport> discoveries);
+
+        public abstract Builder negotiationFlows(List<StunNegotiationFlowReport> negotiationFlows);
 
         public abstract NatTraversalReport build();
     }

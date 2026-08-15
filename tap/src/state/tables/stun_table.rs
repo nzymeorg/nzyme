@@ -23,20 +23,20 @@ pub struct StunTable {
 #[derive(Debug, Clone)]
 pub struct NegotiationFlow {
     pub session_key: L4Key,
+    pub negotiation_key: Option<String>,
     pub transport: StunTransport,
-    pub host_address: IpAddr,
-    pub host_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub source_mac: Option<String>,
     pub source_port: u16,
     pub destination_address: IpAddr,
     pub destination_port: u16,
-
     pub ufrags: Vec<String>,
+    pub successful: bool,
     pub is_turn: bool,
     pub turn_usernames: Vec<String>,
     pub mapped_addresses: Vec<SocketAddr>,
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
-
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -45,17 +45,15 @@ pub struct NegotiationFlow {
 pub struct TurnFlow {
     pub session_key: L4Key,
     pub transport: StunTransport,
-    pub host_address: IpAddr,
-    pub host_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub source_mac: Option<String>,
     pub source_port: u16,
     pub destination_address: IpAddr,
     pub destination_port: u16,
-
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
     pub mapped_addresses: Vec<SocketAddr>,
     pub turn_usernames: Vec<String>,
-
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -69,12 +67,9 @@ pub struct DiscoveryFlow {
     pub source_port: u16,
     pub destination_address: IpAddr,
     pub destination_port: u16,
-
     pub mapped_addresses: Vec<SocketAddr>,
-
     pub saw_success_response: bool,
     pub saw_error_response: bool,
-
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -196,9 +191,10 @@ fn remove_flow<V>(table: &Mutex<HashMap<L4Key, V>>, key: &L4Key, name: &str) {
 fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFlow) {
     let record = table.entry(flow.session_key.clone()).or_insert_with(|| NegotiationFlow {
         session_key: flow.session_key.clone(),
+        negotiation_key: canonical_ice_ufrag(&flow.ufrags).map(|(canonical, _, _)| canonical),
         transport: flow.transport,
-        host_address: flow.source_address,
-        host_mac: flow.source_mac.clone(),
+        source_address: flow.source_address,
+        source_mac: flow.source_mac.clone(),
         source_port: flow.source_port,
         destination_address: flow.destination_address,
         destination_port: flow.destination_port,
@@ -208,17 +204,23 @@ fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFl
         mapped_addresses: Vec::new(),
         relayed_addresses: Vec::new(),
         peer_addresses: Vec::new(),
+        successful: false,
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
-
-    backfill_mac(&mut record.host_mac, flow);
+    if record.negotiation_key.is_none() {
+        record.negotiation_key = canonical_ice_ufrag(&flow.ufrags).map(|(canonical, _, _)| canonical);
+    }
     record.is_turn |= flow.is_turn;
+    backfill_mac(&mut record.source_mac, flow);
     extend_unique(&mut record.ufrags, &flow.ufrags);
     extend_unique(&mut record.turn_usernames, &flow.turn_usernames);
     extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
     extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
     extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
+
+    record.successful |= has_bidirectional_ufrag(&record.ufrags);
+
     widen_window(&mut record.first_seen, &mut record.last_activity, flow);
 }
 
@@ -226,8 +228,8 @@ fn upsert_turn(table: &mut HashMap<L4Key, TurnFlow>, flow: &StunFlow) {
     let record = table.entry(flow.session_key.clone()).or_insert_with(|| TurnFlow {
         session_key: flow.session_key.clone(),
         transport: flow.transport,
-        host_address: flow.source_address,
-        host_mac: flow.source_mac.clone(),
+        source_address: flow.source_address,
+        source_mac: flow.source_mac.clone(),
         source_port: flow.source_port,
         destination_address: flow.destination_address,
         destination_port: flow.destination_port,
@@ -239,7 +241,7 @@ fn upsert_turn(table: &mut HashMap<L4Key, TurnFlow>, flow: &StunFlow) {
         last_activity: flow.most_recent_segment_time,
     });
 
-    backfill_mac(&mut record.host_mac, flow);
+    backfill_mac(&mut record.source_mac, flow);
     extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
     extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
     extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
@@ -309,4 +311,17 @@ fn canonical_ice_ufrag(ufrags: &[String]) -> Option<(String, String, String)> {
         }
     }
     None
+}
+
+fn has_bidirectional_ufrag(ufrags: &[String]) -> bool {
+    for u in ufrags {
+        if let Some((a, b)) = u.split_once(':') {
+            if a.is_empty() || b.is_empty() { continue; }
+            let reversed = format!("{b}:{a}");
+            if ufrags.iter().any(|other| other == &reversed) {
+                return true;
+            }
+        }
+    }
+    false
 }

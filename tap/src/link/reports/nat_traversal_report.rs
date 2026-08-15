@@ -45,13 +45,15 @@ pub struct NatTraversalReport {
 
 #[derive(Serialize)]
 pub struct NegotiationFlowReport {
-    pub host_address: String,
-    pub host_mac: Option<String>,
-    pub transport: String,
+    pub negotiation_key: Option<String>,
+    pub source_address: String,
+    pub source_mac: Option<String>,
     pub source_port: u16,
-    pub remote_address: String,
-    pub remote_port: u16,
+    pub destination_address: String,
+    pub destination_port: u16,
+    pub transport: String,
     pub ufrags: Vec<String>,
+    pub successful: bool,
     pub is_turn: bool,
     pub turn_usernames: Vec<String>,
     #[serde(serialize_with = "serialize_socketaddrs")]
@@ -66,12 +68,12 @@ pub struct NegotiationFlowReport {
 
 #[derive(Serialize)]
 pub struct RelayFlowReport {
-    pub host_address: String,
-    pub host_mac: Option<String>,
-    pub transport: String,
+    pub source_address: String,
+    pub source_mac: Option<String>,
     pub source_port: u16,
-    pub server_address: String,
-    pub server_port: u16,
+    pub destination_address: String,
+    pub destination_port: u16,
+    pub transport: String,
     #[serde(serialize_with = "serialize_socketaddrs")]
     pub relayed_addresses: Vec<SocketAddr>,
     #[serde(serialize_with = "serialize_socketaddrs")]
@@ -113,13 +115,15 @@ pub fn generate(
 
 fn negotiation_to_report(n: &NegotiationFlow) -> NegotiationFlowReport {
     NegotiationFlowReport {
-        host_address: n.host_address.to_string(),
-        host_mac: n.host_mac.clone(),
+        negotiation_key: n.negotiation_key.clone(),
+        source_address: n.source_address.to_string(),
+        source_mac: n.source_mac.clone(),
         transport: transport_str(n.transport),
         source_port: n.source_port,
-        remote_address: n.destination_address.to_string(),
-        remote_port: n.destination_port,
+        destination_address: n.destination_address.to_string(),
+        destination_port: n.destination_port,
         ufrags: n.ufrags.clone(),
+        successful: n.successful,
         is_turn: n.is_turn,
         turn_usernames: n.turn_usernames.clone(),
         mapped_addresses: n.mapped_addresses.clone(),
@@ -132,12 +136,12 @@ fn negotiation_to_report(n: &NegotiationFlow) -> NegotiationFlowReport {
 
 fn relay_to_report(t: &TurnFlow) -> RelayFlowReport {
     RelayFlowReport {
-        host_address: t.host_address.to_string(),
-        host_mac: t.host_mac.clone(),
+        source_address: t.source_address.to_string(),
+        source_mac: t.source_mac.clone(),
         transport: transport_str(t.transport),
         source_port: t.source_port,
-        server_address: t.destination_address.to_string(),
-        server_port: t.destination_port,
+        destination_address: t.destination_address.to_string(),
+        destination_port: t.destination_port,
         relayed_addresses: t.relayed_addresses.clone(),
         peer_addresses: t.peer_addresses.clone(),
         mapped_addresses: t.mapped_addresses.clone(),

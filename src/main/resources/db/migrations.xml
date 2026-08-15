@@ -8522,4 +8522,89 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="create_nat_stun_negotiation_flows" author="lennartkoopmann">
+        <createTable tableName="nat_stun_negotiation_flows">
+            <column name="uuid" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="negotiation_key" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="l4_session_key" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="transport" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="ufrags" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="is_turn" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="turn_usernames" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="mapped_addresses" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="relayed_addresses" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="peer_addresses" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_activity" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="nat_stun_negotiation_flows"
+                             columnNames="tap_uuid, l4_session_key"
+                             constraintName="uniq_nat_stun_neg_tap_l4session" />
+
+        <createIndex tableName="nat_stun_negotiation_flows" indexName="nat_stun_neg_negotiation_key">
+            <column name="negotiation_key" />
+        </createIndex>
+
+        <createIndex tableName="nat_stun_negotiation_flows" indexName="nat_stun_neg_tap_first_seen">
+            <column name="tap_uuid" />
+            <column name="first_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_successful_flag_to_nat_stun_negotiation_flows" author="lennartkoopmann">
+        <addColumn tableName="nat_stun_negotiation_flows">
+            <column name="successful" type="boolean">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>
