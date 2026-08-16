@@ -491,19 +491,21 @@ public class NAT {
         );
     }
 
-    public Optional<STUNNegotiationEntry> findOneNegotiation(String negotiationKey, List<UUID> taps) {
+    public Optional<STUNNegotiationEntry> findOneNegotiation(String negotiationKeySha256, List<UUID> taps) {
         if (taps.isEmpty()) {
             return Optional.empty();
         }
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT MAX(n.negotiation_key) AS negotiation_key, " +
+                                "MAX(n.negotiation_key_sha256) AS negotiation_key_sha256, " +
                                 "UPPER(MAX(n.transport)) AS transport, " +
                                 "BOOL_OR(n.successful) AS successful, " +
                                 "BOOL_OR(n.is_turn) AS is_turn, " +
                                 "MAX(n.first_seen) AS first_seen, " +
                                 "MAX(n.last_activity) AS last_activity, " +
                                 "(MAX(n.last_activity) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "MAX(s.bytes_rx_count+s.bytes_tx_count) AS bytes_exchanged, " +
                                 "MAX(s.source_mac) AS source_mac, " +
                                 "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
                                 "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
@@ -540,16 +542,16 @@ public class NAT {
                                 "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.mapped_addresses) = 'array' THEN n.mapped_addresses ELSE '[]'::jsonb END) AS me(elem) ON true " +
                                 "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.peer_addresses) = 'array' THEN n.peer_addresses ELSE '[]'::jsonb END) AS pe(elem) ON true " +
                                 "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.relayed_addresses) = 'array' THEN n.relayed_addresses ELSE '[]'::jsonb END) AS re(elem) ON true " +
-                                "WHERE n.negotiation_key = :negotiation_key AND n.tap_uuid IN (<taps>) " +
+                                "WHERE n.negotiation_key_sha256 = :negotiation_key_sha256 AND n.tap_uuid IN (<taps>) " +
                                 "GROUP BY n.negotiation_key")
                         .bindList("taps", taps)
-                        .bind("negotiation_key", negotiationKey)
+                        .bind("negotiation_key_sha256", negotiationKeySha256)
                         .mapTo(STUNNegotiationEntry.class)
                         .findOne()
         );
     }
 
-    public List<STUNNegotiationEntry> findFlowsOfNegotiation(String negotiationKey, List<UUID> taps) {
+    public List<STUNNegotiationEntry> findFlowsOfNegotiation(String negotiationKeySha256, List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -576,10 +578,10 @@ public class NAT {
                                 "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
                                 "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
                                 "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
-                                "WHERE n.negotiation_key = :negotiation_key AND n.tap_uuid IN (<taps>) " +
+                                "WHERE n.negotiation_key_sha256 = :negotiation_key_sha256 AND n.tap_uuid IN (<taps>) " +
                                 "ORDER BY n.first_seen ASC")
                         .bindList("taps", taps)
-                        .bind("negotiation_key", negotiationKey)
+                        .bind("negotiation_key_sha256", negotiationKeySha256)
                         .mapTo(STUNNegotiationEntry.class)
                         .list()
         );

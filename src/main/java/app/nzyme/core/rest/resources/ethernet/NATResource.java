@@ -369,9 +369,9 @@ public class NATResource extends TapDataHandlingResource {
     }
 
     @GET
-    @Path("/traversal/stun/connections/show/{id}")
+    @Path("/traversal/stun/connections/show/{key_sha256}")
     public Response oneSTUNConnection(@Context SecurityContext sc,
-                                      @PathParam("id") String id,
+                                      @PathParam("key_sha256") String negotiationKeySha256,
                                       @QueryParam("organization_id") UUID organizationId,
                                       @QueryParam("tenant_id") UUID tenantId,
                                       @QueryParam("taps") String tapIds) {
@@ -381,15 +381,15 @@ public class NATResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Optional<STUNNegotiationEntry> negotation = nzyme.getEthernet().nat().findOneNegotiation(id, taps);
+        Optional<STUNNegotiationEntry> negotiation = nzyme.getEthernet().nat().findOneNegotiation(negotiationKeySha256, taps);
 
-        if (negotation.isEmpty()) {
+        if (negotiation.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
         List<NATSTUNNegotiationDetailsResponse> flows = Lists.newArrayList();
 
-        return Response.ok(buildNegotiationDetailsResponse(negotation.get(), flows, organizationId, tenantId)).build();
+        return Response.ok(buildNegotiationDetailsResponse(negotiation.get(), flows, organizationId, tenantId)).build();
     }
 
     private NATSTUNNegotiationDetailsResponse buildNegotiationDetailsResponse(STUNNegotiationEntry negotiation,
