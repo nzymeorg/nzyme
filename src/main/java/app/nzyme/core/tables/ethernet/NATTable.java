@@ -189,9 +189,9 @@ public class NATTable implements DataTable  {
             String[] turnUsernames = negotiation.turnUsernames().toArray(new String[0]);
 
             Optional<UUID> existing = handle.createQuery("SELECT uuid FROM nat_stun_negotiation_flows " +
-                            "WHERE negotiation_key = :negotiation_key AND first_seen = :first_seen " +
+                            "WHERE l4_session_key = :l4_session_key AND first_seen = :first_seen " +
                             "AND tap_uuid = :tap_uuid")
-                    .bind("negotiation_key", negotiation.negotiationKey())
+                    .bind("l4_session_key", sessionKey)
                     .bind("first_seen", negotiation.firstSeen())
                     .bind("tap_uuid", tapUuid)
                     .mapTo(UUID.class)

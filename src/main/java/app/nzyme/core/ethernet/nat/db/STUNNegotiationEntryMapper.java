@@ -27,9 +27,11 @@ public class STUNNegotiationEntryMapper implements RowMapper<STUNNegotiationEntr
         return STUNNegotiationEntry.create(
                 rs.getString("negotiation_key"),
                 rs.getString("negotiation_key_sha256"),
+                rs.getBoolean("is_active"),
                 rs.getString("transport"),
                 rs.getBoolean("successful"),
                 rs.getBoolean("is_turn"),
+                rs.getLong("bytes_exchanged"),
                 source,
                 destination,
                 parseAddressArray(rs, "mapped_addresses"),

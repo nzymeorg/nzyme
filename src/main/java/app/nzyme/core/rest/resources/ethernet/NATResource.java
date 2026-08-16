@@ -346,7 +346,7 @@ public class NATResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        NAT.NegotiationOrderColumn orderColumn = NAT.NegotiationOrderColumn.FIRST_SEEN;
+        NAT.NegotiationOrderColumn orderColumn = NAT.NegotiationOrderColumn.INITIATED_AT;
         OrderDirection orderDirection = OrderDirection.DESC;
         if (orderColumnParam != null && orderDirectionParam != null) {
             try {
@@ -362,13 +362,38 @@ public class NATResource extends TapDataHandlingResource {
         List<NATSTUNNegotiationDetailsResponse> negotiations = Lists.newArrayList();
         for (STUNNegotiationEntry negotiation : nzyme.getEthernet().nat()
                 .findAllNegotiations(timeRange, filters, orderColumn, orderDirection, limit, offset, taps)) {
-            negotiations.add(buildNegotiationDetailsResponse(negotiation, organizationId, tenantId));
+            negotiations.add(buildNegotiationDetailsResponse(negotiation, null, organizationId, tenantId));
         }
 
         return Response.ok(NATSTUNNegotiationsListResponse.create(total, negotiations)).build();
     }
 
+    @GET
+    @Path("/traversal/stun/connections/show/{id}")
+    public Response oneSTUNConnection(@Context SecurityContext sc,
+                                      @PathParam("id") String id,
+                                      @QueryParam("organization_id") UUID organizationId,
+                                      @QueryParam("tenant_id") UUID tenantId,
+                                      @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Optional<STUNNegotiationEntry> negotation = nzyme.getEthernet().nat().findOneNegotiation(id, taps);
+
+        if (negotation.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        List<NATSTUNNegotiationDetailsResponse> flows = Lists.newArrayList();
+
+        return Response.ok(buildNegotiationDetailsResponse(negotation.get(), flows, organizationId, tenantId)).build();
+    }
+
     private NATSTUNNegotiationDetailsResponse buildNegotiationDetailsResponse(STUNNegotiationEntry negotiation,
+                                                                              List<NATSTUNNegotiationDetailsResponse> flows,
                                                                               UUID organizationId,
                                                                               UUID tenantId) {
         L4AddressResponse source = null;
@@ -424,14 +449,17 @@ public class NATResource extends TapDataHandlingResource {
         return NATSTUNNegotiationDetailsResponse.create(
                 negotiation.negotiationKey(),
                 negotiation.negotiationKeySha256(),
+                negotiation.isActive(),
                 negotiation.transport(),
                 negotiation.successful(),
                 negotiation.isTurn(),
+                negotiation.bytesExchanged(),
                 source,
                 destination,
                 mappedAddresses,
                 peerAddresses,
                 relayedAddresses,
+                flows,
                 negotiation.firstSeen(),
                 negotiation.lastActivity()
         );

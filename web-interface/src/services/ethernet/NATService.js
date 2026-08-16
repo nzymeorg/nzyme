@@ -62,6 +62,14 @@ export default class NATService {
     )
   }
 
+  findOneSTUNConnection(id, organizationId, tenantId, taps, setConnection) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(`/ethernet/nat/traversal/stun/connections/show/${id}`, { organization_id: organizationId, tenant_id: tenantId, taps: tapsList },
+      (response) => setConnection(response.data)
+    )
+  }
+
   findAllSTUNConnections(organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, taps, limit, offset, setNegotiations) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

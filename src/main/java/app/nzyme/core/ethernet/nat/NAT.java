@@ -44,7 +44,15 @@ public class NAT {
 
     public enum NegotiationOrderColumn {
 
-        FIRST_SEEN("first_seen");
+        IS_ACTIVE("is_active"),
+        SUCCESSFUL("successful"),
+        SOURCE_MAC("source_mac"),
+        SOURCE_ADDRESS("source_address"),
+        DESTINATION_MAC("destination_mac"),
+        DESTINATION_ADDRESS("destination_address"),
+        BYTES("bytes_exchanged"),
+        LAST_ACTIVITY("last_activity"),
+        INITIATED_AT("first_seen");
 
         private final String columnName;
 
@@ -427,7 +435,10 @@ public class NAT {
                                 "MAX(n.negotiation_key_sha256) AS negotiation_key_sha256, " +
                                 "UPPER(MAX(n.transport)) AS transport, BOOL_OR(n.successful) AS successful, " +
                                 "BOOL_OR(n.is_turn) AS is_turn, MAX(n.first_seen) AS first_seen, " +
-                                "MAX(n.last_activity) AS last_activity, MAX(s.source_mac) AS source_mac, " +
+                                "MAX(n.last_activity) AS last_activity," +
+                                "(MAX(s.most_recent_segment_time) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "MAX(s.bytes_rx_count+s.bytes_tx_count) AS bytes_exchanged, " +
+                                "MAX(s.source_port) AS source_port, MAX(s.source_mac) AS source_mac, " +
                                 "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
                                 "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
                                 "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
@@ -475,6 +486,100 @@ public class NAT {
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
+                        .mapTo(STUNNegotiationEntry.class)
+                        .list()
+        );
+    }
+
+    public Optional<STUNNegotiationEntry> findOneNegotiation(String negotiationKey, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT MAX(n.negotiation_key) AS negotiation_key, " +
+                                "UPPER(MAX(n.transport)) AS transport, " +
+                                "BOOL_OR(n.successful) AS successful, " +
+                                "BOOL_OR(n.is_turn) AS is_turn, " +
+                                "MAX(n.first_seen) AS first_seen, " +
+                                "MAX(n.last_activity) AS last_activity, " +
+                                "(MAX(n.last_activity) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "MAX(s.source_mac) AS source_mac, " +
+                                "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
+                                "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
+                                "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
+                                "MAX(s.source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
+                                "MAX(s.source_address_geo_city) AS source_address_geo_city, " +
+                                "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
+                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
+                                "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
+                                "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
+                                "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
+                                "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
+                                "MAX(s.destination_mac) FILTER (WHERE n.successful) AS destination_mac, " +
+                                "MAX(s.destination_address) FILTER (WHERE n.successful) AS destination_address, " +
+                                "MAX(s.destination_port) FILTER (WHERE n.successful) AS destination_port, " +
+                                "MAX(s.destination_address_geo_asn_number) FILTER (WHERE n.successful) AS destination_address_geo_asn_number, " +
+                                "MAX(s.destination_address_geo_asn_name) FILTER (WHERE n.successful) AS destination_address_geo_asn_name, " +
+                                "MAX(s.destination_address_geo_asn_domain) FILTER (WHERE n.successful) AS destination_address_geo_asn_domain, " +
+                                "MAX(s.destination_address_geo_city) FILTER (WHERE n.successful) AS destination_address_geo_city, " +
+                                "MAX(s.destination_address_geo_country_code) FILTER (WHERE n.successful) AS destination_address_geo_country_code, " +
+                                "MAX(s.destination_address_geo_latitude) FILTER (WHERE n.successful) AS destination_address_geo_latitude, " +
+                                "MAX(s.destination_address_geo_longitude) FILTER (WHERE n.successful) AS destination_address_geo_longitude, " +
+                                "BOOL_OR(s.destination_address_is_site_local) FILTER (WHERE n.successful) AS destination_address_is_site_local, " +
+                                "BOOL_OR(s.destination_address_is_loopback) FILTER (WHERE n.successful) AS destination_address_is_loopback, " +
+                                "BOOL_OR(s.destination_address_is_multicast) FILTER (WHERE n.successful) AS destination_address_is_multicast, " +
+                                "COALESCE(jsonb_agg(DISTINCT me.elem) FILTER (WHERE me.elem IS NOT NULL), '[]'::jsonb) AS mapped_addresses, " +
+                                "COALESCE(jsonb_agg(DISTINCT pe.elem) FILTER (WHERE pe.elem IS NOT NULL), '[]'::jsonb) AS peer_addresses, " +
+                                "COALESCE(jsonb_agg(DISTINCT re.elem) FILTER (WHERE re.elem IS NOT NULL), '[]'::jsonb) AS relayed_addresses " +
+                                "FROM nat_stun_negotiation_flows AS n " +
+                                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.mapped_addresses) = 'array' THEN n.mapped_addresses ELSE '[]'::jsonb END) AS me(elem) ON true " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.peer_addresses) = 'array' THEN n.peer_addresses ELSE '[]'::jsonb END) AS pe(elem) ON true " +
+                                "LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(n.relayed_addresses) = 'array' THEN n.relayed_addresses ELSE '[]'::jsonb END) AS re(elem) ON true " +
+                                "WHERE n.negotiation_key = :negotiation_key AND n.tap_uuid IN (<taps>) " +
+                                "GROUP BY n.negotiation_key")
+                        .bindList("taps", taps)
+                        .bind("negotiation_key", negotiationKey)
+                        .mapTo(STUNNegotiationEntry.class)
+                        .findOne()
+        );
+    }
+
+    public List<STUNNegotiationEntry> findFlowsOfNegotiation(String negotiationKey, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT n.negotiation_key, UPPER(n.transport) AS transport, " +
+                                "n.successful, n.is_turn, n.first_seen, n.last_activity, " +
+                                "(n.last_activity >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "s.source_mac, s.source_address, s.source_port, " +
+                                "s.source_address_geo_asn_number, s.source_address_geo_asn_name, " +
+                                "s.source_address_geo_asn_domain, s.source_address_geo_city, " +
+                                "s.source_address_geo_country_code, s.source_address_geo_latitude, " +
+                                "s.source_address_geo_longitude, s.source_address_is_site_local, " +
+                                "s.source_address_is_loopback, s.source_address_is_multicast, " +
+                                "s.destination_mac, s.destination_address, s.destination_port, " +
+                                "s.destination_address_geo_asn_number, s.destination_address_geo_asn_name, " +
+                                "s.destination_address_geo_asn_domain, s.destination_address_geo_city, " +
+                                "s.destination_address_geo_country_code, s.destination_address_geo_latitude, " +
+                                "s.destination_address_geo_longitude, s.destination_address_is_site_local, " +
+                                "s.destination_address_is_loopback, s.destination_address_is_multicast, " +
+                                "n.mapped_addresses, n.peer_addresses, n.relayed_addresses " +
+                                "FROM nat_stun_negotiation_flows AS n " +
+                                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                                "WHERE n.negotiation_key = :negotiation_key AND n.tap_uuid IN (<taps>) " +
+                                "ORDER BY n.first_seen ASC")
+                        .bindList("taps", taps)
+                        .bind("negotiation_key", negotiationKey)
                         .mapTo(STUNNegotiationEntry.class)
                         .list()
         );

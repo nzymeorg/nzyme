@@ -183,6 +183,7 @@ import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage"
 import NarrowMode from "./components/layout/NarrowMode";
 import STUNDiscoveriesPage from "./components/ethernet/nat/traversal/stun_discoveries/STUNDiscoveriesPage";
 import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionsPage";
+import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -598,6 +599,7 @@ function App() {
 
                                 { /* Ethernet/NAT. */}
                                 <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX} element={<STUNConnectionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.DETAILS(':negotiationKey')} element={<STUNConnectionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_DISCOVERY.INDEX} element={<STUNDiscoveriesPage />}/>
 
                                 { /* Ethernet/Beacons. */}

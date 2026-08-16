@@ -203,7 +203,8 @@ const ApiRoutes = {
           INDEX: '/ethernet/nat/traversal/stun/discovery'
         },
         STUN_CONNECTIONS: {
-          INDEX: '/ethernet/nat/traversal/stun/connections'
+          INDEX: '/ethernet/nat/traversal/stun/connections',
+          DETAILS: (negotiationKey) => `/ethernet/nat/traversal/stun/connections/show/${negotiationKey}`
         },
         TURN_CONNECTIONS: {
           INDEX: '/ethernet/nat/traversal/turn/connections'
