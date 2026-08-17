@@ -438,18 +438,19 @@ public class NAT {
                                 "MAX(n.last_activity) AS last_activity," +
                                 "(MAX(s.most_recent_segment_time) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
                                 "MAX(s.bytes_rx_count+s.bytes_tx_count) AS bytes_exchanged, " +
-                                "MAX(s.source_port) AS source_port, MAX(s.source_mac) AS source_mac, " +
-                                "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
-                                "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
-                                "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
-                                "MAX(s.source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
-                                "MAX(s.source_address_geo_city) AS source_address_geo_city, " +
-                                "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
-                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
-                                "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
-                                "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
-                                "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
-                                "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
+                                "MAX(s.source_mac) FILTER (WHERE n.successful) AS source_mac, " +
+                                "MAX(s.source_address) FILTER (WHERE n.successful) AS source_address, " +
+                                "MAX(s.source_port) FILTER (WHERE n.successful) AS source_port, " +
+                                "MAX(s.source_address_geo_asn_number) FILTER (WHERE n.successful) AS source_address_geo_asn_number, " +
+                                "MAX(s.source_address_geo_asn_name) FILTER (WHERE n.successful) AS source_address_geo_asn_name, " +
+                                "MAX(s.source_address_geo_asn_domain) FILTER (WHERE n.successful) AS source_address_geo_asn_domain, " +
+                                "MAX(s.source_address_geo_city) FILTER (WHERE n.successful) AS source_address_geo_city, " +
+                                "MAX(s.source_address_geo_country_code) FILTER (WHERE n.successful) AS source_address_geo_country_code, " +
+                                "MAX(s.source_address_geo_latitude) FILTER (WHERE n.successful) AS source_address_geo_latitude, " +
+                                "MAX(s.source_address_geo_longitude) FILTER (WHERE n.successful) AS source_address_geo_longitude, " +
+                                "BOOL_OR(s.source_address_is_site_local) FILTER (WHERE n.successful) AS source_address_is_site_local, " +
+                                "BOOL_OR(s.source_address_is_loopback) FILTER (WHERE n.successful) AS source_address_is_loopback, " +
+                                "BOOL_OR(s.source_address_is_multicast) FILTER (WHERE n.successful) AS source_address_is_multicast, " +
                                 "MAX(s.destination_mac) FILTER (WHERE n.successful) AS destination_mac, " +
                                 "MAX(s.destination_address) FILTER (WHERE n.successful) AS destination_address, " +
                                 "MAX(s.destination_port) FILTER (WHERE n.successful) AS destination_port, " +
@@ -506,18 +507,19 @@ public class NAT {
                                 "MAX(n.last_activity) AS last_activity, " +
                                 "(MAX(n.last_activity) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
                                 "MAX(s.bytes_rx_count+s.bytes_tx_count) AS bytes_exchanged, " +
-                                "MAX(s.source_mac) AS source_mac, " +
-                                "MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
-                                "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
-                                "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
-                                "MAX(s.source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
-                                "MAX(s.source_address_geo_city) AS source_address_geo_city, " +
-                                "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
-                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
-                                "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
-                                "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
-                                "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
-                                "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
+                                "MAX(s.source_mac) FILTER (WHERE n.successful) AS source_mac, " +
+                                "MAX(s.source_address) FILTER (WHERE n.successful) AS source_address, " +
+                                "MAX(s.source_port) FILTER (WHERE n.successful) AS source_port, " +
+                                "MAX(s.source_address_geo_asn_number) FILTER (WHERE n.successful) AS source_address_geo_asn_number, " +
+                                "MAX(s.source_address_geo_asn_name) FILTER (WHERE n.successful) AS source_address_geo_asn_name, " +
+                                "MAX(s.source_address_geo_asn_domain) FILTER (WHERE n.successful) AS source_address_geo_asn_domain, " +
+                                "MAX(s.source_address_geo_city) FILTER (WHERE n.successful) AS source_address_geo_city, " +
+                                "MAX(s.source_address_geo_country_code) FILTER (WHERE n.successful) AS source_address_geo_country_code, " +
+                                "MAX(s.source_address_geo_latitude) FILTER (WHERE n.successful) AS source_address_geo_latitude, " +
+                                "MAX(s.source_address_geo_longitude) FILTER (WHERE n.successful) AS source_address_geo_longitude, " +
+                                "BOOL_OR(s.source_address_is_site_local) FILTER (WHERE n.successful) AS source_address_is_site_local, " +
+                                "BOOL_OR(s.source_address_is_loopback) FILTER (WHERE n.successful) AS source_address_is_loopback, " +
+                                "BOOL_OR(s.source_address_is_multicast) FILTER (WHERE n.successful) AS source_address_is_multicast, " +
                                 "MAX(s.destination_mac) FILTER (WHERE n.successful) AS destination_mac, " +
                                 "MAX(s.destination_address) FILTER (WHERE n.successful) AS destination_address, " +
                                 "MAX(s.destination_port) FILTER (WHERE n.successful) AS destination_port, " +
