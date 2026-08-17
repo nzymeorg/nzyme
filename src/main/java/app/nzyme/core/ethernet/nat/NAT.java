@@ -558,8 +558,9 @@ public class NAT {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT n.negotiation_key, UPPER(n.transport) AS transport, " +
-                                "n.successful, n.is_turn, n.first_seen, n.last_activity, " +
+                                "n.successful, n.negotiation_key_sha256, n.is_turn, n.first_seen, n.last_activity, " +
                                 "(n.last_activity >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "s.bytes_rx_count+s.bytes_tx_count AS bytes_exchanged, " +
                                 "s.source_mac, s.source_address, s.source_port, " +
                                 "s.source_address_geo_asn_number, s.source_address_geo_asn_name, " +
                                 "s.source_address_geo_asn_domain, s.source_address_geo_city, " +

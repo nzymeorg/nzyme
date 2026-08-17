@@ -388,6 +388,10 @@ public class NATResource extends TapDataHandlingResource {
         }
 
         List<NATSTUNNegotiationDetailsResponse> flows = Lists.newArrayList();
+        for (STUNNegotiationEntry flow : nzyme.getEthernet().nat().findFlowsOfNegotiation(negotiation.get().negotiationKeySha256(), taps)) {
+            flows.add(buildNegotiationDetailsResponse(flow, null, organizationId, tenantId));
+        }
+
 
         return Response.ok(buildNegotiationDetailsResponse(negotiation.get(), flows, organizationId, tenantId)).build();
     }

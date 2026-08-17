@@ -16,6 +16,8 @@ import L4Address from "../../../shared/L4Address";
 import InternalAddressOnlyWrapper from "../../../shared/InternalAddressOnlyWrapper";
 import EthernetMacAddress from "../../../../shared/context/macs/EthernetMacAddress";
 import moment from "moment";
+import L4AddressList from "../../../shared/L4AddressList";
+import FullCopyShortenedId from "../../../../shared/FullCopyShortenedId";
 
 const natService = new NATService();
 
@@ -45,6 +47,59 @@ export default function STUNConnectionDetailsPage() {
     natService.findOneSTUNConnection(negotiationKey, organizationId, tenantId, selectedTaps, setConnection);
   }, [negotiationKey, organizationId, tenantId, selectedTaps])
 
+  const flows = () => {
+    if (connection.flows === null || connection.flows.length === 0) {
+      return <div className="alert alert-info mb-0">No Negotiation Flows recorded.</div>
+    }
+
+    return (
+      <table className="table table-sm table-hover table-striped mb-4 mt-3">
+        <thead>
+        <tr>
+          <th><i className="fa fa-regular fa-circle-check" /></th>
+          <th className="hide-narrow">Source MAC</th>
+          <th>Source Address</th>
+          <th className="hide-narrow">Destination MAC</th>
+          <th>Destination Address</th>
+          <th title="Mapped Addresses">Mapped</th>
+          <th title="Peer Addresses">Peer</th>
+          <th title="Relayed Addresses">Relayed</th>
+          <th>Bytes</th>
+        </tr>
+        </thead>
+        <tbody>
+        {connection.flows.map((f, i) => {
+          return (
+            <tr key={i}>
+              <td><STUNConnectionSuccessIndicator successful={f.successful} /></td>
+              <td className="hide-narrow">
+                <InternalAddressOnlyWrapper
+                  address={f.source}
+                  inner={f.source ? <EthernetMacAddress addressWithContext={f.source.mac} withAssetLink withAssetName /> : null} />
+              </td>
+              <td>
+                <L4Address address={f.source} hidePort={true} />
+              </td>
+              <td className="hide-narrow">
+                <InternalAddressOnlyWrapper
+                  address={f.destination}
+                  inner={f.destination ? <EthernetMacAddress addressWithContext={f.destination.mac} withAssetLink withAssetName /> : null} />
+              </td>
+              <td>
+                <L4Address address={f.destination} hidePort={true} />
+              </td>
+              <td><L4AddressList addresses={f.mapped_addresses} count={5} asList={true} /></td>
+              <td><L4AddressList addresses={f.peer_addresses} count={5} asList={true} /></td>
+              <td><L4AddressList addresses={f.relayed_addresses} count={5} asList={true} /></td>
+              <td>{f.bytes_exchanged === null ? <span className="text-muted">n/a</span> : numeral(f.bytes_exchanged).format("0b")}</td>
+            </tr>
+          )
+        })}
+        </tbody>
+      </table>
+    )
+  }
+
   if (connection == null) {
     return <LoadingSpinner />
   }
@@ -71,7 +126,7 @@ export default function STUNConnectionDetailsPage() {
       <div className="row mt-3">
         <div className="col-12">
           <h1>
-            STUN Connection &quot;{negotiationKey.substring(0,6)}&quot;
+            STUN Connection {<FullCopyShortenedId value={negotiationKey} />}
           </h1>
         </div>
       </div>
@@ -158,10 +213,44 @@ export default function STUNConnectionDetailsPage() {
       </div>
 
       <div className="row mt-3">
+        <div className="col-4">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Mapped Addresses" />
+
+              <L4AddressList addresses={connection.mapped_addresses} count={15} asList={true} />
+            </div>
+          </div>
+        </div>
+
+        <div className="col-4">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Peer Addresses" />
+
+              <L4AddressList addresses={connection.peer_addresses} count={15} asList={true} />
+            </div>
+          </div>
+        </div>
+
+        <div className="col-4">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Relayed Addresses" />
+
+              <L4AddressList addresses={connection.relayed_addresses} count={15} asList={true} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Flows" />
+              <CardTitleWithControls title="Negotiation Flows" />
+
+              {flows()}
             </div>
           </div>
         </div>
