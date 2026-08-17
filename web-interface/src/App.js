@@ -180,7 +180,6 @@ import LocationsOverviewPage from "./components/locations/LocationsOverviewPage"
 import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
 import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
-import NarrowMode from "./components/layout/NarrowMode";
 import STUNDiscoveriesPage from "./components/ethernet/nat/traversal/stun_discoveries/STUNDiscoveriesPage";
 import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionsPage";
 import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
@@ -438,7 +437,6 @@ function App() {
       return (
           <Router>
             <DarkMode enabled={darkModeEnabled} />
-            <NarrowMode enabled={narrowModeEnabled} />
 
             <div className="nzyme d-flex">
               <AppContext.Provider value={{logout: logout, setRevision: setRevision}}>
@@ -447,7 +445,7 @@ function App() {
                     <AlertContext.Provider value={alertInformation}>
                       <Sidebar branding={branding} />
 
-                      <div id="main" className="flex-fill">
+                      <div id="main" className={"flex-fill" + (isNarrowMode() ? " narrow" : "")} >
                         <Toast />
                         <NavigationBar darkModeEnabled={darkModeEnabled}
                                        setDarkModeEnabled={setDarkModeEnabled}
