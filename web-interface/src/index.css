@@ -860,6 +860,7 @@ a.hostname, span.hostname,
 a.socks-tunnel-id, span.socks-tunnel-id,
 a.dhcp-transaction-id, span.dhcp-transaction-id,
 a.machine-data, span.machine-data,
+dd.machine-data,
 span.operator,
 div.arp-description strong {
     font-family: 'B612 Mono', monospace;

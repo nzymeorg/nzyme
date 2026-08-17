@@ -14,6 +14,8 @@ import moment from "moment/moment";
 import Paginator from "../../../../misc/Paginator";
 import FullCopyShortenedId from "../../../../shared/FullCopyShortenedId";
 import ApiRoutes from "../../../../../util/ApiRoutes";
+import STUNConnectionActiveIndicator from "./STUNConnectionActiveIndicator";
+import STUNConnectionSuccessIndicator from "./STUNConnectionSuccessIndicator";
 
 const natService = new NATService();
 
@@ -56,22 +58,6 @@ export default function STUNConnectionsTable({timeRange, filters, setFilters, re
                             value={address.address} />
   }
 
-  const activeIndicator = (n) => {
-    if (n.is_active) {
-      return <i className="fa fa-circle text-success blink" title="Connection is Active" />
-    } else {
-      return <i className="fa fa-circle text-muted" title="Connection is Inactive" />
-    }
-  }
-
-  const successIndicator = (n) => {
-    if (n.successful) {
-      return <i className="fa fa-circle text-success" title="Connection Successful" />
-    } else {
-      return <i className="fa fa-circle text-danger" title="Connection Failed" />
-    }
-  }
-
   if (!data) {
     return <GenericWidgetLoadingSpinner height={150} />
   }
@@ -106,7 +92,7 @@ export default function STUNConnectionsTable({timeRange, filters, setFilters, re
         {data.negotiations.map((n, i) => {
           return (
             <tr key={i}>
-              <td>{successIndicator(n)}</td>
+              <td><STUNConnectionSuccessIndicator successful={n.successful} /></td>
               <td>
                 <a href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.DETAILS(n.negotiation_key_sha256)}>
                   <FullCopyShortenedId value={n.negotiation_key_sha256} />
@@ -152,7 +138,7 @@ export default function STUNConnectionsTable({timeRange, filters, setFilters, re
               <td title={moment(n.last_activity).format()}>
                 {moment(n.last_activity).fromNow()}
               </td>
-              <td>{activeIndicator(n)}</td>
+              <td><STUNConnectionActiveIndicator active={n.is_active} /></td>
             </tr>
           )
         })}
