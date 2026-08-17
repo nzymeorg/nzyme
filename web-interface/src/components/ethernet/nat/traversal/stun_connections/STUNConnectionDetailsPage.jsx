@@ -47,6 +47,66 @@ export default function STUNConnectionDetailsPage() {
     natService.findOneSTUNConnection(negotiationKey, organizationId, tenantId, selectedTaps, setConnection);
   }, [negotiationKey, organizationId, tenantId, selectedTaps])
 
+  function summarizeNegotiation(entry) {
+    const source = entry.source;
+    const destination = entry.destination;
+    const mapped = entry.mapped_addresses || [];
+    const successful = entry.successful;
+    const isActive = entry.is_active;
+
+    const macString = (addr) => {
+      if (!addr || !addr.mac) return null;
+      return addr.mac.address || addr.mac.mac || null;
+    };
+
+    const label = (addr) => {
+      if (!addr) return "an unknown host";
+      const mac = macString(addr);
+      return mac ? `${mac} (${addr.address})` : addr.address;
+    };
+
+    const sourceLabel = label(source);
+    const destLabel = label(destination);
+
+    if (!successful) {
+      if (!source) {
+        return "An attempted connection negotiation that was not observed to complete.";
+      }
+      return `An attempted connection negotiation from ${sourceLabel} that did not `
+        + `establish a working path (no candidate succeeded, or completion wasn't observed).`;
+    }
+
+    const pathEndpoints = mapped
+      .map(a => `${a.address}:${a.port}`)
+      .slice(0, 2);
+
+    const pathType = classifyPath(entry, mapped);
+
+    let sentence = `A successful connection established between ${sourceLabel} and ${destLabel}`;
+    if (pathEndpoints.length === 2) {
+      sentence += `, over the ${pathType} path between ${pathEndpoints[0]} and ${pathEndpoints[1]}`;
+    } else if (pathEndpoints.length === 1) {
+      sentence += `, over the ${pathType} path at ${pathEndpoints[0]}`;
+    }
+    sentence += ".";
+    sentence += isActive ? " The connection is currently active." : " The connection has ended.";
+
+    return sentence;
+  }
+
+  function classifyPath(entry, mapped) {
+    if (entry.relayed_addresses && entry.relayed_addresses.length > 0) return "relayed";
+    if (!mapped || mapped.length === 0) return "negotiated";
+
+    const isLocal = (a) => a.attributes && a.attributes.is_site_local;
+    const allSiteLocal = mapped.every(isLocal);
+    const anyPublic = mapped.some(a => a.attributes && !a.attributes.is_site_local);
+
+    if (allSiteLocal) return "direct local";
+    if (anyPublic) return "reflexive (NAT-traversed)";
+    return "negotiated";
+  }
+
   const flows = () => {
     if (connection.flows === null || connection.flows.length === 0) {
       return <div className="alert alert-info mb-0">No Negotiation Flows recorded.</div>
@@ -239,6 +299,19 @@ export default function STUNConnectionDetailsPage() {
               <CardTitleWithControls title="Relayed Addresses" />
 
               <L4AddressList addresses={connection.relayed_addresses} count={15} asList={true} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div className="row mt-3">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Summary" />
+
+              {summarizeNegotiation(connection)}
             </div>
           </div>
         </div>
