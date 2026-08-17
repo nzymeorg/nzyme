@@ -1,3 +1,4 @@
-.hide-narrow {
+.hide-narrow,
+th.hide-narrow, td.hide-narrow {
     display: none !important;
 }
