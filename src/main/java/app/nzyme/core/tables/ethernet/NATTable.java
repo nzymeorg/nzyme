@@ -27,7 +27,9 @@ import tools.jackson.databind.ObjectMapper;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.sql.Types;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,7 +68,6 @@ public class NATTable implements DataTable  {
                 try (Timer.Context ignored2 = traversalDiscoveriesTimer.time()) {
                     writeStunDiscoveries(handle, tapUuid, report.discoveries());
                 }
-
                 try (Timer.Context ignored2 = traversalNegotiationsTimer.time()) {
                     writeStunNegotiationFlows(handle, tapUuid, report.negotiationFlows());
                 }
@@ -75,15 +76,11 @@ public class NATTable implements DataTable  {
     }
 
     private void writeStunDiscoveries(Handle handle, UUID tapUuid, List<StunDiscoveryReport> discoveries) {
-        PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO nat_traversal_discoveries(uuid, " +
-                "tap_uuid, l4_session_key, transport, mapped_addresses, status, most_recent_segment_time, " +
-                "first_seen, updated_at, created_at) VALUES(:uuid, :tap_uuid, :l4_session_key, :transport, " +
-                ":mapped_addresses::jsonb, :status, :most_recent_segment_time, :first_seen, NOW(), NOW())");
+        if (discoveries == null || discoveries.isEmpty()) {
+            return;
+        }
 
-        PreparedBatch updateBatch = handle.prepareBatch("UPDATE nat_traversal_discoveries " +
-                "SET mapped_addresses = :mapped_addresses::jsonb, status = :status, " +
-                "most_recent_segment_time = :most_recent_segment_time, updated_at = NOW() WHERE uuid = :uuid");
-
+        Map<String, StunDiscoveryReport> deduped = new LinkedHashMap<>();
         for (StunDiscoveryReport discovery : discoveries) {
             String sessionKey = Tools.buildL4Key(
                     discovery.firstSeen(),
@@ -92,31 +89,42 @@ public class NATTable implements DataTable  {
                     discovery.sourcePort(),
                     discovery.destinationPort()
             );
+            String dedupeKey = sessionKey + "|" + discovery.firstSeen().getMillis();
+            deduped.merge(dedupeKey, discovery, (a, b) ->
+                    b.lastActivity().isAfter(a.lastActivity()) ? b : a);
+        }
 
-            List<L4AddressData> mappedAddresses = buildAddresses(discovery.mappedAddresses());
-            String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO nat_traversal_discoveries(uuid, " +
+                "tap_uuid, l4_session_key, transport, mapped_addresses, status, most_recent_segment_time, " +
+                "first_seen, updated_at, created_at) VALUES(:uuid, :tap_uuid, :l4_session_key, :transport, " +
+                ":mapped_addresses::jsonb, :status, :most_recent_segment_time, :first_seen, NOW(), NOW()) " +
+                "ON CONFLICT (tap_uuid, l4_session_key, first_seen) DO UPDATE SET " +
+                "mapped_addresses = EXCLUDED.mapped_addresses, status = EXCLUDED.status, " +
+                "most_recent_segment_time = EXCLUDED.most_recent_segment_time, updated_at = NOW()");
 
-            NATTraversalDiscoveryStatus status;
-            if (discovery.sawSuccessResponse()) {
-                status = NATTraversalDiscoveryStatus.COMPLETE;
-            } else if (discovery.sawErrorResponse()) {
-                status = NATTraversalDiscoveryStatus.ERROR;
-            } else {
-                status = NATTraversalDiscoveryStatus.INCOMPLETE;
-            }
+        for (StunDiscoveryReport discovery : deduped.values()) {
+            try {
+                String sessionKey = Tools.buildL4Key(
+                        discovery.firstSeen(),
+                        discovery.sourceAddress(),
+                        discovery.destinationAddress(),
+                        discovery.sourcePort(),
+                        discovery.destinationPort()
+                );
 
-            Optional<UUID> existing = handle.createQuery("SELECT uuid FROM nat_traversal_discoveries " +
-                            "WHERE l4_session_key = :l4_session_key AND first_seen = :first_seen " +
-                            "AND tap_uuid = :tap_uuid")
-                    .bind("l4_session_key", sessionKey)
-                    .bind("first_seen", discovery.firstSeen())
-                    .bind("tap_uuid", tapUuid)
-                    .mapTo(UUID.class)
-                    .findOne();
+                List<L4AddressData> mappedAddresses = buildAddresses(discovery.mappedAddresses());
+                String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
 
-            if (existing.isEmpty()) {
-                // First time seeing this flow.
-                insertBatch
+                NATTraversalDiscoveryStatus status;
+                if (discovery.sawSuccessResponse()) {
+                    status = NATTraversalDiscoveryStatus.COMPLETE;
+                } else if (discovery.sawErrorResponse()) {
+                    status = NATTraversalDiscoveryStatus.ERROR;
+                } else {
+                    status = NATTraversalDiscoveryStatus.INCOMPLETE;
+                }
+
+                batch
                         .bind("uuid", UUID.randomUUID())
                         .bind("tap_uuid", tapUuid)
                         .bind("l4_session_key", sessionKey)
@@ -126,49 +134,29 @@ public class NATTable implements DataTable  {
                         .bind("most_recent_segment_time", discovery.lastActivity())
                         .bind("first_seen", discovery.firstSeen())
                         .add();
-            } else {
-                // Update previously seen flow.
-                updateBatch
-                        .bind("mapped_addresses", mappedAddressesJson)
-                        .bind("status", status)
-                        .bind("most_recent_segment_time", discovery.lastActivity())
-                        .bind("uuid", existing.get())
-                        .add();
+            } catch (Exception e) {
+                LOG.error("Could not prepare NAT traversal discovery for write.", e);
             }
         }
 
         try {
-            insertBatch.execute();
-            updateBatch.execute();
+            batch.execute();
         } catch (Exception e) {
             LOG.error("Could not write NAT traversal discoveries.", e);
         }
     }
 
     private void writeStunNegotiationFlows(Handle handle, UUID tapUuid, List<StunNegotiationFlowReport> negotiations) {
-        PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO nat_stun_negotiation_flows(uuid, " +
-                "tap_uuid, negotiation_key, negotiation_key_sha256, l4_session_key, transport, ufrags, successful, " +
-                "is_turn, turn_usernames, mapped_addresses, relayed_addresses, peer_addresses, first_seen, " +
-                "last_activity, updated_at, created_at) VALUES(:uuid, :tap_uuid, :negotiation_key, " +
-                ":negotiation_key_sha256, :l4_session_key, :transport, :ufrags, :successful, :is_turn, " +
-                ":turn_usernames, :mapped_addresses::jsonb, :relayed_addresses::jsonb, :peer_addresses::jsonb, " +
-                ":first_seen, :last_activity, NOW(), NOW())");
-        PreparedBatch updateBatch = handle.prepareBatch("UPDATE nat_stun_negotiation_flows " +
-                "SET ufrags = :ufrags, successful = :successful, is_turn = :is_turn," +
-                "turn_usernames = :turn_usernames, mapped_addresses = :mapped_addresses::jsonb, " +
-                "relayed_addresses = :relayed_addresses::jsonb, peer_addresses = :peer_addresses::jsonb, " +
-                "last_activity = :last_activity, updated_at = NOW() WHERE uuid = :uuid");
+        if (negotiations == null || negotiations.isEmpty()) {
+            return;
+        }
 
+        Map<String, StunNegotiationFlowReport> deduped = new LinkedHashMap<>();
         for (StunNegotiationFlowReport negotiation : negotiations) {
             if (negotiation.negotiationKey() == null) {
-                // Not useful for us unless the tap has all parts of the negotiation to compute the key. We wait.
                 LOG.debug("Received negotiation flow report without negotiation key. Skipping.");
                 continue;
             }
-
-            String negotiationKeySha256 = Hashing.sha256()
-                    .hashString(negotiation.negotiationKey(), StandardCharsets.UTF_8)
-                    .toString();
 
             String sessionKey = Tools.buildL4Key(
                     negotiation.firstSeen(),
@@ -177,29 +165,53 @@ public class NATTable implements DataTable  {
                     negotiation.sourcePort(),
                     negotiation.destinationPort()
             );
+            String dedupeKey = sessionKey + "|" + negotiation.firstSeen().getMillis();
+            deduped.merge(dedupeKey, negotiation, (a, b) ->
+                    b.lastActivity().isAfter(a.lastActivity()) ? b : a);
+        }
 
-            List<L4AddressData> mappedAddresses = buildAddresses(negotiation.mappedAddresses());
-            String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
-            List<L4AddressData> relayedAddresses = buildAddresses(negotiation.relayedAddresses());
-            String relayedAddressesJson = om.writeValueAsString(relayedAddresses);
-            List<L4AddressData> peerAddresses = buildAddresses(negotiation.peerAddresses());
-            String peerAddressesJson = om.writeValueAsString(peerAddresses);
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO nat_stun_negotiation_flows(uuid, " +
+                "tap_uuid, negotiation_key, negotiation_key_sha256, l4_session_key, transport, ufrags, successful, " +
+                "is_turn, turn_usernames, mapped_addresses, relayed_addresses, peer_addresses, first_seen, " +
+                "last_activity, updated_at, created_at) VALUES(:uuid, :tap_uuid, :negotiation_key, " +
+                ":negotiation_key_sha256, :l4_session_key, :transport, :ufrags, :successful, :is_turn, " +
+                ":turn_usernames, :mapped_addresses::jsonb, :relayed_addresses::jsonb, :peer_addresses::jsonb, " +
+                ":first_seen, :last_activity, NOW(), NOW()) " +
+                "ON CONFLICT (tap_uuid, l4_session_key, first_seen) DO UPDATE SET " +
+                "ufrags = EXCLUDED.ufrags, " +
+                "successful = nat_stun_negotiation_flows.successful OR EXCLUDED.successful, " +
+                "is_turn = nat_stun_negotiation_flows.is_turn OR EXCLUDED.is_turn, " +
+                "turn_usernames = EXCLUDED.turn_usernames, " +
+                "mapped_addresses = EXCLUDED.mapped_addresses, " +
+                "relayed_addresses = EXCLUDED.relayed_addresses, " +
+                "peer_addresses = EXCLUDED.peer_addresses, " +
+                "last_activity = EXCLUDED.last_activity, updated_at = NOW()");
 
-            String[] ufrags = negotiation.ufrags().toArray(new String[0]);
-            String[] turnUsernames = negotiation.turnUsernames().toArray(new String[0]);
+        for (StunNegotiationFlowReport negotiation : deduped.values()) {
+            try {
+                String negotiationKeySha256 = Hashing.sha256()
+                        .hashString(negotiation.negotiationKey(), StandardCharsets.UTF_8)
+                        .toString();
 
-            Optional<UUID> existing = handle.createQuery("SELECT uuid FROM nat_stun_negotiation_flows " +
-                            "WHERE l4_session_key = :l4_session_key AND first_seen = :first_seen " +
-                            "AND tap_uuid = :tap_uuid")
-                    .bind("l4_session_key", sessionKey)
-                    .bind("first_seen", negotiation.firstSeen())
-                    .bind("tap_uuid", tapUuid)
-                    .mapTo(UUID.class)
-                    .findOne();
+                String sessionKey = Tools.buildL4Key(
+                        negotiation.firstSeen(),
+                        negotiation.sourceAddress(),
+                        negotiation.destinationAddress(),
+                        negotiation.sourcePort(),
+                        negotiation.destinationPort()
+                );
 
-            if (existing.isEmpty()) {
-                // First time seeing this flow.
-                insertBatch
+                List<L4AddressData> mappedAddresses = buildAddresses(negotiation.mappedAddresses());
+                String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
+                List<L4AddressData> relayedAddresses = buildAddresses(negotiation.relayedAddresses());
+                String relayedAddressesJson = om.writeValueAsString(relayedAddresses);
+                List<L4AddressData> peerAddresses = buildAddresses(negotiation.peerAddresses());
+                String peerAddressesJson = om.writeValueAsString(peerAddresses);
+
+                String[] ufrags = negotiation.ufrags().toArray(new String[0]);
+                String[] turnUsernames = negotiation.turnUsernames().toArray(new String[0]);
+
+                batch
                         .bind("uuid", UUID.randomUUID())
                         .bind("tap_uuid", tapUuid)
                         .bind("negotiation_key", negotiation.negotiationKey())
@@ -216,25 +228,13 @@ public class NATTable implements DataTable  {
                         .bind("first_seen", negotiation.firstSeen())
                         .bind("last_activity", negotiation.lastActivity())
                         .add();
-            } else {
-                // Update previously seen flow.
-                updateBatch
-                        .bind("uuid", existing.get())
-                        .bindBySqlType("ufrags", ufrags, Types.ARRAY)
-                        .bind("successful", negotiation.successful())
-                        .bind("is_turn", negotiation.isTurn())
-                        .bindBySqlType("turn_usernames", turnUsernames, Types.ARRAY)
-                        .bind("mapped_addresses", mappedAddressesJson)
-                        .bind("relayed_addresses", relayedAddressesJson)
-                        .bind("peer_addresses", peerAddressesJson)
-                        .bind("last_activity", negotiation.lastActivity())
-                        .add();
+            } catch (Exception e) {
+                LOG.error("Could not prepare NAT negotiation flow for write.", e);
             }
         }
 
         try {
-            insertBatch.execute();
-            updateBatch.execute();
+            batch.execute();
         } catch (Exception e) {
             LOG.error("Could not write NAT traversal negotiation flows.", e);
         }
@@ -250,21 +250,28 @@ public class NATTable implements DataTable  {
         for (var mapped : addresses) {
             try {
                 InetAddress address = stringtoInetAddress(mapped.address());
-                Optional<GeoIpLookupResult> geo = geoIp.lookup(address);
+                GeoData geoData;
+                if (address.isSiteLocalAddress() || address.isLoopbackAddress()
+                        || address.isAnyLocalAddress() || address.isLinkLocalAddress()) {
+                    geoData = GeoData.create(null, null, null, null, null, null, null);
+                } else {
+                    Optional<GeoIpLookupResult> geo = geoIp.lookup(address);
+                    geoData = GeoData.create(
+                            geo.map(g -> g.asn().number() == null ? null : g.asn().number().intValue()).orElse(null),
+                            geo.map(g -> g.asn().name()).orElse(null),
+                            geo.map(g -> g.asn().domain()).orElse(null),
+                            geo.map(g -> g.geo().city()).orElse(null),
+                            geo.map(g -> g.geo().countryCode()).orElse(null),
+                            geo.map(g -> g.geo().latitude()).orElse(null),
+                            geo.map(g -> g.geo().longitude()).orElse(null)
+                    );
+                }
 
                 result.add(L4AddressData.create(
                         null,
                         mapped.address(),
                         mapped.port(),
-                        GeoData.create(
-                                geo.map(g -> g.asn().number() == null ? null : g.asn().number().intValue()).orElse(null),
-                                geo.map(g -> g.asn().name()).orElse(null),
-                                geo.map(g -> g.asn().domain()).orElse(null),
-                                geo.map(g -> g.geo().city()).orElse(null),
-                                geo.map(g -> g.geo().countryCode()).orElse(null),
-                                geo.map(g -> g.geo().latitude()).orElse(null),
-                                geo.map(g -> g.geo().longitude()).orElse(null)
-                        ),
+                        geoData,
                         L4AddressAttributes.create(
                                 address.isSiteLocalAddress(),
                                 address.isLoopbackAddress(),

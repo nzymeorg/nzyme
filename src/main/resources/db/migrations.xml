@@ -8617,4 +8617,16 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="nat_flows_dedupe_and_unique_constraints" author="lennartkoopmann">
+        <addUniqueConstraint
+                tableName="nat_traversal_discoveries"
+                columnNames="tap_uuid, l4_session_key, first_seen"
+                constraintName="uniq_nat_disc_tap_session_seen" />
+
+        <addUniqueConstraint
+                tableName="nat_stun_negotiation_flows"
+                columnNames="tap_uuid, l4_session_key, first_seen"
+                constraintName="uniq_nat_neg_tap_session_seen" />
+    </changeSet>
+
 </databaseChangeLog>
