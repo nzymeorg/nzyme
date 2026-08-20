@@ -45,6 +45,14 @@ bt_le_enabled = true
 discovery_period_seconds = 15
 dbus_method_call_timeout_seconds = 2
 
+[portal_integrity_checks.default]
+active = false
+interface = "eth0"
+mac = "random"
+interval_minutes = 1
+control_urls = ["http://detectportal.firefox.com/"]
+max_redirects = 10
+
 [performance]
 ethernet_brokers = 1
 wifi_brokers = 1

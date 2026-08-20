@@ -47,6 +47,7 @@ use crate::log_monitor::LogMonitor;
 use crate::peripherals::limina::limina::Limina;
 use crate::processor_controller::ProcessorController;
 use crate::state::state::State;
+use crate::wired::portalintegrity;
 use crate::wireless::dot11::engagement::engagement_control::EngagementControl;
 use crate::wireless::dot11::sona;
 use crate::wireless::dot11::sona::command_router::SonaCommandRouter;
@@ -494,6 +495,34 @@ fn main() {
                         Ok(mut metrics) => metrics.mark_capture_as_failed(&interface_name),
                         Err(e) => error!("Could not acquire mutex of metrics: {}", e)
                     }
+                    sleep(Duration::from_secs(5));
+                }
+            });
+        }
+    }
+
+    // Portal integrity checks.
+    if let Some(checks) = &configuration.portal_integrity_checks {
+        for (name, config) in checks {
+            if !config.active {
+                continue;
+            }
+
+            let name = name.clone();
+            let portalmetrics = metrics.clone();
+            let portallink = leaderlink.clone();
+            let portalconfig = config.clone();
+            thread::spawn(move || {
+                loop {
+                    info!("Initializing portal integrity check [{}]: {:?}", name, portalconfig);
+                    if let Err(e) = portalintegrity::run(
+                        portalconfig.clone(),
+                        portalmetrics.clone(),
+                        portallink.clone()) {
+                        error!("Portal integrity check [{}] disconnected. Retrying in 5 seconds. {}",
+                                name, e);
+                    }
+
                     sleep(Duration::from_secs(5));
                 }
             });

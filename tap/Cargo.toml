@@ -75,6 +75,20 @@ uuid = { version = "1.13.1", features = ["v4"] }
 serialport = "4.7.2"
 rusb = "0.9"
 udev = "0.9.3"
+smoltcp = { version = "0.11", default-features = false, features = [
+    "std",
+    "medium-ethernet",
+    "phy-raw_socket",
+    "proto-ipv4",
+    "socket-tcp",
+    "socket-udp",
+    "socket-dhcpv4",
+    "socket-dns",
+] }
+rustls = { version = "0.23", features = ["ring"] }
+x509-parser = "0.16"
+url = "2"
+serde_with = { version = "3.21.0", features = ["base64"] }
 
 [features]
 fuzzing = []

@@ -5,3 +5,5 @@ pub mod traffic_direction;
 pub mod packets;
 pub mod interfaces;
 pub mod wired_broker;
+pub mod portalintegrity;
+pub mod mac;

@@ -17,6 +17,7 @@ pub struct Configuration {
     pub rawip_interfaces: Option<HashMap<String, RawIpInterface>>,
     pub bluetooth_interfaces: Option<HashMap<String, BluetoothInterface>>,
     pub wifi_engagement_interfaces: Option<HashMap<String, WiFiEngagementInterfaceConfiguration>>,
+    pub portal_integrity_checks: Option<HashMap<String, PortalIntegrityConfiguration>>,
     pub performance: Performance,
     pub protocols: Protocols,
     pub misc: Misc,
@@ -94,6 +95,16 @@ pub struct BluetoothInterface {
     pub bt_le_enabled: bool,
     pub discovery_period_seconds: i32,
     pub dbus_method_call_timeout_seconds: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PortalIntegrityConfiguration {
+    pub active: bool,
+    pub interface: String,
+    pub mac: String,
+    pub interval_minutes: u64,
+    pub control_urls: Vec<String>,
+    pub max_redirects: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -452,6 +463,21 @@ pub fn load(path: String) -> Result<Configuration, Error> {
             if !interface.bt_classic_enabled && !interface.bt_le_enabled {
                 bail!("Bluetooth interface cannot have both bluetooth classic and LE disabled.")
             }
+        }
+    }
+
+    if let Some(portal_checks) = &doc.portal_integrity_checks {
+        for check in portal_checks.values() {
+            if check.interface.trim().is_empty() {
+                bail!("portal_integrity.interface must not be empty");
+            }
+            if check.control_urls.is_empty() {
+                bail!("portal_integrity.control_urls must contain at least one URL");
+            }
+            if check.interval_minutes == 0 {
+                bail!("portal_integrity.interval_minutes must be >= 1");
+            }
+
         }
     }
 
