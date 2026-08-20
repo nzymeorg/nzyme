@@ -282,7 +282,7 @@ public class UDPTable implements DataTable {
         // We may have multiple sessions from the same client MAC. Pre-process and aggregate.
         Map<String, AssetInformation> assets = Maps.newHashMap();
         for (UdpConversationReport conversation : conversations) {
-            if (conversation.sourceMac() == null) {
+            if (conversation.sourceMac() == null || conversation.sourceMac().equals("00:00:00:00:00:00")) {
                 continue;
             }
 

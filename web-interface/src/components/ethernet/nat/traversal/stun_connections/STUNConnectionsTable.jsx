@@ -79,6 +79,7 @@ export default function STUNConnectionsTable({timeRange, filters, setFilters, re
           <th>Source Address {columnSorting("source_address")}</th>
           <th>Destination MAC {columnSorting("destination_mac")}</th>
           <th>Destination Address {columnSorting("destination_address")}</th>
+          <th>TURN {columnSorting("is_turn")}</th>
           <th title="Mapped Addresses" className="hide-narrow">M</th>
           <th title="Peer Addresses" className="hide-narrow">P</th>
           <th title="Relayed Addresses" className="hide-narrow">R</th>
@@ -128,10 +129,21 @@ export default function STUNConnectionsTable({timeRange, filters, setFilters, re
                                                                            field="destination_address"
                                                                            value={n.destination.address} /> : null } />
               </td>
+              <td>{n.is_turn ? "True" : "False"}</td>
               <td className="hide-narrow">{numeral(n.mapped_addresses.length).format("0,0")}</td>
               <td className="hide-narrow">{numeral(n.peer_addresses.length).format("0,0")}</td>
               <td className="hide-narrow">{numeral(n.relayed_addresses.length).format("0,0")}</td>
-              <td>{n.bytes_exchanged === null ? <span className="text-muted">n/a</span> : numeral(n.bytes_exchanged).format("0b")}</td>
+              <td>{n.bytes_exchanged === null ? <span className="text-muted">n/a</span> :
+                (
+                  <>
+                    {numeral(n.bytes_exchanged).format("0b")}
+                    <FilterValueIcon setFilters={setFilters}
+                                     fields={STUN_CONNECTIONS_FILTER_FIELDS}
+                                     field="bytes_exchanged"
+                                     value={n.bytes_exchanged} />
+                  </>
+                )}
+              </td>
               <td title={moment(n.first_seen).fromNow()}>
                 {moment(n.first_seen).format()}
               </td>

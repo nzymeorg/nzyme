@@ -312,7 +312,7 @@ public class TCPTable implements DataTable {
         // We may have multiple sessions from the same client MAC. Pre-process and aggregate.
         Map<String, AssetInformation> assets = Maps.newHashMap();
         for (TcpSessionReport session : sessions) {
-            if (session.sourceMac() == null) {
+            if (session.sourceMac() == null || session.sourceMac().equals("00:00:00:00:00:00")) {
                 continue;
             }
 

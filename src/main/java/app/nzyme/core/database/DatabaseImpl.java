@@ -443,6 +443,16 @@ public class DatabaseImpl implements Database {
                         "SELECT COUNT(*) FROM ntp_transactions WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM ntp_transactions WHERE (timestamp_client_tap_receive < :since OR timestamp_server_tap_receive < :since) AND tap_uuid IN (<taps>)"
                 ));
+                tables.add(new DataTableInformation(
+                        "nat_traversal_discoveries",
+                        "SELECT COUNT(*) FROM nat_traversal_discoveries WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM nat_traversal_discoveries WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
+                        "nat_stun_negotiation_flows",
+                        "SELECT COUNT(*) FROM nat_stun_negotiation_flows WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM nat_stun_negotiation_flows WHERE last_activity < :since AND tap_uuid IN (<taps>)"
+                ));
             }
             case ETHERNET_DNS -> {
                 tables.add(new DataTableInformation(

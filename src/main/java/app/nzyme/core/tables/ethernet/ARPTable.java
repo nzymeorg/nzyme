@@ -95,7 +95,7 @@ public class ARPTable implements DataTable {
 
         Map<String, AssetInformation> assets = Maps.newHashMap();
         for (ArpPacketReport conversation : conversations) {
-            if (conversation.ethernetSourceMac() == null) {
+            if (conversation.ethernetSourceMac() == null || conversation.ethernetSourceMac().equals("00:00:00:00:00:00")) {
                 continue;
             }
 

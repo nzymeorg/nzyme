@@ -458,6 +458,12 @@ public class TapManager {
                 continue;
             }
 
+            if (mac.mac().equals("00:00:00:00:00:00")) {
+                // Do not process invalid MAC. (This can happen on loopback interface captures. Maybe rawip, too.)
+                LOG.debug("Skipping invalid MAC [{}] reported by tap [{}].", mac.mac(), tapUuid);
+                continue;
+            }
+
             long contextId;
             List<MacAddressTransparentContextEntry> transparentContext;
             if (existingContext.isPresent()) {

@@ -47,6 +47,11 @@ export const FILTER_TYPE = {
     validators: [validateNumber],
     placeholder: null
   },
+  BOOLEAN: {
+    name: "boolean",
+    validators: [(value) => value === "true" || value === "false"],
+    placeholder: null
+  },
   IP_ADDRESS: {
     name: "ip_address",
     validators: [validateIPAddressValid],
@@ -231,6 +236,18 @@ export const OPERATORS = {
     validators: [() => { return true; }],
     field_type: FIELD_TYPE.NO_VALUE
   },
+  BOOLEAN: {
+    name: "boolean",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    options: [
+      {name: "True", value: "true"},
+      {name: "False", value: "false"}
+    ],
+    validators: [(value) => value === "true" || value === "false"],
+    field_type: FIELD_TYPE.SELECT
+  },
   COMPLETION_STATUS_EQUALS: {
     name: "completion_status_equals",
     sign: "==",
@@ -345,6 +362,11 @@ export default function Filters(props) {
             OPERATORS.NOT_EQUALS_NUMERIC,
             OPERATORS.GREATER_THAN,
             OPERATORS.SMALLER_THAN
+          ]);
+          break;
+        case FILTER_TYPE.BOOLEAN:
+          setAllowedOperators([
+            OPERATORS.BOOLEAN
           ]);
           break;
         case FILTER_TYPE.IP_ADDRESS:

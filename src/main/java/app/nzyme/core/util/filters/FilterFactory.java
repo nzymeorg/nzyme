@@ -81,6 +81,10 @@ public class FilterFactory {
                 return Filter.create(
                         parameter.field(), FilterOperator.IS_NOT_EMPTY, optionallyTransformedValue(parameter), parameter.value()
                 );
+            case "boolean":
+                return Filter.create(
+                        parameter.field(), FilterOperator.BOOLEAN, Boolean.valueOf(optionallyTransformedValue(parameter)), Boolean.valueOf(parameter.value())
+                );
             default:
                 throw new RuntimeException("Unknown filter operator: [" + parameter.operator() + "]");
         }

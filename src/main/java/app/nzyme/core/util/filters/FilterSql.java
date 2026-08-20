@@ -262,6 +262,15 @@ public class FilterSql {
         }
     }
 
+    public static String booleanMatch(String bindId, String fieldName, FilterOperator operator) {
+        switch (operator) {
+            case BOOLEAN:
+                return fieldName + " = :" + bindId;
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for boolean field [" + fieldName + "].");
+        }
+    }
+
     @AutoValue
     public static abstract class GeneratedFilterTypeSql {
 

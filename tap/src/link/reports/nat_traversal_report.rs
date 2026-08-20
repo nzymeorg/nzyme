@@ -5,7 +5,7 @@ use serde::Serialize;
 use std::net::SocketAddr;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::protocols::parsers::stun_tagger::StunTransport;
-use crate::state::tables::stun_table::{DiscoveryFlow, NegotiationFlow, TurnFlow};
+use crate::state::tables::stun_table::{DiscoveryFlow, NegotiationFlow};
 
 fn serialize_socketaddrs<S>(addrs: &[SocketAddr], serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -39,7 +39,6 @@ fn transport_str(transport: StunTransport) -> String {
 #[derive(Serialize)]
 pub struct NatTraversalReport {
     pub negotiations: Vec<NegotiationFlowReport>,
-    pub relays: Vec<RelayFlowReport>,
     pub discoveries: Vec<DiscoveryFlowReport>,
 }
 
@@ -103,12 +102,10 @@ pub struct DiscoveryFlowReport {
 
 pub fn generate(
     negotiations: &HashMap<L4Key, NegotiationFlow>,
-    turn_activity: &HashMap<L4Key, TurnFlow>,
     discoveries: &HashMap<L4Key, DiscoveryFlow>,
 ) -> NatTraversalReport {
     NatTraversalReport {
         negotiations: negotiations.values().map(negotiation_to_report).collect(),
-        relays: turn_activity.values().map(relay_to_report).collect(),
         discoveries: discoveries.values().map(discovery_to_report).collect(),
     }
 }
@@ -131,23 +128,6 @@ fn negotiation_to_report(n: &NegotiationFlow) -> NegotiationFlowReport {
         peer_addresses: n.peer_addresses.clone(),
         first_seen: n.first_seen,
         last_activity: n.last_activity,
-    }
-}
-
-fn relay_to_report(t: &TurnFlow) -> RelayFlowReport {
-    RelayFlowReport {
-        source_address: t.source_address.to_string(),
-        source_mac: t.source_mac.clone(),
-        transport: transport_str(t.transport),
-        source_port: t.source_port,
-        destination_address: t.destination_address.to_string(),
-        destination_port: t.destination_port,
-        relayed_addresses: t.relayed_addresses.clone(),
-        peer_addresses: t.peer_addresses.clone(),
-        mapped_addresses: t.mapped_addresses.clone(),
-        turn_usernames: t.turn_usernames.clone(),
-        first_seen: t.first_seen,
-        last_activity: t.last_activity,
     }
 }
 

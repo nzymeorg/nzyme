@@ -16,7 +16,6 @@ pub struct StunTable {
     leaderlink: Arc<Mutex<Leaderlink>>,
     metrics: Arc<Mutex<Metrics>>,
     negotiations: Mutex<HashMap<L4Key, NegotiationFlow>>,
-    turn_activity: Mutex<HashMap<L4Key, TurnFlow>>,
     discoveries: Mutex<HashMap<L4Key, DiscoveryFlow>>,
 }
 
@@ -37,23 +36,6 @@ pub struct NegotiationFlow {
     pub mapped_addresses: Vec<SocketAddr>,
     pub relayed_addresses: Vec<SocketAddr>,
     pub peer_addresses: Vec<SocketAddr>,
-    pub first_seen: DateTime<Utc>,
-    pub last_activity: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TurnFlow {
-    pub session_key: L4Key,
-    pub transport: StunTransport,
-    pub source_address: IpAddr,
-    pub source_mac: Option<String>,
-    pub source_port: u16,
-    pub destination_address: IpAddr,
-    pub destination_port: u16,
-    pub relayed_addresses: Vec<SocketAddr>,
-    pub peer_addresses: Vec<SocketAddr>,
-    pub mapped_addresses: Vec<SocketAddr>,
-    pub turn_usernames: Vec<String>,
     pub first_seen: DateTime<Utc>,
     pub last_activity: DateTime<Utc>,
 }
@@ -81,7 +63,6 @@ impl StunTable {
             leaderlink,
             metrics,
             negotiations: Mutex::new(HashMap::new()),
-            turn_activity: Mutex::new(HashMap::new()),
             discoveries: Mutex::new(HashMap::new()),
         }
     }
@@ -90,18 +71,11 @@ impl StunTable {
         let flow = (*flow_ref).clone(); // Escape Arc.
         let key = flow.session_key.clone();
 
-        if canonical_ice_ufrag(&flow.ufrags).is_some() {
-            remove_flow(&self.turn_activity, &key, "TURN-activity");
+        if canonical_ice_ufrag(&flow.ufrags).is_some() || flow.is_turn {
             remove_flow(&self.discoveries, &key, "discoveries");
             match self.negotiations.lock() {
                 Ok(mut negotiations) => upsert_negotiation(&mut negotiations, &flow),
                 Err(e) => error!("Could not acquire ICE negotiations table mutex: {}", e),
-            }
-        } else if flow.is_turn {
-            remove_flow(&self.discoveries, &key, "discoveries");
-            match self.turn_activity.lock() {
-                Ok(mut turn_activity) => upsert_turn(&mut turn_activity, &flow),
-                Err(e) => error!("Could not acquire STUN TURN-activity table mutex: {}", e),
             }
         } else {
             match self.discoveries.lock() {
@@ -116,11 +90,10 @@ impl StunTable {
         let mut timer = Timer::new();
 
         let negotiations = drain_active(&self.negotiations, cutoff, "ICE negotiations", |n| n.last_activity);
-        let turn_activity = drain_active(&self.turn_activity, cutoff, "STUN TURN-activity", |t| t.last_activity);
 
         let discoveries = take_all(&self.discoveries, "STUN discoveries");
 
-        let report = nat_traversal_report::generate(&negotiations, &turn_activity, &discoveries);
+        let report = nat_traversal_report::generate(&negotiations, &discoveries);
         let report_json = match serde_json::to_string(&report) {
             Ok(json) => json,
             Err(e) => {
@@ -188,10 +161,35 @@ fn remove_flow<V>(table: &Mutex<HashMap<L4Key, V>>, key: &L4Key, name: &str) {
     }
 }
 
+fn negotiation_key_for(flow: &StunFlow) -> Option<String> {
+    if let Some((canonical, _, _)) = canonical_ice_ufrag(&flow.ufrags) {
+        Some(canonical)
+    } else if flow.is_turn {
+        flow.turn_usernames.first().cloned()
+            .or_else(|| Some(format!(
+                "turn:{}:{}-{}:{}",
+                flow.source_address, flow.source_port,
+                flow.destination_address, flow.destination_port
+            )))
+    } else {
+        None
+    }
+}
+
+fn is_successful(record: &NegotiationFlow) -> bool {
+    if has_bidirectional_ufrag(&record.ufrags) {
+        return true;
+    }
+    if record.is_turn && !record.relayed_addresses.is_empty() {
+        return true;
+    }
+    false
+}
+
 fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFlow) {
     let record = table.entry(flow.session_key.clone()).or_insert_with(|| NegotiationFlow {
         session_key: flow.session_key.clone(),
-        negotiation_key: canonical_ice_ufrag(&flow.ufrags).map(|(canonical, _, _)| canonical),
+        negotiation_key: negotiation_key_for(flow),
         transport: flow.transport,
         source_address: flow.source_address,
         source_mac: flow.source_mac.clone(),
@@ -208,9 +206,11 @@ fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFl
         first_seen: flow.established_at,
         last_activity: flow.most_recent_segment_time,
     });
+
     if record.negotiation_key.is_none() {
-        record.negotiation_key = canonical_ice_ufrag(&flow.ufrags).map(|(canonical, _, _)| canonical);
+        record.negotiation_key = negotiation_key_for(flow);
     }
+
     record.is_turn |= flow.is_turn;
     backfill_mac(&mut record.source_mac, flow);
     extend_unique(&mut record.ufrags, &flow.ufrags);
@@ -219,33 +219,9 @@ fn upsert_negotiation(table: &mut HashMap<L4Key, NegotiationFlow>, flow: &StunFl
     extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
     extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
 
-    record.successful |= has_bidirectional_ufrag(&record.ufrags);
+    // Monotonic: once successful, stays successful across report cycles.
+    record.successful |= is_successful(record);
 
-    widen_window(&mut record.first_seen, &mut record.last_activity, flow);
-}
-
-fn upsert_turn(table: &mut HashMap<L4Key, TurnFlow>, flow: &StunFlow) {
-    let record = table.entry(flow.session_key.clone()).or_insert_with(|| TurnFlow {
-        session_key: flow.session_key.clone(),
-        transport: flow.transport,
-        source_address: flow.source_address,
-        source_mac: flow.source_mac.clone(),
-        source_port: flow.source_port,
-        destination_address: flow.destination_address,
-        destination_port: flow.destination_port,
-        relayed_addresses: Vec::new(),
-        peer_addresses: Vec::new(),
-        mapped_addresses: Vec::new(),
-        turn_usernames: Vec::new(),
-        first_seen: flow.established_at,
-        last_activity: flow.most_recent_segment_time,
-    });
-
-    backfill_mac(&mut record.source_mac, flow);
-    extend_unique(&mut record.relayed_addresses, &flow.relayed_addresses);
-    extend_unique(&mut record.peer_addresses, &flow.peer_addresses);
-    extend_unique(&mut record.mapped_addresses, &flow.mapped_addresses);
-    extend_unique(&mut record.turn_usernames, &flow.turn_usernames);
     widen_window(&mut record.first_seen, &mut record.last_activity, flow);
 }
 

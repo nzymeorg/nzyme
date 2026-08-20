@@ -50,6 +50,7 @@ public class NAT {
         SOURCE_ADDRESS("source_address"),
         DESTINATION_MAC("destination_mac"),
         DESTINATION_ADDRESS("destination_address"),
+        IS_TURN("is_turn"),
         BYTES("bytes_exchanged"),
         LAST_ACTIVITY("last_activity"),
         INITIATED_AT("first_seen");

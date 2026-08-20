@@ -199,6 +199,10 @@ public class DHCPTable implements DataTable {
                 "dhcp_fingerprint_initial = :dhcp_fingerprint_initial, dhcp_fingerprint_renew = :dhcp_fingerprint_renew, dhcp_fingerprint_reboot = :dhcp_fingerprint_reboot, dhcp_fingerprint_rebind = :dhcp_fingerprint_rebind, seen_dhcp = true, updated_at = NOW() WHERE id = :id");
 
         for (Dhcpv4TransactionReport tx : txs) {
+            if (tx.clientMac().equals("00:00:00:00:00:00")) {
+                continue;
+            }
+
             Optional<String> fingerprint = new DHCPFingerprint(tx.options(), tx.vendorClass()).generate();
 
             Optional<AssetEntry> asset = tablesService.getNzyme().getAssetsManager()

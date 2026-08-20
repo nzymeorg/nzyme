@@ -44,7 +44,7 @@ export default function FilterValueInput(props) {
         <select className="form-select"
                 disabled={disabled}
                 onChange={onChange}>
-          <option selected>Please Choose</option>
+          <option>Please Choose</option>
           {operator.options.map((o, i) => {
             return <option key={i} value={o.value}>{o.name}</option>
           })}
