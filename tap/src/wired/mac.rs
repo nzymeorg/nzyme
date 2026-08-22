@@ -2,22 +2,7 @@ use anyhow::{bail, Result};
 use rand::prelude::*;
 use smoltcp::wire::EthernetAddress;
 
-pub fn resolve(mac_cfg: &str) -> Result<EthernetAddress> {
-    if mac_cfg.trim().eq_ignore_ascii_case("random") {
-        Ok(random_local_unicast())
-    } else {
-        parse(mac_cfg)
-    }
-}
-
-pub fn random_local_unicast() -> EthernetAddress {
-    let mut bytes = [0u8; 6];
-    rand::rng().fill(&mut bytes[..]);
-    bytes[0] = (bytes[0] & 0xFC) | 0x02;
-    EthernetAddress(bytes)
-}
-
-fn parse(s: &str) -> Result<EthernetAddress> {
+pub fn parse(s: &str) -> Result<EthernetAddress> {
     let parts: Vec<&str> = s.split(':').collect();
     if parts.len() != 6 {
         bail!("invalid MAC '{}': expected 6 colon-separated octets", s);

@@ -48,7 +48,7 @@ dbus_method_call_timeout_seconds = 2
 [portal_integrity_checks.default]
 active = false
 interface = "eth0"
-mac = "random"
+mac = "AE:3F:99:DF:3D:F5"
 interval_minutes = 1
 control_urls = ["http://detectportal.firefox.com/"]
 max_redirects = 10

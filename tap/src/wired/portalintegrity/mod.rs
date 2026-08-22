@@ -44,14 +44,14 @@ pub fn run(cfg: PortalIntegrityConfiguration,
 fn run_cycle(cfg: &PortalIntegrityConfiguration,
              metrics: &Arc<Mutex<Metrics>>,
              leaderlink: &Arc<Mutex<Leaderlink>>) -> Result<()> {
-    let mac = mac::resolve(&cfg.mac)?;
+    let mac = mac::parse(&cfg.mac)?;
     info!("portal_integrity: probe cycle using MAC {}", mac);
 
     let mut stack = Stack::new(&cfg.interface, mac)?;
     let _lease = stack.run_dhcp(DHCP_TIMEOUT)?;
 
     for url in &cfg.control_urls {
-        let mac = mac::resolve(&cfg.mac)?;
+        let mac = mac::parse(&cfg.mac)?;
         let mut stack = Stack::new(&cfg.interface, mac)?;
         let lease = stack.run_dhcp(DHCP_TIMEOUT)?;
 

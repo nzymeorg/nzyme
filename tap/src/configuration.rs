@@ -471,6 +471,9 @@ pub fn load(path: String) -> Result<Configuration, Error> {
             if check.interface.trim().is_empty() {
                 bail!("portal_integrity.interface must not be empty");
             }
+            if check.mac.trim().is_empty() {
+                bail!("portal_integrity.mac must not be empty");
+            }
             if check.control_urls.is_empty() {
                 bail!("portal_integrity.control_urls must contain at least one URL");
             }
