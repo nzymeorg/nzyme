@@ -1,0 +1,2 @@
+export const PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS = {
+}

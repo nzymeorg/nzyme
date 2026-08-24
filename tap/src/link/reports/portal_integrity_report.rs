@@ -5,6 +5,7 @@ use crate::wired::portalintegrity::probe::ProbeResult;
 
 #[derive(Serialize)]
 pub struct PortalIntegrityReport {
+    pub probe_name: String,
     pub control_url: String,
     pub context: ContextReport,
     pub hops: Vec<HopReport>,
@@ -79,6 +80,7 @@ pub fn generate(p: &ProbeResult) -> PortalIntegrityReport {
     };
 
     PortalIntegrityReport {
+        probe_name: p.probe_name.clone(),
         control_url: p.control_url.clone(),
         context,
         hops,

@@ -208,6 +208,9 @@ const ApiRoutes = {
         }
       }
     },
+    PORTAL_INTEGRITY: {
+      INDEX: '/ethernet/portalintegrity'
+    },
     BEACONS: {
       INDEX: '/ethernet/beacons'
     },

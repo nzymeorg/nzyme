@@ -512,11 +512,13 @@ fn main() {
             let portalmetrics = metrics.clone();
             let portallink = leaderlink.clone();
             let portalconfig = config.clone();
+            let portalname = name.clone();
             thread::spawn(move || {
                 loop {
-                    info!("Initializing portal integrity check [{}]: {:?}", name, portalconfig);
+                    info!("Initializing portal integrity check [{}]: {:?}", portalname, portalconfig);
                     if let Err(e) = portalintegrity::run(
                         portalconfig.clone(),
+                        portalname.clone(),
                         portalmetrics.clone(),
                         portallink.clone()) {
                         error!("Portal integrity check [{}] disconnected. Retrying in 5 seconds. {}",

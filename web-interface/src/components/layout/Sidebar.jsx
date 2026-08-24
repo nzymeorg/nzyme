@@ -79,6 +79,10 @@ function Sidebar(props) {
               href={ApiRoutes.ETHERNET.TIME.NTP.INDEX}
               title="Time"
               icon={<i className="sidebar-icon fa-solid fa-clock"/>}/>
+            <NavigationLink
+              href={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX}
+              title="Portal Integrity"
+              icon={<i className="sidebar-icon fa-solid fa-archway"/>}/>
             {/*
             <NavigationLink
               href={ApiRoutes.ETHERNET.RECON.INDEX}

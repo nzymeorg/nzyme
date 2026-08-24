@@ -6,6 +6,7 @@ import app.nzyme.core.ethernet.dhcp.DHCP;
 import app.nzyme.core.ethernet.dns.DNS;
 import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.nat.NAT;
+import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
 import app.nzyme.core.ethernet.ssh.SSH;
@@ -26,6 +27,7 @@ public class Ethernet {
     private final NTP ntp;
     private final RTSP rtsp;
     private final NAT nat;
+    private final PortalIntegrity portalIntegrity;
 
     public Ethernet(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -40,6 +42,7 @@ public class Ethernet {
         this.ntp = new NTP(this);
         this.rtsp = new RTSP(this);
         this.nat = new NAT(this);
+        this.portalIntegrity = new PortalIntegrity(this);
     }
 
     public NzymeNode getNzyme() {
@@ -86,4 +89,7 @@ public class Ethernet {
         return nat;
     }
 
+    public PortalIntegrity portalIntegrity() {
+        return portalIntegrity;
+    }
 }

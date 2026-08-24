@@ -48,12 +48,13 @@ public class PortalIntegrityTable implements DataTable {
 
             tablesService.getNzyme().getDatabase().useTransaction(handle -> {
                 handle.createUpdate("INSERT INTO portal_integrity_reports(uuid, tap_uuid, control_url, " +
-                                "error, probe_interface, probe_mac, probed_at, created_at) " +
-                                "VALUES(:uuid, :tap_uuid, :control_url, :error, :probe_interface, :probe_mac, " +
-                                ":probed_at, NOW())")
+                                "probe_name, error, probe_interface, probe_mac, probed_at, created_at) " +
+                                "VALUES(:uuid, :tap_uuid, :control_url, :probe_name, :error, :probe_interface, " +
+                                ":probe_mac, :probed_at, NOW())")
                         .bind("uuid", reportUuid)
                         .bind("tap_uuid", tapUuid)
                         .bind("control_url", report.controlUrl())
+                        .bind("probe_name", report.probeName())
                         .bind("error", report.error())
                         .bind("probe_interface", ctx.networkInterface())
                         .bind("probe_mac", ctx.mac())

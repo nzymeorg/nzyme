@@ -8629,4 +8629,13 @@
                 constraintName="uniq_nat_neg_tap_session_seen" />
     </changeSet>
 
+    <changeSet id="add_probe_name_to_portal_integrity_reports" author="lennartkoopmann">
+        <addColumn tableName="portal_integrity_reports">
+            <column name="probe_name" type="text" defaultValue="default">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+
 </databaseChangeLog>

@@ -35,6 +35,7 @@ pub enum Completeness {
 
 #[derive(Debug, Clone)]
 pub struct ProbeContext {
+    pub name: String,
     pub interface: String,
     pub mac: String,
     pub assigned_cidr: String,
@@ -56,6 +57,7 @@ pub struct Hop {
 
 #[derive(Debug, Clone)]
 pub struct ProbeResult {
+    pub probe_name: String,
     pub control_url: String,
     pub context: ProbeContext,
     pub hops: Vec<Hop>,
@@ -113,6 +115,7 @@ pub fn probe_url(stack: &mut Stack, control_url: &str, max_redirects: u32, conte
     -> ProbeResult {
 
     let mut result = ProbeResult {
+        probe_name: context.name.clone(),
         control_url: control_url.to_string(),
         context: context.clone(),
         hops: Vec::new(),

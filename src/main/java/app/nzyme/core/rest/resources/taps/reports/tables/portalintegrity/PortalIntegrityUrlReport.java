@@ -11,6 +11,7 @@ import java.util.List;
 @AutoValue
 public abstract class PortalIntegrityUrlReport {
 
+    public abstract String probeName();
     public abstract String controlUrl();
     public abstract List<PortalIntegrityHopReport> hops();
     public abstract PortalIntegrityCheckContext context();
@@ -19,12 +20,14 @@ public abstract class PortalIntegrityUrlReport {
     public abstract DateTime probedAt();
 
     @JsonCreator
-    public static PortalIntegrityUrlReport create(@JsonProperty("control_url") String controlUrl,
+    public static PortalIntegrityUrlReport create(@JsonProperty("probe_name") String probeName,
+                                                  @JsonProperty("control_url") String controlUrl,
                                                   @JsonProperty("hops") List<PortalIntegrityHopReport> hops,
                                                   @JsonProperty("context") PortalIntegrityCheckContext context,
                                                   @JsonProperty("error") String error,
                                                   @JsonProperty("probed_at") DateTime probedAt) {
         return builder()
+                .probeName(probeName)
                 .controlUrl(controlUrl)
                 .hops(hops)
                 .context(context)
@@ -39,6 +42,8 @@ public abstract class PortalIntegrityUrlReport {
 
     @AutoValue.Builder
     public abstract static class Builder {
+        public abstract Builder probeName(String probeName);
+
         public abstract Builder controlUrl(String controlUrl);
 
         public abstract Builder hops(List<PortalIntegrityHopReport> hops);

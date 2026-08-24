@@ -183,6 +183,7 @@ import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage"
 import STUNDiscoveriesPage from "./components/ethernet/nat/traversal/stun_discoveries/STUNDiscoveriesPage";
 import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionsPage";
 import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
+import PortalIntegrityPage from "./components/ethernet/portalintegrity/PortalIntegrityPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -605,6 +606,9 @@ function App() {
 
                                 { /* Ethernet/Recon. */}
                                 <Route path={ApiRoutes.ETHERNET.RECON.INDEX} element={<ReconPage />}/>
+
+                                { /* Ethernet/Portal Integrity  */ }
+                                <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} element={<PortalIntegrityPage />}/>
                               </Route>
 
                               { /* 802.11. */ }

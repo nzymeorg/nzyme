@@ -19,6 +19,7 @@ use crate::metrics::Metrics;
 const DHCP_TIMEOUT: StdDuration = StdDuration::from_secs(15);
 
 pub fn run(cfg: PortalIntegrityConfiguration,
+           probe_name: String,
            metrics: Arc<Mutex<Metrics>>,
            leaderlink: Arc<Mutex<Leaderlink>>) -> Result<()> {
     tls::install_crypto_provider();
@@ -32,7 +33,7 @@ pub fn run(cfg: PortalIntegrityConfiguration,
     );
 
     loop {
-        if let Err(e) = run_cycle(&cfg, &metrics, &leaderlink) {
+        if let Err(e) = run_cycle(&cfg, probe_name.clone(), &metrics, &leaderlink) {
             error!("portal_integrity cycle failed: {:#}", e);
         }
         info!("portal_integrity: cycle complete, sleeping {:?}", interval);
@@ -42,6 +43,7 @@ pub fn run(cfg: PortalIntegrityConfiguration,
 }
 
 fn run_cycle(cfg: &PortalIntegrityConfiguration,
+             probe_name: String,
              metrics: &Arc<Mutex<Metrics>>,
              leaderlink: &Arc<Mutex<Leaderlink>>) -> Result<()> {
     let mac = mac::parse(&cfg.mac)?;
@@ -56,6 +58,7 @@ fn run_cycle(cfg: &PortalIntegrityConfiguration,
         let lease = stack.run_dhcp(DHCP_TIMEOUT)?;
 
         let context = probe::ProbeContext {
+            name: probe_name.clone(),
             interface: cfg.interface.clone(),
             mac: mac.to_string().replace("-", ":").to_uppercase(),
             assigned_cidr: lease.address.to_string(),
