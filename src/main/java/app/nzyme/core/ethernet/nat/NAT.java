@@ -7,7 +7,6 @@ import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntry;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryHistogramBucket;
 import app.nzyme.core.ethernet.nat.db.STUNNegotiationEntry;
-import app.nzyme.core.ethernet.nat.db.STUNNegotiationFilters;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;

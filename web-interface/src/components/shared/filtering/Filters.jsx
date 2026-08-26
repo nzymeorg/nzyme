@@ -37,6 +37,11 @@ export const FILTER_TYPE = {
     validators: [validateStringNotEmpty],
     placeholder: null
   },
+  UUID: {
+    name: "uuid",
+    validators: [validateStringNotEmpty],
+    placeholder: null
+  },
   STRING_ARRAY: {
     name: "stringarray",
     validators: [validateStringNotEmpty],
@@ -350,6 +355,7 @@ export default function Filters(props) {
           ]);
           break;
         case FILTER_TYPE.STRING_NO_REGEX:
+        case FILTER_TYPE.UUID:
           setAllowedOperators([
             OPERATORS.EQUALS,
             OPERATORS.NOT_EQUALS

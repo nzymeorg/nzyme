@@ -184,6 +184,7 @@ import STUNDiscoveriesPage from "./components/ethernet/nat/traversal/stun_discov
 import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionsPage";
 import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
 import PortalIntegrityPage from "./components/ethernet/portalintegrity/PortalIntegrityPage";
+import PortalIntegrityReportDetailsPage from "./components/ethernet/portalintegrity/PortalIntegrityReportDetailsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -609,6 +610,7 @@ function App() {
 
                                 { /* Ethernet/Portal Integrity  */ }
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} element={<PortalIntegrityPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(':uuid')} element={<PortalIntegrityReportDetailsPage />}/>
                               </Route>
 
                               { /* 802.11. */ }

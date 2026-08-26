@@ -73,8 +73,20 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
         for (PortalIntegrityReportEntry report : nzyme.getEthernet().portalIntegrity()
                 .findAllIntegrityReports(timeRange, filters, orderColumn, orderDirection, limit, offset, taps)) {
             reports.add(PortalIntegrityReportDetailsResponse.create(
-                    report.uuid())
-            );
+                    report.uuid(),
+                    report.controlUrl(),
+                    report.probeInterface(),
+                    report.probeMac(),
+                    report.probeName(),
+                    report.assignedAddress(),
+                    report.gatewayAddress(),
+                    report.dhcpServerAddress(),
+                    report.dnsServers(),
+                    report.hopCount(),
+                    report.lastHopUrl(),
+                    report.error(),
+                    report.probedAt()
+            ));
         }
 
         return Response.ok(PortalIntegrityReportsListResponse.create(total, reports)).build();

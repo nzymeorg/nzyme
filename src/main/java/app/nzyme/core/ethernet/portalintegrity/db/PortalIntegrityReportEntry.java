@@ -22,11 +22,12 @@ public abstract class PortalIntegrityReportEntry {
     public abstract String dhcpServerAddress();
     public abstract List<String> dnsServers();
     public abstract int hopCount();
+    public abstract String lastHopUrl();
     @Nullable
     public abstract String error();
     public abstract DateTime probedAt();
 
-    public static PortalIntegrityReportEntry create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String error, DateTime probedAt) {
+    public static PortalIntegrityReportEntry create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String lastHopUrl, String error, DateTime probedAt) {
         return builder()
                 .uuid(uuid)
                 .controlUrl(controlUrl)
@@ -38,6 +39,7 @@ public abstract class PortalIntegrityReportEntry {
                 .dhcpServerAddress(dhcpServerAddress)
                 .dnsServers(dnsServers)
                 .hopCount(hopCount)
+                .lastHopUrl(lastHopUrl)
                 .error(error)
                 .probedAt(probedAt)
                 .build();
@@ -68,6 +70,8 @@ public abstract class PortalIntegrityReportEntry {
         public abstract Builder dnsServers(List<String> dnsServers);
 
         public abstract Builder hopCount(int hopCount);
+
+        public abstract Builder lastHopUrl(String lastHopUrl);
 
         public abstract Builder error(String error);
 

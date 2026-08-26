@@ -138,6 +138,17 @@ public class FilterSql {
         }
     }
 
+    public static String uuidMatch(String bindId, String fieldName, FilterOperator operator) {
+        switch (operator) {
+            case EQUALS:
+                return fieldName + " = :" + bindId + "::uuid";
+            case NOT_EQUALS:
+                return fieldName + " <> :" + bindId + "::uuid";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for UUID field [" + fieldName + "].");
+        }
+    }
+
     public static String jsonbStringMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case CONTAINS:

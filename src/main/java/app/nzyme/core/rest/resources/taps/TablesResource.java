@@ -35,7 +35,7 @@ import org.joda.time.DateTime;
 @Produces(MediaType.APPLICATION_JSON)
 public class TablesResource {
 
-    private static final Logger LOG = LogManager.getLogger(StatusResource.class);
+    private static final Logger LOG = LogManager.getLogger(TablesResource.class);
 
     @Inject
     private NzymeNode nzyme;
@@ -265,7 +265,7 @@ public class TablesResource {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
 
-        LOG.info("Received portal integrity URL report from tap [{}]: {}", tap.getUuid(), report);
+        LOG.debug("Received portal integrity URL report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().portalIntegrity().handleUrlReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();

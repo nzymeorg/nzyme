@@ -1,4 +1,4 @@
-package app.nzyme.core.ethernet.nat.db;
+package app.nzyme.core.ethernet.nat;
 
 import app.nzyme.core.util.filters.FilterOperator;
 import app.nzyme.core.util.filters.GeneratedSql;
@@ -6,7 +6,6 @@ import app.nzyme.core.util.filters.SqlFilterProvider;
 
 import static app.nzyme.core.util.filters.FilterSql.*;
 import static app.nzyme.core.util.filters.FilterSql.ipAddressMatch;
-import static app.nzyme.core.util.filters.FilterSql.jsonbNestedFieldMatchAny;
 
 public class STUNNegotiationFilters implements SqlFilterProvider {
 

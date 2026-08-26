@@ -24,6 +24,7 @@ public class PortalIntegrityReportEntryMapper implements RowMapper<PortalIntegri
                 rs.getString("dhcp_server_address"),
                 Lists.newArrayList((String[]) rs.getArray("dns_servers").getArray()),
                 rs.getInt("hop_count"),
+                rs.getString("last_hop_url"),
                 rs.getString("error"),
                 new DateTime(rs.getTimestamp("probed_at"))
         );
