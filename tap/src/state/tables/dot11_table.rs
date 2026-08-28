@@ -163,7 +163,12 @@ impl Dot11Table {
                                             ssid.wps.push(has_wps);
                                         }
 
-                                        if !ssid.fingerprints.contains(&fingerprint) {
+                                        // Fingerprints are derived from beacon frames only.
+                                        // Probe responses may legitimately carry reduced element
+                                        // sets (trimmed rates, missing HT/HE elements, etc.), which
+                                        // would otherwise create spurious fingerprint variants
+                                        // and false "unexpected fingerprint" alerts.
+                                        if frame_type == FrameSubType::Beacon && !ssid.fingerprints.contains(&fingerprint) {
                                             ssid.fingerprints.push(fingerprint.clone());
                                         }
 
