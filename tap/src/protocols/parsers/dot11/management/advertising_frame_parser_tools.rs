@@ -95,13 +95,32 @@ pub fn parse_tagged_parameters(payload: &[u8],
 
             let data = &payload[cursor..cursor+length];
             cursor += length;
+            debug!("[IE] cursor_before={} number={} len={} data={:02x?} bssid={}", cursor-length-2, number, length, &data[..data.len().min(20)], bssid);
 
             match number {
                 0 => {
-                    // SSID.
-                    let ssid_s = String::from_utf8_lossy(data).to_string();
-                    if !ssid_s.trim().is_empty() {
-                        ssid = Option::Some(ssid_s);
+                    // SSID. Keep valid UTF-8 as-is; escape invalid bytes
+                    // Wireshark-style (\\xHH) so the raw bytes stay lossless.
+                    match String::from_utf8(data.to_vec()) {
+                        Ok(s) => {
+                            let s = s.trim().to_string();
+                            if !s.is_empty() {
+                                ssid = Option::Some(s);
+                            }
+                        }
+                        Err(_) => {
+                            let escaped: String = data.iter().map(|b| {
+                                if (0x20..=0x7e).contains(b) {
+                                    (*b as char).to_string()
+                                } else {
+                                    format!("\\x{:02x}", b)
+                                }
+                            }).collect();
+                            let s = escaped.trim().to_string();
+                            if !s.is_empty() {
+                                ssid = Option::Some(s);
+                            }
+                        }
                     }
                 },
                 1 => {
@@ -123,6 +142,14 @@ pub fn parse_tagged_parameters(payload: &[u8],
                 },
                 48 => {
                     // RSN. (WPA 2/3)
+                    // The RAW RSN element bytes always contribute to the fingerprint,
+                    // regardless of parse success. A parse hiccup on a single frame
+                    // (truncated element, unknown suite, PMF quirk) must not change the
+                    // fingerprint hash, otherwise the same AP alternates between two
+                    // fingerprints and monitored networks fire spurious
+                    // "unexpected fingerprint" alerts.
+                    security_bytes.extend(data);
+
                     let suites: CipherSuites = match parse_wpa_security(data) {
                         Ok(suites) => suites,
                         Err(e) => {
@@ -147,7 +174,6 @@ pub fn parse_tagged_parameters(payload: &[u8],
                     let protocols = vec![decide_wpa_identifier(&suites, &pmf).unwrap()];
 
                     security.push(SecurityInformation {protocols, pmf, suites: Option::Some(suites)});
-                    security_bytes.extend(data);
                 }
                 50 => {
                     // Extended supported rates.
@@ -323,6 +349,7 @@ fn parse_wpa_security(data: &[u8]) -> Result<CipherSuites, Error> {
     }
 
     if LittleEndian::read_u16(&data[0..2]) != 1 {
+        debug!("[DBG] RSN bad data={:02x?} len={}", &data[..data.len().min(20)], data.len());
         bail!("Unsupported RSN/WPA version <{:?}>.", &data)
     }
 
