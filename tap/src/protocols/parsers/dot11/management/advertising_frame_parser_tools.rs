@@ -498,34 +498,15 @@ pub fn calculate_fingerprint(bssid: &str,
     factors.push(caps.short_slot_time as u8);
     factors.push(caps.dsss_ofdm as u8);
 
-    // Supported rates.
-    if tagged_params.supported_rates.is_some() {
-        for rate in tagged_params.supported_rates.as_ref().unwrap() {
-            factors.extend(rate.to_le_bytes());
-        }
-    }
-
-    // Extended spported rates.
-    if tagged_params.extended_supported_rates.is_some() {
-        for rate in tagged_params.extended_supported_rates.as_ref().unwrap() {
-            factors.extend(rate.to_le_bytes());
-        }
-    }
-
-    // HT capabilities.
-    if tagged_params.ht_capabilities.is_some() {
-        factors.extend(tagged_params.ht_capabilities.as_ref().unwrap());
-    }
-
-    // Extended capabilities.
-    if tagged_params.extended_capabilities.is_some() {
-        factors.extend(tagged_params.extended_capabilities.as_ref().unwrap());
-    }
-
     // WPS
     factors.push(*has_wps as u8);
 
-    // Security / Encryption.
+    // Security / Encryption. Raw element bytes: the strong, stable
+    // discriminators. Supported rates, extended rates, HT and extended
+    // capabilities are deliberately excluded - they legitimately vary
+    // between beacon and probe-response frames of the same AP (probe
+    // responses may trim them), which would otherwise produce spurious
+    // fingerprint variants for a stable network.
     factors.extend(security);
 
     let hash = Sha256::digest(factors);
