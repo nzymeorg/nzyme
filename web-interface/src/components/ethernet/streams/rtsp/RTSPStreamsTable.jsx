@@ -6,12 +6,10 @@ import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant"
 import ColumnSorting from "../../../shared/ColumnSorting";
 import numeral from "numeral";
 import RTSPService from "../../../../services/ethernet/RTSPService";
-import ApiRoutes from "../../../../util/ApiRoutes";
 import FullCopyShortenedId from "../../../shared/FullCopyShortenedId";
 import moment from "moment";
 import L4Address from "../../shared/L4Address";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
-import {SSH_FILTER_FIELDS} from "../../remote/ssh/SSHFilterFields";
 import InternalAddressOnlyWrapper from "../../shared/InternalAddressOnlyWrapper";
 import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
 import {RTSP_FILTER_FIELDS} from "./RTSPFilterFields";
@@ -82,17 +80,16 @@ export default function RTSPStreamsTable(props) {
         <tr>
           <th>&nbsp;</th>
           <th>ID</th>
-          <th className="hide-narrow">State</th>
-          <th>Type</th>
-          <th>Client Address</th>
-          <th>Client MAC</th>
-          <th>Server Address</th>
-          <th>Server MAC</th>
-          <th className="hide-narrow">RX</th>
-          <th className="hide-narrow">TX</th>
-          <th>Duration</th>
-          <th>Established At</th>
-          <th className="hide-narrow">Last Activity</th>
+          <th>Type {columnSorting("type")}</th>
+          <th>Client Address {columnSorting("setup_source_address")}</th>
+          <th>Client MAC {columnSorting("setup_source_mac")}</th>
+          <th>Server Address {columnSorting("setup_destination_address")}</th>
+          <th>Server MAC {columnSorting("setup_destination_mac")}</th>
+          <th className="hide-narrow">RX {columnSorting("stream_bytes_rx")}</th>
+          <th className="hide-narrow">TX {columnSorting("stream_bytes_tx")}</th>
+          <th>Duration {columnSorting("duration")}</th>
+          <th>Established At {columnSorting("setup_established_at")}</th>
+          <th className="hide-narrow">Last Activity {columnSorting("setup_most_recent_segment_time")}</th>
         </tr>
         </thead>
         <tbody>
@@ -107,14 +104,20 @@ export default function RTSPStreamsTable(props) {
                   <FullCopyShortenedId value={stream.setup_tcp_session_key} />
                 </a>
               </td>
-              <td className="hide-narrow">{stream.state}</td>
-              <td>{stream.stream_l4_type}</td>
+              <td>
+                {stream.stream_l4_type}
+
+                <FilterValueIcon setFilters={setFilters}
+                                 fields={RTSP_FILTER_FIELDS}
+                                 field="type"
+                                 value={stream.stream_l4_type} />
+              </td>
               <td>
                 <L4Address address={stream.stream_source}
                            hidePort={true}
                            filterElement={stream.stream_source ? <FilterValueIcon setFilters={setFilters}
                                                                             fields={RTSP_FILTER_FIELDS}
-                                                                            field="stream_source"
+                                                                            field="stream_source_address"
                                                                             value={stream.stream_source.address} /> : null } />
               </td>
               <td>
@@ -129,7 +132,7 @@ export default function RTSPStreamsTable(props) {
                            hidePort={true}
                            filterElement={stream.stream_destination ? <FilterValueIcon setFilters={setFilters}
                                                                                   fields={RTSP_FILTER_FIELDS}
-                                                                                  field="stream_destination"
+                                                                                  field="stream_destination_address"
                                                                                   value={stream.stream_destination.address} /> : null } />
               </td>
               <td>
@@ -139,9 +142,30 @@ export default function RTSPStreamsTable(props) {
                                                                       filterElement={macFilter(stream.stream_destination.mac, "stream_destination_mac")}
                                                                       withAssetLink withAssetName /> : null} />
               </td>
-              <td className="hide-narrow">{numeral(stream.stream_bytes_rx).format("0b")}</td>
-              <td className="hide-narrow">{numeral(stream.stream_bytes_tx).format("0b")}</td>
-              <td><FullCopy shortValue={formatDurationMs(stream.duration_ms)} fullValue={stream.duration_ms} /></td>
+              <td className="hide-narrow">
+                {numeral(stream.stream_bytes_rx).format("0b")}
+
+                <FilterValueIcon setFilters={setFilters}
+                                 fields={RTSP_FILTER_FIELDS}
+                                 field="bytes_rx_count"
+                                 value={stream.stream_bytes_rx} />
+              </td>
+              <td className="hide-narrow">
+                {numeral(stream.stream_bytes_tx).format("0b")}
+
+                <FilterValueIcon setFilters={setFilters}
+                                 fields={RTSP_FILTER_FIELDS}
+                                 field="bytes_tx_count"
+                                 value={stream.stream_bytes_tx} />
+              </td>
+              <td>
+                <FullCopy shortValue={formatDurationMs(stream.duration_ms)} fullValue={stream.duration_ms} />
+
+                <FilterValueIcon setFilters={setFilters}
+                                 fields={RTSP_FILTER_FIELDS}
+                                 field="duration_ms"
+                                 value={stream.duration_ms} />
+              </td>
               <td title={moment(stream.setup_established_at).format()}>{moment(stream.setup_established_at).fromNow()}</td>
               <td className="hide-narrow"
                   title={stream.last_activity ? moment(stream.last_activity).format() : "Underlying connection data may be missing."}>

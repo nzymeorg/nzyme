@@ -17,11 +17,15 @@ public class FilterFactory {
         switch (parameter.operator().toLowerCase()) {
             case "equals":
             case "completion_status_equals":
+            case "active_status_equals":
+            case "l4_connection_type_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );
             case "not_equals":
             case "completion_status_not_equals":
+            case "active_status_not_equals":
+            case "l4_connection_type_not_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );

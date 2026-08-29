@@ -19,7 +19,15 @@ public class RTSP {
     public enum OrderColumn {
 
         SETUP_ESTABLISHED_AT("setup_established_at"),
-        STATE("state");
+        SETUP_MOST_RECENT_SEGMENT_TIME("setup_most_recent_segment_time"),
+        TYPE("MAX(stream.l4_type)"),
+        SETUP_SOURCE_ADDRESS("MAX(setup.source_address)"),
+        SETUP_SOURCE_MAC("MAX(setup.source_mac)"),
+        SETUP_DESTINATION_ADDRESS("MAX(setup.destination_address)"),
+        SETUP_DESTINATION_MAC("MAX(setup.destination_mac)"),
+        STREAM_BYTES_RX("MAX(stream.bytes_rx_count)"),
+        STREAM_BYTES_TX("MAX(stream.bytes_tx_count)"),
+        DURATION("duration_ms");
 
         private final String columnName;
 

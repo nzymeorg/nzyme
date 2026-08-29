@@ -25,6 +25,11 @@ import requiredUserPermissionForMonitorWriteAccess from "../../monitors/shared/M
 import {
   ALLOWED_COMPLETION_STATUS_VALUES, COMPLETION_STATUS_SELECT_OPTIONS,
 } from "./validators/CompletionStatusValidator";
+import {ACTIVE_STATUS_SELECT_OPTIONS, ALLOWED_ACTIVE_STATUS_VALUES} from "./validators/ActiveStatusValidator";
+import {
+  ALLOWED_L4_CONNECTION_TYPE_VALUES,
+  L4_CONNECTION_TYPE_SELECT_OPTIONS
+} from "./validators/L4ConnectionTypeValidator";
 
 export const FILTER_TYPE = {
   STRING: {
@@ -100,6 +105,20 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_COMPLETION_STATUS_VALUES, value, true)
     ],
     placeholder: "Complete"
+  },
+  ACTIVE_STATUS: {
+    name: "active_status",
+    validators: [
+      (value) => validateEnum(ALLOWED_ACTIVE_STATUS_VALUES, value, true)
+    ],
+    placeholder: "Active"
+  },
+  L4_CONNECTION_TYPE: {
+    name: "l4_connection_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_L4_CONNECTION_TYPE_VALUES, value, true)
+    ],
+    placeholder: "UDP"
   }
 }
 
@@ -271,6 +290,42 @@ export const OPERATORS = {
     options: COMPLETION_STATUS_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
+  ACTIVE_STATUS_EQUALS: {
+    name: "active_status_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ACTIVE_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  ACTIVE_STATUS_NOT_EQUALS: {
+    name: "active_status_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ACTIVE_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  L4_CONNECTION_TYPE_EQUALS: {
+    name: "l4_connection_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: L4_CONNECTION_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  L4_CONNECTION_TYPE_NOT_EQUALS: {
+    name: "l4_connection_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: L4_CONNECTION_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
 }
 
 const monitorsService = new MonitorsService();
@@ -400,6 +455,19 @@ export default function Filters(props) {
             OPERATORS.COMPLETION_STATUS_EQUALS,
             OPERATORS.COMPLETION_STATUS_NOT_EQUALS
           ])
+          break;
+        case FILTER_TYPE.ACTIVE_STATUS:
+          setAllowedOperators([
+            OPERATORS.ACTIVE_STATUS_EQUALS,
+            OPERATORS.ACTIVE_STATUS_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.L4_CONNECTION_TYPE:
+          setAllowedOperators([
+            OPERATORS.L4_CONNECTION_TYPE_EQUALS,
+            OPERATORS.L4_CONNECTION_TYPE_NOT_EQUALS
+          ])
+          break;
       }
     }
 
