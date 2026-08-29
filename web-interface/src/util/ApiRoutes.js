@@ -186,6 +186,7 @@ const ApiRoutes = {
     STREAMS: {
       RTSP: {
         INDEX: '/ethernet/streams/rtsp',
+        DETAILS: (sessionId) => `/ethernet/streams/rtsp/show/${sessionId}`
       }
     },
     TIME: {

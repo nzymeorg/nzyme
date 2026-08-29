@@ -6,6 +6,7 @@ import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
 import java.util.Set;
+import java.util.UUID;
 
 @AutoValue
 public abstract class RTSPStreamEntry {

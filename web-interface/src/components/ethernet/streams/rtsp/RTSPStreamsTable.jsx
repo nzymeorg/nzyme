@@ -16,6 +16,7 @@ import {RTSP_FILTER_FIELDS} from "./RTSPFilterFields";
 import RTSPStreamActiveIndicator from "./RTSPStreamActiveIndicator";
 import {formatDurationMs} from "../../../../util/Tools";
 import FullCopy from "../../../shared/FullCopy";
+import ApiRoutes from "../../../../util/ApiRoutes";
 
 const rtspService = new RTSPService();
 
@@ -100,7 +101,7 @@ export default function RTSPStreamsTable(props) {
                 <RTSPStreamActiveIndicator stream={stream} />
               </td>
               <td>
-                <a href="#">
+                <a href={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(stream.setup_tcp_session_key)}>
                   <FullCopyShortenedId value={stream.setup_tcp_session_key} />
                 </a>
               </td>

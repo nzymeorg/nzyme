@@ -8,6 +8,7 @@ import org.joda.time.DateTime;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @AutoValue
 public abstract class RTSPStreamDetailsResponse {

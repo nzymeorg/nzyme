@@ -9,6 +9,7 @@ import org.joda.time.DateTime;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 
 public class RTSPStreamEntryMapper implements RowMapper<RTSPStreamEntry> {
 

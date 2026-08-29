@@ -185,6 +185,7 @@ import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connec
 import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
 import PortalIntegrityPage from "./components/ethernet/portalintegrity/PortalIntegrityPage";
 import PortalIntegrityReportDetailsPage from "./components/ethernet/portalintegrity/PortalIntegrityReportDetailsPage";
+import RTSPStreamDetailsPage from "./components/ethernet/streams/rtsp/RTSPStreamDetailsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -592,6 +593,7 @@ function App() {
 
                                 { /* Ethernet/Streams. */}
                                 <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX} element={<RTSPStreamsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(':sessionId')} element={<RTSPStreamDetailsPage />}/>
 
                                 { /* Ethernet/Time. */}
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.INDEX} element={<NTPOverviewPage />}/>
@@ -608,7 +610,7 @@ function App() {
                                 { /* Ethernet/Recon. */}
                                 <Route path={ApiRoutes.ETHERNET.RECON.INDEX} element={<ReconPage />}/>
 
-                                { /* Ethernet/Portal Integrity  */ }
+                                { /* Ethernet/Portal Integrity */ }
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} element={<PortalIntegrityPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(':uuid')} element={<PortalIntegrityReportDetailsPage />}/>
                               </Route>
