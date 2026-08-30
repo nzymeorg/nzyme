@@ -12,7 +12,6 @@ import Filters from "../../../shared/filtering/Filters";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {STREAMS_MENU_ITEMS} from "../StreamsMenuItems";
-import SSHSessionsTable from "../../remote/ssh/SSHSessionsTable";
 import RTSPStreamsTable from "./RTSPStreamsTable";
 
 const useQuery = () => {
@@ -52,15 +51,9 @@ export default function RTSPStreamsPage() {
 
       <div className="row mt-3">
         <div className="col-md-12">
-          <h1>RTSP Streams</h1>
-        </div>
-      </div>
-
-      <div className="row mt-3">
-        <div className="col-md-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="All Streams"
+              <CardTitleWithControls title="All RTSP Streams"
                                      helpLink="https://go.nzyme.org/ethernet-rtsp"
                                      timeRange={timeRange}
                                      setTimeRange={setTimeRange}

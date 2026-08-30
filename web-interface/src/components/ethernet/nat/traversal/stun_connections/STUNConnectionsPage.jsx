@@ -19,8 +19,6 @@ const useQuery = () => {
   return new URLSearchParams(useLocation().search);
 }
 
-const natService = new NATService();
-
 export default function STUNConnectionsPage() {
 
   usePageTitle("STUN Connections");

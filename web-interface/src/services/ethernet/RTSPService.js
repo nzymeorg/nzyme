@@ -10,4 +10,12 @@ export default class RTSPService {
     )
   }
 
+  findOneStream(sessionId, organizationId, tenantId, taps, setStream) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(`/ethernet/rtsp/streams/show/${sessionId}`, { organization_id: organizationId, tenant_id: tenantId, taps: tapsList },
+      (response) => setStream(response.data)
+    )
+  }
+
 }

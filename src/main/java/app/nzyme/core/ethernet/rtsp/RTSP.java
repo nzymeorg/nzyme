@@ -12,6 +12,7 @@ import org.joda.time.DateTime;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class RTSP {
@@ -216,6 +217,120 @@ public class RTSP {
                         .define("order_direction", orderDirection)
                         .mapTo(RTSPStreamEntry.class)
                         .list()
+        );
+    }
+
+    public Optional<RTSPStreamEntry> findOneStream(String sessionKey, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT rtsp.setup_tcp_session_key AS setup_tcp_session_key, " +
+                                "MAX(rtsp.state) AS state, MAX(rtsp.media_locator::text)::jsonb AS media_locator, " +
+                                "MAX(rtsp.request_uri) AS request_uri, MAX(rtsp.client_agent) AS client_agent, " +
+                                "MAX(rtsp.server_info) AS server_info, MAX(rtsp.authentication) AS authentication, " +
+                                "MAX(rtsp.flags) as flags, " +
+                                "MAX(rtsp.setup_connection_status) AS setup_connection_status, " +
+                                "MIN(rtsp.setup_established_at) AS setup_established_at, " +
+                                "MAX(rtsp.setup_terminated_at) AS setup_terminated_at, " +
+                                "MAX(setup_most_recent_segment_time) AS setup_most_recent_segment_time, " +
+                                "MAX(setup.source_mac) AS setup_source_mac, " +
+                                "MAX(setup.source_address) AS setup_source_address, " +
+                                "MAX(setup.source_port) AS setup_source_port, " +
+                                "MAX(setup.source_address_geo_asn_number) AS setup_source_address_geo_asn_number, " +
+                                "MAX(setup.source_address_geo_asn_name) AS setup_source_address_geo_asn_name, " +
+                                "MAX(setup.source_address_geo_asn_domain) AS setup_source_address_geo_asn_domain, " +
+                                "MAX(setup.source_address_geo_city) AS setup_source_address_geo_city, " +
+                                "MAX(setup.source_address_geo_country_code) AS setup_source_address_geo_country_code, " +
+                                "MAX(setup.source_address_geo_latitude) AS setup_source_address_geo_latitude, " +
+                                "MAX(setup.source_address_geo_longitude) AS setup_source_address_geo_longitude, " +
+                                "MAX(setup.source_address_geo_latitude) AS setup_source_address_geo_latitude, " +
+                                "BOOL_OR(setup.source_address_is_site_local) AS setup_source_address_is_site_local, " +
+                                "BOOL_OR(setup.source_address_is_loopback) AS setup_source_address_is_loopback, " +
+                                "BOOL_OR(setup.source_address_is_multicast) AS setup_source_address_is_multicast, " +
+                                "MAX(setup.destination_mac) AS setup_destination_mac, " +
+                                "MAX(setup.destination_address) AS setup_destination_address, " +
+                                "MAX(setup.destination_port) AS setup_destination_port, " +
+                                "MAX(setup.destination_address_geo_asn_number) AS setup_destination_address_geo_asn_number, " +
+                                "MAX(setup.destination_address_geo_asn_name) AS setup_destination_address_geo_asn_name, " +
+                                "MAX(setup.destination_address_geo_asn_domain) AS setup_destination_address_geo_asn_domain, " +
+                                "MAX(setup.destination_address_geo_city) AS setup_destination_address_geo_city, " +
+                                "MAX(setup.destination_address_geo_country_code) AS setup_destination_address_geo_country_code, " +
+                                "MAX(setup.destination_address_geo_latitude) AS setup_destination_address_geo_latitude, " +
+                                "MAX(setup.destination_address_geo_longitude) AS setup_destination_address_geo_longitude, " +
+                                "MAX(setup.destination_address_geo_latitude) AS setup_destination_address_geo_latitude, " +
+                                "BOOL_OR(setup.destination_address_is_site_local) AS setup_destination_address_is_site_local, " +
+                                "BOOL_OR(setup.destination_address_is_loopback) AS setup_destination_address_is_loopback, " +
+                                "BOOL_OR(setup.destination_address_is_multicast) AS setup_destination_address_is_multicast, " +
+                                "MAX(setup.bytes_rx_count)+MAX(setup.bytes_tx_count) AS setup_bytes_exchanged, " +
+                                "MAX(stream.l4_type) AS stream_l4_type, " +
+                                "MAX(stream.source_mac) AS stream_source_mac, " +
+                                "MAX(stream.source_address) AS stream_source_address, " +
+                                "MAX(stream.source_port) AS stream_source_port, " +
+                                "MAX(stream.source_address_geo_asn_number) AS stream_source_address_geo_asn_number, " +
+                                "MAX(stream.source_address_geo_asn_name) AS stream_source_address_geo_asn_name, " +
+                                "MAX(stream.source_address_geo_asn_domain) AS stream_source_address_geo_asn_domain, " +
+                                "MAX(stream.source_address_geo_city) AS stream_source_address_geo_city, " +
+                                "MAX(stream.source_address_geo_country_code) AS stream_source_address_geo_country_code, " +
+                                "MAX(stream.source_address_geo_latitude) AS stream_source_address_geo_latitude, " +
+                                "MAX(stream.source_address_geo_longitude) AS stream_source_address_geo_longitude, " +
+                                "MAX(stream.source_address_geo_latitude) AS stream_source_address_geo_latitude, " +
+                                "BOOL_OR(stream.source_address_is_site_local) AS stream_source_address_is_site_local, " +
+                                "BOOL_OR(stream.source_address_is_loopback) AS stream_source_address_is_loopback, " +
+                                "BOOL_OR(stream.source_address_is_multicast) AS stream_source_address_is_multicast, " +
+                                "MAX(stream.destination_mac) AS stream_destination_mac, " +
+                                "MAX(stream.destination_address) AS stream_destination_address, " +
+                                "MAX(stream.destination_port) AS stream_destination_port, " +
+                                "MAX(stream.most_recent_segment_time) AS stream_most_recent_segment_time, " +
+                                "MAX(stream.destination_address_geo_asn_number) AS stream_destination_address_geo_asn_number, " +
+                                "MAX(stream.destination_address_geo_asn_name) AS stream_destination_address_geo_asn_name, " +
+                                "MAX(stream.destination_address_geo_asn_domain) AS stream_destination_address_geo_asn_domain, " +
+                                "MAX(stream.destination_address_geo_city) AS stream_destination_address_geo_city, " +
+                                "MAX(stream.destination_address_geo_country_code) AS stream_destination_address_geo_country_code, " +
+                                "MAX(stream.destination_address_geo_latitude) AS stream_destination_address_geo_latitude, " +
+                                "MAX(stream.destination_address_geo_longitude) AS stream_destination_address_geo_longitude, " +
+                                "MAX(stream.destination_address_geo_latitude) AS stream_destination_address_geo_latitude, " +
+                                "BOOL_OR(stream.destination_address_is_site_local) AS stream_destination_address_is_site_local, " +
+                                "BOOL_OR(stream.destination_address_is_loopback) AS stream_destination_address_is_loopback, " +
+                                "BOOL_OR(stream.destination_address_is_multicast) AS stream_destination_address_is_multicast, " +
+                                "MAX(stream.bytes_rx_count) AS stream_bytes_rx, " +
+                                "MAX(stream.bytes_tx_count) AS stream_bytes_tx, " +
+                                "CASE WHEN MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) " +
+                                "ELSE NULL END AS last_activity, " +
+                                "CASE WHEN MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) > :active_cutoff " +
+                                "ELSE NULL END AS is_active, " +
+                                "CASE WHEN MIN(rtsp.setup_established_at) IS NOT NULL " +
+                                "AND MAX(rtsp.setup_most_recent_segment_time) IS NOT NULL " +
+                                "AND MAX(stream.most_recent_segment_time) IS NOT NULL " +
+                                "THEN (EXTRACT(EPOCH FROM (GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                "MAX(stream.most_recent_segment_time)) - MIN(rtsp.setup_established_at))) * 1000)::bigint " +
+                                "ELSE NULL END AS duration_ms " +
+                                "FROM rtsp_streams AS rtsp " +
+                                "LEFT JOIN l4_sessions AS setup " +
+                                "ON setup.session_key = rtsp.setup_tcp_session_key " +
+                                "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                "AND setup.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                "AND setup.tap_uuid = rtsp.tap_uuid " +
+                                "LEFT JOIN l4_sessions AS stream " +
+                                "ON stream.untimed_session_key = rtsp.stream_l4_untimed_session_key " +
+                                "AND stream.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                "AND stream.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                "AND stream.tap_uuid = rtsp.tap_uuid " +
+                                "WHERE rtsp.setup_tcp_session_key = :session_key " +
+                                "AND rtsp.tap_uuid IN (<taps>) " +
+                                "GROUP BY rtsp.setup_tcp_session_key")
+                        .bindList("taps", taps)
+                        .bind("session_key", sessionKey)
+                        .bind("active_cutoff", DateTime.now().minusMinutes(1))
+                        .mapTo(RTSPStreamEntry.class)
+                        .findOne()
         );
     }
 
