@@ -73,6 +73,16 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
         None
     };
 
+    // Radiotap flags may indicate the capture includes the frame's trailing
+    // FCS (802.11-2020 §9.3.1: 4-octet CRC-32). Strip it before parsing:
+    // otherwise the tag walker reads the CRC bytes as spurious elements
+    // (e.g. fake "element 48" at the end of beacons), causing parse noise
+    // and false "RSN fail" warnings.
+    let fcs_len: usize = match &flags {
+        Some(f) if f.fcs_at_end && data.data.len() >= header_length + 4 => 4,
+        _ => 0,
+    };
+
     // Data Rate.
     let data_rate: Option<u32> = if present_flags.rate {
         let data_rate = match radiotap_buffer.take(1) {
@@ -225,7 +235,7 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
         antenna
     };
 
-    let payload = &data.data[header_length..data.data.len()];
+    let payload = &data.data[header_length..data.data.len() - fcs_len];
 
     if payload.len() < 2 {
         trace!("Payload too short.");
