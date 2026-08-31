@@ -79,7 +79,7 @@ export default function BluetoothDeviceDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Bluetooth</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.DEVICES.INDEX}>Clients</a></li>
+                <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.DEVICES.INDEX}>Devices</a></li>
                 <li className="breadcrumb-item">{device.device.mac.address}</li>
                 <li className="breadcrumb-item active" aria-current="page">Details</li>
               </ol>
@@ -194,19 +194,6 @@ export default function BluetoothDeviceDetailsPage() {
                                        setTimeRange={setRssiHistogramTimerange} />
 
                 <BluetoothDeviceSignalStrengthHistogram data={rssiHistogram} setTimeRange={setRssiHistogramTimerange} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-body">
-                <CardTitleWithControls title="Physical Location / Trilateration"
-                                       fixedAppliedTimeRange={Presets.ALL_TIME}/>
-
-                <div className="alert alert-info mb-0">Not implemented yet.</div>
               </div>
             </div>
           </div>
