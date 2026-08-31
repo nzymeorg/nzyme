@@ -12,6 +12,7 @@ import moment from "moment";
 import {truncate} from "../../../util/Tools";
 import Paginator from "../../misc/Paginator";
 import ApiRoutes from "../../../util/ApiRoutes";
+import PortalIntegrityVerdict from "./PortalIntegrityVerdict";
 
 const portalIntegrityService = new PortalIntegrityService();
 
@@ -75,6 +76,7 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
           <th>Final URL {columnSorting("last_hop_url")}</th>
           <th>Hop Count {columnSorting("hop_count")}</th>
           <th>Probed At {columnSorting("probed_at")}</th>
+          <th>Verdict</th>
         </tr>
         </thead>
         <tbody>
@@ -88,9 +90,14 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
               </td>
               <td>{r.probe_name}</td>
               <td>{r.control_url}</td>
-              <td title={r.last_hop_url}>{truncate(r.last_hop_url, 35, false)}</td>
+              <td title={r.last_hop_url ? r.last_hop_url : null}>
+                {r.last_hop_url ?
+                  truncate(r.last_hop_url, 35, false)
+                  : <span className="text-muted">n/a</span>}
+              </td>
               <td>{numeral(r.hop_count).format("0,0")}</td>
               <td title={moment(r.probed_at).format()}>{moment(r.probed_at).fromNow()}</td>
+              <td><PortalIntegrityVerdict verdict={r.verdict} setFilters={setFilters} /></td>
             </tr>
           )
         })}

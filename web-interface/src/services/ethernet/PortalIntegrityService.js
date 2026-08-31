@@ -10,4 +10,12 @@ export default class PortalIntegrityService {
     )
   }
 
+  findOneReport(uuid, organizationId, tenantId, taps, setReport) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(`/ethernet/portalintegrity/reports/show/${uuid}`, { organization_id: organizationId, tenant_id: tenantId, taps: tapsList },
+      (response) => setReport(response.data)
+    )
+  }
+
 }

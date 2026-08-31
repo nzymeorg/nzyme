@@ -2,10 +2,14 @@ package app.nzyme.core.rest.resources.ethernet;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
 import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportEntry;
+import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportHopEntry;
+import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.responses.ethernet.portalintegrity.PortalIntegrityReportDetailsResponse;
+import app.nzyme.core.rest.responses.ethernet.portalintegrity.PortalIntegrityReportHopDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.portalintegrity.PortalIntegrityReportsListResponse;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
@@ -14,10 +18,7 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -25,6 +26,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import org.apache.commons.compress.utils.Lists;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
@@ -85,11 +87,75 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
                     report.hopCount(),
                     report.lastHopUrl(),
                     report.error(),
-                    report.probedAt()
+                    report.verdict(),
+                    report.verdictReasons(),
+                    report.probedAt(),
+                    null
             ));
         }
 
         return Response.ok(PortalIntegrityReportsListResponse.create(total, reports)).build();
+    }
+
+
+    @GET
+    @Path("/reports/show/{uuid}")
+    public Response oneReport(@Context SecurityContext sc,
+                              @PathParam(("uuid")) UUID uuid,
+                              @QueryParam("organization_id") UUID organizationId,
+                              @QueryParam("tenant_id") UUID tenantId,
+                              @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Optional<PortalIntegrityReportEntry> report = nzyme.getEthernet().portalIntegrity()
+                .findOneIntegrityReport(uuid, taps);
+
+        if (report.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        List<PortalIntegrityReportHopDetailsResponse> hops = Lists.newArrayList();
+        for (PortalIntegrityReportHopEntry hop : nzyme.getEthernet().portalIntegrity()
+                .findAllHopsOfIntegrityReport(report.get().uuid())) {
+            hops.add(PortalIntegrityReportHopDetailsResponse.create(
+                    hop.hopIndex(),
+                    hop.url(),
+                    RestHelpers.L4AddressDataToResponse(
+                            nzyme, organizationId, tenantId, L4Type.TCP, hop.resolvedAddress()
+                    ),
+                    hop.status(),
+                    hop.followedTo(),
+                    hop.completeness(),
+                    hop.raw(),
+                    hop.bodySha256(),
+                    hop.tls()
+            ));
+        }
+
+        PortalIntegrityReportDetailsResponse response = PortalIntegrityReportDetailsResponse.create(
+                report.get().uuid(),
+                report.get().controlUrl(),
+                report.get().probeInterface(),
+                report.get().probeMac(),
+                report.get().probeName(),
+                report.get().assignedAddress(),
+                report.get().gatewayAddress(),
+                report.get().dhcpServerAddress(),
+                report.get().dnsServers(),
+                report.get().hopCount(),
+                report.get().lastHopUrl(),
+                report.get().error(),
+                report.get().verdict(),
+                report.get().verdictReasons(),
+                report.get().probedAt(),
+                hops
+        );
+
+        return Response.ok(response).build();
     }
 
 }

@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportEntry;
+import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportHopEntry;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -11,6 +12,7 @@ import app.nzyme.core.util.filters.Filters;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class PortalIntegrity {
@@ -68,6 +70,7 @@ public class PortalIntegrity {
                         .one()
         );
     }
+
     public List<PortalIntegrityReportEntry> findAllIntegrityReports(TimeRange timeRange,
                                                                     Filters filters,
                                                                     ReportOrderColumn orderColumn,
@@ -78,12 +81,13 @@ public class PortalIntegrity {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
+
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new PortalIntegrityReportFilters());
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM (" +
                                 "SELECT r.uuid, r.control_url, r.probe_interface, r.probe_mac, r.probe_name, " +
-                                "r.probed_at, r.error, d.assigned_address, d.gateway_address, d.dhcp_server_address, " +
-                                "d.dns_servers::text[] AS dns_servers, " +
+                                "r.probed_at, r.verdict, r.verdict_reasons, r.error, d.assigned_address, " +
+                                "d.gateway_address, d.dhcp_server_address, d.dns_servers::text[] AS dns_servers, " +
                                 "(SELECT COUNT(*) FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid) " +
                                 "AS hop_count, " +
                                 "(SELECT h.url FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid " +
@@ -103,6 +107,39 @@ public class PortalIntegrity {
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
                         .mapTo(PortalIntegrityReportEntry.class)
+                        .list()
+        );
+    }
+
+    public Optional<PortalIntegrityReportEntry> findOneIntegrityReport(UUID uuid, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT r.uuid, r.control_url, r.probe_interface, r.probe_mac, r.probe_name, " +
+                                "r.probed_at, r.verdict, r.verdict_reasons, r.error, d.assigned_address, " +
+                                "d.gateway_address, d.dhcp_server_address, d.dns_servers::text[] AS dns_servers, " +
+                                "(SELECT COUNT(*) FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid) " +
+                                "AS hop_count, " +
+                                "(SELECT h.url FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid " +
+                                "ORDER BY h.hop_index DESC LIMIT 1) AS last_hop_url " +
+                                "FROM portal_integrity_reports AS r " +
+                                "LEFT JOIN portal_integrity_dhcp_leases AS d ON r.uuid = d.report_uuid " +
+                                "WHERE r.uuid = :uuid AND r.tap_uuid IN (<taps>)")
+                        .bind("uuid", uuid)
+                        .bindList("taps", taps)
+                        .mapTo(PortalIntegrityReportEntry.class)
+                        .findOne()
+        );
+    }
+
+    public List<PortalIntegrityReportHopEntry> findAllHopsOfIntegrityReport(UUID reportUuid) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM portal_integrity_hops " +
+                                "WHERE report_uuid = :report_uuid ORDER BY hop_index ASC")
+                        .bind("report_uuid", reportUuid)
+                        .mapTo(PortalIntegrityReportHopEntry.class)
                         .list()
         );
     }

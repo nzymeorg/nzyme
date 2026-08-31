@@ -8637,5 +8637,78 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_portal_integrity_evaluation_result_fields" author="lennartkoopmann">
+        <addColumn tableName="portal_integrity_reports">
+            <column name="verdict" type="text" defaultValue="INCONCLUSIVE">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="verdict_reasons" type="text[]" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_geo_fields_to_portal_integrity_resolved_address" author="lennartkoopmann">
+        <sql>DELETE FROM portal_integrity_hops;</sql>
+
+        <addColumn tableName="portal_integrity_hops">
+            <column name="resolved_address_geo_asn_number" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_asn_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_asn_domain" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_city" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_country_code" type="varchar(2)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_latitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_geo_longitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="resolved_address_is_private" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="resolved_address_is_multicast" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="resolved_address_is_loopback" type="boolean">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rename_portal_integrity_hops_private_address" author="lennartkoopmann">
+        <renameColumn tableName="portal_integrity_hops" oldColumnName="resolved_address_is_private" newColumnName="destination_address_is_site_local" />
+    </changeSet>
+
+    <changeSet id="rename_portal_integrity_hops_private_address2" author="lennartkoopmann">
+        <renameColumn tableName="portal_integrity_hops" oldColumnName="destination_address_is_site_local" newColumnName="resolved_address_is_site_local" />
+    </changeSet>
+
+    <changeSet id="rename_portal_integrity_hops_resolved_address" author="lennartkoopmann">
+        <renameColumn tableName="portal_integrity_hops" oldColumnName="resolved_address" newColumnName="resolved_address_address" />
+    </changeSet>
+
+    <changeSet id="undo_rename_portal_integrity_hops_resolved_address" author="lennartkoopmann">
+        <renameColumn tableName="portal_integrity_hops" oldColumnName="resolved_address_address" newColumnName="resolved_address" />
+    </changeSet>
 
 </databaseChangeLog>

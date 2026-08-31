@@ -22,12 +22,15 @@ public abstract class PortalIntegrityReportEntry {
     public abstract String dhcpServerAddress();
     public abstract List<String> dnsServers();
     public abstract int hopCount();
+    @Nullable
     public abstract String lastHopUrl();
     @Nullable
     public abstract String error();
+    public abstract String verdict();
+    public abstract List<String> verdictReasons();
     public abstract DateTime probedAt();
 
-    public static PortalIntegrityReportEntry create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String lastHopUrl, String error, DateTime probedAt) {
+    public static PortalIntegrityReportEntry create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String lastHopUrl, String error, String verdict, List<String> verdictReasons, DateTime probedAt) {
         return builder()
                 .uuid(uuid)
                 .controlUrl(controlUrl)
@@ -41,6 +44,8 @@ public abstract class PortalIntegrityReportEntry {
                 .hopCount(hopCount)
                 .lastHopUrl(lastHopUrl)
                 .error(error)
+                .verdict(verdict)
+                .verdictReasons(verdictReasons)
                 .probedAt(probedAt)
                 .build();
     }
@@ -74,6 +79,10 @@ public abstract class PortalIntegrityReportEntry {
         public abstract Builder lastHopUrl(String lastHopUrl);
 
         public abstract Builder error(String error);
+
+        public abstract Builder verdict(String verdict);
+
+        public abstract Builder verdictReasons(List<String> verdictReasons);
 
         public abstract Builder probedAt(DateTime probedAt);
 
