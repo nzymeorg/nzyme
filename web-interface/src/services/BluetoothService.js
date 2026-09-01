@@ -2,10 +2,13 @@ import RESTClient from '../util/RESTClient'
 
 class BluetoothService {
 
-  findAllDevices(setDevices, timeRange, orderColumn, orderDirection, taps, limit, offset) {
+  findAllDevices(setDevices, organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, taps, limit, offset) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
     RESTClient.get("/bluetooth/devices", {
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        filters: filters,
         time_range: timeRange,
         order_column: orderColumn,
         order_direction: orderDirection,
@@ -17,10 +20,14 @@ class BluetoothService {
     )
   }
 
-  findOneDevice(setDevice, mac, taps) {
+  findOneDevice(setDevice, organizationId, tenantId, mac, taps) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
-    RESTClient.get(`/bluetooth/devices/show/${mac}`, { taps: tapsList },
+    RESTClient.get(`/bluetooth/devices/show/${mac}`, {
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        taps: tapsList
+      },
         (response) => setDevice(response.data)
     )
   }

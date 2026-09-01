@@ -7,6 +7,9 @@ import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.filters.FilterSql;
+import app.nzyme.core.util.filters.FilterSqlFragment;
+import app.nzyme.core.util.filters.Filters;
 
 import java.util.Collections;
 import java.util.List;
@@ -59,6 +62,7 @@ public class Bluetooth {
     }
 
     public List<BluetoothDeviceSummary> findAllDevices(TimeRange timeRange,
+                                                       Filters filters,
                                                        OrderColumn orderColumn,
                                                        OrderDirection orderDirection,
                                                        int limit,
@@ -67,6 +71,8 @@ public class Bluetooth {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT d.mac, ARRAY_AGG(DISTINCT(d.alias)) AS aliases, " +
@@ -81,8 +87,9 @@ public class Bluetooth {
                                 "MIN(d.last_seen) AS first_seen, MAX(d.last_seen) AS last_seen " +
                                 "FROM bluetooth_devices AS d " +
                                 "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
-                                "WHERE d.last_seen >= :tr_from AND d.last_seen <= :tr_to AND d.tap_uuid IN (<taps>) " +
-                                "GROUP BY d.mac " +
+                                "WHERE d.last_seen >= :tr_from AND d.last_seen <= :tr_to " +
+                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
+                                "GROUP BY d.mac HAVING 1=1 " + filterFragment.havingSql() + " " +
                                 "ORDER BY <order_column> <order_direction> " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("tr_from", timeRange.from())
@@ -92,6 +99,7 @@ public class Bluetooth {
                         .bindList("taps", taps)
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
+                        .bindMap(filterFragment.bindings())
                         .mapTo(BluetoothDeviceSummary.class)
                         .list()
         );

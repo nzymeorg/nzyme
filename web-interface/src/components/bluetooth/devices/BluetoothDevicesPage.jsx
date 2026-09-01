@@ -4,18 +4,42 @@ import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import BluetoothDevicesTable from "./BluetoothDevicesTable";
 import usePageTitle from "../../../util/UsePageTitle";
 import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import Filters from "../../shared/filtering/Filters";
+import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
+import {useLocation} from "react-router-dom";
+
+const useQuery = () => {
+  return new URLSearchParams(useLocation().search);
+}
 
 export default function BluetoothDevicesPage() {
 
   usePageTitle("Bluetooth Devices");
 
+  const urlQuery = useQuery();
+
   const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
+
+  const [filters, setFilters] = useState(
+    queryParametersToFilters(urlQuery.get("filters"), BLUETOOTH_DEVICES_FILTER_FIELDS)
+  );
 
   return (
       <React.Fragment>
         <div className="row">
           <div className="col-md-12">
-            <h1>Bluetooth Devices</h1>
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Filters"
+                                       timeRange={timeRange}
+                                       setTimeRange={setTimeRange} />
+
+                <Filters filters={filters}
+                         setFilters={setFilters}
+                         fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -27,7 +51,7 @@ export default function BluetoothDevicesPage() {
                                        timeRange={timeRange}
                                        setTimeRange={setTimeRange}/>
 
-                <BluetoothDevicesTable timeRange={timeRange} />
+                <BluetoothDevicesTable timeRange={timeRange} filters={filters} setFilters={setFilters} />
               </div>
             </div>
           </div>

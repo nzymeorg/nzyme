@@ -1,6 +1,5 @@
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import React from "react";
-import SimpleLineChart from "../../../widgets/charts/SimpleLineChart";
 import SimpleBarChart from "../../../widgets/charts/SimpleBarChart";
 
 export default function NTPTransactionsHistogram({histogram, setTimeRange}) {

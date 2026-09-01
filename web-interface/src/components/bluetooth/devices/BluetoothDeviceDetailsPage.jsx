@@ -16,12 +16,15 @@ import {BluetoothDeviceSignalStrengthHistogram} from "./BluetoothDeviceSignalStr
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import usePageTitle from "../../../util/UsePageTitle";
 import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const btService = new BluetoothService();
 
 export default function BluetoothDeviceDetailsPage() {
 
   const {macParam} = useParams();
+
+  const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -44,7 +47,7 @@ export default function BluetoothDeviceDetailsPage() {
   }, [tapContext]);
 
   useEffect(() => {
-    btService.findOneDevice(setSelectedDevice, macParam, selectedTaps);
+    btService.findOneDevice(setSelectedDevice, organizationId, tenantId, macParam, selectedTaps);
     btService.getRssiHistogramOfDevice(setRssiHistogram, macParam, rssiHistogramTimerange, selectedTaps);
     btService.getRssiOfDeviceByTap(setTapRssis, macParam, tapRssiTimerange, selectedTaps);
   }, [macParam, rssiHistogramTimerange, tapRssiTimerange]);

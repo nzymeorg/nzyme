@@ -17,6 +17,7 @@ import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.Tools;
+import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
@@ -33,6 +34,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
+
 @Path("/api/bluetooth/devices")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
@@ -43,15 +46,22 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     public Response findAll(@Context SecurityContext sc,
+                            @QueryParam("organization_id") UUID organizationId,
+                            @QueryParam("tenant_id") UUID tenantId,
                             @QueryParam("time_range") @Valid String timeRangeParameter,
                             @QueryParam("order_column") @Nullable String orderColumnParam,
                             @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @QueryParam("filters") String filtersParameter,
                             @QueryParam("limit") int limit,
                             @QueryParam("offset") int offset,
                             @QueryParam("taps") String taps) {
-        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
-        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        List<UUID> tapUuids = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
 
         Bluetooth.OrderColumn orderColumn = Bluetooth.OrderColumn.AVERAGE_RSSI;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -68,8 +78,8 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
         List<BluetoothDeviceSummaryDetailsResponse> devices = Lists.newArrayList();
         for (BluetoothDeviceSummary dev : nzyme.getBluetooth()
-                .findAllDevices(timeRange, orderColumn, orderDirection, limit, offset, tapUuids)) {
-            devices.add(buildResponse(dev, authenticatedUser));
+                .findAllDevices(timeRange, filters, orderColumn, orderDirection, limit, offset, tapUuids)) {
+            devices.add(buildResponse(dev, organizationId, tenantId));
         }
 
         return Response.ok(BluetoothDeviceSummaryListResponse.create(total, devices)).build();
@@ -78,10 +88,16 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
     @GET
     @Path("/show/{mac}")
     public Response findOne(@Context SecurityContext sc,
+                            @QueryParam("organization_id") UUID organizationId,
+                            @QueryParam("tenant_id") UUID tenantId,
                             @PathParam("mac") @MacAddress String mac,
                             @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
 
         Optional<BluetoothDeviceSummary> device = nzyme.getBluetooth().findOneDevice(mac, tapUuids);
 
@@ -90,7 +106,7 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
         }
 
         return Response.ok(BluetoothDeviceDetailsResponse.create(
-                buildResponse(device.get(), authenticatedUser)
+                buildResponse(device.get(), organizationId, tenantId)
         )).build();
     }
 
@@ -135,11 +151,12 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
     }
 
     private BluetoothDeviceSummaryDetailsResponse buildResponse(BluetoothDeviceSummary dev,
-                                                                AuthenticatedUser authenticatedUser) {
+                                                                UUID organizationId,
+                                                                UUID tenantId) {
         Optional<MacAddressContextEntry> deviceContext = nzyme.getContextService().findMacAddressContext(
                 dev.mac(),
-                authenticatedUser.getOrganizationId(),
-                authenticatedUser.getTenantId()
+                organizationId,
+                tenantId
         );
 
         List<String> deviceClasses = buildDeviceClasses(dev);

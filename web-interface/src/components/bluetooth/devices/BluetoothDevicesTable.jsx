@@ -12,10 +12,16 @@ import ColumnSorting from "../../shared/ColumnSorting";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import BluetoothService from "../../../services/BluetoothService";
 import numeral from "numeral";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
+import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
+import {NTP_FILTER_FIELDS} from "../../ethernet/time/ntp/NTPFilterFields";
+import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
 
 const btService = new BluetoothService();
 
-export default function BluetoothDevicesTable({timeRange}) {
+export default function BluetoothDevicesTable({timeRange, filters, setFilters}) {
+
+  const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -38,8 +44,18 @@ export default function BluetoothDevicesTable({timeRange}) {
 
   useEffect(() => {
     setDevices(null);
-    btService.findAllDevices(setDevices, timeRange, orderColumn, orderDirection, selectedTaps, perPage, (page-1)*perPage);
-  }, [selectedTaps, timeRange, orderColumn, orderDirection, page])
+    btService.findAllDevices(
+      setDevices,
+      organizationId,
+      tenantId,
+      timeRange,
+      filters,
+      orderColumn,
+      orderDirection,
+      selectedTaps,
+      perPage,
+      (page-1)*perPage);
+  }, [selectedTaps, timeRange, filters, organizationId, tenantId, orderColumn, orderDirection, page])
 
   const columnSorting = (columnName) => {
     return <ColumnSorting thisColumn={columnName}
@@ -85,7 +101,12 @@ export default function BluetoothDevicesTable({timeRange}) {
             return (
                 <tr key={i}>
                   <td>
-                    <BluetoothMacAddress addressWithContext={d.mac} href={ApiRoutes.BLUETOOTH.DEVICES.DETAILS((d.mac.address))} />
+                    <BluetoothMacAddress addressWithContext={d.mac}
+                                         filterElement={d.mac && d.mac.address ? <FilterValueIcon setFilters={setFilters}
+                                                                                                  fields={BLUETOOTH_DEVICES_FILTER_FIELDS}
+                                                                                                  field="mac"
+                                                                                                  value={d.mac.address} /> : null}
+                                         href={ApiRoutes.BLUETOOTH.DEVICES.DETAILS((d.mac.address))} />
                   </td>
                   <td>{d.mac.oui ? d.mac.oui : <span className="text-muted">Unknown</span>}</td>
                   <td><GroupedParameterList list={d.companies}/></td>
