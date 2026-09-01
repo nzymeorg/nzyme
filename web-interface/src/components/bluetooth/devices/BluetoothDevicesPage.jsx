@@ -1,41 +1,15 @@
-import React, {useContext, useEffect, useState} from 'react';
-import {TapContext} from "../../../App";
+import React, {useState} from 'react';
 import {Presets} from "../../shared/timerange/TimeRange";
-import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
-import BluetoothService from "../../../services/BluetoothService";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import BluetoothDevicesTable from "./BluetoothDevicesTable";
 import usePageTitle from "../../../util/UsePageTitle";
 import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
 
-const btService = new BluetoothService();
-
 export default function BluetoothDevicesPage() {
 
   usePageTitle("Bluetooth Devices");
 
-  const tapContext = useContext(TapContext);
-  const selectedTaps = tapContext.taps;
-
-  const [devices, setDevices] = useState(null);
-
-  const [devicesTimeRange, setDevicesTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
-  const [devicesPage, setDevicesPage] = useState(1);
-
-  const perPage = 50;
-
-  useEffect(() => {
-    setDevices(null);
-    btService.findAllDevices(setDevices, devicesTimeRange, selectedTaps, perPage, (devicesPage-1)*perPage);
-  }, [selectedTaps, devicesTimeRange, devicesPage])
-
-  useEffect(() => {
-    enableTapSelector(tapContext);
-
-    return () => {
-      disableTapSelector(tapContext);
-    }
-  }, [tapContext]);
+  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
 
   return (
       <React.Fragment>
@@ -50,13 +24,10 @@ export default function BluetoothDevicesPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Devices"
-                                       timeRange={devicesTimeRange}
-                                       setTimeRange={setDevicesTimeRange}/>
+                                       timeRange={timeRange}
+                                       setTimeRange={setTimeRange}/>
 
-                <BluetoothDevicesTable devices={devices}
-                                       page={devicesPage}
-                                       perPage={perPage}
-                                       setPage={setDevicesPage} />
+                <BluetoothDevicesTable timeRange={timeRange} />
               </div>
             </div>
           </div>

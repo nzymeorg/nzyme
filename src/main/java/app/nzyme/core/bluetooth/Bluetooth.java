@@ -2,12 +2,11 @@ package app.nzyme.core.bluetooth;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.bluetooth.db.BluetoothDeviceSummary;
+import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.util.Collections;
 import java.util.List;
@@ -16,9 +15,28 @@ import java.util.UUID;
 
 public class Bluetooth {
 
-    private static final Logger LOG = LogManager.getLogger(Bluetooth.class);
-
     private final NzymeNode nzyme;
+
+    public enum OrderColumn {
+
+        MAC("mac"),
+        AVERAGE_RSSI("average_rssi"),
+        TAGS("tags"),
+        TRANSPORTS("transports"),
+        NAMES("names"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        OrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+
+    }
 
     public Bluetooth(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -40,7 +58,12 @@ public class Bluetooth {
         );
     }
 
-    public List<BluetoothDeviceSummary> findAllDevices(TimeRange timeRange, int limit, int offset, List<UUID> taps) {
+    public List<BluetoothDeviceSummary> findAllDevices(TimeRange timeRange,
+                                                       OrderColumn orderColumn,
+                                                       OrderDirection orderDirection,
+                                                       int limit,
+                                                       int offset,
+                                                       List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -60,13 +83,15 @@ public class Bluetooth {
                                 "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
                                 "WHERE d.last_seen >= :tr_from AND d.last_seen <= :tr_to AND d.tap_uuid IN (<taps>) " +
                                 "GROUP BY d.mac " +
-                                "ORDER BY average_rssi DESC " +
+                                "ORDER BY <order_column> <order_direction> " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bind("limit", limit)
                         .bind("offset", offset)
                         .bindList("taps", taps)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
                         .mapTo(BluetoothDeviceSummary.class)
                         .list()
         );

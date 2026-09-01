@@ -1,9 +1,11 @@
 package app.nzyme.core.rest.resources.bluetooth;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.bluetooth.Bluetooth;
 import app.nzyme.core.bluetooth.db.BluetoothDeviceSummary;
 import app.nzyme.core.bluetooth.sig.BluetoothDeviceClass;
 import app.nzyme.core.context.db.MacAddressContextEntry;
+import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.rest.RestTools;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
@@ -18,6 +20,7 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -41,6 +44,8 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
     @GET
     public Response findAll(@Context SecurityContext sc,
                             @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
                             @QueryParam("limit") int limit,
                             @QueryParam("offset") int offset,
                             @QueryParam("taps") String taps) {
@@ -48,10 +53,22 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
+        Bluetooth.OrderColumn orderColumn = Bluetooth.OrderColumn.AVERAGE_RSSI;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = Bluetooth.OrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
         long total = nzyme.getBluetooth().countAllDevices(timeRange, tapUuids);
 
         List<BluetoothDeviceSummaryDetailsResponse> devices = Lists.newArrayList();
-        for (BluetoothDeviceSummary dev : nzyme.getBluetooth().findAllDevices(timeRange, limit, offset, tapUuids)) {
+        for (BluetoothDeviceSummary dev : nzyme.getBluetooth()
+                .findAllDevices(timeRange, orderColumn, orderDirection, limit, offset, tapUuids)) {
             devices.add(buildResponse(dev, authenticatedUser));
         }
 

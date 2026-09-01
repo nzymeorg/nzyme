@@ -1,4 +1,4 @@
-import React, {useContext} from 'react';
+import React, {useContext, useEffect, useState} from 'react';
 import moment from "moment";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Paginator from "../../misc/Paginator";
@@ -8,16 +8,46 @@ import GroupedParameterList from "../../shared/GroupedParameterList";
 import BluetoothMacAddress from "../../shared/context/macs/BluetoothMacAddress";
 import ApiRoutes from "../../../util/ApiRoutes";
 import {transformTag, transformTransport} from "../BluetoothTools";
+import ColumnSorting from "../../shared/ColumnSorting";
+import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
+import BluetoothService from "../../../services/BluetoothService";
+import numeral from "numeral";
 
-export default function BluetoothDevicesTable(props) {
+const btService = new BluetoothService();
 
-  const devices = props.devices;
-  const page = props.page;
-  const perPage = props.perPage;
-  const setPage = props.setPage;
+export default function BluetoothDevicesTable({timeRange}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
+
+  const [devices, setDevices] = useState(null);
+
+  const [orderColumn, setOrderColumn] = useState("average_rssi");
+  const [orderDirection, setOrderDirection] = useState("DESC");
+
+  const [page, setPage] = useState(1);
+  const perPage = 50;
+
+  useEffect(() => {
+    enableTapSelector(tapContext);
+
+    return () => {
+      disableTapSelector(tapContext);
+    }
+  }, [tapContext]);
+
+  useEffect(() => {
+    setDevices(null);
+    btService.findAllDevices(setDevices, timeRange, orderColumn, orderDirection, selectedTaps, perPage, (page-1)*perPage);
+  }, [selectedTaps, timeRange, orderColumn, orderDirection, page])
+
+  const columnSorting = (columnName) => {
+    return <ColumnSorting thisColumn={columnName}
+                          orderColumn={orderColumn}
+                          setOrderColumn={setOrderColumn}
+                          orderDirection={orderDirection}
+                          setOrderDirection={setOrderDirection} />
+  }
 
   if (!devices) {
     return <LoadingSpinner />
@@ -33,17 +63,21 @@ export default function BluetoothDevicesTable(props) {
 
   return (
       <React.Fragment>
-        <table className="table table-sm table-hover table-striped">
+        <div>
+          <strong>Total: </strong> {numeral(devices.total).format(0,0)}
+        </div>
+
+        <table className="table table-sm table-hover table-striped mt-2">
           <thead>
           <tr>
-            <th>Address</th>
+            <th>Address {columnSorting("mac")}</th>
             <th>OUI</th>
             <th>Manufacturer</th>
-            <th>Signal Strength</th>
-            <th>Type</th>
-            <th>Transport</th>
-            <th>Name</th>
-            <th>Last Seen</th>
+            <th>Signal Strength {columnSorting("average_rssi")}</th>
+            <th>Type {columnSorting("tags")}</th>
+            <th>Transport {columnSorting("transports")}</th>
+            <th>Name {columnSorting("names")}</th>
+            <th>Last Seen {columnSorting("last_seen")}</th>
           </tr>
           </thead>
           <tbody>
