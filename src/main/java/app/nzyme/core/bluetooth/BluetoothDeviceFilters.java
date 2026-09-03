@@ -4,6 +4,7 @@ import app.nzyme.core.util.filters.FilterOperator;
 import app.nzyme.core.util.filters.GeneratedSql;
 import app.nzyme.core.util.filters.SqlFilterProvider;
 
+import static app.nzyme.core.util.filters.FilterSql.jsonbObjectKeyMatch;
 import static app.nzyme.core.util.filters.FilterSql.stringMatch;
 
 public class BluetoothDeviceFilters implements SqlFilterProvider {
@@ -13,6 +14,12 @@ public class BluetoothDeviceFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(stringMatch(bindId, "mac", operator), "");
+            case "tags":
+                return GeneratedSql.create(jsonbObjectKeyMatch(bindId, "tags", operator), "");
+            case "transports":
+                return GeneratedSql.create(stringMatch(bindId, "transport", operator), "");
+            case "names":
+                return GeneratedSql.create(stringMatch(bindId, "name", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

@@ -78,7 +78,7 @@ public class Bluetooth {
                 handle.createQuery("SELECT d.mac, ARRAY_AGG(DISTINCT(d.alias)) AS aliases, " +
                                 "ARRAY_AGG(DISTINCT(d.device)) AS devices, " +
                                 "ARRAY_AGG(DISTINCT(d.transport)) AS transports, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.name, 'None'))) AS names, " +
+                                "ARRAY_AGG(DISTINCT(d.name)) AS names, " +
                                 "AVG(d.rssi) AS average_rssi, " +
                                 "ARRAY_AGG(DISTINCT(COALESCE(d.company_id, 0))) AS company_ids, " +
                                 "ARRAY_AGG(DISTINCT(COALESCE(d.uuids, '[]'))) AS service_uuids, " +

@@ -111,9 +111,26 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters}) 
                   <td>{d.mac.oui ? d.mac.oui : <span className="text-muted">Unknown</span>}</td>
                   <td><GroupedParameterList list={d.companies}/></td>
                   <td><SignalStrength strength={d.average_rssi} selectedTapCount={selectedTaps.length}/></td>
-                  <td><GroupedParameterList list={d.tags} valueTransform={transformTag} /></td>
-                  <td><GroupedParameterList list={d.transports} valueTransform={transformTransport} /></td>
-                  <td><GroupedParameterList list={d.names}/></td>
+                  <td>
+                    <GroupedParameterList list={d.tags}
+                                          valueTransform={transformTag}
+                                          setFilters={setFilters}
+                                          fieldName="tags"
+                                          fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                  </td>
+                  <td>
+                    <GroupedParameterList list={d.transports}
+                                          valueTransform={transformTransport}
+                                          setFilters={setFilters}
+                                          fieldName="transports"
+                                          fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                  </td>
+                  <td>
+                    <GroupedParameterList list={d.names}
+                                          setFilters={setFilters}
+                                          fieldName="names"
+                                          fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                  </td>
                   <td>{moment(d.last_seen).fromNow()}</td>
                 </tr>
             )

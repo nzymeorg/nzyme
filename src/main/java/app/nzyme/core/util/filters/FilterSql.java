@@ -198,6 +198,22 @@ public class FilterSql {
         }
     }
 
+    public static String jsonbObjectKeyMatch(String bindId, String fieldName, FilterOperator operator) {
+        switch (operator) {
+            case CONTAINS:
+                return fieldName + " ?? :" + bindId;
+            case NOT_CONTAINS:
+                return "NOT (" + fieldName + " ?? :" + bindId + ")";
+            case IS_EMPTY:
+                return "(" + fieldName + " IS NULL OR " + fieldName + " = '{}'::jsonb)";
+            case IS_NOT_EMPTY:
+                return "(" + fieldName + " IS NOT NULL AND " + fieldName + " <> '{}'::jsonb)";
+            default:
+                throw new RuntimeException(
+                        "Invalid operator [" + operator + "] for jsonb object key field [" + fieldName + "].");
+        }
+    }
+
     public static String textArrayStringMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case CONTAINS:
