@@ -8711,4 +8711,16 @@
         <renameColumn tableName="portal_integrity_hops" oldColumnName="resolved_address_address" newColumnName="resolved_address" />
     </changeSet>
 
+    <changeSet id="add_oui_and_manufacturer_as_bluetooth_device_field" author="lennartkoopmann">
+        <addColumn tableName="bluetooth_devices">
+            <column name="oui" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="manufacturer_name" type="text">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

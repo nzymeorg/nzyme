@@ -74,7 +74,7 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
             }
         }
 
-        long total = nzyme.getBluetooth().countAllDevices(timeRange, tapUuids);
+        long total = nzyme.getBluetooth().countAllDevices(timeRange, filters, tapUuids);
 
         List<BluetoothDeviceSummaryDetailsResponse> devices = Lists.newArrayList();
         for (BluetoothDeviceSummary dev : nzyme.getBluetooth()
@@ -159,14 +159,6 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
                 tenantId
         );
 
-        List<String> deviceClasses = buildDeviceClasses(dev);
-
-        List<String> companies = Lists.newArrayList();
-        for (Integer companyId : dev.companyIds()) {
-            nzyme.getBluetoothSigService().lookupCompanyId(companyId)
-                    .ifPresent(companies::add);
-        }
-
         return BluetoothDeviceSummaryDetailsResponse.create(
                 BluetoothMacAddressResponse.create(
                         dev.mac(),
@@ -179,13 +171,14 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
                                         ))
                                 .orElse(null)
                 ),
+                dev.ouis(),
                 dev.aliases(),
                 dev.devices(),
                 dev.transports(),
                 dev.names(),
                 dev.averageRssi(),
-                companies,
-                deviceClasses,
+                dev.manufacturerNames(),
+                buildDeviceClasses(dev),
                 dev.discoveredServices(),
                 dev.tags(),
                 dev.firstSeen(),

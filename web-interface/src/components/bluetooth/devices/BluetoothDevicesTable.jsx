@@ -108,8 +108,18 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters}) 
                                                                                                   value={d.mac.address} /> : null}
                                          href={ApiRoutes.BLUETOOTH.DEVICES.DETAILS((d.mac.address))} />
                   </td>
-                  <td>{d.mac.oui ? d.mac.oui : <span className="text-muted">Unknown</span>}</td>
-                  <td><GroupedParameterList list={d.companies}/></td>
+                  <td>
+                    <GroupedParameterList list={d.ouis}
+                                          setFilters={setFilters}
+                                          fieldName="ouis"
+                                          fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                  </td>
+                  <td>
+                    <GroupedParameterList list={d.companies}
+                                          setFilters={setFilters}
+                                          fieldName="manufacturer_names"
+                                          fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                  </td>
                   <td><SignalStrength strength={d.average_rssi} selectedTapCount={selectedTaps.length}/></td>
                   <td>
                     <GroupedParameterList list={d.tags}

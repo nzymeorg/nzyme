@@ -118,7 +118,7 @@ export default function BluetoothDeviceDetailsPage() {
                       <dt>Bluetooth Vendor</dt>
                       <dd><GroupedParameterList list={device.device.companies}/></dd>
                       <dt>MAC OUI Vendor</dt>
-                      <dd>{device.device.mac.oui ? device.device.mac.oui : "Unknown"}</dd>
+                      <dd><GroupedParameterList list={device.device.ouis}/></dd>
                       <dt>Name:</dt>
                       <dd>
                         <GroupedParameterList list={device.device.names}/>

@@ -34,7 +34,7 @@ export default function GroupedParameterList({list, valueTransform, setFilters =
         {list.map((x, i) => {
           return (
               <React.Fragment key={i}>
-                {formatValue(x)}{i < list.length-1 ? <span>{filterIcon(x)} , </span> : <span>{filterIcon(x)}</span>}
+                {formatValue(x)}{i < list.length-1 ? <span>{filterIcon(x)}, </span> : <span>{filterIcon(x)}</span>}
 
               </React.Fragment>
           )

@@ -45,17 +45,25 @@ public class Bluetooth {
         this.nzyme = nzyme;
     }
 
-    public long countAllDevices(TimeRange timeRange, List<UUID> taps) {
+    public long countAllDevices(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
             return 0;
         }
 
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(DISTINCT(d.mac)) FROM bluetooth_devices AS d " +
-                                "WHERE d.last_seen >= :tr_from AND d.last_seen <= :tr_to AND d.tap_uuid IN (<taps>)")
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT d.mac FROM bluetooth_devices AS d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.last_seen >= :tr_from AND d.last_seen <= :tr_to " +
+                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
+                                "GROUP BY d.mac HAVING 1=1 " + filterFragment.havingSql() +
+                                ") AS devices")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
                         .mapTo(Long.class)
                         .first()
         );
@@ -75,15 +83,28 @@ public class Bluetooth {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT d.mac, ARRAY_AGG(DISTINCT(d.alias)) AS aliases, " +
-                                "ARRAY_AGG(DISTINCT(d.device)) AS devices, " +
-                                "ARRAY_AGG(DISTINCT(d.transport)) AS transports, " +
-                                "ARRAY_AGG(DISTINCT(d.name)) AS names, " +
+                handle.createQuery("SELECT d.mac, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.oui) " +
+                                "FILTER (WHERE d.oui IS NOT NULL), ARRAY[]::text[]) AS ouis, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.manufacturer_name) " +
+                                "FILTER (WHERE d.manufacturer_name IS NOT NULL), ARRAY[]::text[]) AS manufacturer_names, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.alias) " +
+                                "FILTER (WHERE d.alias IS NOT NULL), ARRAY[]::text[]) AS aliases, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.device) " +
+                                "FILTER (WHERE d.device IS NOT NULL), ARRAY[]::text[]) AS devices, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.transport) " +
+                                "FILTER (WHERE d.transport IS NOT NULL), ARRAY[]::text[]) AS transports, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.name) " +
+                                "FILTER (WHERE d.name IS NOT NULL), ARRAY[]::text[]) AS names, " +
                                 "AVG(d.rssi) AS average_rssi, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.company_id, 0))) AS company_ids, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.uuids, '[]'))) AS service_uuids, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.class_number, 0))) AS class_numbers, " +
-                                "ARRAY_AGG(DISTINCT tag) AS tags, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.company_id) " +
+                                "FILTER (WHERE d.company_id IS NOT NULL), ARRAY[]::int[]) AS company_ids, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.uuids) " +
+                                "FILTER (WHERE d.uuids IS NOT NULL), ARRAY[]::text[]) AS service_uuids, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.class_number) " +
+                                "FILTER (WHERE d.class_number IS NOT NULL), ARRAY[]::int[]) AS class_numbers, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT tag) " +
+                                "FILTER (WHERE tag IS NOT NULL), ARRAY[]::text[]) AS tags, " +
                                 "MIN(d.last_seen) AS first_seen, MAX(d.last_seen) AS last_seen " +
                                 "FROM bluetooth_devices AS d " +
                                 "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
@@ -111,20 +132,33 @@ public class Bluetooth {
         }
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT d.mac, ARRAY_AGG(DISTINCT(d.alias)) AS aliases, " +
-                                "ARRAY_AGG(DISTINCT(d.device)) AS devices, " +
-                                "ARRAY_AGG(DISTINCT(d.transport)) AS transports, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.name, 'None'))) AS names, " +
+                handle.createQuery("SELECT d.mac, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.oui) " +
+                                "FILTER (WHERE d.oui IS NOT NULL), ARRAY[]::text[]) AS ouis, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.manufacturer_name) " +
+                                "FILTER (WHERE d.manufacturer_name IS NOT NULL), ARRAY[]::text[]) AS manufacturer_names, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.alias) " +
+                                "FILTER (WHERE d.alias IS NOT NULL), ARRAY[]::text[]) AS aliases, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.device) " +
+                                "FILTER (WHERE d.device IS NOT NULL), ARRAY[]::text[]) AS devices, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.transport) " +
+                                "FILTER (WHERE d.transport IS NOT NULL), ARRAY[]::text[]) AS transports, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.name) " +
+                                "FILTER (WHERE d.name IS NOT NULL), ARRAY[]::text[]) AS names, " +
                                 "AVG(d.rssi) AS average_rssi, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.company_id, 0))) AS company_ids, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.uuids, '[]'))) AS service_uuids, " +
-                                "ARRAY_AGG(DISTINCT(COALESCE(d.class_number, 0))) AS class_numbers, " +
-                                "ARRAY_AGG(DISTINCT tag) AS tags, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.company_id) " +
+                                "FILTER (WHERE d.company_id IS NOT NULL), ARRAY[]::int[]) AS company_ids, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.uuids) " +
+                                "FILTER (WHERE d.uuids IS NOT NULL), ARRAY[]::text[]) AS service_uuids, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT d.class_number) " +
+                                "FILTER (WHERE d.class_number IS NOT NULL), ARRAY[]::int[]) AS class_numbers, " +
+                                "COALESCE(ARRAY_AGG(DISTINCT tag) " +
+                                "FILTER (WHERE tag IS NOT NULL), ARRAY[]::text[]) AS tags, " +
                                 "MIN(d.last_seen) AS first_seen, MAX(d.last_seen) AS last_seen " +
                                 "FROM bluetooth_devices AS d " +
                                 "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
                                 "WHERE mac = :mac AND d.tap_uuid IN (<taps>) " +
-                                "GROUP BY d.mac ")
+                                "GROUP BY d.mac")
                         .bind("mac", mac)
                         .bindList("taps", taps)
                         .mapTo(BluetoothDeviceSummary.class)

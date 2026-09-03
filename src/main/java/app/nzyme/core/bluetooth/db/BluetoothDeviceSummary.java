@@ -10,6 +10,8 @@ import java.util.Map;
 public abstract class BluetoothDeviceSummary {
 
     public abstract String mac();
+    public abstract List<String> ouis();
+    public abstract List<String> manufacturerNames();
     public abstract List<String> aliases();
     public abstract List<String> devices();
     public abstract List<String> transports();
@@ -22,9 +24,11 @@ public abstract class BluetoothDeviceSummary {
     public abstract DateTime firstSeen();
     public abstract DateTime lastSeen();
 
-    public static BluetoothDeviceSummary create(String mac, List<String> aliases, List<String> devices, List<String> transports, List<String> names, double averageRssi, List<Integer> companyIds, List<Integer> classNumbers, List<String> discoveredServices, List<String> tags, DateTime firstSeen, DateTime lastSeen) {
+    public static BluetoothDeviceSummary create(String mac, List<String> ouis, List<String> manufacturerNames, List<String> aliases, List<String> devices, List<String> transports, List<String> names, double averageRssi, List<Integer> companyIds, List<Integer> classNumbers, List<String> discoveredServices, List<String> tags, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .mac(mac)
+                .ouis(ouis)
+                .manufacturerNames(manufacturerNames)
                 .aliases(aliases)
                 .devices(devices)
                 .transports(transports)
@@ -46,6 +50,10 @@ public abstract class BluetoothDeviceSummary {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder mac(String mac);
+
+        public abstract Builder ouis(List<String> ouis);
+
+        public abstract Builder manufacturerNames(List<String> manufacturerNames);
 
         public abstract Builder aliases(List<String> aliases);
 

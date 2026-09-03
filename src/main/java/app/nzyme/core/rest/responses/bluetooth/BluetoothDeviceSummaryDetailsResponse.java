@@ -12,6 +12,9 @@ public abstract class BluetoothDeviceSummaryDetailsResponse {
     @JsonProperty("mac")
     public abstract BluetoothMacAddressResponse mac();
 
+    @JsonProperty("ouis")
+    public abstract List<String> ouis();
+
     @JsonProperty("aliases")
     public abstract List<String> aliases();
 
@@ -26,6 +29,7 @@ public abstract class BluetoothDeviceSummaryDetailsResponse {
 
     @JsonProperty("average_rssi")
     public abstract double averageRssi();
+
     @JsonProperty("companies")
     public abstract List<String> companies();
 
@@ -44,9 +48,10 @@ public abstract class BluetoothDeviceSummaryDetailsResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static BluetoothDeviceSummaryDetailsResponse create(BluetoothMacAddressResponse mac, List<String> aliases, List<String> devices, List<String> transports, List<String> names, double averageRssi, List<String> companies, List<String> classes, List<String> discoveredServices, List<String> tags, DateTime firstSeen, DateTime lastSeen) {
+    public static BluetoothDeviceSummaryDetailsResponse create(BluetoothMacAddressResponse mac, List<String> ouis, List<String> aliases, List<String> devices, List<String> transports, List<String> names, double averageRssi, List<String> companies, List<String> classes, List<String> discoveredServices, List<String> tags, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .mac(mac)
+                .ouis(ouis)
                 .aliases(aliases)
                 .devices(devices)
                 .transports(transports)
@@ -68,6 +73,8 @@ public abstract class BluetoothDeviceSummaryDetailsResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder mac(BluetoothMacAddressResponse mac);
+
+        public abstract Builder ouis(List<String> ouis);
 
         public abstract Builder aliases(List<String> aliases);
 

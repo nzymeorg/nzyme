@@ -14,6 +14,10 @@ public class BluetoothDeviceFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(stringMatch(bindId, "mac", operator), "");
+            case "ouis":
+                return GeneratedSql.create(stringMatch(bindId, "oui", operator), "");
+            case "manufacturer_names":
+                return GeneratedSql.create(stringMatch(bindId, "manufacturer_name", operator), "");
             case "tags":
                 return GeneratedSql.create(jsonbObjectKeyMatch(bindId, "tags", operator), "");
             case "transports":

@@ -17,6 +17,7 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public class BluetoothTable implements DataTable {
@@ -45,13 +46,36 @@ public class BluetoothTable implements DataTable {
     }
 
     private void writeDevices(Handle handle, UUID tapUuid, List<BluetoothDeviceReport> devices) {
-        PreparedBatch batch = handle.prepareBatch("INSERT INTO bluetooth_devices(uuid, tap_uuid, mac, alias, " +
-                "device, transport, name, rssi, company_id, class_number, appearance, modalias, tx_power, " +
-                "manufacturer_data, uuids, service_data, tags, last_seen, created_at) VALUES(:uuid, :tap_uuid, :mac, " +
-                ":alias, :device, :transport, :name, :rssi, :company_id, :class_number, :appearance, :modalias, " +
-                ":tx_power, :manufacturer_data, :uuids, :service_data, :tags::jsonb, :last_seen, NOW())");
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO bluetooth_devices(uuid, tap_uuid, mac, oui, " +
+                "alias, device, transport, name, rssi, company_id, class_number, appearance, modalias, tx_power, " +
+                "manufacturer_data, manufacturer_name, uuids, service_data, tags, last_seen, created_at) " +
+                "VALUES(:uuid, :tap_uuid, :mac, :oui, :alias, :device, :transport, :name, :rssi, :company_id, " +
+                ":class_number, :appearance, :modalias, :tx_power, :manufacturer_data, :manufacturer_name, " +
+                ":uuids, :service_data, :tags::jsonb, :last_seen, NOW())");
 
         for (BluetoothDeviceReport device : devices) {
+            if (device.rssi() == null || device.rssi() == 0) {
+                /*
+                 * Sometimes devices are reported as a 0 RSSI. Those are usually currently paired devices.
+                 */
+                continue;
+            }
+
+            // OUI.
+            Optional<String> oui = tablesService.getNzyme()
+                    .getOuiService()
+                    .lookup(device.mac());
+
+            // Manufacturer name.
+            Optional<String> manufacturerName;
+            if (device.companyId() != null) {
+                manufacturerName = tablesService.getNzyme()
+                        .getBluetoothSigService()
+                        .lookupCompanyId(device.companyId());
+            } else {
+                manufacturerName = Optional.empty();
+            }
+
             List<BluetoothServiceUuidJson> serviceUuids = Lists.newArrayList();
             if (device.uuids() != null) {
                 for (String uuid : device.uuids()) {
@@ -81,13 +105,6 @@ public class BluetoothTable implements DataTable {
                 LOG.warn("Could not serialize Bluetooth device data. Skipping attributes.", e);
             }
 
-            if (device.rssi() == null || device.rssi() == 0) {
-                /*
-                 * Sometimes devices are reported as a 0 RSSI. Those are usually currently paired devices.
-                 */
-                continue;
-            }
-
             String tags;
             if (device.tags() != null) {
                 try {
@@ -105,6 +122,7 @@ public class BluetoothTable implements DataTable {
                     .bind("uuid", UUID.randomUUID())
                     .bind("tap_uuid", tapUuid)
                     .bind("mac", device.mac())
+                    .bind("oui", oui)
                     .bind("alias", device.alias())
                     .bind("device", device.device())
                     .bind("transport", device.transport())
@@ -116,6 +134,7 @@ public class BluetoothTable implements DataTable {
                     .bind("modalias", device.modalias())
                     .bind("tx_power", device.txPower())
                     .bind("manufacturer_data", device.manufacturerData())
+                    .bind("manufacturer_name", manufacturerName)
                     .bind("uuids", uuids)
                     .bind("service_data", serviceData)
                     .bind("tags", tags)

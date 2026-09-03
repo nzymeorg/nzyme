@@ -12,6 +12,8 @@ public abstract class BluetoothDeviceEntry {
     public abstract UUID uuid();
     public abstract UUID tapUuid();
     public abstract String mac();
+    @Nullable
+    public abstract String oui();
     public abstract String alias();
     public abstract String device();
     public abstract String transport();
@@ -32,17 +34,20 @@ public abstract class BluetoothDeviceEntry {
     @Nullable
     public abstract String manufacturerData();
     @Nullable
+    public abstract String manufacturerName();
+    @Nullable
     public abstract String uuids();
     @Nullable
     public abstract String serviceData();
     public abstract DateTime lastSeen();
     public abstract DateTime createdAt();
 
-    public static BluetoothDeviceEntry create(UUID uuid, UUID tapUuid, String mac, String alias, String device, String transport, String name, Integer rssi, Integer companyId, Integer classNumber, Integer appearance, String modAlias, Integer txPower, String manufacturerData, String uuids, String serviceData, DateTime lastSeen, DateTime createdAt) {
+    public static BluetoothDeviceEntry create(UUID uuid, UUID tapUuid, String mac, String oui, String alias, String device, String transport, String name, Integer rssi, Integer companyId, Integer classNumber, Integer appearance, String modAlias, Integer txPower, String manufacturerData, String manufacturerName, String uuids, String serviceData, DateTime lastSeen, DateTime createdAt) {
         return builder()
                 .uuid(uuid)
                 .tapUuid(tapUuid)
                 .mac(mac)
+                .oui(oui)
                 .alias(alias)
                 .device(device)
                 .transport(transport)
@@ -54,6 +59,7 @@ public abstract class BluetoothDeviceEntry {
                 .modAlias(modAlias)
                 .txPower(txPower)
                 .manufacturerData(manufacturerData)
+                .manufacturerName(manufacturerName)
                 .uuids(uuids)
                 .serviceData(serviceData)
                 .lastSeen(lastSeen)
@@ -72,6 +78,8 @@ public abstract class BluetoothDeviceEntry {
         public abstract Builder tapUuid(UUID tapUuid);
 
         public abstract Builder mac(String mac);
+
+        public abstract Builder oui(String oui);
 
         public abstract Builder alias(String alias);
 
@@ -94,6 +102,8 @@ public abstract class BluetoothDeviceEntry {
         public abstract Builder txPower(Integer txPower);
 
         public abstract Builder manufacturerData(String manufacturerData);
+
+        public abstract Builder manufacturerName(String manufacturerName);
 
         public abstract Builder uuids(String uuids);
 
