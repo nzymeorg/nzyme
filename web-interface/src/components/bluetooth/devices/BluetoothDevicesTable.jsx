@@ -69,7 +69,7 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters}) 
     return <LoadingSpinner />
   }
 
-  if (devices.count === 0) {
+  if (devices.total === 0) {
     return (
         <div className="alert alert-info mb-2">
           No Bluetooth devices recorded in selected time frame.

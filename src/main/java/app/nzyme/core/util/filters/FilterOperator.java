@@ -8,6 +8,11 @@ public enum FilterOperator {
     NOT_EQUALS_NUMERIC,
     REGEX_MATCH,
     NOT_REGEX_MATCH,
+    STARTS_WITH,
+    ENDS_WITH,
+    LENGTH_EQUALS,
+    LENGTH_GREATER_THAN,
+    LENGTH_SMALLER_THAN,
     GREATER_THAN,
     SMALLER_THAN,
     IN_CIDR,
@@ -18,6 +23,8 @@ public enum FilterOperator {
     NOT_CONTAINS,
     IS_EMPTY,
     IS_NOT_EMPTY,
-    BOOLEAN
+    BOOLEAN,
+    IS_NULL,
+    IS_NOT_NULL
 
 }

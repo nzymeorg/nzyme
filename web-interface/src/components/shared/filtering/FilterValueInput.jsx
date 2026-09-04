@@ -17,6 +17,7 @@ export default function FilterValueInput(props) {
       case FIELD_TYPE.NO_VALUE:
         return "text"
       case FIELD_TYPE.NUMBER:
+      case FIELD_TYPE.NUMBER_POSITIVE:
         return "number"
       default:
         return "text"
@@ -50,6 +51,31 @@ export default function FilterValueInput(props) {
           })}
         </select>
       )
+    case FIELD_TYPE.NUMBER_POSITIVE:
+      return (
+        <input className="form-control" type="number"
+               min={1}
+               disabled={disabled}
+               value={filterValue}
+               placeholder={placeHolder()}
+               onChange={(e) => {
+                 const raw = e.target.value;
+
+                 // Allow empty so the user can clear and retype.
+                 if (raw === "") {
+                   onChange(e);
+                   return;
+                 }
+
+                 const n = parseInt(raw, 10);
+                 if (isNaN(n)) {
+                   return; // reject non-numeric outright
+                 }
+
+                 e.target.value = String(Math.max(1, n));
+                 onChange(e);
+               }} />
+      );
     default:
       return (
         <input className="form-control" type={fieldTypeAsInputType()}

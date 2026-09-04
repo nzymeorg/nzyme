@@ -37,11 +37,6 @@ export const FILTER_TYPE = {
     validators: [validateStringNotEmpty],
     placeholder: null
   },
-  STRING_NO_REGEX: {
-    name: "string_no_regex",
-    validators: [validateStringNotEmpty],
-    placeholder: null
-  },
   UUID: {
     name: "uuid",
     validators: [validateStringNotEmpty],
@@ -126,6 +121,7 @@ export const FIELD_TYPE = {
   ANY_TEXT: "any_text",
   REGEX_TEXT: "regex_text",
   NUMBER: "any_number",
+  NUMBER_POSITIVE: "positive_number",
   CIDR: "cidr",
   SELECT: "select",
   NO_VALUE: "none"
@@ -180,6 +176,62 @@ export const OPERATORS = {
     validators: [validateStringNotEmpty],
     field_type: FIELD_TYPE.REGEX_TEXT
   },
+  STARTS_WITH: {
+    name: "starts_with",
+    sign: "Starts with",
+    placeholder: null,
+    no_value: false,
+    validators: [validateStringNotEmpty],
+    field_type: FIELD_TYPE.ANY_TEXT
+  },
+  ENDS_WITH: {
+    name: "ends_with",
+    sign: "Ends with",
+    placeholder: null,
+    no_value: false,
+    validators: [validateStringNotEmpty],
+    field_type: FIELD_TYPE.ANY_TEXT
+  },
+  LENGTH_EQUALS: {
+    name: "length_equals",
+    sign: "Length equals",
+    placeholder: null,
+    no_value: false,
+    validators: [validateNumber],
+    field_type: FIELD_TYPE.NUMBER_POSITIVE
+  },
+  LENGTH_GREATER_THAN: {
+    name: "length_greater_than",
+    sign: "Length greater than",
+    placeholder: null,
+    no_value: false,
+    validators: [validateNumber],
+    field_type: FIELD_TYPE.NUMBER_POSITIVE
+  },
+  LENGTH_SMALLER_THAN: {
+    name: "length_smaller_than",
+    sign: "Length smaller than",
+    placeholder: null,
+    no_value: false,
+    validators: [validateNumber],
+    field_type: FIELD_TYPE.NUMBER_POSITIVE
+  },
+  IS_NULL: {
+    name: "is_null",
+    sign: "Is empty",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_NOT_NULL: {
+    name: "is_not_null",
+    sign: "Is not empty",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
   GREATER_THAN: {
     name: "greater_than",
     sign: ">",
@@ -233,7 +285,7 @@ export const OPERATORS = {
     sign: "Contains",
     placeholder: null,
     no_value: false,
-    validators: [],
+    validators: [validateStringNotEmpty],
     field_type: FIELD_TYPE.ANY_TEXT
   },
   NOT_CONTAINS: {
@@ -241,7 +293,7 @@ export const OPERATORS = {
     sign: "Does not contain",
     placeholder: null,
     no_value: false,
-    validators: [],
+    validators: [validateStringNotEmpty],
     field_type: FIELD_TYPE.ANY_TEXT
   },
   IS_EMPTY: {
@@ -325,7 +377,7 @@ export const OPERATORS = {
     validators: [],
     options: L4_CONNECTION_TYPE_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
-  },
+  }
 }
 
 const monitorsService = new MonitorsService();
@@ -401,19 +453,42 @@ export default function Filters(props) {
         case FILTER_TYPE.DNS_TYPE:
         case FILTER_TYPE.L4_SESSION_STATE:
         case FILTER_TYPE.L4_SESSION_TYPE:
+          setAllowedOperators([
+            OPERATORS.EQUALS,
+            OPERATORS.NOT_EQUALS,
+            OPERATORS.REGEX_MATCH,
+            OPERATORS.NOT_REGEX_MATCH,
+            OPERATORS.CONTAINS,
+            OPERATORS.NOT_CONTAINS,
+            OPERATORS.STARTS_WITH,
+            OPERATORS.ENDS_WITH,
+            OPERATORS.LENGTH_EQUALS,
+            OPERATORS.LENGTH_GREATER_THAN,
+            OPERATORS.LENGTH_SMALLER_THAN,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
+          ]);
+          break;
         case FILTER_TYPE.MAC_ADDRESS:
           setAllowedOperators([
             OPERATORS.EQUALS,
             OPERATORS.NOT_EQUALS,
             OPERATORS.REGEX_MATCH,
-            OPERATORS.NOT_REGEX_MATCH
+            OPERATORS.NOT_REGEX_MATCH,
+            OPERATORS.CONTAINS,
+            OPERATORS.NOT_CONTAINS,
+            OPERATORS.STARTS_WITH,
+            OPERATORS.ENDS_WITH,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ]);
           break;
-        case FILTER_TYPE.STRING_NO_REGEX:
         case FILTER_TYPE.UUID:
           setAllowedOperators([
             OPERATORS.EQUALS,
-            OPERATORS.NOT_EQUALS
+            OPERATORS.NOT_EQUALS,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ]);
           break;
         case FILTER_TYPE.NUMERIC:
@@ -422,12 +497,16 @@ export default function Filters(props) {
             OPERATORS.EQUALS_NUMERIC,
             OPERATORS.NOT_EQUALS_NUMERIC,
             OPERATORS.GREATER_THAN,
-            OPERATORS.SMALLER_THAN
+            OPERATORS.SMALLER_THAN,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ]);
           break;
         case FILTER_TYPE.BOOLEAN:
           setAllowedOperators([
-            OPERATORS.BOOLEAN
+            OPERATORS.BOOLEAN,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ]);
           break;
         case FILTER_TYPE.IP_ADDRESS:
@@ -439,7 +518,9 @@ export default function Filters(props) {
             OPERATORS.IN_CIDR,
             OPERATORS.NOT_IN_CIDR,
             OPERATORS.IS_PRIVATE,
-            OPERATORS.IS_NOT_PRIVATE
+            OPERATORS.IS_NOT_PRIVATE,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ]);
           break;
         case FILTER_TYPE.STRING_ARRAY:
@@ -453,19 +534,25 @@ export default function Filters(props) {
         case FILTER_TYPE.COMPLETION_STATUS:
           setAllowedOperators([
             OPERATORS.COMPLETION_STATUS_EQUALS,
-            OPERATORS.COMPLETION_STATUS_NOT_EQUALS
+            OPERATORS.COMPLETION_STATUS_NOT_EQUALS,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ])
           break;
         case FILTER_TYPE.ACTIVE_STATUS:
           setAllowedOperators([
             OPERATORS.ACTIVE_STATUS_EQUALS,
-            OPERATORS.ACTIVE_STATUS_NOT_EQUALS
+            OPERATORS.ACTIVE_STATUS_NOT_EQUALS,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ])
           break;
         case FILTER_TYPE.L4_CONNECTION_TYPE:
           setAllowedOperators([
             OPERATORS.L4_CONNECTION_TYPE_EQUALS,
-            OPERATORS.L4_CONNECTION_TYPE_NOT_EQUALS
+            OPERATORS.L4_CONNECTION_TYPE_NOT_EQUALS,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ])
           break;
       }

@@ -45,6 +45,26 @@ public class FilterFactory {
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_REGEX_MATCH, optionallyTransformedValue(parameter), parameter.value()
                 );
+            case "starts_with":
+                return Filter.create(
+                        parameter.field(), FilterOperator.STARTS_WITH, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "ends_with":
+                return Filter.create(
+                        parameter.field(), FilterOperator.ENDS_WITH, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "length_equals":
+                return Filter.create(
+                        parameter.field(), FilterOperator.LENGTH_EQUALS, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "length_greater_than":
+                return Filter.create(
+                        parameter.field(), FilterOperator.LENGTH_GREATER_THAN, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "length_smaller_than":
+                return Filter.create(
+                        parameter.field(), FilterOperator.LENGTH_SMALLER_THAN, optionallyTransformedValue(parameter), parameter.value()
+                );
             case "greater_than":
                 return Filter.create(
                         parameter.field(), FilterOperator.GREATER_THAN, Long.valueOf(optionallyTransformedValue(parameter)), Long.valueOf(parameter.value())
@@ -88,6 +108,14 @@ public class FilterFactory {
             case "boolean":
                 return Filter.create(
                         parameter.field(), FilterOperator.BOOLEAN, Boolean.valueOf(optionallyTransformedValue(parameter)), Boolean.valueOf(parameter.value())
+                );
+            case "is_null":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_NULL, parameter.value(), parameter.value()
+                );
+            case "is_not_null":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_NOT_NULL, parameter.value(), parameter.value()
                 );
             default:
                 throw new RuntimeException("Unknown filter operator: [" + parameter.operator() + "]");

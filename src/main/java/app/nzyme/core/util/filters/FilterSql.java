@@ -2,7 +2,6 @@ package app.nzyme.core.util.filters;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.Maps;
-import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -122,17 +121,24 @@ public class FilterSql {
                 return fieldName + " ~ :" + bindId;
             case NOT_REGEX_MATCH:
                 return fieldName + " !~ :" + bindId;
-            default:
-                throw new RuntimeException("Invalid operator [" + operator + "] for string field [" + fieldName + "].");
-        }
-    }
-
-    public static String stringNoRegexMatch(String bindId, String fieldName, FilterOperator operator) {
-        switch (operator) {
-            case EQUALS:
-                return fieldName + " = :" + bindId;
-            case NOT_EQUALS:
-                return fieldName + " <> :" + bindId;
+            case CONTAINS:
+                return "strpos(" + fieldName + ", :" + bindId + ") > 0";
+            case NOT_CONTAINS:
+                return "(" + fieldName + " IS NULL OR strpos(" + fieldName + ", :" + bindId + ") = 0)";
+            case STARTS_WITH:
+                return "left(" + fieldName + ", char_length(:" + bindId + ")) = :" + bindId;
+            case ENDS_WITH:
+                return "right(" + fieldName + ", char_length(:" + bindId + ")) = :" + bindId;
+            case LENGTH_EQUALS:
+                return "char_length(" + fieldName + ") = :" + bindId + "::int";
+            case LENGTH_GREATER_THAN:
+                return "char_length(" + fieldName + ") > :" + bindId + "::int";
+            case LENGTH_SMALLER_THAN:
+                return "char_length(" + fieldName + ") < :" + bindId + "::int";
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for string field [" + fieldName + "].");
         }
@@ -144,6 +150,10 @@ public class FilterSql {
                 return fieldName + " = :" + bindId + "::uuid";
             case NOT_EQUALS:
                 return fieldName + " <> :" + bindId + "::uuid";
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for UUID field [" + fieldName + "].");
         }
@@ -241,6 +251,10 @@ public class FilterSql {
                 return fieldName + " > :" + bindId;
             case SMALLER_THAN:
                 return fieldName + " < :" + bindId;
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for numeric field [" + fieldName + "].");
         }
@@ -283,6 +297,10 @@ public class FilterSql {
                 return "NOT (" + fieldName + " <<= '10.0.0.0/8'::cidr OR "
                         + fieldName + " <<= '172.16.0.0/12'::cidr OR "
                         + fieldName + " <<= '192.168.0.0/16'::cidr)";
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for IP address " +
                         "field [" + fieldName + "].");
@@ -293,6 +311,10 @@ public class FilterSql {
         switch (operator) {
             case BOOLEAN:
                 return fieldName + " = :" + bindId;
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for boolean field [" + fieldName + "].");
         }
