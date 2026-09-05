@@ -15,8 +15,18 @@ class BluetoothService {
         taps: tapsList,
         limit: limit,
         offset: offset
-      },
-        (response) => setDevices(response.data)
+      }, (response) => setDevices(response.data)
+    )
+  }
+
+  getDeviceCountHistogram(setHistogram, timeRange, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/bluetooth/devices/histogram", {
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+      }, (response) => setHistogram(response.data)
     )
   }
 

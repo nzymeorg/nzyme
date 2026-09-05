@@ -380,7 +380,7 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
             );
         }
 
-        return Response.ok(BSSIDAndSSIDHistogramResponse.create(response)).build();
+        return Response.ok(BSSIDAndSSIDHistogramResponse.create(response, bucketing.bucketSizeMs())).build();
     }
 
     @GET

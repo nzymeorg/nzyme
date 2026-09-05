@@ -12,9 +12,13 @@ public abstract class BSSIDAndSSIDHistogramResponse {
     @JsonProperty("values")
     public abstract Map<DateTime, BSSIDAndSSIDHistogramValueResponse> values();
 
-    public static BSSIDAndSSIDHistogramResponse create(Map<DateTime, BSSIDAndSSIDHistogramValueResponse> values) {
+    @JsonProperty("bucket_size_ms")
+    public abstract long bucketSizeMs();
+
+    public static BSSIDAndSSIDHistogramResponse create(Map<DateTime, BSSIDAndSSIDHistogramValueResponse> values, long bucketSizeMs) {
         return builder()
                 .values(values)
+                .bucketSizeMs(bucketSizeMs)
                 .build();
     }
 
@@ -25,6 +29,8 @@ public abstract class BSSIDAndSSIDHistogramResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder values(Map<DateTime, BSSIDAndSSIDHistogramValueResponse> values);
+
+        public abstract Builder bucketSizeMs(long bucketSizeMs);
 
         public abstract BSSIDAndSSIDHistogramResponse build();
     }

@@ -44,8 +44,8 @@ function BSSIDAndSSIDChart(props) {
           lineWidth={1}
           customMarginBottom={35}
           setTimeRange={setTimeRange}
-          data={formatData(histogram.values)}
-      />
+          bucketSize={histogram.bucket_size_ms}
+          data={formatData(histogram.values)} />
 
 }
 

@@ -11,6 +11,8 @@ import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.constraints.MacAddress;
 import app.nzyme.core.rest.responses.bluetooth.*;
+import app.nzyme.core.rest.responses.metrics.HistogramResponse;
+import app.nzyme.core.rest.responses.shared.NumericHistogramResponse;
 import app.nzyme.core.rest.responses.shared.TapBasedSignalStrengthResponse;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
@@ -21,6 +23,7 @@ import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -29,8 +32,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -83,6 +88,26 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
         }
 
         return Response.ok(BluetoothDeviceSummaryListResponse.create(total, devices)).build();
+    }
+
+    @GET
+    @Path("/histogram")
+    public Response deviceCountHistogram(@Context SecurityContext sc,
+                                         @QueryParam("time_range") @Valid String timeRangeParameter,
+                                         @QueryParam("filters") String filtersParameter,
+                                         @QueryParam("taps") String taps) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        Map<DateTime, Integer> buckets = Maps.newHashMap();
+        for (GenericIntegerHistogramEntry bucket : nzyme.getBluetooth()
+                .getDeviceCountHistogram(timeRange, bucketing, filters, tapUUIDs)) {
+            buckets.put(bucket.bucket(), bucket.value());
+        }
+
+        return Response.ok(NumericHistogramResponse.create(buckets, bucketing.bucketSizeMs())).build();
     }
 
     @GET

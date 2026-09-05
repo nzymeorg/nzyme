@@ -127,8 +127,8 @@ public class Bluetooth {
     }
 
     public List<GenericIntegerHistogramEntry> getDeviceCountHistogram(TimeRange timeRange,
-                                                                      Filters filters,
                                                                       Bucketing.BucketingConfiguration bucketing,
+                                                                      Filters filters,
                                                                       List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();

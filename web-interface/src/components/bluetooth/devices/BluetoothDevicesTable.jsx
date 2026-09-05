@@ -19,7 +19,7 @@ import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
 
 const btService = new BluetoothService();
 
-export default function BluetoothDevicesTable({timeRange, filters, setFilters}) {
+export default function BluetoothDevicesTable({timeRange, filters, setFilters, revision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -55,7 +55,7 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters}) 
       selectedTaps,
       perPage,
       (page-1)*perPage);
-  }, [selectedTaps, timeRange, filters, organizationId, tenantId, orderColumn, orderDirection, page])
+  }, [selectedTaps, timeRange, filters, organizationId, tenantId, orderColumn, orderDirection, page, revision])
 
   const columnSorting = (columnName) => {
     return <ColumnSorting thisColumn={columnName}

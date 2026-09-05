@@ -49,6 +49,7 @@ function BSSIDsPage() {
 
     if (monitorsReady) {
       dot11Service.findAllBSSIDs(timeRange, filters, orderColumn, orderDirection, PER_PAGE, (page - 1) * PER_PAGE, selectedTaps, setBSSIDs);
+      setPage(1);
     }
   }, [selectedTaps, filters, page, timeRange, revision, orderColumn, orderDirection, monitorsReady]);
 

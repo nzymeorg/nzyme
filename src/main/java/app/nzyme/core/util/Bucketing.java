@@ -6,18 +6,24 @@ import org.joda.time.Duration;
 public class Bucketing {
 
     public enum Type {
-        MINUTE("minute"),
-        HOUR("hour"),
-        DAY("day");
+        MINUTE("minute", Duration.standardMinutes(1).getMillis()),
+        HOUR("hour", Duration.standardHours(1).getMillis()),
+        DAY("day", Duration.standardDays(1).getMillis());
 
         private final String dateTruncName;
+        private final long bucketSizeMs;
 
-        Type(String dateTruncName) {
+        Type(String dateTruncName, long bucketSizeMs) {
             this.dateTruncName = dateTruncName;
+            this.bucketSizeMs = bucketSizeMs;
         }
 
         public String getDateTruncName() {
             return dateTruncName;
+        }
+
+        public long getBucketSizeMs() {
+            return bucketSizeMs;
         }
     }
 
@@ -39,8 +45,11 @@ public class Bucketing {
 
     @AutoValue
     public abstract static class BucketingConfiguration {
-
         public abstract Type type();
+
+        public long bucketSizeMs() {
+            return type().getBucketSizeMs();
+        }
 
         public static BucketingConfiguration create(Type type) {
             return builder()
@@ -55,9 +64,7 @@ public class Bucketing {
         @AutoValue.Builder
         public abstract static class Builder {
             public abstract Builder type(Type type);
-
             public abstract BucketingConfiguration build();
         }
     }
-
 }
