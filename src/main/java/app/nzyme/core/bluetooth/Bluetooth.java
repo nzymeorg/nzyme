@@ -3,6 +3,7 @@ package app.nzyme.core.bluetooth;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.bluetooth.db.BluetoothDeviceSummary;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.StringNumberAggregationResult;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.util.Bucketing;
@@ -151,6 +152,116 @@ public class Bluetooth {
                         .bindList("taps", taps)
                         .bindMap(filterFragment.bindings())
                         .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public Long getDeviceManufacturerHistogramCount(TimeRange timeRange,
+                                                    Filters filters,
+                                                    List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0L;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT d.manufacturer_name " +
+                                "FROM bluetooth_devices d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.manufacturer_name IS NOT NULL " +
+                                "AND d.tap_uuid IN (<taps>) AND d.last_seen >= :tr_from " +
+                                "AND d.last_seen <= :tr_to " + filterFragment.whereSql() + " " +
+                                "GROUP BY d.manufacturer_name HAVING 1=1 " + filterFragment.havingSql() +
+                                ") AS sub")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<StringNumberAggregationResult> getDeviceManufacturerHistogram(TimeRange timeRange,
+                                                                              Filters filters,
+                                                                              int limit,
+                                                                              int offset,
+                                                                              List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT d.manufacturer_name AS key, COUNT(DISTINCT d.mac) AS value " +
+                                "FROM bluetooth_devices d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.manufacturer_name IS NOT NULL " +
+                                "AND d.tap_uuid IN (<taps>) AND d.last_seen >= :tr_from " +
+                                "AND d.last_seen <= :tr_to " + filterFragment.whereSql() + " " +
+                                "GROUP BY d.manufacturer_name HAVING 1=1 " + filterFragment.havingSql() + " " +
+                                "ORDER BY value DESC LIMIT :limit OFFSET :offset")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(StringNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    public Long getDeviceOUIHistogramCount(TimeRange timeRange,
+                                           Filters filters,
+                                           List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0L;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT d.oui " +
+                                "FROM bluetooth_devices d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.oui IS NOT NULL " +
+                                "AND d.tap_uuid IN (<taps>) AND d.last_seen >= :tr_from " +
+                                "AND d.last_seen <= :tr_to " + filterFragment.whereSql() + " " +
+                                "GROUP BY d.oui HAVING 1=1 " + filterFragment.havingSql() +
+                                ") AS sub")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<StringNumberAggregationResult> getDeviceOUIHistogram(TimeRange timeRange,
+                                                                     Filters filters,
+                                                                     int limit,
+                                                                     int offset,
+                                                                     List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT d.oui AS key, COUNT(DISTINCT d.mac) AS value " +
+                                "FROM bluetooth_devices d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.oui IS NOT NULL " +
+                                "AND d.tap_uuid IN (<taps>) AND d.last_seen >= :tr_from " +
+                                "AND d.last_seen <= :tr_to " + filterFragment.whereSql() + " " +
+                                "GROUP BY d.oui HAVING 1=1 " + filterFragment.havingSql() + " " +
+                                "ORDER BY value DESC LIMIT :limit OFFSET :offset")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(StringNumberAggregationResult.class)
                         .list()
         );
     }

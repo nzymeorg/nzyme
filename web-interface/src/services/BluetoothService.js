@@ -30,6 +30,32 @@ class BluetoothService {
     )
   }
 
+  getDeviceManufacturersHistogram(setHistogram, timeRange, limit, offset, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/bluetooth/devices/manufacturers/histogram", {
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
+    )
+  }
+
+  getDeviceOuisHistogram(setHistogram, timeRange, limit, offset, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/bluetooth/devices/ouis/histogram", {
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
+    )
+  }
+
   findOneDevice(setDevice, organizationId, tenantId, mac, taps) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

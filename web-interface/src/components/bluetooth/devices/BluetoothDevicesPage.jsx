@@ -9,6 +9,8 @@ import Filters from "../../shared/filtering/Filters";
 import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
 import {useLocation} from "react-router-dom";
 import BluetoothDeviceCountHistogram from "./BluetoothDeviceCountHistogram";
+import BluetoothDeviceManufacturersHistogram from "./BluetoothDeviceManufacturersHistogram";
+import BluetoothDeviceOuisHistogram from "./BluetoothDeviceOuisHistogram";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -59,6 +61,36 @@ export default function BluetoothDevicesPage() {
                                                setTimeRange={setTimeRange}
                                                filters={filters}
                                                revision={revision} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Device Manufacturers"
+                                       timeRange={timeRange}
+                                       refreshAction={() => setRevision(new Date())} />
+
+                <BluetoothDeviceManufacturersHistogram timeRange={timeRange}
+                                                       filters={filters}
+                                                       revision={revision} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Device OUIs"
+                                       timeRange={timeRange}
+                                       refreshAction={() => setRevision(new Date())} />
+
+                <BluetoothDeviceOuisHistogram timeRange={timeRange}
+                                              filters={filters}
+                                              revision={revision} />
               </div>
             </div>
           </div>

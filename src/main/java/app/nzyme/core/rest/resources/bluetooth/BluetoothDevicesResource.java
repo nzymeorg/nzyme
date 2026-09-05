@@ -6,14 +6,14 @@ import app.nzyme.core.bluetooth.db.BluetoothDeviceSummary;
 import app.nzyme.core.bluetooth.sig.BluetoothDeviceClass;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.StringNumberAggregationResult;
 import app.nzyme.core.rest.RestTools;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.constraints.MacAddress;
 import app.nzyme.core.rest.responses.bluetooth.*;
 import app.nzyme.core.rest.responses.metrics.HistogramResponse;
-import app.nzyme.core.rest.responses.shared.NumericHistogramResponse;
-import app.nzyme.core.rest.responses.shared.TapBasedSignalStrengthResponse;
+import app.nzyme.core.rest.responses.shared.*;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.util.Bucketing;
@@ -108,6 +108,58 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
         }
 
         return Response.ok(NumericHistogramResponse.create(buckets, bucketing.bucketSizeMs())).build();
+    }
+
+    @GET
+    @Path("/manufacturers/histogram")
+    public Response manufacturersHistogram(@Context SecurityContext sc,
+                                           @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @QueryParam("filters") String filtersParameter,
+                                           @QueryParam("taps") String taps,
+                                           @QueryParam("limit") int limit,
+                                           @QueryParam("offset") int offset) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        long count = nzyme.getBluetooth().getDeviceManufacturerHistogramCount(timeRange, filters, tapUUIDs);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (StringNumberAggregationResult x : nzyme.getBluetooth()
+                .getDeviceManufacturerHistogram(timeRange, filters, limit, offset, tapUUIDs)) {
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(x.key(), HistogramValueType.GENERIC, null),
+                    HistogramValueStructureResponse.create(x.value(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(count, true, values)).build();
+    }
+
+    @GET
+    @Path("/ouis/histogram")
+    public Response ouisHistogram(@Context SecurityContext sc,
+                                  @QueryParam("time_range") @Valid String timeRangeParameter,
+                                  @QueryParam("filters") String filtersParameter,
+                                  @QueryParam("taps") String taps,
+                                  @QueryParam("limit") int limit,
+                                  @QueryParam("offset") int offset) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        long count = nzyme.getBluetooth().getDeviceOUIHistogramCount(timeRange, filters, tapUUIDs);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (StringNumberAggregationResult x : nzyme.getBluetooth()
+                .getDeviceOUIHistogram(timeRange, filters, limit, offset, tapUUIDs)) {
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(x.key(), HistogramValueType.GENERIC, null),
+                    HistogramValueStructureResponse.create(x.value(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(count, true, values)).build();
     }
 
     @GET
