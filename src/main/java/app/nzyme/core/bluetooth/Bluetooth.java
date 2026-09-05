@@ -126,6 +126,35 @@ public class Bluetooth {
         );
     }
 
+    public List<GenericIntegerHistogramEntry> getDeviceCountHistogram(TimeRange timeRange,
+                                                                      Filters filters,
+                                                                      Bucketing.BucketingConfiguration bucketing,
+                                                                      List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new BluetoothDeviceFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT date_trunc(:date_trunc, d.last_seen) AS bucket, " +
+                                "COUNT(DISTINCT d.mac) AS value " +
+                                "FROM bluetooth_devices AS d " +
+                                "LEFT JOIN LATERAL (SELECT DISTINCT jsonb_object_keys(d.tags) AS tag) AS ignore ON true " +
+                                "WHERE d.tap_uuid IN (<taps>) AND d.last_seen >= :tr_from " +
+                                "AND d.last_seen <= :tr_to " + filterFragment.whereSql() +
+                                "GROUP BY bucket HAVING 1=1 " + filterFragment.havingSql() + " " +
+                                "ORDER BY bucket DESC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
     public Optional<BluetoothDeviceSummary> findOneDevice(String mac, List<UUID> taps) {
         if (taps.isEmpty()) {
             return Optional.empty();
