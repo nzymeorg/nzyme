@@ -201,6 +201,10 @@ public class AssetContextResource extends UserAuthenticatedResource {
         // Invalidate caches.
         invalidateContextCachesClusterWide();
 
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException ignored) {}
+
         return Response.status(Response.Status.CREATED).build();
     }
 
@@ -228,6 +232,11 @@ public class AssetContextResource extends UserAuthenticatedResource {
         // Invalidate caches.
         invalidateContextCachesClusterWide();
 
+        // Wait for caches to invalidate. TODO: Make this a blocking operation instead. This is whacky.
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException ignored) {}
+
         return Response.ok().build();
     }
 
@@ -246,6 +255,11 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
         // Invalidate caches.
         invalidateContextCachesClusterWide();
+
+        // Wait for caches to invalidate. TODO: Make this a blocking operation instead. This is whacky.
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException ignored) {}
 
         return Response.status(Response.Status.OK).build();
     }

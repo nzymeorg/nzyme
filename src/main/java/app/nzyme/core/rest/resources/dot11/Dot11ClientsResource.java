@@ -106,7 +106,8 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                             clientContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ),
@@ -118,7 +119,8 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                             clientBssidContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ),
@@ -181,7 +183,8 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                             clientContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ),
@@ -303,7 +306,8 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                         macContext.map(macAddressContextEntry ->
                                         Dot11MacAddressContextResponse.create(
                                                 macAddressContextEntry.name(),
-                                                macAddressContextEntry.description()
+                                                macAddressContextEntry.description(),
+                                                macAddressContextEntry.notes()
                                         ))
                                 .orElse(null)
                 ),

@@ -2,6 +2,7 @@ package app.nzyme.core.rest.responses.bluetooth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import jakarta.annotation.Nullable;
 
 @AutoValue
 public abstract class BluetoothMacAddressContextResponse {
@@ -12,10 +13,15 @@ public abstract class BluetoothMacAddressContextResponse {
     @JsonProperty("description")
     public abstract String description();
 
-    public static BluetoothMacAddressContextResponse create(String name, String description) {
+    @JsonProperty("notes")
+    @Nullable
+    public abstract String notes();
+
+    public static BluetoothMacAddressContextResponse create(String name, String description, String notes) {
         return builder()
                 .name(name)
                 .description(description)
+                .notes(notes)
                 .build();
     }
 
@@ -28,6 +34,8 @@ public abstract class BluetoothMacAddressContextResponse {
         public abstract Builder name(String name);
 
         public abstract Builder description(String description);
+
+        public abstract Builder notes(String notes);
 
         public abstract BluetoothMacAddressContextResponse build();
     }

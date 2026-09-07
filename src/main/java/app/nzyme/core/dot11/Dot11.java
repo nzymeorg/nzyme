@@ -1185,7 +1185,8 @@ public class Dot11 {
                                 bssidContext.map(macAddressContextEntry ->
                                                 Dot11MacAddressContextResponse.create(
                                                         macAddressContextEntry.name(),
-                                                        macAddressContextEntry.description()
+                                                        macAddressContextEntry.description(),
+                                                        macAddressContextEntry.notes()
                                                 ))
                                         .orElse(null)
                         ),
@@ -1312,7 +1313,8 @@ public class Dot11 {
                             bssidContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ), Collections.emptyList());

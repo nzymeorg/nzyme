@@ -56,6 +56,8 @@ function BSSIDDetailsPage() {
 
   const [notFound, setNotFound] = useState(false);
 
+  const [revision, setRevision] = useState(new Date());
+
   usePageTitle(bssid ? `BSSID: ${bssid.summary.bssid.address}` : "BSSID Details");
 
   useEffect(() => {
@@ -70,7 +72,7 @@ function BSSIDDetailsPage() {
         toast.error("Could not fetch BSSID.")
       }
     });
-  }, [bssidParam, selectedTaps]);
+  }, [bssidParam, selectedTaps, revision]);
 
   useEffect(() => {
     if (bssid) {
@@ -188,7 +190,9 @@ function BSSIDDetailsPage() {
                   </dd>
                   <dt>Name &amp; Description (from Context)</dt>
                   <dd>
-                    <MacAddressContextLine address={bssid.summary.bssid.address} context={bssid.summary.bssid.context} />
+                    <MacAddressContextLine address={bssid.summary.bssid.address}
+                                           context={bssid.summary.bssid.context}
+                                           onChange={() => setRevision(new Date())} />
                   </dd>
                 </dl>
               </div>

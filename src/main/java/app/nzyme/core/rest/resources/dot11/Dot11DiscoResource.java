@@ -200,7 +200,8 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
                                                     macContext.map(macAddressContextEntry ->
                                                                     Dot11MacAddressContextResponse.create(
                                                                             macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description()
+                                                                            macAddressContextEntry.description(),
+                                                                            macAddressContextEntry.notes()
                                                                     ))
                                                             .orElse(null)
                                             )
@@ -235,7 +236,8 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
                                                     macContext.map(macAddressContextEntry ->
                                                                     Dot11MacAddressContextResponse.create(
                                                                             macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description()
+                                                                            macAddressContextEntry.description(),
+                                                                            macAddressContextEntry.notes()
                                                                     ))
                                                             .orElse(null)
                                             )
@@ -274,7 +276,8 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
                                                     senderMacContext.map(macAddressContextEntry ->
                                                                     Dot11MacAddressContextResponse.create(
                                                                             macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description()
+                                                                            macAddressContextEntry.description(),
+                                                                            macAddressContextEntry.notes()
                                                                     ))
                                                             .orElse(null)
                                             )
@@ -292,7 +295,8 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
                                                     receiverMacContext.map(macAddressContextEntry ->
                                                                     Dot11MacAddressContextResponse.create(
                                                                             macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description()
+                                                                            macAddressContextEntry.description(),
+                                                                            macAddressContextEntry.notes()
                                                                     ))
                                                             .orElse(null)
                                             )

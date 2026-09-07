@@ -14,10 +14,15 @@ public abstract class Dot11MacAddressContextResponse {
     @JsonProperty("description")
     public abstract String description();
 
-    public static Dot11MacAddressContextResponse create(String name, String description) {
+    @JsonProperty("notes")
+    @Nullable
+    public abstract String notes();
+
+    public static Dot11MacAddressContextResponse create(String name, String description, String notes) {
         return builder()
                 .name(name)
                 .description(description)
+                .notes(notes)
                 .build();
     }
 
@@ -30,6 +35,8 @@ public abstract class Dot11MacAddressContextResponse {
         public abstract Builder name(String name);
 
         public abstract Builder description(String description);
+
+        public abstract Builder notes(String notes);
 
         public abstract Dot11MacAddressContextResponse build();
     }

@@ -271,7 +271,8 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
                         deviceContext.map(macAddressContextEntry ->
                                         BluetoothMacAddressContextResponse.create(
                                                 macAddressContextEntry.name(),
-                                                macAddressContextEntry.description()
+                                                macAddressContextEntry.description(),
+                                                macAddressContextEntry.notes()
                                         ))
                                 .orElse(null)
                 ),

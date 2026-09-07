@@ -42,7 +42,7 @@ function BSSIDsTable(props) {
       <table className="table table-sm table-hover table-striped">
         <thead>
         <tr>
-          <th style={{width: 195}}>BSSID {columnSorting("bssid")}</th>
+          <th>BSSID {columnSorting("bssid")}</th>
           <th>Signal Strength {columnSorting("signal_strength_average")}</th>
           <th>Mode</th>
           <th>Advertised SSIDs</th>

@@ -49,8 +49,9 @@ function BSSIDRow(props) {
   return (
       <React.Fragment>
         <tr>
-          <td style={{width: 165}}>
+          <td>
             <Dot11MacAddress addressWithContext={bssid.bssid}
+                             withAssetName
                              filterElement={<FilterValueIcon setFilters={setFilters}
                                                              fields={BSSID_FILTER_FIELDS}
                                                              field="bssid"

@@ -36,6 +36,8 @@ export default function BluetoothDeviceDetailsPage() {
   const [rssiHistogramTimerange, setRssiHistogramTimerange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "rssi"));
   const [tapRssiTimerange, setTapRssiTimerange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_MINUTES_15, "tap_rssi"));
 
+  const [revision, setRevision] = useState(new Date());
+
   usePageTitle(device ? `Bluetooth Device: ${device.device.mac.address}` : "Bluetooth Device Details");
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function BluetoothDeviceDetailsPage() {
     btService.findOneDevice(setSelectedDevice, organizationId, tenantId, macParam, selectedTaps);
     btService.getRssiHistogramOfDevice(setRssiHistogram, macParam, rssiHistogramTimerange, selectedTaps);
     btService.getRssiOfDeviceByTap(setTapRssis, macParam, tapRssiTimerange, selectedTaps);
-  }, [macParam, rssiHistogramTimerange, tapRssiTimerange]);
+  }, [macParam, rssiHistogramTimerange, tapRssiTimerange, revision, selectedTaps, organizationId, tenantId]);
 
   const deviceTags = () => {
     if (!device.device.tags || device.device.tags.length === 0 || device.device.tags[0] == null) {
@@ -125,7 +127,9 @@ export default function BluetoothDeviceDetailsPage() {
                       </dd>
                       <dt>Name &amp; Description (from Context)</dt>
                       <dd>
-                        <MacAddressContextLine address={device.device.mac.address} context={device.device.mac.context}/>
+                        <MacAddressContextLine address={device.device.mac.address}
+                                               context={device.device.mac.context}
+                                               onChange={() => setRevision(new Date())} />
                       </dd>
                     </dl>
                   </div>

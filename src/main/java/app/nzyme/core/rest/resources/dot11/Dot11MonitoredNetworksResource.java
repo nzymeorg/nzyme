@@ -203,7 +203,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                             bssidContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ),
@@ -826,8 +827,9 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                             bssid,
                             nzyme.getOuiService().lookup(bssid).orElse(null),
                             null,
-                            ctx.map(c -> Dot11MacAddressContextResponse.create(c.name(), c.description()))
-                                    .orElse(null)
+                            ctx.map(c -> Dot11MacAddressContextResponse.create(
+                                    c.name(), c.description(), c.notes())
+                            ).orElse(null)
                     ),
                     fingerprints,
                     monitoredBSSID != null
@@ -1184,7 +1186,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                             clientContext.map(macAddressContextEntry ->
                                             Dot11MacAddressContextResponse.create(
                                                     macAddressContextEntry.name(),
-                                                    macAddressContextEntry.description()
+                                                    macAddressContextEntry.description(),
+                                                    macAddressContextEntry.notes()
                                             ))
                                     .orElse(null)
                     ),

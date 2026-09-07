@@ -12,6 +12,9 @@ function MacAddressContextForm(props) {
   const errorMessage = props.errorMessage;
   const macAddressDisabled = props.macAddressDisabled;
 
+  // Optional.
+  const onDelete = props.onDelete;
+
   const [macAddress, setMacAddress] = useState(
       (props.macAddress && isValidMACAddress(props.macAddress)) ? props.macAddress.toUpperCase() : ""
   );
@@ -20,6 +23,7 @@ function MacAddressContextForm(props) {
   const [notes, setNotes] = useState(props.notes ? props.notes : "");
 
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const formIsReady = () => {
     return isValidMACAddress(macAddress)
@@ -75,9 +79,15 @@ function MacAddressContextForm(props) {
         </div>
       </div>
 
-      <button className="btn btn-primary" onClick={submit} disabled={!formIsReady() || formSubmitting}>
+      <button className="btn btn-primary" onClick={submit} disabled={!formIsReady() || formSubmitting || deleting}>
         {formSubmitting ? "Please wait ..." : submitText}
       </button>
+
+      { onDelete && props.name && <button className="btn btn-danger float-end"
+                            disabled={formSubmitting || deleting}
+                            onClick={() => { setDeleting(true); onDelete();}}>
+        {deleting ? "Please wait ..." : "Delete Context"}</button>
+      }
 
       <FormSubmitErrorMessage message={errorMessage} />
     </React.Fragment>
