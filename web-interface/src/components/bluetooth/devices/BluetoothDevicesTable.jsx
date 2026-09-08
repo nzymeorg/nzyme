@@ -19,7 +19,7 @@ import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
 
 const btService = new BluetoothService();
 
-export default function BluetoothDevicesTable({timeRange, filters, setFilters, revision}) {
+export default function BluetoothDevicesTable({timeRange, filters, setFilters, monitorsReady, revision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -44,18 +44,21 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters, r
 
   useEffect(() => {
     setDevices(null);
-    btService.findAllDevices(
-      setDevices,
-      organizationId,
-      tenantId,
-      timeRange,
-      filters,
-      orderColumn,
-      orderDirection,
-      selectedTaps,
-      perPage,
-      (page-1)*perPage);
-  }, [selectedTaps, timeRange, filters, organizationId, tenantId, orderColumn, orderDirection, page, revision])
+
+    if (monitorsReady) {
+      btService.findAllDevices(
+        setDevices,
+        organizationId,
+        tenantId,
+        timeRange,
+        filters,
+        orderColumn,
+        orderDirection,
+        selectedTaps,
+        perPage,
+        (page-1)*perPage);
+    }
+  }, [selectedTaps, timeRange, filters, organizationId, tenantId, orderColumn, orderDirection, page, monitorsReady, revision])
 
   const columnSorting = (columnName) => {
     return <ColumnSorting thisColumn={columnName}
@@ -65,7 +68,7 @@ export default function BluetoothDevicesTable({timeRange, filters, setFilters, r
                           setOrderDirection={setOrderDirection} />
   }
 
-  if (!devices) {
+  if (!devices || !monitorsReady) {
     return <LoadingSpinner />
   }
 

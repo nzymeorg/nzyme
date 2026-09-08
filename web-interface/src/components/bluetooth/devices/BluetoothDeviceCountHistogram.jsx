@@ -7,7 +7,7 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const bluetoothService = new BluetoothService();
 
-export default function BluetoothDeviceCountHistogram({timeRange, setTimeRange, filters, revision}) {
+export default function BluetoothDeviceCountHistogram({timeRange, setTimeRange, filters, monitorsReady, revision}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -24,10 +24,13 @@ export default function BluetoothDeviceCountHistogram({timeRange, setTimeRange, 
 
   useEffect(() => {
     setHistogram(null);
-    bluetoothService.getDeviceCountHistogram(setHistogram, timeRange, filters, selectedTaps)
-  }, [timeRange, filters, selectedTaps, revision]);
 
-  if (histogram === null) {
+    if (monitorsReady) {
+      bluetoothService.getDeviceCountHistogram(setHistogram, timeRange, filters, selectedTaps)
+    }
+  }, [timeRange, filters, selectedTaps, monitorsReady, revision]);
+
+  if (histogram === null || !monitorsReady) {
     return <GenericWidgetLoadingSpinner height={200} />
   }
 
@@ -40,8 +43,6 @@ export default function BluetoothDeviceCountHistogram({timeRange, setTimeRange, 
 
     return result
   }
-
-  console.log(histogram);
 
   return <SimpleLineChart
     height={200}

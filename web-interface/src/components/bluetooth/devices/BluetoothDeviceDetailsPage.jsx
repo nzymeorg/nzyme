@@ -57,7 +57,7 @@ export default function BluetoothDeviceDetailsPage() {
   const deviceTags = () => {
     if (!device.device.tags || device.device.tags.length === 0 || device.device.tags[0] == null) {
       return <div className="alert alert-info mt-2 mb-0">The make or model of this device was not identified because
-        nzyme could not determine any specific properties.</div>
+        Nzyme could not determine any specific properties.</div>
     }
 
     return (

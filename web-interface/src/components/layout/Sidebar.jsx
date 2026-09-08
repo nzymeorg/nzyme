@@ -133,6 +133,12 @@ function Sidebar(props) {
                 href={ApiRoutes.BLUETOOTH.DEVICES.INDEX}
                 title="Devices"
                 icon={<i className="sidebar-icon fa-solid fa-mobile-screen-button"/>}/>
+
+            <NavigationLink
+              href={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX}
+              title="Monitoring"
+              icon={<i className="sidebar-icon fa-solid fa-shield-halved"/>}
+              show={userHasPermission(user, "bluetooth_monitoring_manage")}/>
           </SidebarSubmenu>
 
           <SidebarSubmenu title="UAV"

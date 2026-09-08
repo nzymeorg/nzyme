@@ -186,6 +186,7 @@ import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_
 import PortalIntegrityPage from "./components/ethernet/portalintegrity/PortalIntegrityPage";
 import PortalIntegrityReportDetailsPage from "./components/ethernet/portalintegrity/PortalIntegrityReportDetailsPage";
 import RTSPStreamDetailsPage from "./components/ethernet/streams/rtsp/RTSPStreamDetailsPage";
+import BluetoothMonitorsPage from "./components/bluetooth/monitoring/BluetoothMonitorsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -659,6 +660,9 @@ function App() {
                                 { /* Bluetooth Clients/Devices. */}
                                 <Route path={ApiRoutes.BLUETOOTH.DEVICES.INDEX} element={<BluetoothDevicesPage />}/>
                                 <Route path={ApiRoutes.BLUETOOTH.DEVICES.DETAILS(':macParam')} element={<BluetoothDeviceDetailsPage />}/>
+
+                                { /* Bluetooth Monitoring. */}
+                                <Route path={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX} element={<BluetoothMonitorsPage />}/>
                               </Route>
 
                               { /* UAV. */ }

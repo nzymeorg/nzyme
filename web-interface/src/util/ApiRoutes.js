@@ -276,6 +276,11 @@ const ApiRoutes = {
     DEVICES: {
       INDEX: '/bluetooth/devices',
       DETAILS: (mac) => `/bluetooth/devices/show/${mac}`
+    },
+    MONITORING: {
+      MONITORS: {
+        INDEX: "/bluetooth/monitoring/monitors"
+      }
     }
   },
   UAV: {

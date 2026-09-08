@@ -11,6 +11,8 @@ import {useLocation} from "react-router-dom";
 import BluetoothDeviceCountHistogram from "./BluetoothDeviceCountHistogram";
 import BluetoothDeviceManufacturersHistogram from "./BluetoothDeviceManufacturersHistogram";
 import BluetoothDeviceOuisHistogram from "./BluetoothDeviceOuisHistogram";
+import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -20,15 +22,16 @@ export default function BluetoothDevicesPage() {
 
   usePageTitle("Bluetooth Devices");
 
+  const [organizationId, tenantId] = useSelectedTenant();
+
   const urlQuery = useQuery();
 
   const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
 
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), BLUETOOTH_DEVICES_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useState(queryParametersToFilters(urlQuery.get("filters"), BLUETOOTH_DEVICES_FILTER_FIELDS));
+  const [monitorsReady, setMonitorsReady] = useState(false);
 
   return (
       <React.Fragment>
@@ -43,7 +46,10 @@ export default function BluetoothDevicesPage() {
 
                 <Filters filters={filters}
                          setFilters={setFilters}
-                         fields={BLUETOOTH_DEVICES_FILTER_FIELDS} />
+                         fields={BLUETOOTH_DEVICES_FILTER_FIELDS}
+                         monitorType="BLUETOOTH_DEVICE"
+                         onMonitorsReady={() => setMonitorsReady(true)}
+                         onSaveAsMonitor={onSaveFiltersAsMonitor("BLUETOOTH_DEVICE", organizationId, tenantId)} />
               </div>
             </div>
           </div>
@@ -60,6 +66,7 @@ export default function BluetoothDevicesPage() {
                 <BluetoothDeviceCountHistogram timeRange={timeRange}
                                                setTimeRange={setTimeRange}
                                                filters={filters}
+                                               monitorsReady={monitorsReady}
                                                revision={revision} />
               </div>
             </div>
@@ -77,6 +84,7 @@ export default function BluetoothDevicesPage() {
                 <BluetoothDeviceManufacturersHistogram timeRange={timeRange}
                                                        setFilters={setFilters}
                                                        filters={filters}
+                                                       monitorsReady={monitorsReady}
                                                        revision={revision} />
               </div>
             </div>
@@ -92,6 +100,7 @@ export default function BluetoothDevicesPage() {
                 <BluetoothDeviceOuisHistogram timeRange={timeRange}
                                               setFilters={setFilters}
                                               filters={filters}
+                                              monitorsReady={monitorsReady}
                                               revision={revision} />
               </div>
             </div>
@@ -109,6 +118,7 @@ export default function BluetoothDevicesPage() {
                 <BluetoothDevicesTable timeRange={timeRange}
                                        filters={filters}
                                        setFilters={setFilters}
+                                       monitorsReady={monitorsReady}
                                        revision={revision} />
               </div>
             </div>

@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import usePageTitle from "../../../util/UsePageTitle";
 import SectionMenuBar from "../../shared/SectionMenuBar";
-import {MONITORING_MENU_ITEMS} from "./Dot11MenuItems";
+import {MONITORING_MENU_ITEMS} from "./Dot11MonitoringMenuItems";
 import ApiRoutes from "../../../util/ApiRoutes";
 import MonitorsTable from "../../monitors/shared/MonitorsTable";
 import MonitorsService from "../../../services/MonitorsService";

@@ -2,7 +2,7 @@ import React from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import MonitoredNetworksTable from "./MonitoredNetworksTable";
 import SectionMenuBar from "../../shared/SectionMenuBar";
-import {MONITORING_MENU_ITEMS} from "./Dot11MenuItems";
+import {MONITORING_MENU_ITEMS} from "./Dot11MonitoringMenuItems";
 import usePageTitle from "../../../util/UsePageTitle";
 
 function Dot11MonitoringPage() {

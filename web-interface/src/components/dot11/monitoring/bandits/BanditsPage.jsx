@@ -2,7 +2,7 @@ import React from "react";
 import BuiltinBanditsTable from "./BuiltinBanditsTable";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {MONITORING_MENU_ITEMS} from "../Dot11MenuItems";
+import {MONITORING_MENU_ITEMS} from "../Dot11MonitoringMenuItems";
 import CustomBanditsTable from "./CustomBanditsTable";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../../util/UsePageTitle";

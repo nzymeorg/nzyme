@@ -8,7 +8,7 @@ import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
 
 const bluetoothService = new BluetoothService();
 
-export default function BluetoothDeviceOuisHistogram({timeRange, filters, setFilters, revision}) {
+export default function BluetoothDeviceOuisHistogram({timeRange, filters, setFilters, monitorsReady, revision}) {
 
   const tapContext = useContext(TapContext);
 
@@ -22,10 +22,15 @@ export default function BluetoothDeviceOuisHistogram({timeRange, filters, setFil
 
   useEffect(() => {
     setHistogram(null);
-    bluetoothService.getDeviceOuisHistogram(setHistogram, timeRange, orderColumn, orderDirection, limit, 0, filters, selectedTaps);
-  }, [selectedTaps, limit, timeRange, filters, orderColumn, orderDirection, revision]);
 
-  if (!histogram) {
+    if (monitorsReady) {
+      bluetoothService.getDeviceOuisHistogram(
+        setHistogram, timeRange, orderColumn, orderDirection, limit, 0, filters, selectedTaps
+      );
+    }
+  }, [selectedTaps, limit, timeRange, filters, monitorsReady, orderColumn, orderDirection, revision]);
+
+  if (!histogram || !monitorsReady) {
     return <LoadingSpinner />
   }
 

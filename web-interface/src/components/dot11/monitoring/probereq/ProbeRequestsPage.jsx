@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {MONITORING_MENU_ITEMS} from "../Dot11MenuItems";
+import {MONITORING_MENU_ITEMS} from "../Dot11MonitoringMenuItems";
 import Dot11Service from "../../../../services/Dot11Service";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import ProbeRequestsTable from "./ProbeRequestsTable";
