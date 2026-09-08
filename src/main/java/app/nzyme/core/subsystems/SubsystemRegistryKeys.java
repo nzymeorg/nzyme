@@ -25,7 +25,7 @@ public class SubsystemRegistryKeys {
     public static final RegistryKey BLUETOOTH_ENABLED = RegistryKey.create(
             "subsystem_bluetooth_enabled",
             Optional.of(new ImmutableList.Builder().add(ConfigurationEntryConstraint.createSimpleBooleanConstraint()).build()),
-            Optional.of("false"),
+            Optional.of("true"),
             false
     );
 
