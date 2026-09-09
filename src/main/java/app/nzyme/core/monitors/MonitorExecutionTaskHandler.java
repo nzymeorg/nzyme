@@ -97,6 +97,10 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
                     count = nzyme.getDot11()
                             .countClients(TimeRangeFactory.relative(monitor.lookback()), filters, false, taps);
                 }
+                case BLUETOOTH_DEVICE ->  {
+                    count = nzyme.getBluetooth()
+                            .countAllDevices(TimeRangeFactory.relative(monitor.lookback()), filters, taps);
+                }
                 default -> {
                     LOG.error("Monitor type [{}] is not implemented. Skipping.", monitor.type());
                     return TaskProcessingResult.FAILURE;

@@ -71,6 +71,16 @@ export default function EditMonitorPage() {
             <li className="breadcrumb-item active">Edit</li>
           </ol>
         )
+      case "BLUETOOTH_DEVICE":
+        return (
+          <ol className="breadcrumb">
+            <li className="breadcrumb-item">Bluetooth</li>
+            <li className="breadcrumb-item">Monitoring</li>
+            <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX}>Monitors</a></li>
+            <li className="breadcrumb-item"><a href={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</a></li>
+            <li className="breadcrumb-item active">Edit</li>
+          </ol>
+        )
     }
   }
 

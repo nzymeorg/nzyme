@@ -8,5 +8,7 @@ export default function monitorTypeToSearchLink(monitor) {
       return ApiRoutes.DOT11.CLIENTS.CONNECTED + "?monitor=" + monitor.uuid;
     case "DOT11_CLIENT_DISCONNECTED":
       return ApiRoutes.DOT11.CLIENTS.DISCONNECTED + "?monitor=" + monitor.uuid;
+    case "BLUETOOTH_DEVICE":
+      return ApiRoutes.BLUETOOTH.DEVICES.INDEX + "?monitor=" + monitor.uuid;
   }
 }

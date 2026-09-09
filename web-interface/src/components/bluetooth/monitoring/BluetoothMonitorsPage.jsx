@@ -1,9 +1,30 @@
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
-import React from "react";
+import React, {useEffect, useState} from "react";
 import {BLUETOOTH_MONITORING_MENU_ITEMS} from "./BluetoothMonitoringMenuItems";
+import usePageTitle from "../../../util/UsePageTitle";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
+import MonitorsService from "../../../services/MonitorsService";
+import MonitorsTable from "../../monitors/shared/MonitorsTable";
+
+const monitorsService = new MonitorsService();
 
 export default function BluetoothMonitorsPage() {
+
+  usePageTitle("Bluetooth Monitors");
+
+  const [organizationId, tenantId] = useSelectedTenant();
+
+  const [monitors, setMonitors] = useState(null);
+  const [page, setPage] = useState(1);
+
+  const perPage = 25;
+
+  useEffect(() => {
+    monitorsService.findAllOfType(
+      "BLUETOOTH_DEVICE", organizationId, tenantId, perPage, (page-1)*perPage, setMonitors
+    )
+  }, [page, organizationId, tenantId])
 
   return (
     <React.Fragment>
@@ -23,6 +44,8 @@ export default function BluetoothMonitorsPage() {
           <div className="card">
             <div className="card-body">
               <h3 style={{display: "inline-block"}}>Device Monitors</h3>
+
+              <MonitorsTable monitors={monitors} page={page} setPage={setPage} perPage={perPage} />
             </div>
           </div>
         </div>

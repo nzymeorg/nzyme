@@ -60,6 +60,15 @@ export default function MonitorDetailsPage() {
             <li className="breadcrumb-item active">{monitor.name}</li>
           </ol>
         )
+      case "BLUETOOTH_DEVICE":
+        return (
+          <ol className="breadcrumb">
+            <li className="breadcrumb-item">Bluetooth</li>
+            <li className="breadcrumb-item">Monitoring</li>
+            <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX}>Monitors</a></li>
+            <li className="breadcrumb-item active">{monitor.name}</li>
+          </ol>
+        )
     }
   }
   const backLink = () => {
@@ -68,6 +77,8 @@ export default function MonitorDetailsPage() {
       case "DOT11_CLIENT_CONNECTED":
       case "DOT11_CLIENT_DISCONNECTED":
         return ApiRoutes.DOT11.MONITORING.MONITORS.INDEX
+      case "BLUETOOTH_DEVICE":
+        return ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX;
     }
   }
 

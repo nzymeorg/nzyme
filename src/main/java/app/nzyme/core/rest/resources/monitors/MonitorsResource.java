@@ -358,6 +358,9 @@ public class MonitorsResource extends TapDataHandlingResource {
                 case DOT11_CLIENT_DISCONNECTED:
                     requiredPermission = "dot11_monitoring_manage";
                     break;
+                case BLUETOOTH_DEVICE:
+                    requiredPermission = "bluetooth_monitoring_manage";
+                    break;
                 default:
                     return false;
             }
