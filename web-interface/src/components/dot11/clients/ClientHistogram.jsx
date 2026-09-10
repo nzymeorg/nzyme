@@ -2,11 +2,7 @@ import React from "react";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 
-function ClientHistogram(props) {
-
-  const histogram = props.histogram;
-  const setTimeRange = props.setTimeRange;
-  const monitorsReady = props.monitorsReady;
+function ClientHistogram({histogram, timeRange, setTimeRange, monitorsReady}) {
 
   const formatData = function(data) {
     const result = {}
@@ -26,6 +22,7 @@ function ClientHistogram(props) {
       height={200}
       lineWidth={1}
       customMarginBottom={35}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
       data={formatData(histogram.values)}
   />

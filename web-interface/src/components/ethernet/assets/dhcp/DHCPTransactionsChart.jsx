@@ -2,7 +2,7 @@ import React from "react";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import MultiLineChart from "../../../widgets/charts/MultiLineChart";
 
-export default function DHCPTransactionsChart({statistics, setTimeRange}) {
+export default function DHCPTransactionsChart({statistics, timeRange, setTimeRange}) {
 
   if (!statistics) {
     return <GenericWidgetLoadingSpinner height={200} />
@@ -31,6 +31,7 @@ export default function DHCPTransactionsChart({statistics, setTimeRange}) {
       customMarginBottom={35}
       seriesNames={{successful: "Successful", failed: "Failed" }}
       data={formatData(statistics)}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
   />
 

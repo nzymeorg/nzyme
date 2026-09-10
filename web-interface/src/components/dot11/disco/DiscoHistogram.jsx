@@ -53,6 +53,7 @@ function DiscoHistogram(props) {
       lineWidth={1}
       setTimeRange={setTimeRange}
       customMarginBottom={35}
+      timeRange={timeRange}
       data={formatData(histogram)}
   />
 

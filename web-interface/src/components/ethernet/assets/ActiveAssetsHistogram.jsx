@@ -32,6 +32,7 @@ export default function ActiveAssetsHistogram({timeRange, setTimeRange, organiza
     height={200}
     lineWidth={1}
     data={formatData(histogram)}
+    timeRange={timeRange}
     setTimeRange={setTimeRange} />
 
 }

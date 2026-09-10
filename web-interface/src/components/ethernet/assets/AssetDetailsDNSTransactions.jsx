@@ -6,7 +6,6 @@ import {TapContext} from "../../../App";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import DNSTransactionsTable from "../dns/logs/DNSTransactionsTable";
 import ApiRoutes from "../../../util/ApiRoutes";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
 
 export default function AssetDetailsDNSTransactions(props) {
 
@@ -22,7 +21,7 @@ export default function AssetDetailsDNSTransactions(props) {
     }]
   };
 
-  const [timerange, setTimerange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {
@@ -45,17 +44,17 @@ export default function AssetDetailsDNSTransactions(props) {
               <div className="card-body">
                 <CardTitleWithControls title="DNS Transactions"
                                        doNotPersistTimeRange={true}
-                                       timeRange={timerange}
-                                       setTimeRange={setTimerange}
+                                       timeRange={timeRange}
+                                       setTimeRange={setTimeRange}
                                        internalLink={ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS + "?filters=" + JSON.stringify(FILTERS)}
                                        refreshAction={onRefresh} />
 
 
-                <DNSTransactionCountChart timeRange={timerange}
+                <DNSTransactionCountChart timeRange={timeRange}
                                           filters={FILTERS}
                                           revision={revision} />
 
-                <DNSTransactionsTable timeRange={timerange}
+                <DNSTransactionsTable timeRange={timeRange}
                                       filters={FILTERS}
                                       perPage={10}
                                       revision={revision}/>

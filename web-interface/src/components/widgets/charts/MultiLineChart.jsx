@@ -74,7 +74,14 @@ class MultiLineChart extends React.Component {
     })
 
     let xRange = undefined
-    if (allTimestamps.length > 1) {
+    const timeRange = this.props.timeRange
+
+    if (timeRange && timeRange.type === 'relative') {
+      const now = new Date()
+      xRange = [new Date(now.getTime() - timeRange.minutes * 60 * 1000), now]
+    } else if (timeRange && timeRange.type === 'absolute') {
+      xRange = [new Date(timeRange.from), new Date(timeRange.to)]
+    } else if (allTimestamps.length > 1) {
       const bufferMs = 5 * 60 * 1000 // optional
       const min = new Date(Math.min(...allTimestamps) - bufferMs)
       const max = new Date(Math.max(...allTimestamps) + bufferMs)

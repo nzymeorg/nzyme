@@ -3,12 +3,7 @@ import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 import SimpleBarChart from "../../widgets/charts/SimpleBarChart";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 
-function ClientActivityHistogram(props) {
-
-  const histogram = props.histogram;
-  const parameter = props.parameter;
-  const type = props.type;
-  const setTimeRange = props.setTimeRange;
+function ClientActivityHistogram({histogram, parameter, type, timeRange, setTimeRange}) {
 
   if (histogram === null) {
     return <LoadingSpinner />
@@ -31,6 +26,7 @@ function ClientActivityHistogram(props) {
           lineWidth={1}
           customMarginBottom={35}
           customMarginRight={20}
+          timeRange={timeRange}
           setTimeRange={setTimeRange}
           data={formatData(histogram)} />
     case "line":
@@ -40,6 +36,7 @@ function ClientActivityHistogram(props) {
           lineWidth={1}
           customMarginBottom={35}
           customMarginRight={20}
+          timeRange={timeRange}
           setTimeRange={setTimeRange}
           data={formatData(histogram)} />
   }

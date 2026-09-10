@@ -44,6 +44,7 @@ function BSSIDAdvertisementHistogram(props) {
           customMarginBottom={35}
           customMarginRight={20}
           setTimeRange={setTimeRange}
+          timeRange={timeRange}
           data={formatData(histogram.values)} />
       </React.Fragment>
   )

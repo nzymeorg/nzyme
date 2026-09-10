@@ -108,11 +108,20 @@ class SimpleLineChart extends React.Component {
     }
 
     let xRange = undefined
-    const realTimes = x.filter((_, idx) => y[idx] != null)
-    if (realTimes.length > 1) {
-      const min = new Date(Math.min(...realTimes.map(d => d.getTime())))
-      const max = new Date(Math.max(...realTimes.map(d => d.getTime())))
-      xRange = [min, max]
+    const timeRange = this.props.timeRange
+
+    if (timeRange && timeRange.type === 'relative') {
+      const now = new Date()
+      xRange = [new Date(now.getTime() - timeRange.minutes * 60 * 1000), now]
+    } else if (timeRange && timeRange.type === 'absolute') {
+      xRange = [new Date(timeRange.from), new Date(timeRange.to)]
+    } else {
+      const realTimes = x.filter((_, idx) => y[idx] != null)
+      if (realTimes.length > 1) {
+        const min = new Date(Math.min(...realTimes.map(d => d.getTime())))
+        const max = new Date(Math.max(...realTimes.map(d => d.getTime())))
+        xRange = [min, max]
+      }
     }
 
     const marginLeft = this.props.customMarginLeft ? this.props.customMarginLeft : 25

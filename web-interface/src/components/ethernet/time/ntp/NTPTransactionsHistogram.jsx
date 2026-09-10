@@ -2,7 +2,7 @@ import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSp
 import React from "react";
 import SimpleBarChart from "../../../widgets/charts/SimpleBarChart";
 
-export default function NTPTransactionsHistogram({histogram, setTimeRange}) {
+export default function NTPTransactionsHistogram({histogram, timeRange, setTimeRange}) {
 
   if (!histogram) {
     return <GenericWidgetLoadingSpinner height={200} />;
@@ -24,6 +24,7 @@ export default function NTPTransactionsHistogram({histogram, setTimeRange}) {
         height={200}
         lineWidth={1}
         setTimeRange={setTimeRange}
+        timeRange={timeRange}
         data={formatData(histogram)} />
     </React.Fragment>
   )

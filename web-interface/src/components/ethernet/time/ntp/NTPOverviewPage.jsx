@@ -88,7 +88,7 @@ export function NTPOverviewPage() {
                                      fixedTimeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())}/>
 
-              <NTPTransactionsHistogram histogram={transactionsHistogram} setTimeRange={setTimeRange} />
+              <NTPTransactionsHistogram histogram={transactionsHistogram} timeRange={timeRange} setTimeRange={setTimeRange} />
             </div>
           </div>
         </div>

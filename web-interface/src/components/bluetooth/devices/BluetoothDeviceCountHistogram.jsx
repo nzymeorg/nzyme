@@ -49,6 +49,7 @@ export default function BluetoothDeviceCountHistogram({timeRange, setTimeRange, 
     lineWidth={1}
     bucketSize={histogram.bucket_size_ms}
     data={formatData(histogram.buckets)}
+    timeRange={timeRange}
     setTimeRange={setTimeRange} />
 
 }

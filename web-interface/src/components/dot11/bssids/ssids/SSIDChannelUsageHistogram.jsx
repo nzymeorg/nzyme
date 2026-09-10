@@ -51,6 +51,7 @@ function SSIDChannelUsageHistogram(props) {
         <SimpleBarChart
             height={200}
             customMarginBottom={25}
+            timeRange={timeRange}
             finalData={formatData(histogram.channels)} />
       </React.Fragment>
   )

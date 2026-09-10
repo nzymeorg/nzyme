@@ -281,6 +281,7 @@ function ClientDetailsPage() {
                                            setTimeRange={setConnectedSignalStrengthHistogramTimeRange} />
 
                     <ClientSignalStrengthChart data={connectedSignalStrengthHistogram}
+                                               timeRange={connectedSignalStrengthHistogramTimeRange}
                                                setTimeRange={setConnectedSignalStrengthHistogramTimeRange} />
                   </div>
                 </div>
@@ -339,6 +340,7 @@ function ClientDetailsPage() {
 
                 <ClientActivityHistogram histogram={frameCountHistogram}
                                          parameter={frameCountHistogramType}
+                                         timeRange={frameCountHistogramTimeRange}
                                          setTimeRange={setFrameCountHistogramTimeRange}
                                          type="bar"/>
               </div>

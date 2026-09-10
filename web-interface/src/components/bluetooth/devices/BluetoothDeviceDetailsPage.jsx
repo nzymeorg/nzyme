@@ -200,7 +200,9 @@ export default function BluetoothDeviceDetailsPage() {
                                        timeRange={rssiHistogramTimerange}
                                        setTimeRange={setRssiHistogramTimerange} />
 
-                <BluetoothDeviceSignalStrengthHistogram data={rssiHistogram} setTimeRange={setRssiHistogramTimerange} />
+                <BluetoothDeviceSignalStrengthHistogram data={rssiHistogram}
+                                                        timeRange={rssiHistogramTimerange}
+                                                        setTimeRange={setRssiHistogramTimerange} />
               </div>
             </div>
           </div>

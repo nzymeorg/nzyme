@@ -2,14 +2,7 @@ import React from 'react'
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
 import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 
-export default function DNSStatisticsChart (props) {
-
-  const data = props.data;
-  const setTimeRange = props.setTimeRange;
-
-  // Optional.
-  const conversion = props.conversion;
-  const valueType = props.valueType;
+export default function DNSStatisticsChart({data, timeRange, setTimeRange, conversion = undefined, valueType = undefined}) {
 
   const formatData = () => {
     const result = {}
@@ -36,6 +29,7 @@ export default function DNSStatisticsChart (props) {
         data={formatData()}
         ticksuffix={valueType ? ' ' + valueType : undefined}
         tickformat={'.2~f'}
+        timeRange={timeRange}
         setTimeRange={setTimeRange}
     />
 }

@@ -112,7 +112,7 @@ export default function DHCPTransactionsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <DHCPTransactionsChart statistics={statistics} setTimeRange={setTimeRange} />
+                <DHCPTransactionsChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} />
               </div>
             </div>
           </div>

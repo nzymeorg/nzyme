@@ -6,7 +6,7 @@ function byteConversion (x) {
   return x / 1024 / 1024
 }
 
-export default function L4SessionsInternalBytesChart({statistics, setTimeRange}) {
+export default function L4SessionsInternalBytesChart({statistics, timeRange, setTimeRange}) {
 
   if (!statistics) {
     return <GenericWidgetLoadingSpinner height={200} />
@@ -47,6 +47,7 @@ export default function L4SessionsInternalBytesChart({statistics, setTimeRange})
       data={formatData(statistics.statistics)}
       ticksuffix={" MB"}
       tickformat={".2~f"}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
   />
 

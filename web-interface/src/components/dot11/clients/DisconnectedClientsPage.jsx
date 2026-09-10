@@ -137,7 +137,7 @@ function ClientsPage() {
               <div className="card-body">
                 <CardTitleWithControls title={disconnectedTitle()} slim={true} timeRange={timeRange} />
 
-                <ClientHistogram histogram={histogram} setTimeRange={setTimeRange} monitorsReady={monitorsReady} />
+                <ClientHistogram histogram={histogram} timeRange={timeRange} setTimeRange={setTimeRange} monitorsReady={monitorsReady} />
               </div>
             </div>
           </div>

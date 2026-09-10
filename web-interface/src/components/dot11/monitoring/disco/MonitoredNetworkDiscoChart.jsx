@@ -92,6 +92,7 @@ function MonitoredNetworkDiscoChart(props) {
             height={200}
             lineWidth={1}
             customMarginBottom={35}
+            timeRange={timeRange}
             data={formatData(histogram)}
             shapes={formatShapes(anomalies.anomalies)}
         />

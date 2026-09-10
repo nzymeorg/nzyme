@@ -2,10 +2,7 @@ import React from "react";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import MultiLineChart from "../../../widgets/charts/MultiLineChart";
 
-export default function ARPGratuitousPacketsChart(props) {
-
-  const statistics = props.statistics;
-  const setTimeRange = props.setTimeRange;
+export default function ARPGratuitousPacketsChart({statistics, timeRange, setTimeRange}) {
 
   if (!statistics) {
     return <GenericWidgetLoadingSpinner height={200} />
@@ -34,6 +31,7 @@ export default function ARPGratuitousPacketsChart(props) {
       customMarginBottom={35}
       seriesNames={{request_count: "GARP Requests", reply_count: "GARP Replies" }}
       data={formatData(statistics)}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
   />
 

@@ -116,7 +116,7 @@ export default function ARPPacketsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ARPPacketsChart statistics={statistics} setTimeRange={setTimeRange} />
+                <ARPPacketsChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} />
               </div>
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function ARPPacketsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ARPRequestToReplyRatioChart statistics={statistics} setTimeRange={setTimeRange} />
+                <ARPRequestToReplyRatioChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} />
               </div>
             </div>
           </div>
@@ -142,7 +142,7 @@ export default function ARPPacketsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ARPGratuitousPacketsChart statistics={statistics} setTimeRange={setTimeRange} />
+                <ARPGratuitousPacketsChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} />
               </div>
             </div>
           </div>

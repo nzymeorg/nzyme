@@ -4,13 +4,11 @@ import {singleTapSelected} from "../../../util/Tools";
 import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 
-export function BluetoothDeviceSignalStrengthHistogram(props) {
+export function BluetoothDeviceSignalStrengthHistogram({data, timeRange, setTimeRange}) {
 
-  const data = props.data;
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const setTimeRange = props.setTimeRange;
 
   const formatData = function(data) {
     const result = {}
@@ -50,6 +48,7 @@ export function BluetoothDeviceSignalStrengthHistogram(props) {
       customMarginRight={20}
       scattermode="markers"
       setTimeRange={setTimeRange}
+      timeRange={timeRange}
       data={formatData(data)} />
 
 }

@@ -33,6 +33,7 @@ export default function DNSTransactionCountChart(props) {
       lineWidth={1}
       customMarginBottom={35}
       setTimeRange={setTimeRange}
+      timeRange={timeRange}
       data={convertGenericChartData(histogram)}
   />
 

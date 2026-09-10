@@ -120,7 +120,7 @@ export default function STUNDiscoveriesPage() {
                                      timeRange={timeRange}
                                      refreshAction={() => setRevision(new Date())} />
 
-              <STUNDiscoveriesHistogram data={histogram} setTimeRange={setTimeRange} />
+              <STUNDiscoveriesHistogram data={histogram} timeRange={timeRange} setTimeRange={setTimeRange} />
             </div>
           </div>
         </div>

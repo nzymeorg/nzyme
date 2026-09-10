@@ -70,7 +70,7 @@ export default function L4OverviewPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <L4SessionsTotalBytesChart statistics={statistics} setTimeRange={setTimeRange} filters={filters} />
+                <L4SessionsTotalBytesChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} filters={filters} />
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@ export default function L4OverviewPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <L4SessionsInternalBytesChart statistics={statistics} setTimeRange={setTimeRange} filters={filters} />
+                <L4SessionsInternalBytesChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} filters={filters} />
               </div>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function L4OverviewPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <L4SessionsTotalSessionsChart statistics={statistics} setTimeRange={setTimeRange} filters={filters} />
+                <L4SessionsTotalSessionsChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} filters={filters} />
               </div>
             </div>
           </div>
@@ -111,7 +111,7 @@ export default function L4OverviewPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <L4SessionsInternalSessionsChart statistics={statistics} setTimeRange={setTimeRange} filters={filters} />
+                <L4SessionsInternalSessionsChart statistics={statistics} timeRange={timeRange} setTimeRange={setTimeRange} filters={filters} />
               </div>
             </div>
           </div>

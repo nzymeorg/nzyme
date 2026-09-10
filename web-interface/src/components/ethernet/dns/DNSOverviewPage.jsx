@@ -82,6 +82,7 @@ function DNSOverviewPage () {
 
                 <DNSStatisticsChart data={queryStats}
                                     setTimeRange={setQueryStatsTimeRange}
+                                    timeRange={queryStatsTimeRange}
                                     conversion={byteConversion}
                                     valueType="KB"/>
               </div>
@@ -97,6 +98,7 @@ function DNSOverviewPage () {
 
                 <DNSStatisticsChart data={responseStats}
                                     setTimeRange={setResponseStatsTimeRange}
+                                    timeRange={responseStatsTimeRange}
                                     conversion={byteConversion}
                                     valueType="KB"/>
               </div>
@@ -113,6 +115,7 @@ function DNSOverviewPage () {
 
                 <DNSStatisticsChart data={nxdomainStats}
                                     setTimeRange={setNxdomainStatsTimeRange}
+                                    timeRange={nxdomainStatsTimeRange}
                                     attribute="nxdomain_count"/>
               </div>
             </div>

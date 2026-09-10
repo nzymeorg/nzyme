@@ -8,7 +8,7 @@ const STATUS_SERIES = [
   { key: 'error', name: 'Error', color: '#cf3b3b' },
 ]
 
-export default function STUNDiscoveriesHistogram({data, setTimeRange}) {
+export default function STUNDiscoveriesHistogram({data, timeRange, setTimeRange}) {
   if (data === null) {
     return <LoadingSpinner />
   }
@@ -30,6 +30,7 @@ export default function STUNDiscoveriesHistogram({data, setTimeRange}) {
       lineWidth={1}
       height={200}
       data={data}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
     />
   )

@@ -39,6 +39,19 @@ class SimpleBarChart extends React.Component {
       ]
     }
 
+    let xRange = undefined
+    const timeRange = this.props.timeRange
+    const isDateAxis = finalData.some(
+      t => Array.isArray(t.x) && t.x.length > 0 && t.x[0] instanceof Date
+    )
+
+    if (isDateAxis && timeRange && timeRange.type === 'relative') {
+      const now = new Date()
+      xRange = [new Date(now.getTime() - timeRange.minutes * 60 * 1000), now]
+    } else if (isDateAxis && timeRange && timeRange.type === 'absolute') {
+      xRange = [new Date(timeRange.from), new Date(timeRange.to)]
+    }
+
     const marginLeft = this.props.customMarginLeft ? this.props.customMarginLeft : 25
     const marginRight = this.props.customMarginRight ? this.props.customMarginRight : 0
     const marginTop = this.props.customMarginTop ? this.props.customMarginTop : 25
@@ -96,7 +109,8 @@ class SimpleBarChart extends React.Component {
                 linecolor: colors.lines,
                 linewidth: 1,
                 gridcolor: colors.grid,
-                zeroline: false
+                zeroline: false,
+                range: xRange
               },
               yaxis: {
                 ticksuffix: this.props.ticksuffix ? this.props.ticksuffix : undefined,

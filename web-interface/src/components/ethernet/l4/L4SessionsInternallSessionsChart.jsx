@@ -2,7 +2,7 @@ import React from "react";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
 import MultiLineChart from "../../widgets/charts/MultiLineChart";
 
-export default function L4SessionsInternalSessionsChart({statistics, setTimeRange}) {
+export default function L4SessionsInternalSessionsChart({statistics, timeRange, setTimeRange}) {
 
   if (!statistics) {
     return <GenericWidgetLoadingSpinner height={200} />
@@ -39,6 +39,7 @@ export default function L4SessionsInternalSessionsChart({statistics, setTimeRang
       customMarginLeft={75}
       seriesNames={{sessions_tcp: "TCP Sessions (Internal)", sessions_udp: "UDP Sessions/Conversations (Internal)", sessions_total: "Total Sessions (Internal)" }}
       data={formatData(statistics.statistics)}
+      timeRange={timeRange}
       setTimeRange={setTimeRange}
   />
 
