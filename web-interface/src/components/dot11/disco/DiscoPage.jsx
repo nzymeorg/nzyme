@@ -10,6 +10,7 @@ import {TapContext} from "../../../App";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import usePageTitle from "../../../util/UsePageTitle";
+import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
 
 export const MonitoredNetworkContext = createContext(null);
 
@@ -29,9 +30,9 @@ function DiscoPage() {
       urlQuery.get("monitored-network-id") ? urlQuery.get("monitored-network-id") : ""
   );
 
-  const [discoHistogramTimeRange, setDiscoHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [deauthHistogramTimeRange, setDeauthHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [disassocHistogramTimeRange, setDisassocHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [discoHistogramTimeRange, setDiscoHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disco"));
+  const [deauthHistogramTimeRange, setDeauthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "deauth"));
+  const [disassocHistogramTimeRange, setDisassocHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disassoc"));
   const [pairsTimeRange, setPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [sendersTimeRange, setSendersTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [receiversTimeRange, setReceiversTimeRange] = useState(Presets.RELATIVE_HOURS_24);
@@ -70,10 +71,12 @@ function DiscoPage() {
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="Disconnection Frames Observed"
+                                         urlKey="disco"
                                          timeRange={discoHistogramTimeRange}
                                          setTimeRange={setDiscoHistogramTimeRange} />
 
                   <DiscoHistogram discoType="disconnection"
+                                  urlKey="disco"
                                   timeRange={discoHistogramTimeRange}
                                   setTimeRange={setDiscoHistogramTimeRange} />
 
@@ -90,10 +93,12 @@ function DiscoPage() {
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="Deauthentication Frames Observed"
+                                         urlKey="deauth"
                                          timeRange={deauthHistogramTimeRange}
                                          setTimeRange={setDeauthHistogramTimeRange} />
 
                   <DiscoHistogram discoType="deauthentication"
+                                  urlKey="deauth"
                                   timeRange={deauthHistogramTimeRange}
                                   setTimeRange={setDeauthHistogramTimeRange} />
                 </div>
@@ -104,10 +109,12 @@ function DiscoPage() {
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="Disassociation Frames Observed"
+                                         urlKey="disassoc"
                                          timeRange={disassocHistogramTimeRange}
                                          setTimeRange={setDisassocHistogramTimeRange} />
 
                   <DiscoHistogram discoType="disassociation"
+                                  urlKey="disassoc"
                                   timeRange={disassocHistogramTimeRange}
                                   setTimeRange={setDisassocHistogramTimeRange} />
                 </div>

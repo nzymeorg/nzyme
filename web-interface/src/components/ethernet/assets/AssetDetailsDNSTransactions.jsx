@@ -6,6 +6,7 @@ import {TapContext} from "../../../App";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import DNSTransactionsTable from "../dns/logs/DNSTransactionsTable";
 import ApiRoutes from "../../../util/ApiRoutes";
+import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
 
 export default function AssetDetailsDNSTransactions(props) {
 
@@ -21,7 +22,7 @@ export default function AssetDetailsDNSTransactions(props) {
     }]
   };
 
-  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] =  useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "asset_d_dnstx"));
   const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {
@@ -46,12 +47,15 @@ export default function AssetDetailsDNSTransactions(props) {
                                        doNotPersistTimeRange={true}
                                        timeRange={timeRange}
                                        setTimeRange={setTimeRange}
+                                       urlKey="asset_d_dnstx"
                                        internalLink={ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS + "?filters=" + JSON.stringify(FILTERS)}
                                        refreshAction={onRefresh} />
 
 
                 <DNSTransactionCountChart timeRange={timeRange}
+                                          setTimeRange={setTimeRange}
                                           filters={FILTERS}
+                                          urlKey="asset_d_dnstx"
                                           revision={revision} />
 
                 <DNSTransactionsTable timeRange={timeRange}

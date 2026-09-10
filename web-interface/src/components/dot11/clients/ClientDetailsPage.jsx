@@ -22,6 +22,7 @@ import TransparentIpAddressTable from "../../shared/context/transparent/Transpar
 import TransparentHostnamesTable from "../../shared/context/transparent/TransparentHostnamesTable";
 import {singleTapSelected} from "../../../util/Tools";
 import usePageTitle from "../../../util/UsePageTitle";
+import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -42,14 +43,14 @@ function ClientDetailsPage() {
   const [trilaterationError, setTrilaterationError] = useState(null);
   const [trilaterationRevision, setTrilaterationRevision] = useState(0);
 
-  const [frameCountHistogramTimeRange, setFrameCountHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [frameCountHistogramTimeRange, setFrameCountHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "frame_count"));
   const [frameCountHistogramType, setFrameCountHistogramType] = useState("total_frames")
   const [frameCountHistogram, setFrameCountHistogram] = useState(null);
 
-  const [connectedSignalStrengthHistogramTimeRange, setConnectedSignalStrengthHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [connectedSignalStrengthHistogramTimeRange, setConnectedSignalStrengthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "c_ss"));
   const [connectedSignalStrengthHistogram, setConnectedSignalStrengthHistogram] = useState(null);
 
-  const [disconnectedSignalStrengthHistogramTimeRange, setDisconnectedSignalStrengthHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [disconnectedSignalStrengthHistogramTimeRange, setDisconnectedSignalStrengthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "d_ss"));
   const [disconnectedSignalStrengthHistogram, setDisconnectedSignalStrengthHistogram] = useState(null);
 
   usePageTitle(client ? `WiFi Client: ${client.mac.address}` : "WiFi Client Details");
@@ -277,10 +278,12 @@ function ClientDetailsPage() {
                 <div className="card">
                   <div className="card-body">
                     <CardTitleWithControls title="Data &amp; Control Frames Signal Strength"
+                                           urlKey="c_ss"
                                            timeRange={connectedSignalStrengthHistogramTimeRange}
                                            setTimeRange={setConnectedSignalStrengthHistogramTimeRange} />
 
                     <ClientSignalStrengthChart data={connectedSignalStrengthHistogram}
+                                               urlKey="c_ss"
                                                timeRange={connectedSignalStrengthHistogramTimeRange}
                                                setTimeRange={setConnectedSignalStrengthHistogramTimeRange} />
                   </div>
@@ -307,10 +310,13 @@ function ClientDetailsPage() {
                 <div className="card">
                   <div className="card-body">
                     <CardTitleWithControls title="Probe Request Frames Signal Strength"
+                                           urlKey="d_ss"
                                            timeRange={disconnectedSignalStrengthHistogramTimeRange}
                                            setTimeRange={setDisconnectedSignalStrengthHistogramTimeRange} />
 
                     <ClientSignalStrengthChart data={disconnectedSignalStrengthHistogram}
+                                               urlKey="d_ss"
+                                               timeRange={disconnectedSignalStrengthHistogramTimeRange}
                                                setTimeRange={setDisconnectedSignalStrengthHistogramTimeRange}/>
                   </div>
                 </div>
@@ -324,6 +330,7 @@ function ClientDetailsPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Recorded Frames"
+                                       urlKey="frame_count"
                                        timeRange={frameCountHistogramTimeRange}
                                        setTimeRange={setFrameCountHistogramTimeRange} />
 
@@ -342,6 +349,7 @@ function ClientDetailsPage() {
                                          parameter={frameCountHistogramType}
                                          timeRange={frameCountHistogramTimeRange}
                                          setTimeRange={setFrameCountHistogramTimeRange}
+                                         urlKey="frame_count"
                                          type="bar"/>
               </div>
             </div>

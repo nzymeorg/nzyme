@@ -1,70 +1,18 @@
-import React, {forwardRef, useEffect, useRef, useState} from "react";
+import React, {forwardRef, useEffect, useState} from "react";
 import {Absolute, Named, Relative} from "./TimeRange";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import {useNavigate, useLocation} from "react-router-dom";
+import {useApplyTimeRange} from "./TimeRangeUrl";
 
-function serializeTimeRange(range) {
-  if (!range) return null;
-  return {
-    type: range.type,
-    ...(range.type === "relative" && { minutes: range.minutes }),
-    ...(range.type === "absolute" && {
-      from: range.from.toISOString(),
-      to: range.to.toISOString(),
-    }),
-    ...(range.type === "named" && { name: range.name }),
-  };
-}
+export {deserializeTimeRange, timeRangeFromURLOrDefault} from "./TimeRangeUrl";
 
-function relativeLabel(minutes) {
-  if (minutes % (60 * 24) === 0) {
-    const days = minutes / (60 * 24);
-    return `Last ${days} ${days === 1 ? "Day" : "Days"}`;
-  }
-  if (minutes % 60 === 0) {
-    const hours = minutes / 60;
-    return `Last ${hours} ${hours === 1 ? "Hour" : "Hours"}`;
-  }
-  return `Last ${minutes} ${minutes === 1 ? "Minute" : "Minutes"}`;
-}
-
-export function deserializeTimeRange(raw) {
-  if (!raw) return null;
-  switch (raw.type) {
-    case "relative":
-      return Relative(raw.minutes, relativeLabel(raw.minutes));
-    case "absolute":
-      return Absolute(new Date(raw.from), new Date(raw.to));
-    case "named":
-      return Named(raw.name);
-    default:
-      return null;
-  }
-}
-
-export function timeRangeFromURLOrDefault(defaultRange, key = "timerange") {
-  const queryParams = new URLSearchParams(window.location.search);
-  const raw = queryParams.get("tr_" + key);
-  if (raw) {
-    try {
-      const parsed = deserializeTimeRange(JSON.parse(raw));
-      if (parsed) return parsed;
-    } catch (e) {
-      console.warn(`Failed to parse timerange "tr_${key}" from URL:`, e);
-    }
-  }
-  return defaultRange;
-}
-
-function TimeRangeSelector(props) {
+export default function TimeRangeSelector(props) {
 
   const setTimeRange = props.setTimeRange;
   const urlKey = props.urlKey || "timerange";
-  const navigate = useNavigate();
-  const location = useLocation();
-
   const doNotPersistTimeRange = props.doNotPersistTimeRange || false;
+
+  const applyTimeRange = useApplyTimeRange(setTimeRange, urlKey, doNotPersistTimeRange);
 
   const [relativeUnit, setRelativeUnit] = useState("Minutes");
   const [relativeValue, setRelativeValue] = useState(5);
@@ -73,23 +21,6 @@ function TimeRangeSelector(props) {
   const [absoluteEnd, setAbsoluteEnd] = useState(new Date());
   const [absoluteErrorMessage, setAbsoluteErrorMessage] = useState(null);
   const [absoluteSubmitEnabled, setAbsoluteSubmitEnabled] = useState(true);
-
-  const previousTimeRangeRef = useRef(null);
-
-  const syncTimeRangeToURL = (range) => {
-    const queryParams = new URLSearchParams(location.search);
-    const serialized = JSON.stringify(serializeTimeRange(range));
-    const key = "tr_" + urlKey;
-
-    if (previousTimeRangeRef.current !== serialized) {
-      previousTimeRangeRef.current = serialized;
-      const currentParam = queryParams.get(key);
-      if (currentParam !== serialized) {
-        queryParams.set(key, serialized);
-        navigate({ search: queryParams.toString() });
-      }
-    }
-  };
 
   useEffect(() => {
     if (absoluteStart.getTime() < absoluteEnd.getTime()) {
@@ -110,13 +41,6 @@ function TimeRangeSelector(props) {
       setRelativeValue(e.target.value);
     }
   }
-
-  const applyTimeRange = (range) => {
-    setTimeRange(range);
-    if (!doNotPersistTimeRange) {
-      syncTimeRangeToURL(range);
-    }
-  };
 
   const presetOption = (range, name) => {
     return <a href="#" onClick={(e) => { e.preventDefault(); applyTimeRange(range) }}>{name}</a>
@@ -288,5 +212,3 @@ function TimeRangeSelector(props) {
   )
 
 }
-
-export default TimeRangeSelector;

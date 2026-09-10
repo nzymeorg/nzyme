@@ -12,6 +12,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {DNS_MENU_ITEMS} from "./DNSMenuItems";
 import usePageTitle from "../../../util/UsePageTitle";
+import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
 
 function byteConversion (x) {
   return x / 1024
@@ -30,9 +31,9 @@ function DNSOverviewPage () {
   const [responseStats, setResponseStats] = useState(null);
   const [nxdomainStats, setNxdomainStats] = useState(null);
 
-  const [queryStatsTimeRange, setQueryStatsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [responseStatsTimeRange, setResponseStatsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [nxdomainStatsTimeRange, setNxdomainStatsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [queryStatsTimeRange, setQueryStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_query_traffic"));
+  const [responseStatsTimeRange, setResponseStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_resp_traffic"));
+  const [nxdomainStatsTimeRange, setNxdomainStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_nxdomain_traffic"));
   const [contactAttemptsTimeRange, setContactAttemptsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [entropyLogTimeRange, setEntropyLogTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
@@ -77,6 +78,7 @@ function DNSOverviewPage () {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Query Traffic"
+                                       urlKey="tr_query_traffic"
                                        timeRange={queryStatsTimeRange}
                                        setTimeRange={setQueryStatsTimeRange} />
 
@@ -84,6 +86,7 @@ function DNSOverviewPage () {
                                     setTimeRange={setQueryStatsTimeRange}
                                     timeRange={queryStatsTimeRange}
                                     conversion={byteConversion}
+                                    urlKey="tr_query_traffic"
                                     valueType="KB"/>
               </div>
             </div>
@@ -93,6 +96,7 @@ function DNSOverviewPage () {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Response Traffic"
+                                       urlKey="tr_resp_traffic"
                                        timeRange={responseStatsTimeRange}
                                        setTimeRange={setResponseStatsTimeRange} />
 
@@ -100,6 +104,7 @@ function DNSOverviewPage () {
                                     setTimeRange={setResponseStatsTimeRange}
                                     timeRange={responseStatsTimeRange}
                                     conversion={byteConversion}
+                                    urlKey="tr_resp_traffic"
                                     valueType="KB"/>
               </div>
             </div>
@@ -109,6 +114,7 @@ function DNSOverviewPage () {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="NXDOMAIN Responses"
+                                       urlKey="tr_nxdomain_traffic"
                                        helpLink="https://go.nzyme.org/ethernet-dns-nxdomain"
                                        timeRange={nxdomainStatsTimeRange}
                                        setTimeRange={setNxdomainStatsTimeRange} />
@@ -116,6 +122,7 @@ function DNSOverviewPage () {
                 <DNSStatisticsChart data={nxdomainStats}
                                     setTimeRange={setNxdomainStatsTimeRange}
                                     timeRange={nxdomainStatsTimeRange}
+                                    urlKey="tr_nxdomain_traffic"
                                     attribute="nxdomain_count"/>
               </div>
             </div>

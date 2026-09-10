@@ -27,6 +27,7 @@ import usePageTitle from "../../../../util/UsePageTitle";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {BSSID_MENU_ITEMS} from "../BSSIDMenuItems";
 import {SSID_MENU_ITEMS} from "./SSIDMenuItems";
+import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -45,11 +46,11 @@ function SSIDDetailsPage() {
   const [ssid, setSSID] = useState(null);
 
   const [advertisementHistogramType, setHistogramAdvertisementType] = useState("beacon_count");
-  const [advertisementHistogramTimeRange, setAdvertisementHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [advertisementHistogramTimeRange, setAdvertisementHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "ssid_advertisements"));
   const [channelUsageHistogramTimeRange, setChannelUsageHistogramTimeRange] = useState(Presets.RELATIVE_MINUTES_15);
   const [signalWaterfallTimeRange, setSignalWaterfallTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
-  const [discoActivityTimeRange, setDiscoActivityTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [discoActivityTimeRange, setDiscoActivityTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disco_activity"));
 
   usePageTitle(ssid ? `SSID: ${ssid.ssid}` : "SSID Details");
 
@@ -186,6 +187,7 @@ function SSIDDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="SSID Advertisements"
+                                     urlKey="ssid_advertisements"
                                      timeRange={advertisementHistogramTimeRange}
                                      setTimeRange={setAdvertisementHistogramTimeRange} />
 
@@ -198,6 +200,7 @@ function SSIDDetailsPage() {
 
               <SSIDAdvertisementHistogram bssid={ssid.bssid.address}
                                           ssid={ssid.ssid}
+                                          urlKey="ssid_advertisements"
                                           timeRange={advertisementHistogramTimeRange}
                                           setTimeRange={setAdvertisementHistogramTimeRange}
                                           parameter={advertisementHistogramType} />
@@ -212,6 +215,7 @@ function SSIDDetailsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Disconnection Activity"
                                      smallText="All SSIDs"
+                                     urlKey="disco_activity"
                                      timeRange={discoActivityTimeRange}
                                      setTimeRange={setDiscoActivityTimeRange} />
               <p className="text-muted">
@@ -221,6 +225,7 @@ function SSIDDetailsPage() {
 
               <DiscoHistogram discoType="disconnection"
                               timeRange={discoActivityTimeRange}
+                              urlKey="disco_activity"
                               setTimeRange={setDiscoActivityTimeRange}
                               bssids={[ssid.bssid.address]} />
             </div>

@@ -4,7 +4,7 @@ import {singleTapSelected} from "../../../util/Tools";
 import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 
-function ClientSignalStrengthChart({data, timeRange, setTimeRange}) {
+function ClientSignalStrengthChart({data, timeRange, setTimeRange, urlKey = undefined}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -48,6 +48,7 @@ function ClientSignalStrengthChart({data, timeRange, setTimeRange}) {
       scattermode="markers"
       setTimeRange={setTimeRange}
       timeRange={timeRange}
+      urlKey={urlKey}
       data={formatData(data)} />
 
 }

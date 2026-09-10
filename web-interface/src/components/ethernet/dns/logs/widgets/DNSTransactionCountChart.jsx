@@ -7,12 +7,8 @@ import {convertGenericChartData} from "../../../../../util/Tools";
 
 const dnsService = new DNSService();
 
-export default function DNSTransactionCountChart(props) {
+export default function DNSTransactionCountChart({timeRange, setTimeRange, filters, revision, urlKey = undefined}) {
 
-  const timeRange = props.timeRange;
-  const filters = props.filters;
-  const revision = props.revision;
-  const setTimeRange = props.setTimeRange;
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -34,6 +30,7 @@ export default function DNSTransactionCountChart(props) {
       customMarginBottom={35}
       setTimeRange={setTimeRange}
       timeRange={timeRange}
+      urlKey={urlKey}
       data={convertGenericChartData(histogram)}
   />
 

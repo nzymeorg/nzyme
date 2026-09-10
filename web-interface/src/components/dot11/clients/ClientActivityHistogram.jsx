@@ -3,7 +3,7 @@ import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
 import SimpleBarChart from "../../widgets/charts/SimpleBarChart";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 
-function ClientActivityHistogram({histogram, parameter, type, timeRange, setTimeRange}) {
+function ClientActivityHistogram({histogram, parameter, type, timeRange, setTimeRange, urlKey = undefined}) {
 
   if (histogram === null) {
     return <LoadingSpinner />
@@ -26,6 +26,7 @@ function ClientActivityHistogram({histogram, parameter, type, timeRange, setTime
           lineWidth={1}
           customMarginBottom={35}
           customMarginRight={20}
+          urlKey={urlKey}
           timeRange={timeRange}
           setTimeRange={setTimeRange}
           data={formatData(histogram)} />
@@ -36,6 +37,7 @@ function ClientActivityHistogram({histogram, parameter, type, timeRange, setTime
           lineWidth={1}
           customMarginBottom={35}
           customMarginRight={20}
+          urlKey={urlKey}
           timeRange={timeRange}
           setTimeRange={setTimeRange}
           data={formatData(histogram)} />

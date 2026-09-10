@@ -2,8 +2,9 @@ import React from 'react'
 import Plot from 'react-plotly.js'
 import Store from '../../../util/Store'
 import { Absolute } from "../../shared/timerange/TimeRange";
+import { useApplyTimeRange } from "../../shared/timerange/TimeRangeUrl";
 
-class SimpleLineChart extends React.Component {
+class SimpleLineChartBase extends React.Component {
   constructor (props) {
     super(props)
 
@@ -240,6 +241,24 @@ class SimpleLineChart extends React.Component {
       />
     )
   }
+}
+
+function SyncingLineChart (props) {
+  const applyTimeRange = useApplyTimeRange(
+    props.setTimeRange,
+    props.urlKey || "timerange",
+    props.doNotPersistTimeRange || false
+  )
+
+  return <SimpleLineChartBase {...props} setTimeRange={applyTimeRange} />
+}
+
+function SimpleLineChart (props) {
+  if (props.setTimeRange) {
+    return <SyncingLineChart {...props} />
+  }
+
+  return <SimpleLineChartBase {...props} />
 }
 
 export default SimpleLineChart

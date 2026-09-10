@@ -25,6 +25,7 @@ import usePageTitle from "../../../util/UsePageTitle";
 import {BSSID_MENU_ITEMS} from "./BSSIDMenuItems";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {toast} from "react-toastify";
+import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -40,8 +41,8 @@ function BSSIDDetailsPage() {
 
   const [ssidsTimeRange, setSsidsTimeRange] = useState(Presets.ALL_TIME);
   const [signalWaterfallTimeRange, setSignalWaterfallTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [advertisementsBeaconTimeRange, setAdvertisementsBeaconTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [advertisementsProbeRespTimeRange, setAdvertisementsProbeRespTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [advertisementsBeaconTimeRange, setAdvertisementsBeaconTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "beacon_advertisements"));
+  const [advertisementsProbeRespTimeRange, setAdvertisementsProbeRespTimeRange] =useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "proberesp_advertisements"));
   const [activeChannelsTimeRange, setActiveChannelsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoFramesTimeRange, setDiscoFramesTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoPairsTimeRange, setDiscoPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
@@ -310,12 +311,14 @@ function BSSIDDetailsPage() {
                 <div className="card">
                   <div className="card-body">
                     <CardTitleWithControls title="Beacon Advertisements"
+                                           urlKey="beacon_advertisements"
                                            timeRange={advertisementsBeaconTimeRange}
                                            setTimeRange={setAdvertisementsBeaconTimeRange} />
 
                     <BSSIDAdvertisementHistogram bssid={bssid.summary.bssid.address}
                                                  timeRange={advertisementsBeaconTimeRange}
                                                  setTimeRange={setAdvertisementsBeaconTimeRange}
+                                                 urlKey="beacon_advertisements"
                                                  parameter="beacon_count" />
                   </div>
                 </div>
@@ -327,10 +330,12 @@ function BSSIDDetailsPage() {
                 <div className="card">
                   <div className="card-body">
                     <CardTitleWithControls title="Probe Response Advertisements"
+                                           urlKey="proberesp_advertisements"
                                            timeRange={advertisementsProbeRespTimeRange}
                                            setTimeRange={setAdvertisementsProbeRespTimeRange} />
 
                     <BSSIDAdvertisementHistogram bssid={bssid.summary.bssid.address}
+                                                 urlKey="proberesp_advertisements"
                                                  timeRange={advertisementsProbeRespTimeRange}
                                                  setTimeRange={setAdvertisementsProbeRespTimeRange}
                                                  parameter="proberesp_count"/>

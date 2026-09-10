@@ -6,13 +6,7 @@ import SimpleLineChart from "../../../widgets/charts/SimpleLineChart";
 
 const dot11Service = new Dot11Service();
 
-function SSIDAdvertisementHistogram(props) {
-
-  const bssid = props.bssid;
-  const ssid = props.ssid;
-  const parameter = props.parameter;
-  const timeRange = props.timeRange;
-  const setTimeRange = props.setTimeRange;
+function SSIDAdvertisementHistogram({bssid, ssid, parameter, timeRange, setTimeRange, urlKey = undefined}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -46,6 +40,7 @@ function SSIDAdvertisementHistogram(props) {
           customMarginRight={20}
           setTimeRange={setTimeRange}
           timeRange={timeRange}
+          urlKey={urlKey}
           data={formatData(histogram.values)} />
       </React.Fragment>
   )

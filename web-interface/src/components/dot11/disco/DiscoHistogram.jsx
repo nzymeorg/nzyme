@@ -7,16 +7,11 @@ import {MonitoredNetworkContext} from "./DiscoPage";
 
 const dot11Service = new Dot11Service();
 
-function DiscoHistogram(props) {
+function DiscoHistogram({discoType, timeRange, setTimeRange, bssids, monitoredNetworkId = undefined, urlKey = undefined}) {
 
   const monitoredNetworkContext = useContext(MonitoredNetworkContext);
 
-  const discoType = props.discoType;
-  const timeRange = props.timeRange;
-  const setTimeRange = props.setTimeRange;
-  const bssids = props.bssids;
-
-  const [monitoredNetworkId, setMonitoredNetworkId] = useState(props.monitoredNetworkId);
+  const [monitoredNetwork, setMonitoredNetwork] = useState(monitoredNetworkId);
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -25,12 +20,12 @@ function DiscoHistogram(props) {
 
   useEffect(() => {
     setHistogram(null);
-    dot11Service.getDiscoHistogram(discoType, timeRange, selectedTaps, bssids, monitoredNetworkId, setHistogram);
-  }, [discoType, timeRange, selectedTaps, monitoredNetworkId]);
+    dot11Service.getDiscoHistogram(discoType, timeRange, selectedTaps, bssids, monitoredNetwork, setHistogram);
+  }, [discoType, timeRange, selectedTaps, monitoredNetwork]);
 
   useEffect(() => {
     if (monitoredNetworkContext) {
-      setMonitoredNetworkId(monitoredNetworkContext.network);
+      setMonitoredNetwork(monitoredNetworkContext.network);
     }
   }, [monitoredNetworkContext]);
 
@@ -54,6 +49,7 @@ function DiscoHistogram(props) {
       setTimeRange={setTimeRange}
       customMarginBottom={35}
       timeRange={timeRange}
+      urlKey={urlKey}
       data={formatData(histogram)}
   />
 

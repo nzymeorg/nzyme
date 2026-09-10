@@ -2,8 +2,9 @@ import React from 'react'
 import Plot from 'react-plotly.js'
 import Store from '../../../util/Store'
 import { Absolute } from "../../shared/timerange/TimeRange";
+import { useApplyTimeRange } from "../../shared/timerange/TimeRangeUrl";
 
-class SimpleBarChart extends React.Component {
+class SimpleBarChartBase extends React.Component {
   constructor (props) {
     super(props)
 
@@ -73,78 +74,96 @@ class SimpleBarChart extends React.Component {
     const interactive = Boolean(this.props.setTimeRange)
 
     const hovermode = this.props.disableHover
-        ? false
-        : (this.props.hovermode ?? (interactive ? "x" : "closest"))
+      ? false
+      : (this.props.hovermode ?? (interactive ? "x" : "closest"))
 
     return (
-        <Plot
-            style={{ width: '100%', height: '100%' }}
-            data={finalData}
-            layout={{
-              height: this.props.height,
-              width: this.props.width,
-              font: {
-                family: "'Nunito Sans', sans-serif",
-                size: 12,
-                color: colors.text
-              },
-              margin: { l: marginLeft, r: marginRight, b: marginBottom, t: marginTop, pad: 0 },
-              title: { text: this.props.title },
-              paper_bgcolor: colors.background,
-              plot_bgcolor: colors.background,
-              showlegend: false,
-              dragmode: interactive ? 'zoom' : false,
-              clickmode: 'none',
-              hovermode: hovermode,
-              hoverlabel: {
-                font: { size: 11 },
-                namelength: -1
-              },
-              barmode: 'stack',
-              boxgap: 0,
-              xaxis: {
-                fixedrange: !interactive,
-                rangeslider: { visible: false },
-                title: this.props.xaxistitle,
-                linecolor: colors.lines,
-                linewidth: 1,
-                gridcolor: colors.grid,
-                zeroline: false,
-                range: xRange
-              },
-              yaxis: {
-                ticksuffix: this.props.ticksuffix ? this.props.ticksuffix : undefined,
-                tickformat: this.props.tickformat ? this.props.tickformat : undefined,
-                fixedrange: true,
-                title: this.props.yaxistitle,
-                linecolor: colors.lines,
-                linewidth: 1,
-                gridcolor: colors.grid,
-                zeroline: false
-              },
-              annotations: this.props.annotations ? this.props.annotations : [],
-              shapes: this.props.shapes
-            }}
-            config={{
-              showAxisDragHandles: false,
-              displayModeBar: false,
-              autosize: true,
-              responsive: true,
-              showTips: false,
-              scrollZoom: false
-            }}
-            onRelayout={event => {
-              if (this.props.setTimeRange) {
-                const x0 = event['xaxis.range[0]']
-                const x1 = event['xaxis.range[1]']
-                if (x0 != null && x1 != null) {
-                  this.props.setTimeRange(Absolute(new Date(x0), new Date(x1)))
-                }
-              }}
+      <Plot
+        style={{ width: '100%', height: '100%' }}
+        data={finalData}
+        layout={{
+          height: this.props.height,
+          width: this.props.width,
+          font: {
+            family: "'Nunito Sans', sans-serif",
+            size: 12,
+            color: colors.text
+          },
+          margin: { l: marginLeft, r: marginRight, b: marginBottom, t: marginTop, pad: 0 },
+          title: { text: this.props.title },
+          paper_bgcolor: colors.background,
+          plot_bgcolor: colors.background,
+          showlegend: false,
+          dragmode: interactive ? 'zoom' : false,
+          clickmode: 'none',
+          hovermode: hovermode,
+          hoverlabel: {
+            font: { size: 11 },
+            namelength: -1
+          },
+          barmode: 'stack',
+          boxgap: 0,
+          xaxis: {
+            fixedrange: !interactive,
+            rangeslider: { visible: false },
+            title: this.props.xaxistitle,
+            linecolor: colors.lines,
+            linewidth: 1,
+            gridcolor: colors.grid,
+            zeroline: false,
+            range: xRange
+          },
+          yaxis: {
+            ticksuffix: this.props.ticksuffix ? this.props.ticksuffix : undefined,
+            tickformat: this.props.tickformat ? this.props.tickformat : undefined,
+            fixedrange: true,
+            title: this.props.yaxistitle,
+            linecolor: colors.lines,
+            linewidth: 1,
+            gridcolor: colors.grid,
+            zeroline: false
+          },
+          annotations: this.props.annotations ? this.props.annotations : [],
+          shapes: this.props.shapes
+        }}
+        config={{
+          showAxisDragHandles: false,
+          displayModeBar: false,
+          autosize: true,
+          responsive: true,
+          showTips: false,
+          scrollZoom: false
+        }}
+        onRelayout={event => {
+          if (this.props.setTimeRange) {
+            const x0 = event['xaxis.range[0]']
+            const x1 = event['xaxis.range[1]']
+            if (x0 != null && x1 != null) {
+              this.props.setTimeRange(Absolute(new Date(x0), new Date(x1)))
             }
-        />
+          }}
+        }
+      />
     )
   }
+}
+
+function SyncingBarChart (props) {
+  const applyTimeRange = useApplyTimeRange(
+    props.setTimeRange,
+    props.urlKey || "timerange",
+    props.doNotPersistTimeRange || false
+  )
+
+  return <SimpleBarChartBase {...props} setTimeRange={applyTimeRange} />
+}
+
+function SimpleBarChart (props) {
+  if (props.setTimeRange) {
+    return <SyncingBarChart {...props} />
+  }
+
+  return <SimpleBarChartBase {...props} />
 }
 
 export default SimpleBarChart
