@@ -233,9 +233,9 @@ function App() {
     setSelectedTenant(tenant);
   }
 
-  const saveTenantSelection = () => {
-    Store.set("selected_organization", selectedOrganization);
-    Store.set("selected_tenant", selectedTenant);
+  const saveTenantSelection = (organization = selectedOrganization, tenant = selectedTenant) => {
+    Store.set("selected_organization", organization);
+    Store.set("selected_tenant", tenant);
 
     // Reset taps as well.
     Store.delete("selected_taps");
@@ -416,11 +416,12 @@ function App() {
                               <strong>You can change the tenant at any time using the top navigation bar later.</strong>
                             </p>
 
-                            <GlobalTenantSelectorForm onSelectionMade={onTenantSelectionMade} />
+                            <GlobalTenantSelectorForm onSelectionMade={onTenantSelectionMade}
+                                                      onAutoSelect={saveTenantSelection} />
 
                             {selectedOrganization && selectedTenant ?
-                                <button type="button" className="btn btn-primary" onClick={saveTenantSelection}>Select Tenant</button>
-                                : <button type="button" className="btn btn-primary" disabled={true}>Select Tenant</button> }
+                              <button type="button" className="btn btn-primary" onClick={() => saveTenantSelection()}>Select Tenant</button>
+                              : <button type="button" className="btn btn-primary" disabled={true}>Select Tenant</button> }
                           </div>
                         </div>
                       </div>
@@ -433,7 +434,7 @@ function App() {
         } else {
           setSelectedOrganization(userInformation.organization_id);
           setSelectedTenant(userInformation.tenant_id);
-          saveTenantSelection();
+          saveTenantSelection(userInformation.organization_id, userInformation.tenant_id);
         }
       }
 
