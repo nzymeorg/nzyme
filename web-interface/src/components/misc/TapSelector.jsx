@@ -50,7 +50,6 @@ function TapSelector() {
   const [show, setShow] = useState(false);
 
   const [availableTaps, setAvailableTaps] = useState(null);
-  const [availableTapsUUIDs, setAvailableTapsUUIDs] = useState(null);
   const [preSelectedTaps, setPreSelectedTaps] = useState(null);
 
   const [hasSelectedOfflineTap, setHasSelectedOfflineTap] = useState(false);
@@ -75,6 +74,30 @@ function TapSelector() {
   }
 
   useEffect(() => {
+    if (organizationId == null || tenantId == null) {
+      return;
+    }
+
+    const tenantKey = organizationId + ":" + tenantId;
+    const tapsTenant = Store.get("selected_taps_tenant");
+
+    /*
+     * Tap selections are per tenant, so only drop the stored selection when the tenant actually
+     * changes. Re-loading the same tenant (e.g. after logging back in) keeps it. If there's no
+     * marker yet (first run after this shipped), adopt the current tenant without clearing so we
+     * don't wipe a pre-existing selection on upgrade.
+     */
+    if (tapsTenant == null) {
+      Store.set("selected_taps_tenant", tenantKey);
+    } else if (tapsTenant !== tenantKey) {
+      Store.delete("selected_taps");
+      Store.set("selected_taps_tenant", tenantKey);
+    }
+
+    // Show the loading state until the new tenant's taps arrive.
+    setAvailableTaps(null);
+    setPreSelectedTaps(null);
+
     tapsService.findAllTapsHighLevel(organizationId, tenantId, function (response) {
       setAvailableTaps(response.data.taps);
     });
@@ -89,24 +112,45 @@ function TapSelector() {
     }
 
     if (lsTaps === undefined || lsTaps === null || (!Array.isArray(lsTaps) && lsTaps !== "*")) {
+      /*
+       * No stored selection yet: default to an empty selection so the user makes a conscious
+       * choice about which taps to view, rather than implicitly selecting everything.
+       */
       setSelectedTapsProtected([]);
       setPreSelectedTaps([]);
 
       if (availableTaps && availableTaps.length > 0) {
-        setButtonText("All Taps Selected");
+        setButtonText(<span className="text-warning"><i className="fa-solid fa-triangle-exclamation text-warning"></i> No Taps Selected</span>);
       } else {
         setButtonText("No Taps Configured");
       }
     } else {
-      setSelectedTapsProtected(lsTaps);
-      setPreSelectedTaps(lsTaps);
+      /*
+       * Validate an explicit selection against the taps that actually exist for this tenant and
+       * drop any that are gone (e.g. deleted since the selection was made). "*" adapts on its own,
+       * so it never needs cleaning. Runs on every load, so a deleted tap can't linger.
+       */
+      let effectiveTaps = lsTaps;
+      if (Array.isArray(lsTaps) && availableTaps) {
+        const availableUuids = new Set(availableTaps.map((t) => t.uuid));
+        const validTaps = lsTaps.filter((uuid) => availableUuids.has(uuid));
+        if (validTaps.length !== lsTaps.length) {
+          Store.set("selected_taps", validTaps);
+          effectiveTaps = validTaps;
+        }
+      }
 
-      if (lsTaps === "*") {
+      setSelectedTapsProtected(effectiveTaps);
+      setPreSelectedTaps(effectiveTaps);
+
+      if (effectiveTaps === "*") {
         setButtonText("All Taps Selected");
-      } else if (lsTaps.length > 1) {
-        setButtonText(lsTaps.length + " Taps Selected");
-      } else {
+      } else if (effectiveTaps.length > 1) {
+        setButtonText(effectiveTaps.length + " Taps Selected");
+      } else if (effectiveTaps.length === 1) {
         setButtonText("1 Tap Selected");
+      } else {
+        setButtonText("No Taps Selected");
       }
     }
   }, [availableTaps]);
@@ -128,25 +172,6 @@ function TapSelector() {
             }
           });
         } else {
-          /*
-           * Reset everything if a tap is no longer available (permissions may have changed or local
-           * storage came from other session)
-           */
-          if (availableTapsUUIDs !== null) {
-            let invalidTapFound = false;
-            selectedTaps.forEach(function (selectedTap) {
-              if (!availableTapsUUIDs.includes(selectedTap)) {
-                invalidTapFound = true;
-              }
-            });
-
-            if (invalidTapFound) {
-              Store.set("selected_taps", []);
-              setSelectedTapsProtected([]);
-              setPreSelectedTaps([]);
-            }
-          }
-
           // Is any of the selected taps currently offline?
           selectedTaps.forEach(function (selectedTap) {
             availableTaps.forEach(function (availableTap) {
@@ -169,18 +194,6 @@ function TapSelector() {
       }
     }
   }, [selectedTaps, availableTaps])
-
-  useEffect(() => {
-    if (availableTaps !== null) {
-      const uuids = [];
-
-      availableTaps.forEach(function (availableTap) {
-        uuids.push(availableTap.uuid);
-      });
-
-      setAvailableTapsUUIDs(uuids);
-    }
-  }, [availableTaps]);
 
   useEffect(() => {
     if (selectedTaps !== null) {
