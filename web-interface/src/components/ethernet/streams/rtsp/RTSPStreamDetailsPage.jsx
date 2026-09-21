@@ -9,8 +9,6 @@ import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import FullCopyShortenedId from "../../../shared/FullCopyShortenedId";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
-import STUNConnectionActiveIndicator from "../../nat/traversal/stun_connections/STUNConnectionActiveIndicator";
-import STUNConnectionSuccessIndicator from "../../nat/traversal/stun_connections/STUNConnectionSuccessIndicator";
 
 const rtspService = new RTSPService();
 
@@ -18,7 +16,7 @@ export default function RTSPStreamDetailsPage() {
 
   usePageTitle("RTSP Stream Details");
 
-  const { sessionId } = useParams();
+  const { negotiationKey } = useParams();
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -37,8 +35,8 @@ export default function RTSPStreamDetailsPage() {
 
   useEffect(() => {
     setSession(null);
-    rtspService.findOneStream(sessionId, organizationId, tenantId, selectedTaps, setSession);
-  }, [sessionId, organizationId, tenantId, selectedTaps])
+    rtspService.findOneStream(negotiationKey, organizationId, tenantId, selectedTaps, setSession);
+  }, [negotiationKey, organizationId, tenantId, selectedTaps])
 
   if (session === null) {
     return <LoadingSpinner />
@@ -52,7 +50,7 @@ export default function RTSPStreamDetailsPage() {
             <ol className="breadcrumb">
               <li className="breadcrumb-item">Streams</li>
               <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX}>RTSP Sessions</a></li>
-              <li className="breadcrumb-item active">{sessionId}</li>
+              <li className="breadcrumb-item active">{negotiationKey}</li>
             </ol>
           </nav>
         </div>
@@ -66,7 +64,7 @@ export default function RTSPStreamDetailsPage() {
       <div className="row mt-3">
         <div className="col-12">
           <h1>
-            RTSP Stream {<FullCopyShortenedId value={sessionId} />}
+            RTSP Stream {<FullCopyShortenedId value={negotiationKey} />}
           </h1>
         </div>
       </div>

@@ -132,32 +132,47 @@ public class WebRTC {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery(conversationEndpointsCteBySha() +
-                                "SELECT w.negotiation_key, w.negotiation_key_sha256, " +
-                                "UPPER(w.transport) AS transport, " +
-                                "w.has_rtp, w.has_dtls, w.has_audio, w.has_video, w.stream_count, " +
-                                "w.rtp_streams, w.dtls_app_data_records, " +
-                                "w.first_seen, w.last_activity, " +
-                                "(w.last_activity >= NOW() - INTERVAL '60 seconds') AS is_active, " +
-                                "(EXTRACT(EPOCH FROM (w.last_activity - w.first_seen)) * 1000)::bigint AS duration_ms, " +
-                                "s.bytes_rx_count + s.bytes_tx_count AS bytes_exchanged, " +
-                                "s.source_mac, s.source_address, s.source_port, " +
-                                "s.source_address_geo_asn_number, s.source_address_geo_asn_name, " +
-                                "s.source_address_geo_asn_domain, s.source_address_geo_city, " +
-                                "s.source_address_geo_country_code, s.source_address_geo_latitude, " +
-                                "s.source_address_geo_longitude, s.source_address_is_site_local, " +
-                                "s.source_address_is_loopback, s.source_address_is_multicast, " +
-                                "s.destination_mac, s.destination_address, s.destination_port, " +
-                                "s.destination_address_geo_asn_number, s.destination_address_geo_asn_name, " +
-                                "s.destination_address_geo_asn_domain, s.destination_address_geo_city, " +
-                                "s.destination_address_geo_country_code, s.destination_address_geo_latitude, " +
-                                "s.destination_address_geo_longitude, s.destination_address_is_site_local, " +
-                                "s.destination_address_is_loopback, s.destination_address_is_multicast " +
+                                "SELECT MAX(w.negotiation_key) AS negotiation_key, " +
+                                "MAX(w.negotiation_key_sha256) AS negotiation_key_sha256, " +
+                                "UPPER(MAX(w.transport)) AS transport, " +
+                                "BOOL_OR(w.has_rtp) AS has_rtp, BOOL_OR(w.has_dtls) AS has_dtls, " +
+                                "BOOL_OR(w.has_audio) AS has_audio, BOOL_OR(w.has_video) AS has_video, " +
+                                "MAX(w.stream_count) AS stream_count, " +
+                                "MAX(w.rtp_streams::text)::jsonb AS rtp_streams, " +
+                                "MAX(w.dtls_app_data_records) AS dtls_app_data_records, " +
+                                "MIN(w.first_seen) AS first_seen, MAX(w.last_activity) AS last_activity, " +
+                                "(MAX(w.last_activity) >= NOW() - INTERVAL '60 seconds') AS is_active, " +
+                                "(EXTRACT(EPOCH FROM (MAX(w.last_activity) - MIN(w.first_seen))) * 1000)::bigint AS duration_ms, " +
+                                "MAX(s.bytes_rx_count + s.bytes_tx_count) AS bytes_exchanged, " +
+                                "MAX(s.source_mac) AS source_mac, MAX(s.source_address) AS source_address, MAX(s.source_port) AS source_port, " +
+                                "MAX(s.source_address_geo_asn_number) AS source_address_geo_asn_number, " +
+                                "MAX(s.source_address_geo_asn_name) AS source_address_geo_asn_name, " +
+                                "MAX(s.source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
+                                "MAX(s.source_address_geo_city) AS source_address_geo_city, " +
+                                "MAX(s.source_address_geo_country_code) AS source_address_geo_country_code, " +
+                                "MAX(s.source_address_geo_latitude) AS source_address_geo_latitude, " +
+                                "MAX(s.source_address_geo_longitude) AS source_address_geo_longitude, " +
+                                "BOOL_OR(s.source_address_is_site_local) AS source_address_is_site_local, " +
+                                "BOOL_OR(s.source_address_is_loopback) AS source_address_is_loopback, " +
+                                "BOOL_OR(s.source_address_is_multicast) AS source_address_is_multicast, " +
+                                "MAX(s.destination_mac) AS destination_mac, MAX(s.destination_address) AS destination_address, MAX(s.destination_port) AS destination_port, " +
+                                "MAX(s.destination_address_geo_asn_number) AS destination_address_geo_asn_number, " +
+                                "MAX(s.destination_address_geo_asn_name) AS destination_address_geo_asn_name, " +
+                                "MAX(s.destination_address_geo_asn_domain) AS destination_address_geo_asn_domain, " +
+                                "MAX(s.destination_address_geo_city) AS destination_address_geo_city, " +
+                                "MAX(s.destination_address_geo_country_code) AS destination_address_geo_country_code, " +
+                                "MAX(s.destination_address_geo_latitude) AS destination_address_geo_latitude, " +
+                                "MAX(s.destination_address_geo_longitude) AS destination_address_geo_longitude, " +
+                                "BOOL_OR(s.destination_address_is_site_local) AS destination_address_is_site_local, " +
+                                "BOOL_OR(s.destination_address_is_loopback) AS destination_address_is_loopback, " +
+                                "BOOL_OR(s.destination_address_is_multicast) AS destination_address_is_multicast " +
                                 "FROM webrtc_conversations AS w " +
                                 "LEFT JOIN conversation_endpoints AS s " +
                                 "ON s.tap_uuid = w.tap_uuid AND s.session_key = w.l4_session_key " +
                                 "WHERE w.negotiation_key_sha256 = :negotiation_key_sha256 " +
                                 "AND w.tap_uuid IN (<taps>) " +
-                                "ORDER BY w.first_seen ASC")
+                                "GROUP BY w.l4_session_key " +
+                                "ORDER BY MIN(w.first_seen) ASC")
                         .bindList("taps", taps)
                         .bind("negotiation_key_sha256", negotiationKeySha256)
                         .mapTo(WebRTCSessionEntry.class)
