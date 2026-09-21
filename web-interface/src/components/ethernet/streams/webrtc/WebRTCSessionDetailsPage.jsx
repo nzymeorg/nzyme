@@ -84,6 +84,14 @@ export default function WebRTCSessionDetailsPage() {
     )
   }
 
+  const directionLabel = (direction) => {
+    switch (direction) {
+      case "CLIENT_TO_SERVER": return <span>Peer A <i className="fa fa-long-arrow-right" /> Peer B</span>;
+      case "SERVER_TO_CLIENT": return <span>Peer B <i className="fa fa-long-arrow-right" /> Peer A</span>;
+      default: return direction;
+    }
+  }
+
   const rtpStreams = () => {
     if (!session.rtp_streams || session.rtp_streams.length === 0) {
       return <div className="alert alert-info mb-0">This session did not contain RTP streams.</div>
@@ -95,6 +103,7 @@ export default function WebRTCSessionDetailsPage() {
         <tr>
           <th>SSRC</th>
           <th>Media Type</th>
+          <th>Direction</th>
           <th>Packets</th>
         </tr>
         </thead>
@@ -104,6 +113,7 @@ export default function WebRTCSessionDetailsPage() {
             <tr key={i}>
               <td><span className="machine-data">{stream.ssrc}</span></td>
               <td>{stream.media_kind}</td>
+              <td>{directionLabel(stream.direction)}</td>
               <td>{numeral(stream.packet_count).format("0,0")}</td>
             </tr>
           )
