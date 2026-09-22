@@ -183,8 +183,8 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @PreMFASecured
     @Path("/session")
     public Response getSessionInformation(@Context SecurityContext sc,
-                                          @QueryParam("selected_organization") @Nullable UUID organizationId,
-                                          @QueryParam("selected_tenant") @Nullable UUID tenantId) {
+                                          @QueryParam("organization_id") @Nullable UUID organizationId,
+                                          @QueryParam("tenant_id") @Nullable UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         /*

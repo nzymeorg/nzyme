@@ -395,7 +395,7 @@ function App() {
           return (
               <div className="nzyme">
                 <DarkMode enabled={darkModeEnabled} />
-                
+
                 <UserContext.Provider value={userInformation}>
                   <div className="container">
                     <div className="row mt-5">

@@ -183,7 +183,7 @@ function Sidebar(props) {
             <NavigationLink
                 href={ApiRoutes.ALERTS.INDEX}
                 title={"Overview"}
-                icon={<i className={"sidebar-icon fa-solid fa-ranking-star"}/>}
+                icon={<i className={"sidebar-icon fa-solid fa-ranking-star " + (alerts.has_active_alerts ? " text-danger blink" : null )}/>}
                 show={userHasPermission(user, "alerts_view")
                     || userHasPermission(user, "alerts_manage")}/>
 
