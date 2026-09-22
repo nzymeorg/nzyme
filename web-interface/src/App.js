@@ -394,6 +394,8 @@ function App() {
         if (userInformation.is_superadmin || userInformation.is_orgadmin) {
           return (
               <div className="nzyme">
+                <DarkMode enabled={darkModeEnabled} />
+                
                 <UserContext.Provider value={userInformation}>
                   <div className="container">
                     <div className="row mt-5">
