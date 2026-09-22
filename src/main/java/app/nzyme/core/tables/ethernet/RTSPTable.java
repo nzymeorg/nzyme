@@ -7,6 +7,8 @@ import app.nzyme.core.tables.TablesService;
 import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.Tools;
 import com.codahale.metrics.Timer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
@@ -18,6 +20,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public class RTSPTable implements DataTable  {
+
+    private static final Logger LOG = LogManager.getLogger(RTSPTable.class);
 
     private final TablesService tablesService;
     private final ObjectMapper om;
@@ -80,6 +84,13 @@ public class RTSPTable implements DataTable  {
                         );
                         break;
                     case "Udp":
+                        if (!stream.mediaLocator().containsKey("client_rtp_port")
+                                || !stream.mediaLocator().containsKey("server_rtp_port")) {
+                            // Required data. If we don't have this, the tap ran into an error.
+                            LOG.debug("Missing RTP port data. Skipping RTSP stream.");
+                            continue;
+                        }
+
                         streamL4UntimedSessionKey = Tools.buildUntimedL4Key(
                                 stream.setupSourceAddress(),
                                 stream.setupDestinationAddress(),

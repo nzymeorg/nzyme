@@ -208,7 +208,7 @@ export default function WebRTCSessionDetailsPage() {
                 <dt>Bytes Exchanged</dt>
                 <dd>{numeral(session.bytes_exchanged).format("0b")}</dd>
                 <dt>Peer A Address</dt>
-                <dd><L4Address address={session.source} hidePort={true}/></dd>
+                <dd><L4Address address={session.source} /></dd>
                 <dt>Peer A Asset</dt>
                 <dd>
                   <InternalAddressOnlyWrapper
@@ -218,7 +218,7 @@ export default function WebRTCSessionDetailsPage() {
                       : null } />
                 </dd>
                 <dt>Peer B Address</dt>
-                <dd><L4Address address={session.destination} hidePort={true}/></dd>
+                <dd><L4Address address={session.destination} /></dd>
                 <dt>Peer B Asset</dt>
                 <dd>
                   <InternalAddressOnlyWrapper

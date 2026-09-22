@@ -186,7 +186,7 @@ const ApiRoutes = {
     STREAMS: {
       RTSP: {
         INDEX: '/ethernet/streams/rtsp',
-        DETAILS: (negotiationKey) => `/ethernet/streams/rtsp/show/${negotiationKey}`
+        DETAILS: (sessionKey) => `/ethernet/streams/rtsp/show/${sessionKey}`
       },
       WEBRTC: {
         INDEX: '/ethernet/streams/webrtc',

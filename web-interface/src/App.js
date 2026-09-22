@@ -594,7 +594,7 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX} element={<WebRTCSessionsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.STREAMS.WEBRTC.DETAILS(':negotiationKey')} element={<WebRTCSessionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX} element={<RTSPStreamsPage />}/>
-                                <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(':negotiationKey')} element={<RTSPStreamDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(':sessionKey')} element={<RTSPStreamDetailsPage />}/>
 
                                 { /* Ethernet/Time. */}
                                 <Route path={ApiRoutes.ETHERNET.TIME.NTP.INDEX} element={<NTPOverviewPage />}/>
