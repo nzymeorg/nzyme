@@ -10,6 +10,17 @@ pub fn tag(cts: &[u8], stc: &[u8], session: &TcpSession) -> Option<RtspStream> {
         return None;
     }
 
+    /*
+     * In interleaved (TCP) transport, RTP media is framed with a leading '$' marker and
+     * muxed into the SAME control connection. That binary media has no line structure and
+     * pollutes line-based parsing (status codes, headers, auth) and in a bounded capture
+     * buffer it can push the RTSP handshake responses out of view. Truncate each direction
+     * at the first interleaved frame marker so every downstream parser sees only the clean
+     * RTSP control text. For UDP transport (media on a separate flow) this is a no-op.
+     */
+    let cts = control_only(cts);
+    let stc = control_only(stc);
+
     let (req, resp) = orient(cts, stc);
 
     let mut flags: Vec<RtspFlag> = Vec::new();
@@ -69,7 +80,37 @@ fn is_rtsp(buf: &[u8]) -> bool {
 }
 
 /*
- * We've seen issues wher client-to-server and server-to-client was swapped, breaking parsing.
+ * Interleaved RTP-over-TCP frames are "$<channel:1><length:2><data...>" and only appear
+ * where an RTSP message is NOT in progress i.e. immediately after the preceding message
+ * terminator or after a previous interleaved frame. We therefore treat a '$' that sits right
+ * at the start of the buffer or right after a "\r\n" as the start of interleaved media and cut
+ * the buffer there. Everything before it is clean RTSP control text.
+ *
+ * A bare '$' inside an RTSP header value or URL does not sit at a line boundary, so this does
+ * not truncate legitimate control text. If no interleaved frame is present (UDP transport, or
+ * a control-only exchange) the full buffer is returned unchanged.
+ */
+fn control_only(buf: &[u8]) -> &[u8] {
+    // '$' at the very start means the buffer begins mid-media. No control text here.
+    if buf.first() == Some(&b'$') {
+        return &buf[..0];
+    }
+
+    // Find the first '$' that immediately follows a "\r\n" line terminator.
+    let mut i = 0;
+    while i + 2 < buf.len() {
+        if buf[i] == b'\r' && buf[i + 1] == b'\n' && buf[i + 2] == b'$' {
+            // Cut just after the terminator, keeping the control text (incl. the blank line).
+            return &buf[..i + 2];
+        }
+        i += 1;
+    }
+
+    buf
+}
+
+/*
+ * We've seen issues where client-to-server and server-to-client was swapped, breaking parsing.
  * This re-orients the streams into the correct direction. We may be able to get rid of this once
  * we implement https://github.com/nzymeorg/nzyme/issues/1354
  */
@@ -141,7 +182,7 @@ fn derive_state(cts: &[u8]) -> (RtspState, bool) {
 }
 
 fn parse_media_locator(transport: &[u8], session: &TcpSession, flags: &mut Vec<RtspFlag>)
-    -> Option<RtspMediaLocator> {
+                       -> Option<RtspMediaLocator> {
 
     let t = lossy(transport);
     let tl = t.to_ascii_lowercase();
@@ -212,6 +253,12 @@ fn derive_auth(cts: &[u8], stc: &[u8], flags: &mut Vec<RtspFlag>) -> RtspAuthPos
     // A 200 anywhere in the response stream after the exchange means success.
     let saw_ok = count_status(stc, b"200") > 0;
 
+    /*
+     * Did the client send any request at all? Used so an unauthenticated stream can be
+     * recognized even when the specific 200 response scrolled out of the capture buffer.
+     */
+    let saw_request = looks_like_requests(cts);
+
     match challenge.as_deref() {
         Some(c) if c.contains("digest") => RtspAuthPosture::Digest,
         Some(c) if c.contains("basic") => {
@@ -219,9 +266,16 @@ fn derive_auth(cts: &[u8], stc: &[u8], flags: &mut Vec<RtspFlag>) -> RtspAuthPos
             RtspAuthPosture::Basic
         }
         _ => {
-            // No challenge. If the client never sent credentials, and we saw a 200 to a
-            // DESCRIBE/SETUP, the stream is effectively unauthenticated.
-            if client_authz.is_none() && saw_ok {
+            /*
+             * No challenge was seen. If the client also never sent credentials, the stream is
+             * effectively unauthenticated. We accept EITHER a captured 200 response OR simply
+             * having seen the client drive requests without ever being challenged -- because
+             * the presence/absence of the 200 in a bounded buffer depends on transport (with
+             * interleaved TCP media the response can be pushed out of view), while the auth
+             * posture does not.
+             */
+
+            if client_authz.is_none() && (saw_ok || saw_request) {
                 flags.push(RtspFlag::UnauthenticatedStream);
                 RtspAuthPosture::None
             } else if client_authz.as_deref().map_or(false, |a| a.contains("basic")) {
