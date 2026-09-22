@@ -80,6 +80,68 @@ export default function RTSPStreamDetailsPage() {
     return <span className="text-warning">{flagsHumanReadable.join(", ")}</span>
   }
 
+  const mediaLocator = () => {
+    if (!stream.media_locator) {
+      return <div className="alert alert-info mb-0">No media locator information.</div>
+    }
+
+    switch (stream.media_locator.type) {
+      case "Interleaved":
+        return <dl>
+          <dt>Type</dt>
+          <dd>Interleaved (Setup and stream share the same TCP connection)</dd>
+        </dl>
+      case "Udp":
+        return <dl>
+          <dt>Type</dt>
+          <dd>UDP Stream</dd>
+          <dt>Client RTP Port</dt>
+          <dd className="machine-data">{stream.media_locator.client_rtp_port}</dd>
+          <dt>Client RTCP Port</dt>
+          <dd>
+            {stream.media_locator.client_rtcp_port ?
+              <span className="machine-data">{stream.media_locator.client_rtcp_port}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+          <dt>Server RTP Port</dt>
+          <dd>
+            {stream.media_locator.server_rtp_port ?
+              <span className="machine-data">{stream.media_locator.server_rtp_port}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+          <dt>Server RTCP Port</dt>
+          <dd>
+            {stream.media_locator.server_rtcp_port ?
+              <span className="machine-data">{stream.media_locator.server_rtcp_port}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+          <dt>Redirect Destination</dt>
+          <dd>
+            {stream.media_locator.redirect_destination ?
+              <span className="machine-data">{stream.media_locator.redirect_destination}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+        </dl>
+      case "Multicast":
+        return <dl>
+          <dt>Type</dt>
+          <dd>Multicast</dd>
+          <dt>Group</dt>
+          <dd>
+            {stream.media_locator.group ?
+              <span className="machine-data">{stream.media_locator.group}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+          <dt>Port</dt>
+          <dd>
+            {stream.media_locator.port ?
+              <span className="machine-data">{stream.media_locator.port}</span>
+              : <span className="text-muted">n/a</span>}
+          </dd>
+        </dl>
+    }
+  }
+
   if (stream === null) {
     return <LoadingSpinner />
   }
@@ -126,6 +188,14 @@ export default function RTSPStreamDetailsPage() {
                 <dd>{stream.state}</dd>
                 <dt>Flags</dt>
                 <dd>{flags()}</dd>
+                <dt>Request URI</dt>
+                <dd>{stream.request_uri ? stream.request_uri : <span className="text-muted">n/a</span>}</dd>
+                <dt>Authentication</dt>
+                <dd>{stream.authentication ? stream.authentication : <span className="text-muted">n/a</span> }</dd>
+                <dt>Client Information</dt>
+                <dd>{stream.client_agent ? stream.client_agent : <span className="text-muted">n/a</span> }</dd>
+                <dt>Server Information</dt>
+                <dd>{stream.server_info ? stream.server_info : <span className="text-muted">n/a</span> }</dd>
                 <dt>Last Activity (Setup or Stream)</dt>
                 <dd>{moment(stream.last_activity).format()} ({moment(stream.last_activity).fromNow()})</dd>
                 <dt>Duration (Setup or Stream)</dt>
@@ -236,18 +306,15 @@ export default function RTSPStreamDetailsPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Details" />
+              <CardTitleWithControls title="Media Locator" />
 
-              MEDIA LOC: {JSON.stringify(stream.media_locator)}<br />
-              REQ URI: {stream.request_uri}<br />
-              CLIENT: {stream.client_agent}<br />
-              SERVER: {stream.server_info}<br />
-              AUTH: {stream.authentication}<br />
+              {mediaLocator()}
             </div>
           </div>
         </div>
       </div>
     </React.Fragment>
   )
+
 
 }
