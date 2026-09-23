@@ -109,11 +109,6 @@ fn control_only(buf: &[u8]) -> &[u8] {
     buf
 }
 
-/*
- * We've seen issues where client-to-server and server-to-client was swapped, breaking parsing.
- * This re-orients the streams into the correct direction. We may be able to get rid of this once
- * we implement https://github.com/nzymeorg/nzyme/issues/1354
- */
 fn orient<'a>(cts: &'a [u8], stc: &'a [u8]) -> (&'a [u8], &'a [u8]) {
     if looks_like_requests(cts) {
         (cts, stc)

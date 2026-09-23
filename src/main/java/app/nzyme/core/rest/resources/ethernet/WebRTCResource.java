@@ -161,93 +161,6 @@ public class WebRTCResource extends TapDataHandlingResource {
     }
 
     @GET
-    @Path("/sessions/peers/assets/top/histogram")
-    public Response topPeerAssetPairHistogram(@Context SecurityContext sc,
-                                              @QueryParam("organization_id") UUID organizationId,
-                                              @QueryParam("tenant_id") UUID tenantId,
-                                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                                              @QueryParam("filters") String filtersParameter,
-                                              @QueryParam("taps") String taps,
-                                              @QueryParam("order_column") @Nullable String orderColumnParam,
-                                              @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                              @QueryParam("limit") int limit,
-                                              @QueryParam("offset") int offset) {
-        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
-        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
-
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        ThreeColumnHistogramOrderColumn orderColumn = ThreeColumnHistogramOrderColumn.VALUE3;
-        OrderDirection orderDirection = OrderDirection.DESC;
-        if (orderColumnParam != null && orderDirectionParam != null) {
-            try {
-                orderColumn = ThreeColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
-                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return Response.status(Response.Status.BAD_REQUEST).build();
-            }
-        }
-
-        long count = nzyme.getEthernet().webRtc().getTopAssetPairsByBytesCount(timeRange, filters, tapUUIDs);
-
-        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (AssetPairNumberAggregationResult x : nzyme.getEthernet().webRtc()
-                .getTopAssetPairsByBytes(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
-            Optional<MacAddressContextEntry> mac1Context = nzyme.getContextService().findMacAddressContext(
-                    x.mac1(), organizationId, tenantId
-            );
-            Optional<MacAddressContextEntry> mac2Context = nzyme.getContextService().findMacAddressContext(
-                    x.mac2(), organizationId, tenantId
-            );
-
-            Optional<AssetEntry> mac1Asset = nzyme.getAssetsManager().findAssetByMac(x.mac1(), organizationId, tenantId);
-            Optional<AssetEntry> mac2Asset = nzyme.getAssetsManager().findAssetByMac(x.mac2(), organizationId, tenantId);
-
-            values.add(ThreeColumnTableHistogramValueResponse.create(
-                    HistogramValueStructureResponse.create(
-                            x.mac1(),
-                            HistogramValueType.ETHERNET_MAC,
-                            EthernetMacAddressResponse.create(
-                                x.mac1(),
-                                nzyme.getOuiService().lookup(x.mac1()).orElse(null),
-                                mac1Asset.map(AssetEntry::uuid).orElse(null),
-                                mac1Asset.map(AssetEntry::isActive).orElse(null),
-                                mac1Context.map(ctx ->
-                                        EthernetMacAddressContextResponse.create(
-                                                ctx.name(),
-                                                ctx.description()
-                                        )
-                                ).orElse(null)
-                            )
-                    ),
-                    HistogramValueStructureResponse.create(
-                            x.mac2(),
-                            HistogramValueType.ETHERNET_MAC,
-                            EthernetMacAddressResponse.create(
-                                x.mac2(),
-                                nzyme.getOuiService().lookup(x.mac2()).orElse(null),
-                                mac2Asset.map(AssetEntry::uuid).orElse(null),
-                                mac2Asset.map(AssetEntry::isActive).orElse(null),
-                                mac2Context.map(ctx ->
-                                        EthernetMacAddressContextResponse.create(
-                                                ctx.name(),
-                                                ctx.description()
-                                        )
-                                ).orElse(null)
-                            )
-                    ),
-                    HistogramValueStructureResponse.create(x.value(), HistogramValueType.BYTES, null),
-                    x.mac1() + " <> " + x.mac2()
-            ));
-        }
-
-        return Response.ok(ThreeColumnTableHistogramResponse.create(count, true, values)).build();
-    }
-
-    @GET
     @Path("/sessions/peers/addresses/top/histogram")
     public Response topPeerAddressPairHistogram(@Context SecurityContext sc,
                                                 @QueryParam("organization_id") UUID organizationId,
@@ -293,7 +206,7 @@ public class WebRTCResource extends TapDataHandlingResource {
                             HistogramValueType.L4_ADDRESS,
                             null),
                     HistogramValueStructureResponse.create(x.value(), HistogramValueType.BYTES, null),
-                    x.address1() + " <> " + x.address2()
+                    x.address1().address() + " <> " + x.address2().address()
             ));
         }
 

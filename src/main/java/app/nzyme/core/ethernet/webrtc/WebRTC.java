@@ -227,64 +227,6 @@ public class WebRTC {
         );
     }
 
-    public long getTopAssetPairsByBytesCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
-        if (taps.isEmpty()) {
-            return 0;
-        }
-        FilterSqlFragment filterFragment = FilterSql.generate(filters, new WebRTCFilters());
-
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery(endpointsCteByTime() +
-                                "SELECT COUNT(*) FROM (" +
-                                "SELECT LEAST(pairs.a, pairs.b) AS lo, GREATEST(pairs.a, pairs.b) AS hi FROM (" +
-                                peerPairSessionSelect(filterFragment) +
-                                ") AS pairs " +
-                                "WHERE pairs.a IS NOT NULL AND pairs.b IS NOT NULL " +
-                                "GROUP BY LEAST(pairs.a, pairs.b), GREATEST(pairs.a, pairs.b)" +
-                                ") AS distinct_pairs")
-                        .bindList("taps", taps)
-                        .bindMap(filterFragment.bindings())
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .mapTo(Long.class)
-                        .one()
-        );
-    }
-
-    public List<AssetPairNumberAggregationResult> getTopAssetPairsByBytes(TimeRange timeRange,
-                                                                          Filters filters,
-                                                                          int limit,
-                                                                          int offset,
-                                                                          ThreeColumnHistogramOrderColumn orderColumn,
-                                                                          OrderDirection orderDirection,
-                                                                          List<UUID> taps) {
-        if (taps.isEmpty()) {
-            return Collections.emptyList();
-        }
-        FilterSqlFragment filterFragment = FilterSql.generate(filters, new WebRTCFilters());
-
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery(endpointsCteByTime() +
-                                "SELECT LEAST(pairs.a, pairs.b) AS value1, " +
-                                "GREATEST(pairs.a, pairs.b) AS value2, " +
-                                "SUM(pairs.bytes_exchanged) AS value3 FROM (" + peerPairSessionSelect(filterFragment) +
-                                ") AS pairs " +
-                                "WHERE pairs.a IS NOT NULL AND pairs.b IS NOT NULL " +
-                                "GROUP BY LEAST(pairs.a, pairs.b), GREATEST(pairs.a, pairs.b) " +
-                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
-                        .bindList("taps", taps)
-                        .bindMap(filterFragment.bindings())
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .bind("limit", limit)
-                        .bind("offset", offset)
-                        .define("order_column", orderColumn.getColumnName())
-                        .define("order_direction", orderDirection)
-                        .mapTo(AssetPairNumberAggregationResult.class)
-                        .list()
-        );
-    }
-
     public long getTopPeerAddressPairsByBytesCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
             return 0;

@@ -2,6 +2,9 @@ package app.nzyme.core.ethernet.rtsp;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
@@ -348,7 +351,6 @@ public class RTSP {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery(
-                                // Every bucket in the range (so quiet periods read 0, not gaps).
                                 "WITH buckets AS (" +
                                         "SELECT generate_series(" +
                                         "date_trunc(:date_trunc, :tr_from::timestamptz), " +
@@ -394,6 +396,215 @@ public class RTSP {
                         .mapTo(GenericIntegerHistogramEntry.class)
                         .list()
         );
+    }
+
+    public long getTopServersCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT server_address FROM (" +
+                                rtspSessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE server_address IS NOT NULL " +
+                                "GROUP BY server_address" +
+                                ") AS distinct_servers")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopServers(TimeRange timeRange,
+                                                                                 Filters filters,
+                                                                                 int limit, int offset,
+                                                                                 ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                 OrderDirection orderDirection,
+                                                                                 List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" + rtspSessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.server_address) AS key, " +
+                                "host(sess.server_address) AS key_address, " +
+                                "MAX(sess.server_mac) AS key_mac, MAX(sess.server_port) AS key_port, " +
+                                "MAX(sess.server_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.server_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.server_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.server_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.server_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.server_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.server_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.server_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.server_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.server_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) AS value1, " +
+                                "COALESCE(SUM(sess.bytes_exchanged), 0) AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.server_address IS NOT NULL " +
+                                "GROUP BY sess.server_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    public long getTopClientsCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT client_address FROM (" +
+                                rtspSessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE client_address IS NOT NULL " +
+                                "GROUP BY client_address" +
+                                ") AS distinct_clients")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopClients(TimeRange timeRange,
+                                                                                 Filters filters,
+                                                                                 int limit,
+                                                                                 int offset,
+                                                                                 ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                 OrderDirection orderDirection,
+                                                                                 List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" + rtspSessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.client_address) AS key, " +
+                                "host(sess.client_address) AS key_address, " +
+                                "MAX(sess.client_mac) AS key_mac, MAX(sess.client_port) AS key_port, " +
+                                "MAX(sess.client_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.client_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.client_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.client_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.client_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.client_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.client_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.client_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.client_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.client_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) AS value1, " +
+                                "COALESCE(SUM(sess.bytes_exchanged), 0) AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.client_address IS NOT NULL " +
+                                "GROUP BY sess.client_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    private String rtspSessionEndpointsSelect(FilterSqlFragment filterFragment) {
+        return "SELECT rtsp.setup_tcp_session_key, " +
+                "MAX(setup.source_address) AS client_address, " +
+                "MAX(setup.destination_address) AS server_address, " +
+                "COALESCE(MAX(stream.bytes_rx_count), 0) + COALESCE(MAX(stream.bytes_tx_count), 0) " +
+                "+ COALESCE(MAX(setup.bytes_rx_count), 0) + COALESCE(MAX(setup.bytes_tx_count), 0) " +
+                "AS bytes_exchanged " +
+                "FROM rtsp_streams AS rtsp " +
+                "LEFT JOIN l4_sessions AS setup " +
+                "ON setup.session_key = rtsp.setup_tcp_session_key " +
+                "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                "AND setup.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                "AND setup.tap_uuid = rtsp.tap_uuid " +
+                "LEFT JOIN l4_sessions AS stream " +
+                "ON stream.untimed_session_key = rtsp.stream_l4_untimed_session_key " +
+                "AND stream.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                "AND stream.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                "AND stream.tap_uuid = rtsp.tap_uuid " +
+                "WHERE ((rtsp.setup_most_recent_segment_time >= :tr_from " +
+                "AND rtsp.setup_most_recent_segment_time <= :tr_to) " +
+                "OR (stream.most_recent_segment_time >= :tr_from " +
+                "AND stream.most_recent_segment_time <= :tr_to)) " +
+                "AND rtsp.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY rtsp.setup_tcp_session_key HAVING 1=1 " + filterFragment.havingSql();
+    }
+
+    private String rtspSessionEndpointsSelectWithAttrs(FilterSqlFragment filterFragment) {
+        return "SELECT rtsp.setup_tcp_session_key, " +
+                "MAX(setup.source_address) AS client_address, " +
+                "MAX(setup.source_mac) AS client_mac, MAX(setup.source_port) AS client_port, " +
+                "MAX(setup.source_address_geo_asn_number) AS client_geo_asn_number, " +
+                "MAX(setup.source_address_geo_asn_name) AS client_geo_asn_name, " +
+                "MAX(setup.source_address_geo_asn_domain) AS client_geo_asn_domain, " +
+                "MAX(setup.source_address_geo_city) AS client_geo_city, " +
+                "MAX(setup.source_address_geo_country_code) AS client_geo_country_code, " +
+                "MAX(setup.source_address_geo_latitude) AS client_geo_latitude, " +
+                "MAX(setup.source_address_geo_longitude) AS client_geo_longitude, " +
+                "BOOL_OR(setup.source_address_is_site_local) AS client_is_site_local, " +
+                "BOOL_OR(setup.source_address_is_loopback) AS client_is_loopback, " +
+                "BOOL_OR(setup.source_address_is_multicast) AS client_is_multicast, " +
+                "MAX(setup.destination_address) AS server_address, " +
+                "MAX(setup.destination_mac) AS server_mac, MAX(setup.destination_port) AS server_port, " +
+                "MAX(setup.destination_address_geo_asn_number) AS server_geo_asn_number, " +
+                "MAX(setup.destination_address_geo_asn_name) AS server_geo_asn_name, " +
+                "MAX(setup.destination_address_geo_asn_domain) AS server_geo_asn_domain, " +
+                "MAX(setup.destination_address_geo_city) AS server_geo_city, " +
+                "MAX(setup.destination_address_geo_country_code) AS server_geo_country_code, " +
+                "MAX(setup.destination_address_geo_latitude) AS server_geo_latitude, " +
+                "MAX(setup.destination_address_geo_longitude) AS server_geo_longitude, " +
+                "BOOL_OR(setup.destination_address_is_site_local) AS server_is_site_local, " +
+                "BOOL_OR(setup.destination_address_is_loopback) AS server_is_loopback, " +
+                "BOOL_OR(setup.destination_address_is_multicast) AS server_is_multicast, " +
+                "COALESCE(MAX(stream.bytes_rx_count), 0) + COALESCE(MAX(stream.bytes_tx_count), 0) " +
+                "+ COALESCE(MAX(setup.bytes_rx_count), 0) + COALESCE(MAX(setup.bytes_tx_count), 0) " +
+                "AS bytes_exchanged " +
+                "FROM rtsp_streams AS rtsp " +
+                "LEFT JOIN l4_sessions AS setup " +
+                "ON setup.session_key = rtsp.setup_tcp_session_key " +
+                "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                "AND setup.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                "AND setup.tap_uuid = rtsp.tap_uuid " +
+                "LEFT JOIN l4_sessions AS stream " +
+                "ON stream.untimed_session_key = rtsp.stream_l4_untimed_session_key " +
+                "AND stream.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                "AND stream.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                "AND stream.tap_uuid = rtsp.tap_uuid " +
+                "WHERE ((rtsp.setup_most_recent_segment_time >= :tr_from " +
+                "AND rtsp.setup_most_recent_segment_time <= :tr_to) " +
+                "OR (stream.most_recent_segment_time >= :tr_from " +
+                "AND stream.most_recent_segment_time <= :tr_to)) " +
+                "AND rtsp.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY rtsp.setup_tcp_session_key HAVING 1=1 " + filterFragment.havingSql();
     }
 
 }

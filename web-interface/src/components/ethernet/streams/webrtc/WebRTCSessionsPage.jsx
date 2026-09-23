@@ -14,8 +14,6 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
 import WebRTCSessionsTable from "./WebRTCSessionsTable";
 import WebRTCActiveSessionsHistogram from "./WebRTCActiveSessionsHistogram";
-import BluetoothDeviceCountHistogram from "../../../bluetooth/devices/BluetoothDeviceCountHistogram";
-import WebRTCTopPeerAssetPairHistogram from "./WebRTCTopPeerAssetPairHistogram";
 import WebRTCTopPeerAddressPairHistogram from "./WebRTCTopPeerAddressPairHistogram";
 
 const useQuery = () => {
@@ -89,22 +87,6 @@ export default function WebRTCSessionsPage() {
       </div>
 
       <div className="row mt-3">
-        <div className="col-md-6">
-          <div className="card">
-            <div className="card-body">
-              <CardTitleWithControls title="Top Asset Pairs (by Bytes Exchanged)"
-                                     timeRange={timeRange}
-                                     refreshAction={() => setRevision(new Date())} />
-
-              <WebRTCTopPeerAssetPairHistogram timeRange={timeRange}
-                                               setTimeRange={setTimeRange}
-                                               filters={filters}
-                                               revision={revision} />
-
-            </div>
-          </div>
-        </div>
-
         <div className="col-md-6">
           <div className="card">
             <div className="card-body">

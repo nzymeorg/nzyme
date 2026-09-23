@@ -25,6 +25,7 @@ function ThreeColumnHistogram(props) {
 
   const columnFilterElements = props.columnFilterElements ? props.columnFilterElements : [];
 
+  const orderColumnOneIsKey = props.orderColumnOneIsKey === undefined ? false : props.orderColumnOneIsKey;
   const orderColumn = props.orderColumn;
   const setOrderColumn = props.setOrderColumn;
   const orderDirection = props.orderDirection;
@@ -155,9 +156,9 @@ function ThreeColumnHistogram(props) {
             <thead>
             <tr>
               <th>#</th>
-              <th>{columnTitles[0]} {orderElement("value1")}</th>
-              <th>{columnTitles[1]} {orderElement("value2")}</th>
-              <th>{columnTitles[2]} {orderElement("value3")}</th>
+              <th>{columnTitles[0]} {orderElement(orderColumnOneIsKey ? "key" : "value1")}</th>
+              <th>{columnTitles[1]} {orderElement(orderColumnOneIsKey ? "value1" : "value2")}</th>
+              <th>{columnTitles[2]} {orderElement(orderColumnOneIsKey ? "value2" : "value3")}</th>
             </tr>
             </thead>
             <tbody>

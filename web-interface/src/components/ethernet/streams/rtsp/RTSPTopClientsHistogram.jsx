@@ -1,14 +1,14 @@
 import React, {useContext, useEffect, useState} from "react";
 import {DEFAULT_LIMIT} from "../../../widgets/LimitSelector";
-import WebRTCService from "../../../../services/ethernet/WebRTCService";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import {TapContext} from "../../../../App";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import ThreeColumnHistogram from "../../../widgets/histograms/ThreeColumnHistogram";
+import RTSPService from "../../../../services/ethernet/RTSPService";
 
-const webRTCService = new WebRTCService();
+const rtspService = new RTSPService();
 
-export default function WebRTCTopPeerAssetPairHistogram({timeRange, filters, revision}) {
+export default function RTSPTopClientsHistogram({timeRange, filters, revision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -18,13 +18,13 @@ export default function WebRTCTopPeerAssetPairHistogram({timeRange, filters, rev
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [histogram, setHistogram] = useState(null);
 
-  const [orderColumn, setOrderColumn] = useState("value3");
+  const [orderColumn, setOrderColumn] = useState("value1");
   const [orderDirection, setOrderDirection] = useState("DESC");
 
   useEffect(() => {
     setHistogram(null);
 
-    webRTCService.getTopPeerAssetPairHistogram(
+    rtspService.getTopClientsHistogram(
       setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, 0, filters, selectedTaps
     );
   }, [selectedTaps, organizationId, tenantId, limit, timeRange, filters, orderColumn, orderDirection, revision]);
@@ -36,17 +36,18 @@ export default function WebRTCTopPeerAssetPairHistogram({timeRange, filters, rev
   if (histogram.total === 0) {
     return (
       <div className="alert alert-info mb-0 mt-2">
-        No WebRTC sessions recorded.
+        No RTSP streams recorded.
       </div>
     )
   }
 
   return <ThreeColumnHistogram data={histogram}
-                               columnTitles={["Asset", "Asset", "Bytes Exchanged"]}
+                               columnTitles={["Client", "Streams", "Bytes Exchanged"]}
                                orderColumn={orderColumn}
                                setOrderColumn={setOrderColumn}
                                orderDirection={orderDirection}
                                setOrderDirection={setOrderDirection}
+                               orderColumnOneIsKey={true}
                                limit={limit}
                                setLimit={setLimit} />
 

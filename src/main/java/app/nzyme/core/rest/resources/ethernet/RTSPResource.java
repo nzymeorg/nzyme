@@ -2,6 +2,9 @@ package app.nzyme.core.rest.resources.ethernet;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;
@@ -10,7 +13,7 @@ import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
 import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamsListResponse;
-import app.nzyme.core.rest.responses.shared.NumericHistogramResponse;
+import app.nzyme.core.rest.responses.shared.*;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
@@ -130,6 +133,106 @@ public class RTSPResource extends TapDataHandlingResource {
         }
 
         return Response.ok(NumericHistogramResponse.create(buckets, bucketing.bucketSizeMs())).build();
+    }
+
+    @GET
+    @Path("/streams/servers/top/histogram")
+    public Response topServersHistogram(@Context SecurityContext sc,
+                                        @QueryParam("organization_id") UUID organizationId,
+                                        @QueryParam("tenant_id") UUID tenantId,
+                                        @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @QueryParam("filters") String filtersParameter,
+                                        @QueryParam("taps") String taps,
+                                        @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @QueryParam("limit") int limit,
+                                        @QueryParam("offset") int offset) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        ThreeColumnWithKeyHistogramOrderColumn orderColumn = ThreeColumnWithKeyHistogramOrderColumn.VALUE1;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnWithKeyHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        long count = nzyme.getEthernet().rtsp().getTopServersCount(timeRange, filters, tapUUIDs);
+
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (L4AddressDataAddressNumberNumberAggregationResult x : nzyme.getEthernet().rtsp()
+                .getTopServers(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.UDP, x.key()),
+                            HistogramValueType.L4_ADDRESS,
+                            null),
+                    HistogramValueStructureResponse.create(x.value1(), HistogramValueType.INTEGER, null),
+                    HistogramValueStructureResponse.create(x.value2(), HistogramValueType.BYTES, null),
+                    x.key().address()
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(count, false, values)).build();
+    }
+
+    @GET
+    @Path("/streams/clients/top/histogram")
+    public Response topClientsHistogram(@Context SecurityContext sc,
+                                        @QueryParam("organization_id") UUID organizationId,
+                                        @QueryParam("tenant_id") UUID tenantId,
+                                        @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @QueryParam("filters") String filtersParameter,
+                                        @QueryParam("taps") String taps,
+                                        @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @QueryParam("limit") int limit,
+                                        @QueryParam("offset") int offset) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        ThreeColumnWithKeyHistogramOrderColumn orderColumn = ThreeColumnWithKeyHistogramOrderColumn.VALUE1;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnWithKeyHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        long count = nzyme.getEthernet().rtsp().getTopClientsCount(timeRange, filters, tapUUIDs);
+
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (L4AddressDataAddressNumberNumberAggregationResult x : nzyme.getEthernet().rtsp()
+                .getTopClients(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.UDP, x.key()),
+                            HistogramValueType.L4_ADDRESS,
+                            null),
+                    HistogramValueStructureResponse.create(x.value1(), HistogramValueType.INTEGER, null),
+                    HistogramValueStructureResponse.create(x.value2(), HistogramValueType.BYTES, null),
+                    x.key().address()
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(count, false, values)).build();
     }
 
     private RTSPStreamDetailsResponse buildDetailsResponse(RTSPStreamEntry stream, UUID organizationId, UUID tenantId) {

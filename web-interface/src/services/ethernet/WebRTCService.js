@@ -29,23 +29,6 @@ export default class WebRTCService {
     )
   }
 
-  getTopPeerAssetPairHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
-    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
-
-    RESTClient.get("/ethernet/webrtc/sessions/peers/assets/top/histogram", {
-        organization_id: organizationId,
-        tenant_id: tenantId,
-        filters: filters,
-        time_range: timeRange,
-        taps: tapsList,
-        order_column: orderColumn,
-        order_direction: orderDirection,
-        limit: limit,
-        offset: offset
-      }, (response) => setHistogram(response.data)
-    )
-  }
-
   getTopPeerAddressPairHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
