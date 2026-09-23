@@ -104,7 +104,6 @@ export default function WebRTCSessionDetailsPage() {
           <th>SSRC</th>
           <th>Media Type</th>
           <th>Direction</th>
-          <th>Packets</th>
         </tr>
         </thead>
         <tbody>
@@ -114,7 +113,6 @@ export default function WebRTCSessionDetailsPage() {
               <td><span className="machine-data">{stream.ssrc}</span></td>
               <td>{stream.media_kind}</td>
               <td>{directionLabel(stream.direction)}</td>
-              <td>{numeral(stream.packet_count).format("0,0")}</td>
             </tr>
           )
         })}
