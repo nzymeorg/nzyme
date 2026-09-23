@@ -8804,4 +8804,21 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="improve_l4_uniqueness_and_remove_obsolete_idx" author="lennartkoopmann">
+        <delete tableName="l4_sessions">
+            <where>
+                id IN (SELECT id FROM(SELECT id, ROW_NUMBER() OVER (
+                 PARTITION BY tap_uuid, l4_type, session_key
+                 ORDER BY most_recent_segment_time DESC NULLS LAST, id DESC) AS rn
+                FROM l4_sessions) t WHERE rn > 1)
+            </where>
+        </delete>
+
+        <addUniqueConstraint tableName="l4_sessions"
+                             columnNames="tap_uuid, l4_type, session_key"
+                             constraintName="l4_sessions_unique_session_key" />
+
+        <dropIndex tableName="l4_sessions" indexName="l4_sessions_filter_tap" />
+    </changeSet>
+
 </databaseChangeLog>

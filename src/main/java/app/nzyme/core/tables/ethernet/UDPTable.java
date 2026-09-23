@@ -25,10 +25,7 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 
 import java.net.InetAddress;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static app.nzyme.core.util.Tools.stringtoInetAddress;
 
@@ -92,7 +89,7 @@ public class UDPTable implements DataTable {
                                     Tap tap,
                                     DateTime timestamp,
                                     List<UdpConversationReport> conversations) {
-        PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
+        PreparedBatch upsertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
                 "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
                 "destination_address, destination_address_is_site_local, destination_address_is_loopback, " +
@@ -116,11 +113,43 @@ public class UDPTable implements DataTable {
                 ":source_address_geo_longitude, :destination_address_geo_asn_number, " +
                 ":destination_address_geo_asn_name, :destination_address_geo_asn_domain, " +
                 ":destination_address_geo_city, :destination_address_geo_country_code, " +
-                ":destination_address_geo_latitude, :destination_address_geo_longitude, :tags::jsonb, :created_at)");
-        PreparedBatch updateBatch = handle.prepareBatch("UPDATE l4_sessions SET state = :state, " +
-                "bytes_rx_count = :bytes_rx_count, bytes_tx_count = :bytes_tx_count, " +
-                "segments_count = :segments_count, tags = :tags::jsonb, end_time = :end_time, " +
-                "most_recent_segment_time = :most_recent_segment_time WHERE id = :id");
+                ":destination_address_geo_latitude, :destination_address_geo_longitude, :tags::jsonb, :created_at) " +
+                "ON CONFLICT (tap_uuid, l4_type, session_key) DO UPDATE SET " +
+                "state = EXCLUDED.state, " +
+                "bytes_rx_count = EXCLUDED.bytes_rx_count, " +
+                "bytes_tx_count = EXCLUDED.bytes_tx_count, " +
+                "segments_count = EXCLUDED.segments_count, " +
+                "tags = EXCLUDED.tags, " +
+                "end_time = COALESCE(EXCLUDED.end_time, l4_sessions.end_time), " +
+                "most_recent_segment_time = EXCLUDED.most_recent_segment_time " +
+                "WHERE l4_sessions.most_recent_segment_time IS NULL " +
+                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time");
+
+        Map<String, UdpConversationReport> deduplicated = new LinkedHashMap<>();
+        for (UdpConversationReport conversation : conversations) {
+            try {
+                String sessionKey = Tools.buildL4Key(
+                        conversation.startTime(),
+                        conversation.sourceAddress(),
+                        conversation.destinationAddress(),
+                        conversation.sourcePort(),
+                        conversation.destinationPort()
+                );
+
+                deduplicated.merge(sessionKey, conversation, (existing, incoming) -> {
+                    if (existing.mostRecentSegmentTime() == null) {
+                        return incoming;
+                    }
+                    if (incoming.mostRecentSegmentTime() == null) {
+                        return existing;
+                    }
+                    return incoming.mostRecentSegmentTime().isAfter(existing.mostRecentSegmentTime())
+                            ? incoming : existing;
+                });
+            } catch (Exception e) {
+                LOG.error("Could not build session key for UDP conversation.", e);
+            }
+        }
 
         long totalRxBytes = 0;
         long totalTxBytes = 0;
@@ -130,7 +159,10 @@ public class UDPTable implements DataTable {
         long totalSessions = 0;
         long totalInternalSessions = 0;
 
-        for (UdpConversationReport conversation : conversations) {
+        for (Map.Entry<String, UdpConversationReport> entry : deduplicated.entrySet()) {
+            String sessionKey = entry.getKey();
+            UdpConversationReport conversation = entry.getValue();
+
             String tags;
             if (conversation.tags() != null && !conversation.tags().isEmpty()) {
                 try {
@@ -144,13 +176,6 @@ public class UDPTable implements DataTable {
             }
 
             try {
-                String sessionKey = Tools.buildL4Key(
-                        conversation.startTime(),
-                        conversation.sourceAddress(),
-                        conversation.destinationAddress(),
-                        conversation.sourcePort(),
-                        conversation.destinationPort()
-                );
                 String untimedSessionKey = Tools.buildUntimedL4Key(
                         conversation.sourceAddress(),
                         conversation.destinationAddress(),
@@ -163,73 +188,47 @@ public class UDPTable implements DataTable {
                 Optional<GeoIpLookupResult> sourceGeo = geoIp.lookup(sourceAddress);
                 Optional<GeoIpLookupResult> destinationGeo = geoIp.lookup(destinationAddress);
 
-                Optional<UdpConversationEntry> existingConversation;
-                try (Timer.Context ignored = conversationsDiscoveryTimer.time()) {
-                    existingConversation = handle.createQuery("SELECT * FROM l4_sessions " +
-                                    "WHERE l4_type = 'UDP' AND session_key = :session_key AND end_time IS NULL " +
-                                    "AND tap_uuid = :tap_uuid")
-                            .bind("session_key", sessionKey)
-                            .bind("tap_uuid", tap.uuid())
-                            .mapTo(UdpConversationEntry.class)
-                            .findOne();
-                }
-
-                if (existingConversation.isPresent()) {
-                    // Existing session. Update.
-                    updateBatch
-                            .bind("state", UdpConversationState.valueOf(conversation.state().toUpperCase()))
-                            .bind("bytes_rx_count", conversation.bytesCountRx())
-                            .bind("bytes_tx_count", conversation.bytesCountTx())
-                            .bind("segments_count", conversation.datagramsCount())
-                            .bind("tags", tags)
-                            .bind("end_time", conversation.endTime())
-                            .bind("most_recent_segment_time", conversation.mostRecentSegmentTime())
-                            .bind("id", existingConversation.get().id())
-                            .add();
-                } else {
-                    // This is a new session.
-                    insertBatch
-                            .bind("tap_uuid", tap.uuid())
-                            .bind("l4_type", "UDP")
-                            .bind("session_key", sessionKey)
-                            .bind("untimed_session_key", untimedSessionKey)
-                            .bind("source_mac", conversation.sourceMac())
-                            .bind("source_address", conversation.sourceAddress())
-                            .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
-                            .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
-                            .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
-                            .bind("source_port", conversation.sourcePort())
-                            .bind("destination_mac", conversation.destinationMac())
-                            .bind("destination_address", conversation.destinationAddress())
-                            .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
-                            .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
-                            .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
-                            .bind("destination_port", conversation.destinationPort())
-                            .bind("bytes_rx_count", conversation.bytesCountRx())
-                            .bind("bytes_tx_count", conversation.bytesCountTx())
-                            .bind("segments_count", conversation.datagramsCount())
-                            .bind("start_time", conversation.startTime())
-                            .bind("end_time", conversation.endTime())
-                            .bind("most_recent_segment_time", conversation.mostRecentSegmentTime())
-                            .bind("state", UdpConversationState.valueOf(conversation.state().toUpperCase()))
-                            .bind("source_address_geo_asn_number", sourceGeo.map(g -> g.asn().number()).orElse(null))
-                            .bind("source_address_geo_asn_name", sourceGeo.map(g -> g.asn().name()).orElse(null))
-                            .bind("source_address_geo_asn_domain", sourceGeo.map(g -> g.asn().domain()).orElse(null))
-                            .bind("source_address_geo_city", sourceGeo.map(g -> g.geo().city()).orElse(null))
-                            .bind("source_address_geo_country_code", sourceGeo.map(g -> g.geo().countryCode()).orElse(null))
-                            .bind("source_address_geo_latitude", sourceGeo.map(g -> g.geo().latitude()).orElse(null))
-                            .bind("source_address_geo_longitude", sourceGeo.map(g -> g.geo().longitude()).orElse(null))
-                            .bind("destination_address_geo_asn_number", destinationGeo.map(g -> g.asn().number()).orElse(null))
-                            .bind("destination_address_geo_asn_name", destinationGeo.map(g -> g.asn().name()).orElse(null))
-                            .bind("destination_address_geo_asn_domain", destinationGeo.map(g -> g.asn().domain()).orElse(null))
-                            .bind("destination_address_geo_city", destinationGeo.map(g -> g.geo().city()).orElse(null))
-                            .bind("destination_address_geo_country_code", destinationGeo.map(g -> g.geo().countryCode()).orElse(null))
-                            .bind("destination_address_geo_latitude", destinationGeo.map(g -> g.geo().latitude()).orElse(null))
-                            .bind("destination_address_geo_longitude", destinationGeo.map(g -> g.geo().longitude()).orElse(null))
-                            .bind("tags", tags)
-                            .bind("created_at", timestamp)
-                            .add();
-                }
+                upsertBatch
+                        .bind("tap_uuid", tap.uuid())
+                        .bind("l4_type", "UDP")
+                        .bind("session_key", sessionKey)
+                        .bind("untimed_session_key", untimedSessionKey)
+                        .bind("source_mac", conversation.sourceMac())
+                        .bind("source_address", conversation.sourceAddress())
+                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
+                        .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
+                        .bind("source_port", conversation.sourcePort())
+                        .bind("destination_mac", conversation.destinationMac())
+                        .bind("destination_address", conversation.destinationAddress())
+                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
+                        .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
+                        .bind("destination_port", conversation.destinationPort())
+                        .bind("bytes_rx_count", conversation.bytesCountRx())
+                        .bind("bytes_tx_count", conversation.bytesCountTx())
+                        .bind("segments_count", conversation.datagramsCount())
+                        .bind("start_time", conversation.startTime())
+                        .bind("end_time", conversation.endTime())
+                        .bind("most_recent_segment_time", conversation.mostRecentSegmentTime())
+                        .bind("state", UdpConversationState.valueOf(conversation.state().toUpperCase()))
+                        .bind("source_address_geo_asn_number", sourceGeo.map(g -> g.asn().number()).orElse(null))
+                        .bind("source_address_geo_asn_name", sourceGeo.map(g -> g.asn().name()).orElse(null))
+                        .bind("source_address_geo_asn_domain", sourceGeo.map(g -> g.asn().domain()).orElse(null))
+                        .bind("source_address_geo_city", sourceGeo.map(g -> g.geo().city()).orElse(null))
+                        .bind("source_address_geo_country_code", sourceGeo.map(g -> g.geo().countryCode()).orElse(null))
+                        .bind("source_address_geo_latitude", sourceGeo.map(g -> g.geo().latitude()).orElse(null))
+                        .bind("source_address_geo_longitude", sourceGeo.map(g -> g.geo().longitude()).orElse(null))
+                        .bind("destination_address_geo_asn_number", destinationGeo.map(g -> g.asn().number()).orElse(null))
+                        .bind("destination_address_geo_asn_name", destinationGeo.map(g -> g.asn().name()).orElse(null))
+                        .bind("destination_address_geo_asn_domain", destinationGeo.map(g -> g.asn().domain()).orElse(null))
+                        .bind("destination_address_geo_city", destinationGeo.map(g -> g.geo().city()).orElse(null))
+                        .bind("destination_address_geo_country_code", destinationGeo.map(g -> g.geo().countryCode()).orElse(null))
+                        .bind("destination_address_geo_latitude", destinationGeo.map(g -> g.geo().latitude()).orElse(null))
+                        .bind("destination_address_geo_longitude", destinationGeo.map(g -> g.geo().longitude()).orElse(null))
+                        .bind("tags", tags)
+                        .bind("created_at", timestamp)
+                        .add();
 
                 totalRxBytes += conversation.bytesCountRxIncremental();
                 totalTxBytes += conversation.bytesCountTxIncremental();
@@ -241,9 +240,15 @@ public class UDPTable implements DataTable {
                     totalRxInternalBytes += conversation.bytesCountRxIncremental();
                     totalTxInternalBytes += conversation.bytesCountTxIncremental();
                 }
-            } catch(Exception e) {
+            } catch (Exception e) {
                 LOG.error("Could not handle UDP conversation.", e);
             }
+        }
+
+        try {
+            upsertBatch.execute();
+        } catch (Exception e) {
+            LOG.error("Could not write UDP conversations.", e);
         }
 
         try {
@@ -264,11 +269,8 @@ public class UDPTable implements DataTable {
                     .bind("sessions_internal_udp", totalInternalSessions)
                     .bind("timestamp", timestamp)
                     .execute();
-
-            updateBatch.execute();
-            insertBatch.execute();
         } catch (Exception e) {
-            LOG.error("Could not write UDP conversations.", e);
+            LOG.error("Could not write UDP statistics.", e);
         }
     }
 

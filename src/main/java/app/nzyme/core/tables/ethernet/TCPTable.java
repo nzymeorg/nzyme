@@ -87,7 +87,7 @@ public class TCPTable implements DataTable {
     }
 
     private void writeSessions(Handle handle, Tap tap, DateTime timestamp, List<TcpSessionReport> sessions) {
-        PreparedBatch insertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
+        PreparedBatch upsertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
                 "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
                 "destination_address, destination_address_is_site_local, destination_address_is_loopback, " +
@@ -115,11 +115,41 @@ public class TCPTable implements DataTable {
                 ":destination_address_geo_city, :destination_address_geo_country_code, " +
                 ":destination_address_geo_latitude, :destination_address_geo_longitude, :ip_ttl, :ip_tos, :ip_df, " +
                 ":tcp_syn_window_size, :tcp_syn_maximum_segment_size, :tcp_syn_window_scale_multiplier, " +
-                ":tcp_syn_cwr, :tcp_syn_ece, :tcp_syn_options::jsonb, :fingerprint, :tags::jsonb, :created_at)");
-        PreparedBatch updateBatch = handle.prepareBatch("UPDATE l4_sessions SET state = :state, " +
-                "bytes_rx_count = :bytes_rx_count, bytes_tx_count = :bytes_tx_count, " +
-                "segments_count = :segments_count, tags = tags::jsonb, end_time = :end_time, " +
-                "most_recent_segment_time = :most_recent_segment_time WHERE id = :id");
+                ":tcp_syn_cwr, :tcp_syn_ece, :tcp_syn_options::jsonb, :fingerprint, :tags::jsonb, :created_at) " +
+                "ON CONFLICT (tap_uuid, l4_type, session_key) DO UPDATE SET " +
+                "state = EXCLUDED.state, " +
+                "bytes_rx_count = EXCLUDED.bytes_rx_count, " +
+                "bytes_tx_count = EXCLUDED.bytes_tx_count, " +
+                "segments_count = EXCLUDED.segments_count, " +
+                "tags = EXCLUDED.tags, " +
+                "end_time = COALESCE(EXCLUDED.end_time, l4_sessions.end_time), " +
+                "most_recent_segment_time = EXCLUDED.most_recent_segment_time " +
+                "WHERE l4_sessions.most_recent_segment_time IS NULL " +
+                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time");
+
+        DateTime activityCutoff = DateTime.now().minusMinutes(1);
+        Map<String, TcpSessionReport> deduplicated = new LinkedHashMap<>();
+        for (TcpSessionReport session : sessions) {
+            if (session.mostRecentSegmentTime() == null || !session.mostRecentSegmentTime().isAfter(activityCutoff)) {
+                continue;
+            }
+
+            try {
+                String sessionKey = Tools.buildL4Key(
+                        session.startTime(),
+                        session.sourceAddress(),
+                        session.destinationAddress(),
+                        session.sourcePort(),
+                        session.destinationPort()
+                );
+
+                deduplicated.merge(sessionKey, session, (existing, incoming) ->
+                        incoming.mostRecentSegmentTime().isAfter(existing.mostRecentSegmentTime())
+                                ? incoming : existing);
+            } catch (Exception e) {
+                LOG.error("Could not build session key for TCP session.", e);
+            }
+        }
 
         long totalRxBytes = 0;
         long totalTxBytes = 0;
@@ -129,151 +159,123 @@ public class TCPTable implements DataTable {
         long totalSessions = 0;
         long totalInternalSessions = 0;
 
-        for (TcpSessionReport session : sessions) {
+        for (Map.Entry<String, TcpSessionReport> entry : deduplicated.entrySet()) {
+            String sessionKey = entry.getKey();
+            TcpSessionReport session = entry.getValue();
 
             String tags;
             if (session.tags() != null && !session.tags().isEmpty()) {
                 try {
                     tags = om.writeValueAsString(session.tags());
                 } catch (JacksonException e) {
-                     LOG.error("Could not serialize session tags.", e);
-                     tags = null;
+                    LOG.error("Could not serialize session tags.", e);
+                    tags = null;
                 }
             } else {
                 tags = null;
             }
 
-            if (session.mostRecentSegmentTime().isAfter(DateTime.now().minusMinutes(1))) {
+            try {
+                String untimedSessionKey = Tools.buildUntimedL4Key(
+                        session.sourceAddress(),
+                        session.destinationAddress(),
+                        session.sourcePort(),
+                        session.destinationPort()
+                );
+
+                InetAddress sourceAddress = stringtoInetAddress(session.sourceAddress());
+                InetAddress destinationAddress = stringtoInetAddress(session.destinationAddress());
+                Optional<GeoIpLookupResult> sourceGeo = geoIp.lookup(sourceAddress);
+                Optional<GeoIpLookupResult> destinationGeo = geoIp.lookup(destinationAddress);
+
+                String synOptions;
                 try {
-                    String sessionKey = Tools.buildL4Key(
-                            session.startTime(),
-                            session.sourceAddress(),
-                            session.destinationAddress(),
-                            session.sourcePort(),
-                            session.destinationPort()
-                    );
-
-                    String untimedSessionKey = Tools.buildUntimedL4Key(
-                            session.sourceAddress(),
-                            session.destinationAddress(),
-                            session.sourcePort(),
-                            session.destinationPort()
-                    );
-
-                    InetAddress sourceAddress = stringtoInetAddress(session.sourceAddress());
-                    InetAddress destinationAddress = stringtoInetAddress(session.destinationAddress());
-                    Optional<GeoIpLookupResult> sourceGeo = geoIp.lookup(sourceAddress);
-                    Optional<GeoIpLookupResult> destinationGeo = geoIp.lookup(destinationAddress);
-
-                    Optional<TcpSessionEntry> existingSession;
-                    try (Timer.Context ignored = sessionDiscoveryTimer.time()) {
-                        existingSession = handle.createQuery("SELECT * FROM l4_sessions " +
-                                        "WHERE l4_type = 'TCP' AND session_key = :session_key AND end_time IS NULL " +
-                                        "AND tap_uuid = :tap_uuid")
-                                .bind("session_key", sessionKey)
-                                .bind("tap_uuid", tap.uuid())
-                                .mapTo(TcpSessionEntry.class)
-                                .findOne();
-                    }
-
-                    if (existingSession.isPresent()) {
-                        // Existing session. Update.
-                        updateBatch
-                                .bind("state", TcpSessionState.valueOf(session.state().toUpperCase()))
-                                .bind("bytes_rx_count", session.bytesCountRx())
-                                .bind("bytes_tx_count", session.bytesCountTx())
-                                .bind("segments_count", session.segmentsCount())
-                                .bind("end_time", session.endTime())
-                                .bind("most_recent_segment_time", session.mostRecentSegmentTime())
-                                .bind("tags", tags)
-                                .bind("id", existingSession.get().id())
-                                .add();
-                    } else {
-                        String synOptions;
-                        try {
-                            synOptions = om.writeValueAsString(session.synOptions());
-                        } catch (JacksonException e) {
-                            throw new RuntimeException("Could not serialize SYN options: " + session.synOptions(), e);
-                        }
-
-                        String fingerprint = new TCPFingerprint(
-                                session.synIpTtl(),
-                                session.synIpTos(),
-                                session.synIpDf(),
-                                session.synWindowSize(),
-                                session.synMaximumSegmentSize(),
-                                session.synMaximumScaleMultiplier(),
-                                session.synOptions()
-                        ).generate();
-
-                        // This is a new session.
-                        insertBatch
-                                .bind("tap_uuid", tap.uuid())
-                                .bind("l4_type", "TCP")
-                                .bind("session_key", sessionKey)
-                                .bind("untimed_session_key", untimedSessionKey)
-                                .bind("source_mac", session.sourceMac())
-                                .bind("source_address", session.sourceAddress())
-                                .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
-                                .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
-                                .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
-                                .bind("source_port", session.sourcePort())
-                                .bind("destination_mac", session.destinationMac())
-                                .bind("destination_address", session.destinationAddress())
-                                .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
-                                .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
-                                .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
-                                .bind("destination_port", session.destinationPort())
-                                .bind("bytes_rx_count", session.bytesCountRx())
-                                .bind("bytes_tx_count", session.bytesCountTx())
-                                .bind("segments_count", session.segmentsCount())
-                                .bind("start_time", session.startTime())
-                                .bind("end_time", session.endTime())
-                                .bind("most_recent_segment_time", session.mostRecentSegmentTime())
-                                .bind("state", TcpSessionState.valueOf(session.state().toUpperCase()))
-                                .bind("source_address_geo_asn_number", sourceGeo.map(g -> g.asn().number()).orElse(null))
-                                .bind("source_address_geo_asn_name", sourceGeo.map(g -> g.asn().name()).orElse(null))
-                                .bind("source_address_geo_asn_domain", sourceGeo.map(g -> g.asn().domain()).orElse(null))
-                                .bind("source_address_geo_city", sourceGeo.map(g -> g.geo().city()).orElse(null))
-                                .bind("source_address_geo_country_code", sourceGeo.map(g -> g.geo().countryCode()).orElse(null))
-                                .bind("source_address_geo_latitude", sourceGeo.map(g -> g.geo().latitude()).orElse(null))
-                                .bind("source_address_geo_longitude", sourceGeo.map(g -> g.geo().longitude()).orElse(null))
-                                .bind("destination_address_geo_asn_number", destinationGeo.map(g -> g.asn().number()).orElse(null))
-                                .bind("destination_address_geo_asn_name", destinationGeo.map(g -> g.asn().name()).orElse(null))
-                                .bind("destination_address_geo_asn_domain", destinationGeo.map(g -> g.asn().domain()).orElse(null))
-                                .bind("destination_address_geo_city", destinationGeo.map(g -> g.geo().city()).orElse(null))
-                                .bind("destination_address_geo_country_code", destinationGeo.map(g -> g.geo().countryCode()).orElse(null))
-                                .bind("destination_address_geo_latitude", destinationGeo.map(g -> g.geo().latitude()).orElse(null))
-                                .bind("destination_address_geo_longitude", destinationGeo.map(g -> g.geo().longitude()).orElse(null))
-                                .bind("ip_ttl", session.synIpTtl())
-                                .bind("ip_tos", session.synIpTos())
-                                .bind("ip_df", session.synIpDf())
-                                .bind("tcp_syn_window_size", session.synWindowSize())
-                                .bind("tcp_syn_maximum_segment_size", session.synMaximumSegmentSize())
-                                .bind("tcp_syn_window_scale_multiplier", session.synMaximumScaleMultiplier())
-                                .bind("tcp_syn_cwr", session.synCwr())
-                                .bind("tcp_syn_ece", session.synEce())
-                                .bind("tcp_syn_options", synOptions)
-                                .bind("fingerprint", fingerprint)
-                                .bind("created_at", timestamp)
-                                .bind("tags", tags)
-                                .add();
-                    }
-
-                    totalRxBytes += session.bytesCountRxIncremental();
-                    totalTxBytes += session.bytesCountTxIncremental();
-                    totalSegments += session.segmentsCountIncremental();
-                    totalSessions += 1;
-
-                    if (sourceAddress.isSiteLocalAddress() && destinationAddress.isSiteLocalAddress()) {
-                        totalInternalSessions += 1;
-                        totalRxInternalBytes += session.bytesCountRxIncremental();
-                        totalTxInternalBytes += session.bytesCountTxIncremental();
-                    }
-                } catch (Exception e) {
-                    LOG.error("Could not handle TCP session.", e);
+                    synOptions = om.writeValueAsString(session.synOptions());
+                } catch (JacksonException e) {
+                    throw new RuntimeException("Could not serialize SYN options: " + session.synOptions(), e);
                 }
+
+                String fingerprint = new TCPFingerprint(
+                        session.synIpTtl(),
+                        session.synIpTos(),
+                        session.synIpDf(),
+                        session.synWindowSize(),
+                        session.synMaximumSegmentSize(),
+                        session.synMaximumScaleMultiplier(),
+                        session.synOptions()
+                ).generate();
+
+                upsertBatch
+                        .bind("tap_uuid", tap.uuid())
+                        .bind("l4_type", "TCP")
+                        .bind("session_key", sessionKey)
+                        .bind("untimed_session_key", untimedSessionKey)
+                        .bind("source_mac", session.sourceMac())
+                        .bind("source_address", session.sourceAddress())
+                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
+                        .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
+                        .bind("source_port", session.sourcePort())
+                        .bind("destination_mac", session.destinationMac())
+                        .bind("destination_address", session.destinationAddress())
+                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
+                        .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
+                        .bind("destination_port", session.destinationPort())
+                        .bind("bytes_rx_count", session.bytesCountRx())
+                        .bind("bytes_tx_count", session.bytesCountTx())
+                        .bind("segments_count", session.segmentsCount())
+                        .bind("start_time", session.startTime())
+                        .bind("end_time", session.endTime())
+                        .bind("most_recent_segment_time", session.mostRecentSegmentTime())
+                        .bind("state", TcpSessionState.valueOf(session.state().toUpperCase()))
+                        .bind("source_address_geo_asn_number", sourceGeo.map(g -> g.asn().number()).orElse(null))
+                        .bind("source_address_geo_asn_name", sourceGeo.map(g -> g.asn().name()).orElse(null))
+                        .bind("source_address_geo_asn_domain", sourceGeo.map(g -> g.asn().domain()).orElse(null))
+                        .bind("source_address_geo_city", sourceGeo.map(g -> g.geo().city()).orElse(null))
+                        .bind("source_address_geo_country_code", sourceGeo.map(g -> g.geo().countryCode()).orElse(null))
+                        .bind("source_address_geo_latitude", sourceGeo.map(g -> g.geo().latitude()).orElse(null))
+                        .bind("source_address_geo_longitude", sourceGeo.map(g -> g.geo().longitude()).orElse(null))
+                        .bind("destination_address_geo_asn_number", destinationGeo.map(g -> g.asn().number()).orElse(null))
+                        .bind("destination_address_geo_asn_name", destinationGeo.map(g -> g.asn().name()).orElse(null))
+                        .bind("destination_address_geo_asn_domain", destinationGeo.map(g -> g.asn().domain()).orElse(null))
+                        .bind("destination_address_geo_city", destinationGeo.map(g -> g.geo().city()).orElse(null))
+                        .bind("destination_address_geo_country_code", destinationGeo.map(g -> g.geo().countryCode()).orElse(null))
+                        .bind("destination_address_geo_latitude", destinationGeo.map(g -> g.geo().latitude()).orElse(null))
+                        .bind("destination_address_geo_longitude", destinationGeo.map(g -> g.geo().longitude()).orElse(null))
+                        .bind("ip_ttl", session.synIpTtl())
+                        .bind("ip_tos", session.synIpTos())
+                        .bind("ip_df", session.synIpDf())
+                        .bind("tcp_syn_window_size", session.synWindowSize())
+                        .bind("tcp_syn_maximum_segment_size", session.synMaximumSegmentSize())
+                        .bind("tcp_syn_window_scale_multiplier", session.synMaximumScaleMultiplier())
+                        .bind("tcp_syn_cwr", session.synCwr())
+                        .bind("tcp_syn_ece", session.synEce())
+                        .bind("tcp_syn_options", synOptions)
+                        .bind("fingerprint", fingerprint)
+                        .bind("tags", tags)
+                        .bind("created_at", timestamp)
+                        .add();
+
+                totalRxBytes += session.bytesCountRxIncremental();
+                totalTxBytes += session.bytesCountTxIncremental();
+                totalSegments += session.segmentsCountIncremental();
+                totalSessions += 1;
+
+                if (sourceAddress.isSiteLocalAddress() && destinationAddress.isSiteLocalAddress()) {
+                    totalInternalSessions += 1;
+                    totalRxInternalBytes += session.bytesCountRxIncremental();
+                    totalTxInternalBytes += session.bytesCountTxIncremental();
+                }
+            } catch (Exception e) {
+                LOG.error("Could not handle TCP session.", e);
             }
+        }
+
+        try {
+            upsertBatch.execute();
+        } catch (Exception e) {
+            LOG.error("Could not write TCP sessions.", e);
         }
 
         try {
@@ -294,11 +296,8 @@ public class TCPTable implements DataTable {
                     .bind("sessions_internal_tcp", totalInternalSessions)
                     .bind("timestamp", timestamp)
                     .execute();
-
-            updateBatch.execute();
-            insertBatch.execute();
         } catch (Exception e) {
-            LOG.error("Could not write TCP sessions.", e);
+            LOG.error("Could not write TCP statistics.", e);
         }
     }
 
