@@ -13,6 +13,7 @@ import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {STREAMS_MENU_ITEMS} from "../StreamsMenuItems";
 import RTSPStreamsTable from "./RTSPStreamsTable";
+import RTSPActiveStreamsHistogram from "./RTSPActiveStreamsHistogram";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -61,6 +62,23 @@ export default function RTSPStreamsPage() {
               <Filters filters={filters}
                        setFilters={setFilters}
                        fields={RTSP_FILTER_FIELDS} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Active Sessions"
+                                     timeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())} />
+
+              <RTSPActiveStreamsHistogram timeRange={timeRange}
+                                          setTimeRange={setTimeRange}
+                                          filters={filters}
+                                          revision={revision} />
             </div>
           </div>
         </div>

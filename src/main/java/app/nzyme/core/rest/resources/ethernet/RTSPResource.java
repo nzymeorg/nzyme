@@ -10,11 +10,15 @@ import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
 import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.rtsp.RTSPStreamsListResponse;
+import app.nzyme.core.rest.responses.shared.NumericHistogramResponse;
+import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
+import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -32,7 +36,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.rest.RestHelpers.tcpSessionStateToGeneric;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/rtsp")
@@ -107,6 +110,26 @@ public class RTSPResource extends TapDataHandlingResource {
         }
 
         return Response.ok(buildDetailsResponse(stream.get(), organizationId, tenantId)).build();
+    }
+
+    @GET
+    @Path("/streams/active/histogram")
+    public Response activeStreamsHistogram(@Context SecurityContext sc,
+                                           @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @QueryParam("filters") String filtersParameter,
+                                           @QueryParam("taps") String taps) {
+        List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        Map<DateTime, Integer> buckets = Maps.newHashMap();
+        for (GenericIntegerHistogramEntry bucket : nzyme.getEthernet().rtsp()
+                .getActiveStreamsHistogram(timeRange, bucketing, filters, tapUUIDs)) {
+            buckets.put(bucket.bucket(), bucket.value());
+        }
+
+        return Response.ok(NumericHistogramResponse.create(buckets, bucketing.bucketSizeMs())).build();
     }
 
     private RTSPStreamDetailsResponse buildDetailsResponse(RTSPStreamEntry stream, UUID organizationId, UUID tenantId) {

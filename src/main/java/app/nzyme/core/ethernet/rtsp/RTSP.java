@@ -4,6 +4,8 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;
+import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
+import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -331,6 +333,66 @@ public class RTSP {
                         .bind("active_cutoff", DateTime.now().minusMinutes(1))
                         .mapTo(RTSPStreamEntry.class)
                         .findOne()
+        );
+    }
+
+    public List<GenericIntegerHistogramEntry> getActiveStreamsHistogram(TimeRange timeRange,
+                                                                        Bucketing.BucketingConfiguration bucketing,
+                                                                        Filters filters,
+                                                                        List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new RTSPFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(
+                                // Every bucket in the range (so quiet periods read 0, not gaps).
+                                "WITH buckets AS (" +
+                                        "SELECT generate_series(" +
+                                        "date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                                        "date_trunc(:date_trunc, :tr_to::timestamptz), " +
+                                        "make_interval(secs => :bucket_size_s)" +
+                                        ") AS bucket" +
+                                        "), " +
+                                        "sessions AS (" +
+                                        "SELECT rtsp.setup_tcp_session_key, " +
+                                        "MIN(rtsp.setup_established_at) AS session_start, " +
+                                        "GREATEST(MAX(rtsp.setup_most_recent_segment_time), " +
+                                        "MAX(stream.most_recent_segment_time)) AS session_end " +
+                                        "FROM rtsp_streams AS rtsp " +
+                                        "LEFT JOIN l4_sessions AS setup " +
+                                        "ON setup.session_key = rtsp.setup_tcp_session_key " +
+                                        "AND setup.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                        "AND setup.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                        "AND setup.tap_uuid = rtsp.tap_uuid " +
+                                        "LEFT JOIN l4_sessions AS stream " +
+                                        "ON stream.untimed_session_key = rtsp.stream_l4_untimed_session_key " +
+                                        "AND stream.start_time >= rtsp.setup_established_at - INTERVAL '10 seconds' " +
+                                        "AND stream.start_time <= rtsp.setup_established_at + INTERVAL '10 seconds' " +
+                                        "AND stream.tap_uuid = rtsp.tap_uuid " +
+                                        "WHERE ((rtsp.setup_most_recent_segment_time >= :tr_from " +
+                                        "AND rtsp.setup_most_recent_segment_time <= :tr_to) " +
+                                        "OR (stream.most_recent_segment_time >= :tr_from " +
+                                        "AND stream.most_recent_segment_time <= :tr_to)) " +
+                                        "AND rtsp.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                                        " GROUP BY rtsp.setup_tcp_session_key HAVING 1=1 " + filterFragment.havingSql() +
+                                        ") " +
+                                        "SELECT b.bucket AS bucket, COUNT(sess.setup_tcp_session_key) AS value " +
+                                        "FROM buckets AS b " +
+                                        "LEFT JOIN sessions AS sess " +
+                                        "ON sess.session_start <= b.bucket + make_interval(secs => :bucket_size_s) " +
+                                        "AND sess.session_end >= b.bucket " +
+                                        "GROUP BY b.bucket ORDER BY b.bucket DESC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("bucket_size_s", bucketing.bucketSizeMs() / 1000.0)
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
         );
     }
 
