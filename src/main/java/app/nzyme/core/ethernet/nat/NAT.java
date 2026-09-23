@@ -283,7 +283,7 @@ public class NAT {
                                 "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
                                 "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
                                 "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
-                                "WHERE d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
+                                "WHERE s.source_address IS NOT NULL AND d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
                                 "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
                                 "GROUP BY s.source_address, s.source_mac " +
                                 "HAVING 1=1 " + filterFragment.havingSql() + ") AS ignored")
