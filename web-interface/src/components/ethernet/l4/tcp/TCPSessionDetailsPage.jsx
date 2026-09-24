@@ -1,6 +1,5 @@
 import {useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import React, {useContext, useEffect, useState} from "react";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import L4Service from "../../../../services/ethernet/L4Service";

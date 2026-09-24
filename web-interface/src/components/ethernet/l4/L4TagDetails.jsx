@@ -5,6 +5,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import SOCKSTunnelDetails from "../tunnels/socks/SOCKSTunnelDetails";
 import NTPTransactionDetails from "../time/ntp/NTPTransactionDetails";
 import STUNSessionDetails from "../nat/traversal/shared/STUNSessionDetails";
+import RTSPStreamDetails from "../streams/rtsp/RTSPStreamDetails";
 
 export default function L4TagDetails({session}) {
 
@@ -86,12 +87,31 @@ export default function L4TagDetails({session}) {
     }
   }
 
+  const rtsp = () => {
+    if (session.tags.includes("RTSP")) {
+      return (
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body card-container">
+                <CardTitleWithControls title="Encapsulated RTSP Setup and/or Stream" />
+
+                <RTSPStreamDetails sessionKey={session.session_key} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    }
+  }
+
   return (
       <React.Fragment>
         {ssh()}
         {socks()}
         {ntp()}
         {stun()}
+        {rtsp()}
       </React.Fragment>
   )
 
