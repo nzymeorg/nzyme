@@ -2,47 +2,57 @@ import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../../../App";
 import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
 import {DEFAULT_LIMIT} from "../../../../widgets/LimitSelector";
-import GenericWidgetLoadingSpinner from "../../../../widgets/GenericWidgetLoadingSpinner";
 import ThreeColumnHistogram from "../../../../widgets/histograms/ThreeColumnHistogram";
 import NATService from "../../../../../services/ethernet/NATService";
+import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import {STUN_DISCOVERY_FILTER_FIELDS} from "./STUNDiscoveriesFilterFields";
 
 const natService = new NATService();
 
 export default function STUNDiscoveriesTopServersHistogram({filters, setFilters, timeRange, revision}) {
 
+  const [organizationId, tenantId] = useSelectedTenant();
+
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const [organizationId, tenantId] = useSelectedTenant();
-
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
-  const [data, setData] = useState(null);
+  const [histogram, setHistogram] = useState(null);
+
+  const [orderColumn, setOrderColumn] = useState("value1");
+  const [orderDirection, setOrderDirection] = useState("DESC");
 
   useEffect(() => {
-    setData(null);
-    natService.getSTUNTopServersHistogram(organizationId, tenantId, timeRange, filters, selectedTaps, limit, 0, setData);
-  }, [organizationId, tenantId, selectedTaps, limit, filters, timeRange, revision])
+    setHistogram(null);
 
-  if (!data) {
-    return <GenericWidgetLoadingSpinner height={300} />
+    natService.getSTUNDiscoveriesTopServersHistogram(
+      setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, 0, filters, selectedTaps
+    );
+  }, [selectedTaps, organizationId, tenantId, limit, timeRange, filters, orderColumn, orderDirection, revision]);
+
+  if (!histogram) {
+    return <LoadingSpinner />
   }
 
-  if (data.total === 0) {
+  if (histogram.total === 0) {
     return (
       <div className="alert alert-info mb-0 mt-2">
-        No NAT discovery attempts were observed during selected time range.
+        No STUN discovery attempts recorded.
       </div>
     )
   }
 
-  return <ThreeColumnHistogram data={data}
+  return <ThreeColumnHistogram data={histogram}
+                               columnTitles={["Address", "Connections", "Bytes Exchanged"]}
                                columnFilterElements={[
                                  {field: "destination_address", valueSubField: "address", fields: STUN_DISCOVERY_FILTER_FIELDS, setFilters: setFilters},
                                  null, null
                                ]}
-                               columnTitles={["Server Address", "Server Asset", "Discoveries"]}
+                               orderColumn={orderColumn}
+                               setOrderColumn={setOrderColumn}
+                               orderDirection={orderDirection}
+                               setOrderDirection={setOrderDirection}
+                               orderColumnOneIsKey={true}
                                limit={limit}
                                setLimit={setLimit} />
-
 }

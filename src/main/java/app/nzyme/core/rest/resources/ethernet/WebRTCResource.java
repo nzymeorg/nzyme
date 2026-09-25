@@ -1,11 +1,8 @@
 package app.nzyme.core.rest.resources.ethernet;
 
 import app.nzyme.core.NzymeNode;
-import app.nzyme.core.assets.db.AssetEntry;
-import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
-import app.nzyme.core.database.generic.AddressPairNumberAggregationResult;
-import app.nzyme.core.database.generic.AssetPairNumberAggregationResult;
+import app.nzyme.core.database.generic.L4AddressPairNumberAggregationResult;
 import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.nat.db.STUNNegotiationEntry;
@@ -14,8 +11,6 @@ import app.nzyme.core.ethernet.webrtc.db.WebRTCSessionEntry;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.misc.NATHelper;
-import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
-import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.nat.NATSTUNNegotiationDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.webrtc.WebRTCSessionDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.webrtc.WebRTCSessionsListResponse;
@@ -39,7 +34,6 @@ import jakarta.ws.rs.core.SecurityContext;
 import org.joda.time.DateTime;
 
 import java.util.*;
-import java.util.function.Function;
 
 import static app.nzyme.core.rest.misc.WebRTCHelper.buildWebRTCSessionDetailsResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
@@ -194,7 +188,7 @@ public class WebRTCResource extends TapDataHandlingResource {
         long count = nzyme.getEthernet().webRtc().getTopPeerAddressPairsByBytesCount(timeRange, filters, tapUUIDs);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (AddressPairNumberAggregationResult x : nzyme.getEthernet().webRtc()
+        for (L4AddressPairNumberAggregationResult x : nzyme.getEthernet().webRtc()
                 .getTopPeerAddressPairsByBytes(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(

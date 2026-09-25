@@ -11,9 +11,11 @@ import ApiRoutes from "../../../../../util/ApiRoutes";
 import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import Filters from "../../../../shared/filtering/Filters";
 import {NAT_MENU_ITEMS} from "../../NATMenuItems";
-import NATService from "../../../../../services/ethernet/NATService";
 import {STUN_CONNECTIONS_FILTER_FIELDS} from "./STUNConnectionsFilterFields";
 import STUNConnectionsTable from "./STUNConnectionsTable";
+import STUNConnectionsTopClientsHistogram from "./STUNConnectionsTopClientsHistogram";
+import STUNConnectionsTopServersHistogram from "./STUNConnectionsTopServersHistogram";
+import STUNConnectionsActiveHistogram from "./STUNConnectionsActiveHistogram";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -71,6 +73,59 @@ export default function STUNConnectionsPage() {
               <Filters filters={filters}
                        setFilters={setFilters}
                        fields={STUN_CONNECTIONS_FILTER_FIELDS} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Active Connections"
+                                     timeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())} />
+
+              <STUNConnectionsActiveHistogram timeRange={timeRange}
+                                              setTimeRange={setTimeRange}
+                                              filters={filters}
+                                              revision={revision} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Top Clients"
+                                     timeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())} />
+
+              <STUNConnectionsTopClientsHistogram timeRange={timeRange}
+                                                  setTimeRange={setTimeRange}
+                                                  filters={filters}
+                                                  setFilters={setFilters}
+                                                  revision={revision} />
+
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Top Servers"
+                                     timeRange={timeRange}
+                                     refreshAction={() => setRevision(new Date())} />
+
+              <STUNConnectionsTopServersHistogram timeRange={timeRange}
+                                                  setTimeRange={setTimeRange}
+                                                  filters={filters}
+                                                  setFilters={setFilters}
+                                                  revision={revision} />
+
             </div>
           </div>
         </div>

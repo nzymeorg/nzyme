@@ -250,13 +250,13 @@ public class WebRTC {
         );
     }
 
-    public List<AddressPairNumberAggregationResult> getTopPeerAddressPairsByBytes(TimeRange timeRange,
-                                                                                  Filters filters,
-                                                                                  int limit,
-                                                                                  int offset,
-                                                                                  ThreeColumnHistogramOrderColumn orderColumn,
-                                                                                  OrderDirection orderDirection,
-                                                                                  List<UUID> taps) {
+    public List<L4AddressPairNumberAggregationResult> getTopPeerAddressPairsByBytes(TimeRange timeRange,
+                                                                                    Filters filters,
+                                                                                    int limit,
+                                                                                    int offset,
+                                                                                    ThreeColumnHistogramOrderColumn orderColumn,
+                                                                                    OrderDirection orderDirection,
+                                                                                    List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -317,24 +317,13 @@ public class WebRTC {
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
-                        .mapTo(AddressPairNumberAggregationResult.class)
+                        .mapTo(L4AddressPairNumberAggregationResult.class)
                         .list()
         );
     }
 
     private String peerPairSessionSelectByAddress(FilterSqlFragment filterFragment) {
         return "SELECT MAX(s.source_address) AS a, MAX(s.destination_address) AS b, " +
-                "MAX(sb.bytes_exchanged) AS bytes_exchanged " +
-                "FROM webrtc_conversations AS w " +
-                "LEFT JOIN endpoints AS s ON s.negotiation_key = w.negotiation_key " +
-                "LEFT JOIN session_bytes AS sb ON sb.negotiation_key = w.negotiation_key " +
-                "WHERE w.last_activity >= :tr_from AND w.last_activity <= :tr_to " +
-                "AND w.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
-                " GROUP BY w.negotiation_key HAVING 1=1 " + filterFragment.havingSql();
-    }
-
-    private String peerPairSessionSelect(FilterSqlFragment filterFragment) {
-        return "SELECT MAX(s.source_mac) AS a, MAX(s.destination_mac) AS b, " +
                 "MAX(sb.bytes_exchanged) AS bytes_exchanged " +
                 "FROM webrtc_conversations AS w " +
                 "LEFT JOIN endpoints AS s ON s.negotiation_key = w.negotiation_key " +

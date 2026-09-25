@@ -2,11 +2,12 @@ package app.nzyme.core.ethernet.nat;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
-import app.nzyme.core.database.generic.StringStringNumberAggregationResult;
+import app.nzyme.core.database.generic.*;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntry;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryHistogramBucket;
 import app.nzyme.core.ethernet.nat.db.STUNNegotiationEntry;
+import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
@@ -266,129 +267,136 @@ public class NAT {
         );
     }
 
-    public long countTraversalDiscoveryTopClientsHistogram(TimeRange timeRange,
-                                                           Filters filters,
-                                                           List<UUID> taps) {
+    public long countTraversalDiscoveryTopClientsHistogram(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
             return 0;
         }
-
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new NATTraversalDiscoveryFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM (SELECT s.source_address AS key, " +
-                                "s.source_mac AS value1, COUNT(*) AS value2 " +
-                                "FROM nat_traversal_discoveries AS d " +
-                                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
-                                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
-                                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
-                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
-                                "WHERE s.source_address IS NOT NULL AND d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
-                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
-                                "GROUP BY s.source_address, s.source_mac " +
-                                "HAVING 1=1 " + filterFragment.havingSql() + ") AS ignored")
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT source_address FROM (" +
+                                discoverySessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE source_address IS NOT NULL " +
+                                "GROUP BY source_address" +
+                                ") AS distinct_clients")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
-                        .bindMap(filterFragment.bindings())
-                        .bindList("taps", taps)
                         .mapTo(Long.class)
                         .one()
         );
     }
 
-    public List<StringStringNumberAggregationResult> getTraversalDiscoveryTopClientsHistogram(TimeRange timeRange,
-                                                                                              Filters filters,
-                                                                                              int limit,
-                                                                                              int offset,
-                                                                                              List<UUID> taps) {
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTraversalDiscoveryTopClientsHistogram(TimeRange timeRange,
+                                                                                                            Filters filters,
+                                                                                                            int limit, int offset,
+                                                                                                            ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                                            OrderDirection orderDirection,
+                                                                                                            List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
-
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new NATTraversalDiscoveryFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT s.source_address AS key, s.source_mac AS value1, COUNT(*) AS value2 " +
-                                "FROM nat_traversal_discoveries AS d " +
-                                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
-                                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
-                                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
-                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
-                                "WHERE s.source_address IS NOT NULL AND d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
-                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
-                                "GROUP BY s.source_address, s.source_mac HAVING 1=1 " + filterFragment.havingSql() +
-                                "ORDER BY value2 DESC LIMIT :limit OFFSET :offset")
+                handle.createQuery("WITH sess AS (" + discoverySessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.source_address) AS key, " +
+                                "host(sess.source_address) AS key_address, " +
+                                "MAX(sess.source_mac) AS key_mac, MAX(sess.source_port) AS key_port, " +
+                                "MAX(sess.source_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.source_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.source_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.source_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.source_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.source_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.source_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.source_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.source_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.source_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) FILTER (WHERE sess.status = 'COMPLETE') AS value1, " +
+                                "COUNT(*) FILTER (WHERE sess.status = 'INCOMPLETE') AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.source_address IS NOT NULL " +
+                                "GROUP BY sess.source_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bind("limit", limit)
                         .bind("offset", offset)
-                        .bindMap(filterFragment.bindings())
-                        .bindList("taps", taps)
-                        .mapTo(StringStringNumberAggregationResult.class)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
                         .list()
         );
     }
 
-
-    public long countTraversalDiscoveryTopServersHistogram(TimeRange timeRange,
-                                                           Filters filters,
-                                                           List<UUID> taps) {
+    public long countTraversalDiscoveryTopServersHistogram(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
             return 0;
         }
-
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new NATTraversalDiscoveryFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM (SELECT s.destination_address AS key, " +
-                                "s.destination_mac AS value1, COUNT(*) AS value2 " +
-                                "FROM nat_traversal_discoveries AS d " +
-                                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
-                                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
-                                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
-                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
-                                "WHERE d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
-                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
-                                "GROUP BY s.destination_address, s.destination_mac " +
-                                "HAVING 1=1 " + filterFragment.havingSql() + ") AS ignored")
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT destination_address FROM (" +
+                                discoverySessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE destination_address IS NOT NULL " +
+                                "GROUP BY destination_address" +
+                                ") AS distinct_servers")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
-                        .bindMap(filterFragment.bindings())
-                        .bindList("taps", taps)
                         .mapTo(Long.class)
                         .one()
         );
     }
 
-    public List<StringStringNumberAggregationResult> getTraversalDiscoveryTopServersHistogram(TimeRange timeRange,
-                                                                                              Filters filters,
-                                                                                              int limit,
-                                                                                              int offset,
-                                                                                              List<UUID> taps) {
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTraversalDiscoveryTopServersHistogram(TimeRange timeRange,
+                                                                                                            Filters filters,
+                                                                                                            int limit, int offset,
+                                                                                                            ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                                            OrderDirection orderDirection,
+                                                                                                            List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
-
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new NATTraversalDiscoveryFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT s.destination_address AS key, s.destination_mac AS value1, COUNT(*) AS value2 " +
-                                "FROM nat_traversal_discoveries AS d " +
-                                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
-                                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
-                                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
-                                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
-                                "WHERE d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
-                                "AND d.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
-                                "GROUP BY s.destination_address, s.destination_mac HAVING 1=1 " + filterFragment.havingSql() +
-                                "ORDER BY value2 DESC LIMIT :limit OFFSET :offset")
+                handle.createQuery("WITH sess AS (" + discoverySessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.destination_address) AS key, " +
+                                "host(sess.destination_address) AS key_address, " +
+                                "MAX(sess.destination_mac) AS key_mac, MAX(sess.destination_port) AS key_port, " +
+                                "MAX(sess.destination_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.destination_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.destination_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.destination_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.destination_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.destination_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.destination_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.destination_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.destination_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.destination_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) FILTER (WHERE sess.status = 'COMPLETE') AS value1, " +
+                                "COUNT(*) FILTER (WHERE sess.status = 'INCOMPLETE') AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.destination_address IS NOT NULL " +
+                                "GROUP BY sess.destination_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bind("limit", limit)
                         .bind("offset", offset)
-                        .bindMap(filterFragment.bindings())
-                        .bindList("taps", taps)
-                        .mapTo(StringStringNumberAggregationResult.class)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
                         .list()
         );
     }
@@ -594,5 +602,293 @@ public class NAT {
                         .list()
         );
     }
+
+    public List<GenericIntegerHistogramEntry> getActiveNegotiationsHistogram(TimeRange timeRange,
+                                                                             Bucketing.BucketingConfiguration bucketing,
+                                                                             Filters filters,
+                                                                             List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(
+                                "WITH buckets AS (" +
+                                        "SELECT generate_series(" +
+                                        "date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                                        "date_trunc(:date_trunc, :tr_to::timestamptz), " +
+                                        "make_interval(secs => :bucket_size_s)" +
+                                        ") AS bucket" +
+                                        "), " +
+                                        "sessions AS (" +
+                                        "SELECT n.negotiation_key, " +
+                                        "MIN(n.first_seen) AS session_start, " +
+                                        "MAX(n.last_activity) AS session_end " +
+                                        "FROM nat_stun_negotiation_flows AS n " +
+                                        "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                                        "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                                        "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                                        "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                                        "WHERE n.last_activity >= :tr_from AND n.first_seen <= :tr_to " +
+                                        "AND n.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                                        " GROUP BY n.negotiation_key HAVING 1=1 " + filterFragment.havingSql() +
+                                        ") " +
+                                        "SELECT b.bucket AS bucket, COUNT(sess.negotiation_key) AS value " +
+                                        "FROM buckets AS b " +
+                                        "LEFT JOIN sessions AS sess " +
+                                        "ON sess.session_start <= b.bucket + make_interval(secs => :bucket_size_s) " +
+                                        "AND sess.session_end >= b.bucket " +
+                                        "GROUP BY b.bucket ORDER BY b.bucket DESC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("bucket_size_s", bucketing.bucketSizeMs() / 1000.0)
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public long getNegotiationTopServersCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT server_address FROM (" +
+                                negotiationSessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE server_address IS NOT NULL " +
+                                "GROUP BY server_address" +
+                                ") AS distinct_servers")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getNegotiationTopServers(TimeRange timeRange,
+                                                                                            Filters filters,
+                                                                                            int limit, int offset,
+                                                                                            ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                            OrderDirection orderDirection,
+                                                                                            List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" + negotiationSessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.server_address) AS key, " +
+                                "host(sess.server_address) AS key_address, " +
+                                "MAX(sess.server_mac) AS key_mac, MAX(sess.server_port) AS key_port, " +
+                                "MAX(sess.server_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.server_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.server_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.server_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.server_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.server_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.server_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.server_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.server_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.server_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) AS value1, " +
+                                "COALESCE(SUM(sess.bytes_exchanged), 0) AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.server_address IS NOT NULL " +
+                                "GROUP BY sess.server_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    public long getNegotiationTopClientsCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM (" +
+                                "SELECT client_address FROM (" +
+                                negotiationSessionEndpointsSelect(filterFragment) +
+                                ") AS sess WHERE client_address IS NOT NULL " +
+                                "GROUP BY client_address" +
+                                ") AS distinct_clients")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getNegotiationTopClients(TimeRange timeRange,
+                                                                                            Filters filters,
+                                                                                            int limit, int offset,
+                                                                                            ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                            OrderDirection orderDirection,
+                                                                                            List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new STUNNegotiationFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" + negotiationSessionEndpointsSelectWithAttrs(filterFragment) + ") " +
+                                "SELECT host(sess.client_address) AS key, " +
+                                "host(sess.client_address) AS key_address, " +
+                                "MAX(sess.client_mac) AS key_mac, MAX(sess.client_port) AS key_port, " +
+                                "MAX(sess.client_geo_asn_number) AS key_address_geo_asn_number, " +
+                                "MAX(sess.client_geo_asn_name) AS key_address_geo_asn_name, " +
+                                "MAX(sess.client_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                                "MAX(sess.client_geo_city) AS key_address_geo_city, " +
+                                "MAX(sess.client_geo_country_code) AS key_address_geo_country_code, " +
+                                "MAX(sess.client_geo_latitude) AS key_address_geo_latitude, " +
+                                "MAX(sess.client_geo_longitude) AS key_address_geo_longitude, " +
+                                "BOOL_OR(sess.client_is_site_local) AS key_address_is_site_local, " +
+                                "BOOL_OR(sess.client_is_loopback) AS key_address_is_loopback, " +
+                                "BOOL_OR(sess.client_is_multicast) AS key_address_is_multicast, " +
+                                "COUNT(*) AS value1, " +
+                                "COALESCE(SUM(sess.bytes_exchanged), 0) AS value2 " +
+                                "FROM sess " +
+                                "WHERE sess.client_address IS NOT NULL " +
+                                "GROUP BY sess.client_address " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    private String negotiationSessionEndpointsSelect(FilterSqlFragment filterFragment) {
+        return "SELECT n.negotiation_key, " +
+                "COALESCE(MAX(s.source_address) FILTER (WHERE n.successful), MAX(s.source_address)) AS client_address, " +
+                "COALESCE(MAX(s.destination_address) FILTER (WHERE n.successful), MAX(s.destination_address)) AS server_address, " +
+                "MAX(s.bytes_rx_count + s.bytes_tx_count) AS bytes_exchanged " +
+                "FROM nat_stun_negotiation_flows AS n " +
+                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                "WHERE n.last_activity >= :tr_from AND n.last_activity <= :tr_to " +
+                "AND n.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY n.negotiation_key HAVING 1=1 " + filterFragment.havingSql();
+    }
+
+    private String negotiationSessionEndpointsSelectWithAttrs(FilterSqlFragment filterFragment) {
+        return "SELECT n.negotiation_key, " +
+                "COALESCE(MAX(s.source_address) FILTER (WHERE n.successful), MAX(s.source_address)) AS client_address, " +
+                "COALESCE(MAX(s.source_mac) FILTER (WHERE n.successful), MAX(s.source_mac)) AS client_mac, " +
+                "COALESCE(MAX(s.source_port) FILTER (WHERE n.successful), MAX(s.source_port)) AS client_port, " +
+                "COALESCE(MAX(s.source_address_geo_asn_number) FILTER (WHERE n.successful), MAX(s.source_address_geo_asn_number)) AS client_geo_asn_number, " +
+                "COALESCE(MAX(s.source_address_geo_asn_name) FILTER (WHERE n.successful), MAX(s.source_address_geo_asn_name)) AS client_geo_asn_name, " +
+                "COALESCE(MAX(s.source_address_geo_asn_domain) FILTER (WHERE n.successful), MAX(s.source_address_geo_asn_domain)) AS client_geo_asn_domain, " +
+                "COALESCE(MAX(s.source_address_geo_city) FILTER (WHERE n.successful), MAX(s.source_address_geo_city)) AS client_geo_city, " +
+                "COALESCE(MAX(s.source_address_geo_country_code) FILTER (WHERE n.successful), MAX(s.source_address_geo_country_code)) AS client_geo_country_code, " +
+                "COALESCE(MAX(s.source_address_geo_latitude) FILTER (WHERE n.successful), MAX(s.source_address_geo_latitude)) AS client_geo_latitude, " +
+                "COALESCE(MAX(s.source_address_geo_longitude) FILTER (WHERE n.successful), MAX(s.source_address_geo_longitude)) AS client_geo_longitude, " +
+                "COALESCE(BOOL_OR(s.source_address_is_site_local) FILTER (WHERE n.successful), BOOL_OR(s.source_address_is_site_local)) AS client_is_site_local, " +
+                "COALESCE(BOOL_OR(s.source_address_is_loopback) FILTER (WHERE n.successful), BOOL_OR(s.source_address_is_loopback)) AS client_is_loopback, " +
+                "COALESCE(BOOL_OR(s.source_address_is_multicast) FILTER (WHERE n.successful), BOOL_OR(s.source_address_is_multicast)) AS client_is_multicast, " +
+                "COALESCE(MAX(s.destination_address) FILTER (WHERE n.successful), MAX(s.destination_address)) AS server_address, " +
+                "COALESCE(MAX(s.destination_mac) FILTER (WHERE n.successful), MAX(s.destination_mac)) AS server_mac, " +
+                "COALESCE(MAX(s.destination_port) FILTER (WHERE n.successful), MAX(s.destination_port)) AS server_port, " +
+                "COALESCE(MAX(s.destination_address_geo_asn_number) FILTER (WHERE n.successful), MAX(s.destination_address_geo_asn_number)) AS server_geo_asn_number, " +
+                "COALESCE(MAX(s.destination_address_geo_asn_name) FILTER (WHERE n.successful), MAX(s.destination_address_geo_asn_name)) AS server_geo_asn_name, " +
+                "COALESCE(MAX(s.destination_address_geo_asn_domain) FILTER (WHERE n.successful), MAX(s.destination_address_geo_asn_domain)) AS server_geo_asn_domain, " +
+                "COALESCE(MAX(s.destination_address_geo_city) FILTER (WHERE n.successful), MAX(s.destination_address_geo_city)) AS server_geo_city, " +
+                "COALESCE(MAX(s.destination_address_geo_country_code) FILTER (WHERE n.successful), MAX(s.destination_address_geo_country_code)) AS server_geo_country_code, " +
+                "COALESCE(MAX(s.destination_address_geo_latitude) FILTER (WHERE n.successful), MAX(s.destination_address_geo_latitude)) AS server_geo_latitude, " +
+                "COALESCE(MAX(s.destination_address_geo_longitude) FILTER (WHERE n.successful), MAX(s.destination_address_geo_longitude)) AS server_geo_longitude, " +
+                "COALESCE(BOOL_OR(s.destination_address_is_site_local) FILTER (WHERE n.successful), BOOL_OR(s.destination_address_is_site_local)) AS server_is_site_local, " +
+                "COALESCE(BOOL_OR(s.destination_address_is_loopback) FILTER (WHERE n.successful), BOOL_OR(s.destination_address_is_loopback)) AS server_is_loopback, " +
+                "COALESCE(BOOL_OR(s.destination_address_is_multicast) FILTER (WHERE n.successful), BOOL_OR(s.destination_address_is_multicast)) AS server_is_multicast, " +
+                "MAX(s.bytes_rx_count + s.bytes_tx_count) AS bytes_exchanged " +
+                "FROM nat_stun_negotiation_flows AS n " +
+                "LEFT JOIN l4_sessions AS s ON s.session_key = n.l4_session_key " +
+                "AND s.start_time >= n.first_seen - INTERVAL '10 seconds' " +
+                "AND s.start_time <= n.first_seen + INTERVAL '10 seconds' " +
+                "AND s.l4_type = UPPER(n.transport) AND n.tap_uuid = s.tap_uuid " +
+                "WHERE n.last_activity >= :tr_from AND n.last_activity <= :tr_to " +
+                "AND n.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY n.negotiation_key HAVING 1=1 " + filterFragment.havingSql();
+    }
+
+    private String discoverySessionEndpointsSelect(FilterSqlFragment filterFragment) {
+        return "SELECT d.l4_session_key, MAX(d.status) AS status, " +
+                "MAX(s.source_address) AS source_address, " +
+                "MAX(s.destination_address) AS destination_address " +
+                "FROM nat_traversal_discoveries AS d " +
+                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
+                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
+                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
+                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
+                "WHERE d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
+                "AND d.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY d.l4_session_key HAVING 1=1 " + filterFragment.havingSql();
+    }
+
+    private String discoverySessionEndpointsSelectWithAttrs(FilterSqlFragment filterFragment) {
+        return "SELECT d.l4_session_key, MAX(d.status) AS status, " +
+                "MAX(s.source_address) AS source_address, " +
+                "MAX(s.source_mac) AS source_mac, MAX(s.source_port) AS source_port, " +
+                "MAX(s.source_address_geo_asn_number) AS source_geo_asn_number, " +
+                "MAX(s.source_address_geo_asn_name) AS source_geo_asn_name, " +
+                "MAX(s.source_address_geo_asn_domain) AS source_geo_asn_domain, " +
+                "MAX(s.source_address_geo_city) AS source_geo_city, " +
+                "MAX(s.source_address_geo_country_code) AS source_geo_country_code, " +
+                "MAX(s.source_address_geo_latitude) AS source_geo_latitude, " +
+                "MAX(s.source_address_geo_longitude) AS source_geo_longitude, " +
+                "BOOL_OR(s.source_address_is_site_local) AS source_is_site_local, " +
+                "BOOL_OR(s.source_address_is_loopback) AS source_is_loopback, " +
+                "BOOL_OR(s.source_address_is_multicast) AS source_is_multicast, " +
+                "MAX(s.destination_address) AS destination_address, " +
+                "MAX(s.destination_mac) AS destination_mac, MAX(s.destination_port) AS destination_port, " +
+                "MAX(s.destination_address_geo_asn_number) AS destination_geo_asn_number, " +
+                "MAX(s.destination_address_geo_asn_name) AS destination_geo_asn_name, " +
+                "MAX(s.destination_address_geo_asn_domain) AS destination_geo_asn_domain, " +
+                "MAX(s.destination_address_geo_city) AS destination_geo_city, " +
+                "MAX(s.destination_address_geo_country_code) AS destination_geo_country_code, " +
+                "MAX(s.destination_address_geo_latitude) AS destination_geo_latitude, " +
+                "MAX(s.destination_address_geo_longitude) AS destination_geo_longitude, " +
+                "BOOL_OR(s.destination_address_is_site_local) AS destination_is_site_local, " +
+                "BOOL_OR(s.destination_address_is_loopback) AS destination_is_loopback, " +
+                "BOOL_OR(s.destination_address_is_multicast) AS destination_is_multicast " +
+                "FROM nat_traversal_discoveries AS d " +
+                "LEFT JOIN l4_sessions AS s ON s.session_key = d.l4_session_key " +
+                "AND s.start_time >= d.first_seen - INTERVAL '10 seconds' " +
+                "AND s.start_time <= d.first_seen + INTERVAL '10 seconds' " +
+                "AND s.l4_type = UPPER(d.transport) AND d.tap_uuid = s.tap_uuid " +
+                "WHERE d.first_seen >= :tr_from AND d.first_seen <= :tr_to " +
+                "AND d.tap_uuid IN (<taps>)" + filterFragment.whereSql() +
+                " GROUP BY d.l4_session_key HAVING 1=1 " + filterFragment.havingSql();
+    }
+
 
 }

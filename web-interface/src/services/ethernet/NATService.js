@@ -30,35 +30,37 @@ export default class NATService {
     )
   }
 
-  getSTUNTopClientsHistogram(organizationId, tenantId, timeRange, filters, taps, limit, offset, setHistogram) {
+  getSTUNDiscoveriesTopClientsHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
     RESTClient.get("/ethernet/nat/traversal/stun/clients/histogram", {
         organization_id: organizationId,
         tenant_id: tenantId,
-        limit: limit,
-        offset: offset,
-        time_range: timeRange,
         filters: filters,
-        taps: tapsList
-      },
-      (response) => setHistogram(response.data)
+        time_range: timeRange,
+        taps: tapsList,
+        order_column: orderColumn,
+        order_direction: orderDirection,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
     )
   }
 
-  getSTUNTopServersHistogram(organizationId, tenantId, timeRange, filters, taps, limit, offset, setHistogram) {
+  getSTUNDiscoveriesTopServersHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
     RESTClient.get("/ethernet/nat/traversal/stun/servers/histogram", {
         organization_id: organizationId,
         tenant_id: tenantId,
-        limit: limit,
-        offset: offset,
-        time_range: timeRange,
         filters: filters,
-        taps: tapsList
-      },
-      (response) => setHistogram(response.data)
+        time_range: timeRange,
+        taps: tapsList,
+        order_column: orderColumn,
+        order_direction: orderDirection,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
     )
   }
 
@@ -75,6 +77,51 @@ export default class NATService {
 
     RESTClient.get("/ethernet/nat/traversal/stun/connections", { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, order_column: orderColumn, order_direction: orderDirection, taps: tapsList, limit: limit, offset: offset },
       (response) => setNegotiations(response.data)
+    )
+  }
+
+  getConnectionsActiveHistogram(setHistogram, timeRange, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/nat/traversal/stun/connections/active/histogram", {
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+      }, (response) => setHistogram(response.data)
+    )
+  }
+
+  getConnectionsTopClientsHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/nat/traversal/stun/connections/clients/histogram", {
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+        order_column: orderColumn,
+        order_direction: orderDirection,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
+    )
+  }
+
+  getConnectionsTopServersHistogram(setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, filters, taps) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/nat/traversal/stun/connections/servers/histogram", {
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        filters: filters,
+        time_range: timeRange,
+        taps: tapsList,
+        order_column: orderColumn,
+        order_direction: orderDirection,
+        limit: limit,
+        offset: offset
+      }, (response) => setHistogram(response.data)
     )
   }
 

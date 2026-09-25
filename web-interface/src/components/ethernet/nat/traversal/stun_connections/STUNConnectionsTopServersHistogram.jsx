@@ -1,15 +1,15 @@
 import React, {useContext, useEffect, useState} from "react";
-import {TapContext} from "../../../../../App";
-import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
-import {DEFAULT_LIMIT} from "../../../../widgets/LimitSelector";
-import ThreeColumnHistogram from "../../../../widgets/histograms/ThreeColumnHistogram";
 import NATService from "../../../../../services/ethernet/NATService";
+import {DEFAULT_LIMIT} from "../../../../widgets/LimitSelector";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
-import {STUN_DISCOVERY_FILTER_FIELDS} from "./STUNDiscoveriesFilterFields";
+import ThreeColumnHistogram from "../../../../widgets/histograms/ThreeColumnHistogram";
+import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
+import {TapContext} from "../../../../../App";
+import {STUN_CONNECTIONS_FILTER_FIELDS} from "./STUNConnectionsFilterFields";
 
 const natService = new NATService();
 
-export default function STUNDiscoveriesTopClientsHistogram({filters, setFilters, timeRange, revision}) {
+export default function STUNConnectionsTopServersHistogram({timeRange, filters, setFilters, revision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -25,7 +25,7 @@ export default function STUNDiscoveriesTopClientsHistogram({filters, setFilters,
   useEffect(() => {
     setHistogram(null);
 
-    natService.getSTUNDiscoveriesTopClientsHistogram(
+    natService.getConnectionsTopServersHistogram(
       setHistogram, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, 0, filters, selectedTaps
     );
   }, [selectedTaps, organizationId, tenantId, limit, timeRange, filters, orderColumn, orderDirection, revision]);
@@ -37,7 +37,7 @@ export default function STUNDiscoveriesTopClientsHistogram({filters, setFilters,
   if (histogram.total === 0) {
     return (
       <div className="alert alert-info mb-0 mt-2">
-        No STUN discovery attempts recorded.
+        No STUN connection attempts recorded.
       </div>
     )
   }
@@ -45,7 +45,7 @@ export default function STUNDiscoveriesTopClientsHistogram({filters, setFilters,
   return <ThreeColumnHistogram data={histogram}
                                columnTitles={["Address", "Connections", "Bytes Exchanged"]}
                                columnFilterElements={[
-                                 {field: "source_address", valueSubField: "address", fields: STUN_DISCOVERY_FILTER_FIELDS, setFilters: setFilters},
+                                 {field: "destination_address", valueSubField: "address", fields: STUN_CONNECTIONS_FILTER_FIELDS, setFilters: setFilters},
                                  null, null
                                ]}
                                orderColumn={orderColumn}
@@ -55,4 +55,5 @@ export default function STUNDiscoveriesTopClientsHistogram({filters, setFilters,
                                orderColumnOneIsKey={true}
                                limit={limit}
                                setLimit={setLimit} />
+
 }

@@ -231,7 +231,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new PortalIntegrityReportHopEntryMapper())
                 .registerRowMapper(new WebRTCSessionEntryMapper())
                 .registerRowMapper(new AssetPairNumberAggregationResultMapper())
-                .registerRowMapper(new AddressPairNumberAggregationResultMapper());
+                .registerRowMapper(new L4AddressPairNumberAggregationResultMapper());
 
         if (configuration.slowQueryLogThreshold().isPresent()) {
             LOG.info("Slow query log enabled with threshold <{}ms>.", configuration.slowQueryLogThreshold().get());

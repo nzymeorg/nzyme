@@ -4,13 +4,13 @@ import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import com.google.auto.value.AutoValue;
 
 @AutoValue
-public abstract class AddressPairNumberAggregationResult {
+public abstract class L4AddressPairNumberAggregationResult {
 
     public abstract L4AddressData address1();
     public abstract L4AddressData address2();
     public abstract long value();
 
-    public static AddressPairNumberAggregationResult create(L4AddressData address1, L4AddressData address2, long value) {
+    public static L4AddressPairNumberAggregationResult create(L4AddressData address1, L4AddressData address2, long value) {
         return builder()
                 .address1(address1)
                 .address2(address2)
@@ -19,7 +19,7 @@ public abstract class AddressPairNumberAggregationResult {
     }
 
     public static Builder builder() {
-        return new AutoValue_AddressPairNumberAggregationResult.Builder();
+        return new AutoValue_L4AddressPairNumberAggregationResult.Builder();
     }
 
     @AutoValue.Builder
@@ -30,6 +30,6 @@ public abstract class AddressPairNumberAggregationResult {
 
         public abstract Builder value(long value);
 
-        public abstract AddressPairNumberAggregationResult build();
+        public abstract L4AddressPairNumberAggregationResult build();
     }
 }
