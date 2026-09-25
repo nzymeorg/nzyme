@@ -65,7 +65,14 @@ export default function STUNConnectionsTableRow({connection, setFilters}) {
                                                                    field="destination_address"
                                                                    value={connection.destination.address} /> : null } />
       </td>
-      <td>{connection.is_turn ? "True" : "False"}</td>
+      <td>
+        {connection.is_turn ? "True" : "False"}
+
+        <FilterValueIcon setFilters={setFilters}
+                         fields={STUN_CONNECTIONS_FILTER_FIELDS}
+                         field="is_turn"
+                         value={connection.is_turn ? "true" : "false"} />
+      </td>
       <td><STUNConnectionL4Tags tags={connection.l4_tags} setFilters={setFilters} /></td>
       <td className="hide-narrow">{numeral(connection.mapped_addresses.length).format("0,0")}</td>
       <td className="hide-narrow">{numeral(connection.peer_addresses.length).format("0,0")}</td>
