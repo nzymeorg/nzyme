@@ -69,24 +69,6 @@ export default function L4TagDetails({session}) {
     }
   }
 
-  const stun = () => {
-    if (session.tags.includes("STUN")) {
-      return (
-        <div className="row mt-3">
-          <div className="col-12">
-            <div className="card">
-              <div className="card-body card-container">
-                <CardTitleWithControls title="Encapsulated STUN Session" />
-
-                <STUNSessionDetails sessionId={session.session_key} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    }
-  }
-
   const rtsp = () => {
     if (session.tags.includes("RTSP")) {
       return (
@@ -110,7 +92,6 @@ export default function L4TagDetails({session}) {
         {ssh()}
         {socks()}
         {ntp()}
-        {stun()}
         {rtsp()}
       </React.Fragment>
   )
