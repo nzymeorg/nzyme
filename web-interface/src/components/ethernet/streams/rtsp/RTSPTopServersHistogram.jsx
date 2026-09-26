@@ -5,10 +5,11 @@ import {TapContext} from "../../../../App";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import ThreeColumnHistogram from "../../../widgets/histograms/ThreeColumnHistogram";
 import RTSPService from "../../../../services/ethernet/RTSPService";
+import {RTSP_FILTER_FIELDS} from "./RTSPFilterFields";
 
 const rtspService = new RTSPService();
 
-export default function RTSPTopServersHistogram({timeRange, filters, revision}) {
+export default function RTSPTopServersHistogram({timeRange, filters, setFilters, revision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -43,6 +44,10 @@ export default function RTSPTopServersHistogram({timeRange, filters, revision}) 
 
   return <ThreeColumnHistogram data={histogram}
                                columnTitles={["Server", "Streams", "Bytes Exchanged"]}
+                               columnFilterElements={[
+                                 {field: "stream_destination_address", valueSubField: "address", fields: RTSP_FILTER_FIELDS, setFilters: setFilters},
+                                 null, null
+                               ]}
                                orderColumn={orderColumn}
                                setOrderColumn={setOrderColumn}
                                orderDirection={orderDirection}

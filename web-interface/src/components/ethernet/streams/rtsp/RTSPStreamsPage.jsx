@@ -95,9 +95,10 @@ export default function RTSPStreamsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <RTSPTopServersHistogram timeRange={timeRange}
-                                               setTimeRange={setTimeRange}
-                                               filters={filters}
-                                               revision={revision} />
+                                       setTimeRange={setTimeRange}
+                                       filters={filters}
+                                       setFilters={setFilters}
+                                       revision={revision} />
 
             </div>
           </div>
@@ -113,6 +114,7 @@ export default function RTSPStreamsPage() {
               <RTSPTopClientsHistogram timeRange={timeRange}
                                        setTimeRange={setTimeRange}
                                        filters={filters}
+                                       setFilters={setFilters}
                                        revision={revision} />
 
             </div>
