@@ -103,14 +103,14 @@ public class AssetManager {
                         .one()
         );
     }
-
+    
     public long countAssets(TimeRange timeRange, Filters filters, UUID organizationId, UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM assets WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND last_seen >= :tr_from " +
-                                "AND last_seen <= :tr_to" + filterFragment.whereSql())
+                handle.createQuery("SELECT COUNT(*) FROM (SELECT a.id " + ASSET_JOINS + LIST_WHERE +
+                                filterFragment.whereSql() + " " +
+                                "GROUP BY a.id HAVING TRUE " + filterFragment.havingSql() + ") AS filtered")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("tr_from", timeRange.from())
@@ -132,11 +132,9 @@ public class AssetManager {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT *, " +
-                                "(last_seen >= (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute')) " +
-                                "AS is_active FROM assets WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND last_seen >= :tr_from " +
-                                "AND last_seen <= :tr_to " + filterFragment.whereSql() + " " +
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS + LIST_WHERE +
+                                filterFragment.whereSql() + " " +
+                                "GROUP BY a.id HAVING TRUE " + filterFragment.havingSql() + " " +
                                 "ORDER BY <order_column> <order_direction> " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
@@ -160,10 +158,9 @@ public class AssetManager {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM assets WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND last_seen >= :tr_from " +
-                                "AND last_seen <= :tr_to " + filterFragment.whereSql() + " AND " +
-                                "(last_seen < (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute'))")
+                handle.createQuery("SELECT COUNT(*) FROM (SELECT a.id " + ASSET_JOINS + LIST_WHERE +
+                                filterFragment.whereSql() + " AND " + INACTIVE_CONDITION + " " +
+                                "GROUP BY a.id HAVING TRUE " + filterFragment.havingSql() + ") AS filtered")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("tr_from", timeRange.from())
@@ -185,12 +182,9 @@ public class AssetManager {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT *, " +
-                                "(last_seen >= (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute')) " +
-                                "AS is_active FROM assets WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND last_seen >= :tr_from " +
-                                "AND last_seen <= :tr_to " + filterFragment.whereSql() + " AND " +
-                                "(last_seen < (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute')) " +
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS + LIST_WHERE +
+                                filterFragment.whereSql() + " AND " + INACTIVE_CONDITION + " " +
+                                "GROUP BY a.id HAVING TRUE " + filterFragment.havingSql() + " " +
                                 "ORDER BY <order_column> <order_direction> " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
@@ -209,10 +203,10 @@ public class AssetManager {
 
     public Optional<AssetEntry> findAsset(UUID uuid, UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT *, " +
-                                "(last_seen >= (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute')) " +
-                                "AS is_active FROM assets WHERE uuid = :uuid AND organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id")
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
+                                "WHERE a.uuid = :uuid AND a.organization_id = :organization_id " +
+                                "AND a.tenant_id = :tenant_id " +
+                                "GROUP BY a.id")
                         .bind("uuid", uuid)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
@@ -223,10 +217,10 @@ public class AssetManager {
 
     public Optional<AssetEntry> findAssetByMac(String mac, UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT *, " +
-                                "(last_seen >= (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute')) " +
-                                "AS is_active FROM assets WHERE mac = :mac " +
-                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
+                                "WHERE a.mac = :mac AND a.organization_id = :organization_id " +
+                                "AND a.tenant_id = :tenant_id " +
+                                "GROUP BY a.id")
                         .bind("mac", mac)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
@@ -446,5 +440,26 @@ public class AssetManager {
                         .execute()
         );
     }
+
+    public static final String ACTIVE_CONDITION =
+            "(a.last_seen >= (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute'))";
+
+    private static final String INACTIVE_CONDITION =
+            "(a.last_seen < (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute'))";
+
+    private static final String ASSET_COLUMNS =
+            "a.*, " + ACTIVE_CONDITION + " AS is_active, " +
+                    "COALESCE(array_agg(DISTINCT h.hostname) FILTER (WHERE h.hostname IS NOT NULL), '{}') AS hostnames, " +
+                    "COALESCE(array_agg(DISTINCT host(i.address)) FILTER (WHERE i.address IS NOT NULL), '{}') AS ip_addresses ";
+
+    private static final String ASSET_JOINS =
+            "FROM assets AS a " +
+                    "LEFT JOIN assets_hostnames AS h ON h.asset_id = a.id " +
+                    "LEFT JOIN assets_ip_addresses AS i ON i.asset_id = a.id ";
+
+    private static final String LIST_WHERE =
+            "WHERE a.organization_id = :organization_id AND a.tenant_id = :tenant_id " +
+                    "AND a.last_seen >= :tr_from AND a.last_seen <= :tr_to ";
+
 
 }

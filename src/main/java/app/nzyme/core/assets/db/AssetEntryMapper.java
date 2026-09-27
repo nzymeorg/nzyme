@@ -6,11 +6,16 @@ import org.joda.time.DateTime;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 
 public class AssetEntryMapper implements RowMapper<AssetEntry> {
     @Override
     public AssetEntry map(ResultSet rs, StatementContext ctx) throws SQLException {
+        List<String> hostnames = Arrays.asList((String[]) rs.getArray("hostnames").getArray());
+        List<String> ipAddresses = Arrays.asList((String[]) rs.getArray("ip_addresses").getArray());
+
         return AssetEntry.create(
                 rs.getLong("id"),
                 UUID.fromString(rs.getString("uuid")),
@@ -26,6 +31,8 @@ public class AssetEntryMapper implements RowMapper<AssetEntry> {
                 rs.getBoolean("seen_dhcp"),
                 rs.getBoolean("seen_tcp"),
                 rs.getBoolean("seen_udp"),
+                hostnames,
+                ipAddresses,
                 new DateTime(rs.getTimestamp("first_seen")),
                 new DateTime(rs.getTimestamp("last_seen")),
                 new DateTime(rs.getTimestamp("updated_at")),

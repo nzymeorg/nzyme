@@ -320,6 +320,68 @@ public class FilterSql {
         }
     }
 
+    public static String anyStringMatch(String bindId, String fieldName, FilterOperator operator) {
+        switch (operator) {
+            case EQUALS:
+            case CONTAINS:
+            case REGEX_MATCH:
+            case STARTS_WITH:
+            case ENDS_WITH:
+            case LENGTH_EQUALS:
+            case LENGTH_GREATER_THAN:
+            case LENGTH_SMALLER_THAN:
+                return anyRowMatches(stringMatch(bindId, fieldName, operator));
+            case NOT_EQUALS:
+                return noRowMatches(stringMatch(bindId, fieldName, FilterOperator.EQUALS));
+            case NOT_CONTAINS:
+                return noRowMatches(stringMatch(bindId, fieldName, FilterOperator.CONTAINS));
+            case NOT_REGEX_MATCH:
+                return noRowMatches(stringMatch(bindId, fieldName, FilterOperator.REGEX_MATCH));
+            case IS_EMPTY:
+                return "count(" + fieldName + ") = 0";
+            case IS_NOT_EMPTY:
+                return "count(" + fieldName + ") > 0";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for multi-value " +
+                        "string field [" + fieldName + "].");
+        }
+    }
+
+    public static String anyIpAddressMatch(String bindId, String fieldName, FilterOperator operator) {
+        switch (operator) {
+            case EQUALS:
+                return anyRowMatches(fieldName + " = :" + bindId + "::inet");
+            case NOT_EQUALS:
+                return noRowMatches(fieldName + " = :" + bindId + "::inet");
+            case REGEX_MATCH:
+                return anyRowMatches("host(" + fieldName + ") ~ :" + bindId);
+            case NOT_REGEX_MATCH:
+                return noRowMatches("host(" + fieldName + ") ~ :" + bindId);
+            case IN_CIDR:
+                return anyRowMatches(fieldName + " <<= :" + bindId + "::cidr");
+            case NOT_IN_CIDR:
+                return noRowMatches(fieldName + " <<= :" + bindId + "::cidr");
+            case IS_PRIVATE:
+            case IS_NOT_PRIVATE:
+                return anyRowMatches(ipAddressMatch(bindId, fieldName, operator));
+            case IS_EMPTY:
+                return "count(" + fieldName + ") = 0";
+            case IS_NOT_EMPTY:
+                return "count(" + fieldName + ") > 0";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for multi-value " +
+                        "IP address field [" + fieldName + "].");
+        }
+    }
+
+    private static String anyRowMatches(String condition) {
+        return "COALESCE(bool_or(" + condition + "), false)";
+    }
+
+    private static String noRowMatches(String condition) {
+        return "NOT COALESCE(bool_or(" + condition + "), false)";
+    }
+
     @AutoValue
     public static abstract class GeneratedFilterTypeSql {
 
