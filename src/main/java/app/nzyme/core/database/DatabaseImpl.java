@@ -25,7 +25,6 @@ import app.nzyme.core.dot11.db.monitoring.probereq.MonitoredProbeRequestEntryMap
 import app.nzyme.core.dot11.tracks.db.TrackDetectorConfigMapper;
 import app.nzyme.core.ethernet.arp.db.ARPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.arp.db.ArpPacketEntryMapper;
-import app.nzyme.core.ethernet.arp.db.ArpSenderTargetCountPairMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPTransactionMapper;
 import app.nzyme.core.ethernet.dns.db.*;
@@ -202,7 +201,6 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new L4SessionMapper())
                 .registerRowMapper(new ArpPacketEntryMapper())
                 .registerRowMapper(new ARPStatisticsBucketMapper())
-                .registerRowMapper(new ArpSenderTargetCountPairMapper())
                 .registerRowMapper(new LatLonResultMapper())
                 .registerRowMapper(new TimerEntryAverageMapper())
                 .registerRowMapper(new GaugeEntryAverageMapper())

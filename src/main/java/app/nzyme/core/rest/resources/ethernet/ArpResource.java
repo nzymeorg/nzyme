@@ -4,16 +4,14 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.AssetPairNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
 import app.nzyme.core.ethernet.arp.ARP;
 import app.nzyme.core.ethernet.arp.ARPExplainer;
 import app.nzyme.core.ethernet.arp.db.ARPStatisticsBucket;
 import app.nzyme.core.ethernet.arp.db.ArpPacketEntry;
-import app.nzyme.core.ethernet.arp.db.ArpSenderTargetCountPair;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.TapDataHandlingResource;
-import app.nzyme.core.rest.responses.dot11.Dot11MacAddressContextResponse;
-import app.nzyme.core.rest.responses.dot11.Dot11MacAddressResponse;
-import app.nzyme.core.rest.responses.dot11.Dot11MacLinkMetadataResponse;
 import app.nzyme.core.rest.responses.ethernet.*;
 import app.nzyme.core.rest.responses.ethernet.arp.ArpPacketDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.arp.ArpPacketsListResponse;
@@ -134,6 +132,8 @@ public class ArpResource extends TapDataHandlingResource {
                                    @QueryParam("filters") String filtersParameter,
                                    @QueryParam("limit") int limit,
                                    @QueryParam("offset") int offset,
+                                   @QueryParam("order_column") @Nullable String orderColumnParam,
+                                   @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                    @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -143,11 +143,22 @@ public class ArpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        ThreeColumnHistogramOrderColumn orderColumn = ThreeColumnHistogramOrderColumn.VALUE3;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
         long topRequesterPairsCount = nzyme.getEthernet().arp()
                 .countPairs("Request", timeRange,  filters, taps);
 
         List<ThreeColumnTableHistogramValueResponse> topRequesterPairs = buildPairs(
-                "Request", organizationId, tenantId, timeRange, filters, limit, offset, taps
+                "Request", organizationId, tenantId, timeRange, filters, limit, offset, orderColumn, orderDirection, taps
         );
 
         return Response.ok(
@@ -164,6 +175,8 @@ public class ArpResource extends TapDataHandlingResource {
                                    @QueryParam("filters") String filtersParameter,
                                    @QueryParam("limit") int limit,
                                    @QueryParam("offset") int offset,
+                                   @QueryParam("order_column") @Nullable String orderColumnParam,
+                                   @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                    @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -173,11 +186,23 @@ public class ArpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        ThreeColumnHistogramOrderColumn orderColumn = ThreeColumnHistogramOrderColumn.VALUE3;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+
         long topRequesterPairsCount = nzyme.getEthernet().arp()
                 .countPairs("Reply", timeRange,  filters, taps);
 
         List<ThreeColumnTableHistogramValueResponse> topRequesterPairs = buildPairs(
-                "Reply", organizationId, tenantId, timeRange, filters, limit, offset, taps
+                "Reply", organizationId, tenantId, timeRange, filters, limit, offset, orderColumn, orderDirection, taps
         );
 
         return Response.ok(ThreeColumnTableHistogramResponse.create(
@@ -250,33 +275,36 @@ public class ArpResource extends TapDataHandlingResource {
                                                                     Filters filters,
                                                                     int limit,
                                                                     int offset,
+                                                                    ThreeColumnHistogramOrderColumn orderColumn,
+                                                                    OrderDirection orderDirection,
                                                                     List<UUID> taps) {
         List<ThreeColumnTableHistogramValueResponse> pairs = Lists.newArrayList();
-        for (ArpSenderTargetCountPair pair : nzyme.getEthernet().arp()
-                .getPairs(operation, timeRange, filters, limit, offset, taps)) {
+
+        for (AssetPairNumberAggregationResult pair : nzyme.getEthernet().arp()
+                .getPairs(operation, timeRange, filters, limit, offset, orderColumn, orderDirection, taps)) {
             Optional<MacAddressContextEntry> senderMacContext = nzyme.getContextService().findMacAddressContext(
-                    pair.senderMac(),
+                    pair.mac1(),
                     organizationId,
                     tenantId
             );
             Optional<MacAddressContextEntry> targetMacContext = nzyme.getContextService().findMacAddressContext(
-                    pair.targetMac(),
+                    pair.mac2(),
                     organizationId,
                     tenantId
             );
 
             Optional<AssetEntry> senderAsset = nzyme.getAssetsManager()
-                    .findAssetByMac(pair.senderMac(), organizationId, tenantId);
+                    .findAssetByMac(pair.mac1(), organizationId, tenantId);
             Optional<AssetEntry> targetAsset = nzyme.getAssetsManager()
-                    .findAssetByMac(pair.targetMac(), organizationId, tenantId);
+                    .findAssetByMac(pair.mac2(), organizationId, tenantId);
 
             pairs.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
-                            pair.senderMac(),
+                            pair.mac1(),
                             HistogramValueType.ETHERNET_MAC,
                             EthernetMacAddressResponse.create(
-                                    pair.senderMac(),
-                                    nzyme.getOuiService().lookup(pair.senderMac()).orElse(null),
+                                    pair.mac1(),
+                                    nzyme.getOuiService().lookup(pair.mac1()).orElse(null),
                                     senderAsset.map(AssetEntry::uuid).orElse(null),
                                     senderAsset.map(AssetEntry::isActive).orElse(null),
                                     senderMacContext.map(ctx ->
@@ -288,11 +316,11 @@ public class ArpResource extends TapDataHandlingResource {
                             )
                     ),
                     HistogramValueStructureResponse.create(
-                            pair.targetMac(),
+                            pair.mac2(),
                             HistogramValueType.ETHERNET_MAC,
                             EthernetMacAddressResponse.create(
-                                    pair.targetMac(),
-                                    nzyme.getOuiService().lookup(pair.targetMac()).orElse(null),
+                                    pair.mac2(),
+                                    nzyme.getOuiService().lookup(pair.mac2()).orElse(null),
                                     targetAsset.map(AssetEntry::uuid).orElse(null),
                                     targetAsset.map(AssetEntry::isActive).orElse(null),
                                     targetMacContext.map(ctx ->
@@ -303,8 +331,8 @@ public class ArpResource extends TapDataHandlingResource {
                                     ).orElse(null)
                             )
                     ),
-                    HistogramValueStructureResponse.create(pair.count(), HistogramValueType.INTEGER, null),
-                    pair.senderMac() + " -> " + pair.targetMac()
+                    HistogramValueStructureResponse.create(pair.value(), HistogramValueType.INTEGER, null),
+                    pair.mac1() + " -> " + pair.mac2()
             ));
         }
 

@@ -2,10 +2,11 @@ package app.nzyme.core.ethernet.arp;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.AssetPairNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.arp.db.ARPStatisticsBucket;
 import app.nzyme.core.ethernet.arp.db.ArpPacketEntry;
-import app.nzyme.core.ethernet.arp.db.ArpSenderTargetCountPair;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
@@ -158,12 +159,14 @@ public class ARP {
         );
     }
 
-    public List<ArpSenderTargetCountPair> getPairs(String operation,
-                                                   TimeRange timeRange,
-                                                   Filters filters,
-                                                   int limit,
-                                                   int offset,
-                                                   List<UUID> taps) {
+    public List<AssetPairNumberAggregationResult> getPairs(String operation,
+                                                           TimeRange timeRange,
+                                                           Filters filters,
+                                                           int limit,
+                                                           int offset,
+                                                           ThreeColumnHistogramOrderColumn orderColumn,
+                                                           OrderDirection orderDirection,
+                                                           List<UUID> taps) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -171,20 +174,21 @@ public class ARP {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new ARPFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT arp_sender_mac, arp_target_mac, COUNT(*) AS count " +
+                handle.createQuery("SELECT arp_sender_mac AS value1, arp_target_mac AS value2, COUNT(*) AS value3 " +
                                 "FROM arp_packets WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND operation = :operation AND tap_uuid IN (<taps>)" + filterFragment.whereSql() +
-                                "GROUP BY arp_sender_mac, arp_target_mac " +
-                                "ORDER BY count DESC LIMIT :limit OFFSET :offset")
+                                "GROUP BY value1, value2 " +
+                                "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bind("operation", operation)
-
                         .bind("limit", limit)
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(ArpSenderTargetCountPair.class)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(AssetPairNumberAggregationResult.class)
                         .list()
         );
     }

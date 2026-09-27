@@ -4,16 +4,14 @@ import {DEFAULT_LIMIT} from "../../../widgets/LimitSelector";
 import {TapContext} from "../../../../App";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import ThreeColumnHistogram from "../../../widgets/histograms/ThreeColumnHistogram";
+import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
+import {ARP_FILTER_FIELDS} from "./ARPFilterFields";
 
 const assetsService = new AssetsService();
 
-export default function ARPRequesterPairsHistogram(props) {
+export default function ARPRequesterPairsHistogram({timeRange, filters, setFilters, revision}) {
 
-  const organizationId = props.organizationId;
-  const tenantId = props.tenantId;
-  const timeRange = props.timeRange;
-  const filters = props.filters;
-  const revision = props.revision;
+  const [organizationId, tenantId] = useSelectedTenant();
 
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [data, setData] = useState(null);
@@ -21,10 +19,13 @@ export default function ARPRequesterPairsHistogram(props) {
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
+  const [orderColumn, setOrderColumn] = useState("value3");
+  const [orderDirection, setOrderDirection] = useState("DESC");
+
   useEffect(() => {
     setData(null);
-    assetsService.getArpRequesterPairs(organizationId, tenantId, timeRange, filters, limit, 0, selectedTaps, setData);
-  }, [organizationId, tenantId, selectedTaps, limit, filters, timeRange, revision])
+    assetsService.getArpRequesterPairs(organizationId, tenantId, timeRange, orderColumn, orderDirection, filters, limit, 0, selectedTaps, setData);
+  }, [organizationId, tenantId, orderColumn, orderDirection, selectedTaps, limit, filters, timeRange, revision])
 
   if (!data) {
     return <GenericWidgetLoadingSpinner height={300} />
@@ -40,7 +41,16 @@ export default function ARPRequesterPairsHistogram(props) {
 
   return <ThreeColumnHistogram data={data}
                                columnTitles={["ARP Sender", "ARP Target", "Requests"]}
+                               columnFilterElements={[
+                                 {field: "arp_sender_mac", fields: ARP_FILTER_FIELDS, setFilters: setFilters},
+                                 {field: "arp_target_mac", fields: ARP_FILTER_FIELDS, setFilters: setFilters},
+                                 null
+                               ]}
                                customChartMarginLeft={250}
+                               orderColumn={orderColumn}
+                               setOrderColumn={setOrderColumn}
+                               orderDirection={orderDirection}
+                               setOrderDirection={setOrderDirection}
                                limit={limit}
                                setLimit={setLimit} />
 

@@ -156,9 +156,8 @@ export default function ARPPacketsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ARPRequesterPairsHistogram organizationId={organizationId}
-                                            tenantId={tenantId}
-                                            timeRange={timeRange}
+                <ARPRequesterPairsHistogram timeRange={timeRange}
+                                            setFilters={setFilters}
                                             filters={filters}
                                             revision={revision} />
               </div>
@@ -172,9 +171,8 @@ export default function ARPPacketsPage() {
                                        timeRange={timeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ARPResponderPairsHistogram organizationId={organizationId}
-                                            tenantId={tenantId}
-                                            timeRange={timeRange}
+                <ARPResponderPairsHistogram timeRange={timeRange}
+                                            setFilters={setFilters}
                                             filters={filters}
                                             revision={revision} />
               </div>
