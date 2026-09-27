@@ -68,11 +68,17 @@ function ThreeColumnHistogram(props) {
       return null;
     }
 
-    /*
-     * If the value is not a simple string or number, but, for example a L4Address, we can pass a "sub field" to
-     * select a field on top of the value element.
-     */
-    let selectedValue = element.valueSubField ? value.value[element.valueSubField] : value.value;
+    let selectedValue;
+    if (Array.isArray(value.value)) {
+      // If the value is an array, pick the first value if there is one.
+      selectedValue = value.value[0];
+    } else {
+      /*
+       * If the value is not a simple string or number, but, for example a L4Address, we can pass a "sub field" to
+       * select a field on top of the value element.
+       */
+      selectedValue = element.valueSubField ? value.value[element.valueSubField] : value.value;
+    }
 
     return <FilterValueIcon setFilters={element.setFilters}
                             fields={element.fields}

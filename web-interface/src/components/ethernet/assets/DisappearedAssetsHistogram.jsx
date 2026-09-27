@@ -3,10 +3,14 @@ import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinn
 import AssetsService from "../../../services/ethernet/AssetsService";
 import {DEFAULT_LIMIT} from "../../widgets/LimitSelector";
 import ThreeColumnHistogram from "../../widgets/histograms/ThreeColumnHistogram";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
+import {ASSET_FILTER_FIELDS} from "./AssetFilterFields";
 
 const assetsService = new AssetsService();
 
-export default function DisappearedAssetsHistogram({timeRange, filters, organizationId, tenantId, revision}) {
+export default function DisappearedAssetsHistogram({timeRange, filters, setFilters, revision}) {
+
+  const [organizationId, tenantId] = useSelectedTenant();
 
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
   const [histogram, setHistogram] = useState(null);
@@ -30,6 +34,11 @@ export default function DisappearedAssetsHistogram({timeRange, filters, organiza
 
   return <ThreeColumnHistogram data={histogram}
                                columnTitles={["Asset", "Hostname", "Last Seen"]}
+                               columnFilterElements={[
+                                 {field: "mac", fields: ASSET_FILTER_FIELDS, setFilters: setFilters},
+                                 {field: "hostname", fields: ASSET_FILTER_FIELDS, setFilters: setFilters},
+                                 null
+                               ]}
                                customChartMarginLeft={250}
                                limit={limit}
                                setLimit={setLimit} />

@@ -72,7 +72,7 @@ function HistogramValue(props) {
         {moment(value.value).fromNow()}
       </span>
     case "ASSET_HOSTNAMES":
-      return <AssetHostnames hostnames={value.value} />
+      return <AssetHostnames hostnames={value.value} filterElement={filterElement} />
     default:
       return <span>[unknown value type]</span>
   }

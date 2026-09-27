@@ -1,9 +1,7 @@
 import React from "react";
 import {truncate} from "../../../util/Tools";
 
-export default function AssetHostnames(props) {
-
-  const hostnames = props.hostnames;
+export default function AssetHostnames({hostnames, filterElement = undefined}) {
 
   const additional = () => {
     if (hostnames.length < 2) {
@@ -19,7 +17,7 @@ export default function AssetHostnames(props) {
 
   return (
       <span title={hostnames.join(", ")}>
-        <span className="hostname">{truncate(hostnames[0], 35, false)}</span>{' '}{additional()}
+        <span className="hostname">{truncate(hostnames[0], 35, false)}</span>{' '}{additional()}{filterElement}
       </span>
   )
 

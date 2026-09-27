@@ -71,9 +71,7 @@ export default function EthernetAssetsPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <ActiveAssetsHistogram organizationId={organizationId}
-                                       tenantId={tenantId}
-                                       timeRange={timeRange}
+                <ActiveAssetsHistogram timeRange={timeRange}
                                        setTimeRange={setTimeRange}
                                        revision={revision} />
               </div>
@@ -106,9 +104,8 @@ export default function EthernetAssetsPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <LatestAssetsHistogram organizationId={organizationId}
-                                       tenantId={tenantId}
-                                       filters={filters}
+                <LatestAssetsHistogram filters={filters}
+                                       setFilters={setFilters}
                                        timeRange={timeRange}
                                        revision={revision} />
               </div>
@@ -123,9 +120,8 @@ export default function EthernetAssetsPage() {
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
-                <DisappearedAssetsHistogram organizationId={organizationId}
-                                            tenantId={tenantId}
-                                            filters={filters}
+                <DisappearedAssetsHistogram filters={filters}
+                                            setFilters={setFilters}
                                             timeRange={timeRange}
                                             revision={revision} />
               </div>
@@ -143,6 +139,7 @@ export default function EthernetAssetsPage() {
                                        refreshAction={() => setRevision(new Date())} />
 
                 <AssetsTable assets={assets}
+                             setFilters={setFilters}
                              page={page}
                              setPage={setPage}
                              perPage={perPage}

@@ -121,6 +121,27 @@ public class AssetManager {
         );
     }
 
+    // This reads from the `asset_statistics` table, which is on an independent retention schedule.
+    public List<GenericIntegerHistogramEntry> activeAssetCountHistogram(TimeRange timeRange,
+                                                                        Bucketing.BucketingConfiguration bucketing,
+                                                                        UUID organizationId,
+                                                                        UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT date_trunc(:date_trunc, timestamp) AS bucket, " +
+                                "MAX(asset_count) AS value FROM assets_statistics " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND timestamp >= :tr_from AND timestamp <= :tr_to " +
+                                "GROUP BY bucket ORDER BY bucket DESC;")
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
     public List<AssetEntry> findAllAssets(UUID organizationId,
                                           UUID tenantId,
                                           TimeRange timeRange,
@@ -385,26 +406,6 @@ public class AssetManager {
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
                         .mapTo(AssetIpAddressEntry.class)
-                        .list()
-        );
-    }
-
-    public List<GenericIntegerHistogramEntry> activeAssetCountHistogram(TimeRange timeRange,
-                                                                        Bucketing.BucketingConfiguration bucketing,
-                                                                        UUID organizationId,
-                                                                        UUID tenantId) {
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT date_trunc(:date_trunc, timestamp) AS bucket, " +
-                                "MAX(asset_count) AS value FROM assets_statistics " +
-                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND timestamp >= :tr_from AND timestamp <= :tr_to " +
-                                "GROUP BY bucket ORDER BY bucket DESC;")
-                        .bind("date_trunc", bucketing.type().getDateTruncName())
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .mapTo(GenericIntegerHistogramEntry.class)
                         .list()
         );
     }

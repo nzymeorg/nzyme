@@ -263,13 +263,25 @@ public class FilterSql {
     public static String macAddressMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case EQUALS:
-                return fieldName + " = UPPER(:" + bindId + ")";
+                return fieldName + " = :" + bindId;
             case NOT_EQUALS:
-                return fieldName + " <> UPPER(:" + bindId + ")";
+                return fieldName + " <> :" + bindId;
             case REGEX_MATCH:
                 return fieldName + " ~ :" + bindId;
             case NOT_REGEX_MATCH:
                 return fieldName + " !~ :" + bindId;
+            case CONTAINS:
+                return "strpos(" + fieldName + ", :" + bindId + ") > 0";
+            case NOT_CONTAINS:
+                return "(" + fieldName + " IS NULL OR strpos(" + fieldName + ", :" + bindId + ") = 0)";
+            case STARTS_WITH:
+                return "left(" + fieldName + ", char_length(:" + bindId + ")) = :" + bindId;
+            case ENDS_WITH:
+                return "right(" + fieldName + ", char_length(:" + bindId + ")) = :" + bindId;
+            case IS_NULL:
+                return fieldName + " IS NULL";
+            case IS_NOT_NULL:
+                return fieldName + " IS NOT NULL";
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for string field [" + fieldName + "].");
         }

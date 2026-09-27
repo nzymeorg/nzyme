@@ -1,8 +1,6 @@
 import React from "react";
 
-export default function AssetIpAddresses(props) {
-
-  const addresses = props.addresses;
+export default function AssetIpAddresses({addresses, filterElement = undefined}) {
 
   const additional = () => {
     if (addresses.length < 2) {
@@ -18,7 +16,7 @@ export default function AssetIpAddresses(props) {
 
   return (
       <span title={addresses.join(", ")}>
-        <span className="ip-address">{addresses[0]}</span>{' '}{additional()}
+        <span className="ip-address">{addresses[0]}</span>{' '}{additional()}{filterElement}
       </span>
   )
 

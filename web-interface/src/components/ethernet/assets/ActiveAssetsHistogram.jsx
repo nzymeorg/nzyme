@@ -2,10 +2,13 @@ import React, {useEffect, useState} from "react";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
 import AssetsService from "../../../services/ethernet/AssetsService";
 import SimpleLineChart from "../../widgets/charts/SimpleLineChart";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const assetsService = new AssetsService();
 
-export default function ActiveAssetsHistogram({timeRange, setTimeRange, organizationId, tenantId, revision}) {
+export default function ActiveAssetsHistogram({timeRange, setTimeRange, revision}) {
+
+  const [organizationId, tenantId] = useSelectedTenant();
 
   const [histogram, setHistogram] = useState(null);
 

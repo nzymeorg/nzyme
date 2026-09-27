@@ -1,5 +1,4 @@
 import React from "react";
-import LoadingSpinner from "../../misc/LoadingSpinner";
 import numeral from "numeral";
 import ColumnSorting from "../../shared/ColumnSorting";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
@@ -11,10 +10,13 @@ import {truncate} from "../../../util/Tools";
 import ApiRoutes from "../../../util/ApiRoutes";
 import AssetActiveIndicator from "./AssetActiveIndicator";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
+import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
+import {ASSET_FILTER_FIELDS} from "./AssetFilterFields";
 
 export default function AssetsTable(props) {
 
   const assets = props.assets;
+  const setFilters = props.setFilters;
   const page = props.page;
   const setPage = props.setPage;
   const perPage = props.perPage;
@@ -70,8 +72,24 @@ export default function AssetsTable(props) {
                   <td>{a.oui ? truncate(a.oui, 30, false) : <span className="text-muted">Unknown</span>}</td>
                   <td><AssetActiveIndicator active={a.is_active} /></td>
                   <td>{a.name ? <span className="context-name">{a.name}</span> : <span className="text-muted">None</span>}</td>
-                  <td><AssetHostnames hostnames={a.hostnames} /></td>
-                  <td><AssetIpAddresses addresses={a.ip_addresses} /></td>
+                  <td>
+                    <AssetHostnames hostnames={a.hostnames}
+                                    filterElement={a.hostnames && a.hostnames.length > 0 ?
+                                      <FilterValueIcon setFilters={setFilters}
+                                                       fields={ASSET_FILTER_FIELDS}
+                                                       field="hostname"
+                                                       value={a.hostnames[0]} />
+                                      : null } />
+                  </td>
+                  <td>
+                    <AssetIpAddresses addresses={a.ip_addresses}
+                                      filterElement={a.ip_addresses && a.ip_addresses.length > 0 ?
+                                        <FilterValueIcon setFilters={setFilters}
+                                                         fields={ASSET_FILTER_FIELDS}
+                                                         field="ip_address"
+                                                         value={a.ip_addresses[0]} />
+                                        : null } />
+                  </td>
                   <td title={moment(a.first_seen).format()}>{moment(a.first_seen).fromNow()}</td>
                   <td title={moment(a.last_seen).format()}>{moment(a.last_seen).fromNow()}</td>
                 </tr>
