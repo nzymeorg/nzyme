@@ -6,6 +6,7 @@ import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -30,10 +31,10 @@ public abstract class AssetSummaryResponse {
     public abstract String name();
 
     @JsonProperty("hostnames")
-    public abstract Set<String> hostnames();
+    public abstract List<String> hostnames();
 
     @JsonProperty("ip_addresses")
-    public abstract Set<String> ipAddresses();
+    public abstract List<String> ipAddresses();
 
     @Nullable
     @JsonProperty("dhcp_fingerprint_initial")
@@ -57,7 +58,7 @@ public abstract class AssetSummaryResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static AssetSummaryResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, Set<String> hostnames, Set<String> ipAddresses, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, DateTime firstSeen, DateTime lastSeen) {
+    public static AssetSummaryResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, List<String> hostnames, List<String> ipAddresses, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .uuid(uuid)
                 .mac(mac)
@@ -91,9 +92,9 @@ public abstract class AssetSummaryResponse {
 
         public abstract Builder name(String name);
 
-        public abstract Builder hostnames(Set<String> hostnames);
+        public abstract Builder hostnames(List<String> hostnames);
 
-        public abstract Builder ipAddresses(Set<String> ipAddresses);
+        public abstract Builder ipAddresses(List<String> ipAddresses);
 
         public abstract Builder dhcpFingerprintInitial(String dhcpFingerprintInitial);
 

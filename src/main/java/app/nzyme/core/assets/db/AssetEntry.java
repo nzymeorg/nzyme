@@ -4,6 +4,7 @@ import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
+import java.util.List;
 import java.util.UUID;
 
 @AutoValue
@@ -27,12 +28,14 @@ public abstract class AssetEntry {
     public abstract boolean seenDhcp();
     public abstract boolean seenTcp();
     public abstract boolean seenUdp();
+    public abstract List<String> hostnames();
+    public abstract List<String> ipAddresses();
     public abstract DateTime firstSeen();
     public abstract DateTime lastSeen();
     public abstract DateTime updatedAt();
     public abstract DateTime createdAt();
 
-    public static AssetEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String mac, boolean isActive, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, DateTime firstSeen, DateTime lastSeen, DateTime updatedAt, DateTime createdAt) {
+    public static AssetEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String mac, boolean isActive, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, List<String> hostnames, List<String> ipAddresses, DateTime firstSeen, DateTime lastSeen, DateTime updatedAt, DateTime createdAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -48,6 +51,8 @@ public abstract class AssetEntry {
                 .seenDhcp(seenDhcp)
                 .seenTcp(seenTcp)
                 .seenUdp(seenUdp)
+                .hostnames(hostnames)
+                .ipAddresses(ipAddresses)
                 .firstSeen(firstSeen)
                 .lastSeen(lastSeen)
                 .updatedAt(updatedAt)
@@ -88,6 +93,10 @@ public abstract class AssetEntry {
         public abstract Builder seenTcp(boolean seenTcp);
 
         public abstract Builder seenUdp(boolean seenUdp);
+
+        public abstract Builder hostnames(List<String> hostnames);
+
+        public abstract Builder ipAddresses(List<String> ipAddresses);
 
         public abstract Builder firstSeen(DateTime firstSeen);
 

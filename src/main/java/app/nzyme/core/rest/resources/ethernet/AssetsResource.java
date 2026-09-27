@@ -89,10 +89,6 @@ public class AssetsResource extends TapDataHandlingResource {
                     asset.mac(), organizationId, tenantId
             );
 
-
-            Set<String> hostnames = getHostnamesOfContext(context);
-            Set<String> ipAddresses = getIpAddressesOfContext(context);
-
             assets.add(AssetSummaryResponse.create(
                     asset.uuid(),
                     EthernetMacAddressResponse.create(
@@ -110,8 +106,8 @@ public class AssetsResource extends TapDataHandlingResource {
                     nzyme.getOuiService().lookup(asset.mac()).orElse(null),
                     asset.isActive(),
                     context.map(MacAddressContextEntry::name).orElse(null),
-                    hostnames,
-                    ipAddresses,
+                    asset.hostnames(),
+                    asset.ipAddresses(),
                     asset.dhcpFingerprintInitial(),
                     asset.dhcpFingerprintRenew(),
                     asset.dhcpFingerprintReboot(),
@@ -174,8 +170,6 @@ public class AssetsResource extends TapDataHandlingResource {
                     tenantId
             );
 
-            Set<String> hostnames = getHostnamesOfContext(context);
-
             HistogramValueStructureResponse columnOne = HistogramValueStructureResponse.create(
                     asset.mac(),
                     HistogramValueType.ETHERNET_MAC,
@@ -194,7 +188,7 @@ public class AssetsResource extends TapDataHandlingResource {
             );
 
             HistogramValueStructureResponse columnTwo = HistogramValueStructureResponse.create(
-                    hostnames, HistogramValueType.ASSET_HOSTNAMES, null
+                    asset.hostnames(), HistogramValueType.ASSET_HOSTNAMES, null
             );
 
 
@@ -239,8 +233,6 @@ public class AssetsResource extends TapDataHandlingResource {
                     tenantId
             );
 
-            Set<String> hostnames = getHostnamesOfContext(context);
-
             HistogramValueStructureResponse columnOne = HistogramValueStructureResponse.create(
                     asset.mac(),
                     HistogramValueType.ETHERNET_MAC,
@@ -259,7 +251,7 @@ public class AssetsResource extends TapDataHandlingResource {
             );
 
             HistogramValueStructureResponse columnTwo = HistogramValueStructureResponse.create(
-                    hostnames, HistogramValueType.ASSET_HOSTNAMES, null
+                    asset.hostnames(), HistogramValueType.ASSET_HOSTNAMES, null
             );
 
 
@@ -546,36 +538,6 @@ public class AssetsResource extends TapDataHandlingResource {
                 Map.of("cache_type", "asset_by_mac"),
                 false
         ));
-    }
-
-    private Set<String> getHostnamesOfContext(Optional<MacAddressContextEntry> context) {
-        Set<String> result = Sets.newHashSet();
-        if (context.isPresent()) {
-            for (MacAddressTransparentContextEntry tpx : nzyme.getContextService()
-                    .findTransparentMacAddressContext(context.get().id())) {
-                if (tpx.type().equals("HOSTNAME")) {
-                        result.add(tpx.hostname());
-                        break;
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private Set<String> getIpAddressesOfContext(Optional<MacAddressContextEntry> context) {
-        Set<String> result = Sets.newHashSet();
-        if (context.isPresent()) {
-            for (MacAddressTransparentContextEntry tpx : nzyme.getContextService()
-                    .findTransparentMacAddressContext(context.get().id())) {
-                if (tpx.type().equals("IP_ADDRESS") && tpx.ipAddress() != null) {
-                    result.add(tpx.ipAddress().getHostAddress());
-                    break;
-                }
-            }
-        }
-
-        return result;
     }
 
 }
