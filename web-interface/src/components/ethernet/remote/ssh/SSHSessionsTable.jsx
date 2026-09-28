@@ -61,10 +61,10 @@ export default function SSHSessionsTable(props) {
             <th>Session ID {columnSorting("session_id")}</th>
             <th>Client Address {columnSorting("client_address")}</th>
             <th>Client MAC {columnSorting("client_mac")}</th>
-            <th>Client Type {columnSorting("client_type")}</th>
+            <th className="hide-narrow">Client Type {columnSorting("client_type")}</th>
             <th>Server Address {columnSorting("server_address")}</th>
             <th>Server MAC {columnSorting("server_mac")}</th>
-            <th>Server Type {columnSorting("server_type")}</th>
+            <th className="hide-narrow">Server Type {columnSorting("server_type")}</th>
             <th>Status {columnSorting("connection_status")}</th>
             <th>Bytes {columnSorting("tunneled_bytes")}</th>
             <th>Duration {columnSorting("duration")}</th>

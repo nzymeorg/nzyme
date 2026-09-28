@@ -53,7 +53,7 @@ export default function SSHSessionsTableRow(props) {
                                        filterElement={macFilter(session.client.mac, "client_mac")}
                                        withAssetLink withAssetName /> : null} />
         </td>
-        <td>
+        <td className="hide-narrow">
           <SSHVersion version={session.client_version} />
 
           <FilterValueIcon setFilters={setFilters}
@@ -75,7 +75,7 @@ export default function SSHSessionsTableRow(props) {
                                                         filterElement={macFilter(session.server.mac, "server_mac")}
                                                         withAssetLink withAssetName /> : null} />
         </td>
-        <td>
+        <td className="hide-narrow">
           <SSHVersion version={session.server_version} />
 
           <FilterValueIcon setFilters={setFilters}
