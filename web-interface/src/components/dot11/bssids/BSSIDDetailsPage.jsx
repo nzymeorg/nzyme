@@ -116,6 +116,10 @@ function BSSIDDetailsPage() {
       return <LoadingSpinner />
     }
 
+    if (ssids.length === 0) {
+      return <div className="alert alert-info mb-0">No advertised SSIDs recorded.</div>
+    }
+
     return (
         <table style={{width: "100%"}}>
           <tbody>
@@ -123,6 +127,18 @@ function BSSIDDetailsPage() {
           </tbody>
         </table>
     )
+  }
+
+  const fingerprints = () => {
+    if (bssid.summary.fingerprints.length === 0) {
+      return <div className="alert alert-info mb-0">No fingerprints recorded.</div>
+    }
+
+    return <ul className="mb-0">
+      {bssid.summary.fingerprints.map((fp, i) => {
+        return <li key={i}>{fp}</li>
+      })}
+    </ul>
   }
 
   const onFloorSelected = (locationUuid, floorUuid) => {
@@ -243,11 +259,7 @@ function BSSIDDetailsPage() {
                     <CardTitleWithControls title="Fingerprints"
                                            fixedAppliedTimeRange={Presets.ALL_TIME} />
 
-                    <ul className="mb-0">
-                      {bssid.summary.fingerprints.map((fp, i) => {
-                        return <li key={i}>{fp}</li>
-                      })}
-                    </ul>
+                    {fingerprints()}
                   </div>
                 </div>
               </div>

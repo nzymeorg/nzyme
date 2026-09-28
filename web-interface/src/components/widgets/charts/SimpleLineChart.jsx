@@ -4,6 +4,31 @@ import Store from '../../../util/Store'
 import { Absolute } from "../../shared/timerange/TimeRange";
 import { useApplyTimeRange } from "../../shared/timerange/TimeRangeUrl";
 
+const inferBucketSize = (times) => {
+  const counts = new Map()
+  let total = 0
+
+  for (let i = 1; i < times.length; i++) {
+    const gap = times[i].getTime() - times[i - 1].getTime()
+    if (gap <= 0) continue
+    counts.set(gap, (counts.get(gap) || 0) + 1)
+    total++
+  }
+
+  if (total < 2) return undefined
+
+  let best
+  let bestCount = 0
+  for (const [gap, count] of counts) {
+    if (count > bestCount) {
+      best = gap
+      bestCount = count
+    }
+  }
+
+  return bestCount / total >= 0.5 ? best : undefined
+}
+
 class SimpleLineChartBase extends React.Component {
   constructor (props) {
     super(props)
@@ -30,15 +55,12 @@ class SimpleLineChartBase extends React.Component {
       )
       const times = sortedKeys.map(k => new Date(k))
 
-      let bucketSize = this.props.bucketSize
-      if (!bucketSize && times.length > 1) {
-        const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b))
-        let g = 0
-        for (let i = 1; i < times.length; i++) {
-          const gap = times[i].getTime() - times[i - 1].getTime()
-          if (gap > 0) g = gcd(g, gap)
-        }
-        bucketSize = g > 0 ? g : undefined
+      const mode = this.props.scattermode ? this.props.scattermode : 'lines'
+      const drawsLines = mode.includes('lines')
+
+      let bucketSize = drawsLines ? this.props.bucketSize : undefined
+      if (drawsLines && !bucketSize && times.length > 1) {
+        bucketSize = inferBucketSize(times)
       }
 
       for (let i = 0; i < sortedKeys.length; i++) {
@@ -57,7 +79,6 @@ class SimpleLineChartBase extends React.Component {
       }
 
       const lineColor = Store.get('dark_mode') ? '#f9f9f9' : '#1d30d7'
-      const mode = this.props.scattermode ? this.props.scattermode : 'lines'
 
       const hoverValue = this.props.tickformat ? `%{y:${this.props.tickformat}}` : '%{y}'
       const hoverTemplate = `${hoverValue}${this.props.ticksuffix ? this.props.ticksuffix : ''}<extra></extra>`
@@ -79,7 +100,7 @@ class SimpleLineChartBase extends React.Component {
         }
       ]
 
-      if (mode.includes('lines') && !mode.includes('markers')) {
+      if (drawsLines && !mode.includes('markers')) {
         const isoX = []
         const isoY = []
         for (let i = 0; i < y.length; i++) {

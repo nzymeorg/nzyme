@@ -41,6 +41,7 @@ function BSSIDAdvertisementHistogram({bssid, parameter, timeRange, setTimeRange,
           setTimeRange={setTimeRange}
           timeRange={timeRange}
           urlKey={urlKey}
+          scattermode="markers"
           data={formatData(histogram.values)} />
       </React.Fragment>
   )

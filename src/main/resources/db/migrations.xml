@@ -8821,4 +8821,12 @@
         <dropIndex tableName="l4_sessions" indexName="l4_sessions_filter_tap" />
     </changeSet>
 
+    <changeSet id="allow_hidden_ssids_in_ssids_table" author="lennartkoopmann">
+        <dropNotNullConstraint tableName="dot11_ssids" columnName="ssid" />
+    </changeSet>
+
+    <changeSet id="undo_allow_hidden_ssids_in_ssids_table" author="lennartkoopmann">
+        <addNotNullConstraint tableName="dot11_ssids" columnName="ssid" />
+    </changeSet>
+
 </databaseChangeLog>
