@@ -65,10 +65,8 @@ export default function ARPPacketsTable(props) {
             <th style={{width: 200}}>Timestamp {columnSorting("timestamp")}</th>
             <th>ARP Operation {columnSorting("operation")}</th>
             <th>Sender MAC {columnSorting("arp_sender_mac")}</th>
-            <th>Sender Name</th>
             <th>Sender Address {columnSorting("arp_sender_address")}</th>
             <th>Target MAC {columnSorting("arp_target_mac")}</th>
-            <th>Target Name</th>
             <th>Target Address {columnSorting("arp_target_address")}</th>
           </tr>
           </thead>
@@ -95,9 +93,8 @@ export default function ARPPacketsTable(props) {
                                                                           fields={ARP_FILTER_FIELDS}
                                                                           field="arp_sender_mac"
                                                                           value={p.arp_sender.mac.address} />}
-                                          withAssetLink />
+                                          withAssetName withAssetLink />
                     </td>
-                    <td><AssetName addressWithContext={p.arp_sender ? p.arp_sender.mac : null} /></td>
                     <td>
                       <L4Address address={p.arp_sender}
                                  filterElement={<FilterValueIcon setFilters={setFilters}
@@ -112,9 +109,8 @@ export default function ARPPacketsTable(props) {
                                                                           fields={ARP_FILTER_FIELDS}
                                                                           field="arp_target_mac"
                                                                           value={p.arp_target.mac.address} />}
-                                          withAssetLink />
+                                          withAssetName withAssetLink />
                     </td>
-                    <td><AssetName addressWithContext={p.arp_target ? p.arp_target.mac : null} /></td>
                     <td>
                       <L4Address address={p.arp_target}
                                  filterElement={<FilterValueIcon setFilters={setFilters}

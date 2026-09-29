@@ -122,7 +122,7 @@ export default function L4SessionsTable(props) {
             <th>Destination MAC {columnSorting("destination_mac")}</th>
             <th>Destination Address {columnSorting("destination_address")}</th>
             <th>Tags</th>
-            <th>Fingerprint {columnSorting("fingerprint")}</th>
+            <th className="hide-narrow">Fingerprint {columnSorting("fingerprint")}</th>
             <th>RX {columnSorting("bytes_rx_count")}</th>
             <th>TX {columnSorting("bytes_tx_count")}</th>
             <th>Duration {columnSorting("duration")}</th>
@@ -187,7 +187,7 @@ export default function L4SessionsTable(props) {
                                                                value={s.destination.address} />}/>
                   </td>
                   <td><L4SessionTags tags={s.tags} setFilters={setFilters} /></td>
-                  <td>
+                  <td className="hide-narrow">
                     <FullCopy shortValue={s.fingerprint ? <span className="machine-data">{s.fingerprint.substr(0,8)}</span> : null} fullValue={s.fingerprint} />
 
                     <FilterValueIcon setFilters={setFilters}

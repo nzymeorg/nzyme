@@ -55,14 +55,12 @@ export default function DHCPTransactionsTable(props) {
             <th style={{width: 200}}>Initiated At {columnSorting("initiated_at")}</th>
             <th>Type {columnSorting("transaction_type")}</th>
             <th>Client MAC {columnSorting("client_mac")}</th>
-            <th>Client Name</th>
             <th>Server MAC {columnSorting("server_mac")}</th>
-            <th>Server Name</th>
             <th>Requested IP {columnSorting("requested_ip_address")}</th>
-            <th>Fingerprint {columnSorting("fingerprint")}</th>
+            <th className="hide-narrow">Fingerprint {columnSorting("fingerprint")}</th>
             <th>Success</th>
             <th>Complete</th>
-            <th>Duration</th>
+            <th className="hide-narrow">Duration</th>
             <th>Notes</th>
           </tr>
           </thead>
@@ -89,9 +87,8 @@ export default function DHCPTransactionsTable(props) {
                                                                         fields={DHCP_FILTER_FIELDS}
                                                                         field="client_mac"
                                                                         value={t.client_mac.address} />}
-                                        withAssetLink />
+                                        withAssetName withAssetLink />
                   </td>
-                  <td><AssetName addressWithContext={t.client_mac} /></td>
                   <td>
                     {t.server_mac ?
                       <EthernetMacAddress addressWithContext={t.server_mac}
@@ -99,13 +96,12 @@ export default function DHCPTransactionsTable(props) {
                                                                           fields={DHCP_FILTER_FIELDS}
                                                                           field="server_mac"
                                                                           value={t.server_mac.address} />}
-                                          withAssetLink />
+                                          withAssetName withAssetLink />
                       : <span className="text-muted">n/a</span>}</td>
-                  <td><AssetName addressWithContext={t.server_mac} /></td>
                   <td>
                     {t.requested_ip_address ? t.requested_ip_address.address : <span className="text-muted">n/a</span>}
                   </td>
-                  <td>
+                  <td className="hide-narrow">
                     <FullCopyShortenedId value={t.fingerprint} />
                     <FilterValueIcon setFilters={setFilters}
                                      fields={DHCP_FILTER_FIELDS}
@@ -115,7 +111,7 @@ export default function DHCPTransactionsTable(props) {
                   <td><DHCPTransactionSuccess success={t.is_successful} /></td>
                   <td>{t.is_complete ? <span className="text-success">Complete</span>
                       : <span className="text-warning">Incomplete</span>}</td>
-                  <td><DHCPDuration duration={t.duration_ms} /></td>
+                  <td className="hide-narrow"><DHCPDuration duration={t.duration_ms} /></td>
                   <td><DHCPTransactionNotesCount notes={t.notes} /></td>
                 </tr>
             )
