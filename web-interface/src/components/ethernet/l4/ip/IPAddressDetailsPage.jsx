@@ -1,14 +1,33 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
 import {useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
+import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
+import IPAddressesService from "../../../../services/ethernet/IPAddressesService";
+import LoadingSpinner from "../../../misc/LoadingSpinner";
 
-export default function IPDetailsPage() {
+const ipAddressesService = new IPAddressesService();
+
+export default function IPAddressDetailsPage() {
+
+  const { addressParam } = useParams()
 
   // TODO replace with actual IP after we loaded it
   usePageTitle("IP Address Details");
 
-  const { address } = useParams()
+  const [organizationId, tenantId] = useSelectedTenant();
+
+  const [address, setAddress] = useState();
+
+  useEffect(() => {
+    setAddress(null);
+
+    ipAddressesService.findAddress(addressParam, organizationId, tenantId, setAddress);
+  }, [addressParam, organizationId, tenantId])
+
+  if (!address) {
+    return <LoadingSpinner />
+  }
 
   return (
       <React.Fragment>
@@ -19,7 +38,7 @@ export default function IPDetailsPage() {
                 <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
                 <li className="breadcrumb-item">IP</li>
                 <li className="breadcrumb-item">Addresses</li>
-                <li className="breadcrumb-item active" aria-current="page">{address}</li>
+                <li className="breadcrumb-item active" aria-current="page">{addressParam} TODO TODO TODO TODO TODO TODO TODO TODO</li>
               </ol>
             </nav>
           </div>
@@ -28,7 +47,7 @@ export default function IPDetailsPage() {
         <div className="row">
           <div className="col-md-12">
             <h1>
-              IP Address &quot;{address}&quot;
+              IP Address &quot;{addressParam}&quot; TODO TODO TODO TODO TODO TODO
             </h1>
           </div>
         </div>

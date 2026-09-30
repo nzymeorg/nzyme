@@ -8,6 +8,7 @@ import app.nzyme.core.rest.NzymeExceptionMapper;
 import app.nzyme.core.rest.NzymeLeaderInjectionBinder;
 import app.nzyme.core.rest.authentication.*;
 import app.nzyme.core.rest.interceptors.TapTableSizeInterceptor;
+import app.nzyme.core.rest.parameters.types.InetAddressParamConverterProvider;
 import app.nzyme.core.rest.resources.*;
 import app.nzyme.core.rest.resources.alerts.AlertsResource;
 import app.nzyme.core.rest.resources.assets.WebInterfaceAssetsResource;
@@ -131,6 +132,7 @@ public class NzymeHttpServer {
         resourceConfig.register(new NzymeExceptionMapper());
         resourceConfig.register(new TapTableSizeInterceptor(nzyme));
         resourceConfig.register(MultiPartFeature.class);
+        resourceConfig.register(InetAddressParamConverterProvider.class);
 
         // Register REST API resources.
         resourceConfig.register(AuthenticationResource.class);
@@ -183,6 +185,7 @@ public class NzymeHttpServer {
         resourceConfig.register(NATResource.class);
         resourceConfig.register(PortalIntegrityResource.class);
         resourceConfig.register(WebRTCResource.class);
+        resourceConfig.register(IPAddressesResource.class);
 
         // Plugin-supplied REST resources.
         for (Object resource : pluginRestResources) {

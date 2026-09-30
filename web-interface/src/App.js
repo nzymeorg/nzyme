@@ -114,7 +114,7 @@ import EditLocationPage from "./components/system/authentication/management/tena
 import CreateFloorPage from "./components/system/authentication/management/tenants/locations/floors/CreateFloorPage";
 import EditFloorPage from "./components/system/authentication/management/tenants/locations/floors/EditFloorPage";
 import LookAndFeelPage from "./components/system/lookandfeel/LookAndFeelPage";
-import IPDetailsPage from "./components/ethernet/l4/ip/IPDetailsPage";
+import IPAddressDetailsPage from "./components/ethernet/l4/ip/IPAddressDetailsPage";
 import SOCKSTunnelsPage from "./components/ethernet/tunnels/socks/SOCKSTunnelsPage";
 import SSHSessionsPage from "./components/ethernet/remote/ssh/SSHSessionsPage";
 import DNSTransactionLogsPage from "./components/ethernet/dns/logs/DNSTransactionLogsPage";
@@ -563,7 +563,7 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.OVERVIEW} element={<EthernetOverviewPage />}/>
 
                                 { /* Ethernet/IP. */}
-                                <Route path={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(':address')} element={<IPDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(':addressParam')} element={<IPAddressDetailsPage />}/>
 
                                 { /* Ethernet/L4. */}
                                 <Route path={ApiRoutes.ETHERNET.L4.OVERVIEW} element={<L4OverviewPage />}/>

@@ -144,7 +144,7 @@ const ApiRoutes = {
   ETHERNET: {
     OVERVIEW: '/ethernet/overview',
     IP: {
-      ADDRESS_DETAILS: address => `/ethernet/l4/ip/show/${address}`
+      ADDRESS_DETAILS: addressParam => `/ethernet/l4/ip/show/${addressParam}`
     },
     L4: {
       OVERVIEW: '/ethernet/l4',
