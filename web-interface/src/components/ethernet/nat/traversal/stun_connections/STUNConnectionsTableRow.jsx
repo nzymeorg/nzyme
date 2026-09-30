@@ -65,7 +65,7 @@ export default function STUNConnectionsTableRow({connection, setFilters}) {
                                                                    field="destination_address"
                                                                    value={connection.destination.address} /> : null } />
       </td>
-      <td>
+      <td className="hide-narrow">
         {connection.is_turn ? "True" : "False"}
 
         <FilterValueIcon setFilters={setFilters}

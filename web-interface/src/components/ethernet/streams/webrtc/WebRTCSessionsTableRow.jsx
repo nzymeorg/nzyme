@@ -75,7 +75,7 @@ export default function WebRTCSessionsTableRow({session, setFilters}) {
                                                                    field="destination_address"
                                                                    value={session.destination.address} /> : null } />
       </td>
-      <td>
+      <td className="hide-narrow">
         {numeral(session.stream_count).format("0,00")}
 
         <FilterValueIcon setFilters={setFilters}

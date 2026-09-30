@@ -78,7 +78,7 @@ export default function STUNDiscoveriesTable({timeRange, filters, setFilters, re
           <th>Source MAC {columnSorting("source_mac")}</th>
           <th>Source Address {columnSorting("source_address")}</th>
           <th>Destination {columnSorting("destination_address")}</th>
-          <th>Mapped Addresses {columnSorting("mapped_addresses")}</th>
+          <th className="hide-narrow">Mapped Addresses {columnSorting("mapped_addresses")}</th>
           <th>Initiated At {columnSorting("initiated_at")}</th>
         </tr>
         </thead>
@@ -113,7 +113,7 @@ export default function STUNDiscoveriesTable({timeRange, filters, setFilters, re
                                                                            field="destination_address"
                                                                            value={d.destination.address} /> : null } />
               </td>
-              <td>
+              <td className="hide-narrow">
                 <L4AddressList addresses={d.mapped_addresses}
                                setFilters={setFilters}
                                fields={STUN_DISCOVERY_FILTER_FIELDS}

@@ -10,7 +10,6 @@ import moment from "moment";
 import {formatSubMicro} from "../../../../util/Tools";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
-import {DHCP_FILTER_FIELDS} from "../../assets/dhcp/DHCPFilterFields";
 import {NTP_FILTER_FIELDS} from "./NTPFilterFields";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import TimeService from "../../../../services/ethernet/TimeService";
@@ -93,11 +92,11 @@ export default function NTPTransactionsTable({filters, setFilters, timeRange, re
             <th>Server MAC {columnSorting("server_mac")}</th>
             <th>Server Address {columnSorting("server_address")}</th>
             <th>Stratum {columnSorting("stratum")}</th>
-            <th>Clock Reference {columnSorting("reference_id")}</th>
+            <th className="hide-narrow">Clock Reference {columnSorting("reference_id")}</th>
             <th title="Round Trip Time">RTT {columnSorting("rtt_seconds")}</th>
-            <th title="Server Processing Time">SPT {columnSorting("server_processing_seconds")}</th>
-            <th>Root Delay {columnSorting("root_delay_seconds")}</th>
-            <th title="Root Dispersion">Root Disp. {columnSorting("root_dispersion_seconds")}</th>
+            <th className="hide-narrow" title="Server Processing Time">SPT {columnSorting("server_processing_seconds")}</th>
+            <th className="hide-narrow">Root Delay {columnSorting("root_delay_seconds")}</th>
+            <th className="hide-narrow" title="Root Dispersion">Root Disp. {columnSorting("root_dispersion_seconds")}</th>
             <th>Initiated At {columnSorting("initiated_at")}</th>
           </tr>
           </thead>
@@ -165,7 +164,7 @@ export default function NTPTransactionsTable({filters, setFilters, timeRange, re
                                    field="stratum"
                                    value={tx.stratum} />
                 </td>
-                <td>
+                <td className="hide-narrow">
                   {tx.reference_id ? tx.reference_id : <span className="text-muted">n/a</span>}
                   <FilterValueIcon setFilters={setFilters}
                                    fields={NTP_FILTER_FIELDS}
@@ -174,11 +173,11 @@ export default function NTPTransactionsTable({filters, setFilters, timeRange, re
                 </td>
                 <td>{tx.rtt_seconds ? <span>{formatSubMicro(tx.rtt_seconds)}</span>
                   : <span className="text-muted">n/a</span>}</td>
-                <td>{tx.server_processing_seconds ? <span>{formatSubMicro(tx.server_processing_seconds)}</span>
+                <td className="hide-narrow">{tx.server_processing_seconds ? <span>{formatSubMicro(tx.server_processing_seconds)}</span>
                   : <span className="text-muted">n/a</span>}</td>
-                <td>{tx.root_delay_seconds ? <span>{formatSubMicro(tx.root_delay_seconds)}</span>
+                <td className="hide-narrow">{tx.root_delay_seconds ? <span>{formatSubMicro(tx.root_delay_seconds)}</span>
                   : <span className="text-muted">n/a</span>}</td>
-                <td>{tx.root_dispersion_seconds ? <span>{formatSubMicro(tx.root_dispersion_seconds)}</span>
+                <td className="hide-narrow">{tx.root_dispersion_seconds ? <span>{formatSubMicro(tx.root_dispersion_seconds)}</span>
                   : <span className="text-muted">n/a</span>}</td>
                 <td title={moment(initiated_at).fromNow()}>
                   {moment(initiated_at).format()}

@@ -12,7 +12,7 @@ export default function STUNConnectionsTableHead({columnSorting = undefined}) {
       <th>Source Address {columnSorting ? columnSorting("source_address") : null}</th>
       <th>Destination MAC {columnSorting ? columnSorting("destination_mac") : null}</th>
       <th>Destination Address {columnSorting ? columnSorting("destination_address") : null}</th>
-      <th>TURN {columnSorting ? columnSorting("is_turn") : null}</th>
+      <th className="hide-narrow">TURN {columnSorting ? columnSorting("is_turn") : null}</th>
       <th>Tags</th>
       <th title="Mapped Addresses" className="hide-narrow">M</th>
       <th title="Peer Addresses" className="hide-narrow">P</th>

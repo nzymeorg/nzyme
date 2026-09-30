@@ -12,7 +12,7 @@ export default function WebRTCSessionsTableHead({columnSorting = undefined}) {
       <th>Peer A Address {columnSorting ? columnSorting("source_address") : null}</th>
       <th>Peer B MAC {columnSorting ? columnSorting("destination_mac") : null}</th>
       <th>Peer B Address {columnSorting ? columnSorting("destination_address") : null}</th>
-      <th>Streams {columnSorting ? columnSorting("stream_count") : null}</th>
+      <th className="hide-narrow">Streams {columnSorting ? columnSorting("stream_count") : null}</th>
       <th className="hide-narrow">RTP {columnSorting ? columnSorting("has_rtp") : null}</th>
       <th className="hide-narrow">DTLS {columnSorting ? columnSorting("has_dtls") : null}</th>
       <th className="hide-narrow">Audio {columnSorting ? columnSorting("has_audio") : null}</th>
