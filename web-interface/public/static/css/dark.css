@@ -78,6 +78,10 @@ nav.navbar {
     background-color: #141418;
 }
 
+.navbar.sticky-top {
+    border-bottom: 1px solid #33333d;
+}
+
 div.tap-selector ul {
     background-color: #1c1c22;
     color: #e8e8ed;

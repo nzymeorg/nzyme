@@ -97,6 +97,10 @@ img.loading-miller-layer2 {
     padding: 8px 12px;
 }
 
+.navbar.sticky-top {
+    border-bottom: 1px solid #e6e6e6;
+}
+
 .tap-selector {
     margin-left: 3px;
 }

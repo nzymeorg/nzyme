@@ -8,7 +8,7 @@ import NarrowModeButton from "./NarrowModeButton";
 function NavigationBar({onLogout, darkModeEnabled, setDarkModeEnabled, narrowModeEnabled, setNarrowModeEnabled}) {
 
   return (
-    <nav className="navbar">
+    <nav className="navbar sticky-top">
       <div className="container-fluid">
         <div className="d-flex flex-row">
           {/*<form method="GET" action={ApiRoutes.SEARCH.RESULTS}>*/}
