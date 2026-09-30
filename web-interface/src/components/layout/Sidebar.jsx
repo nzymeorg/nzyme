@@ -112,6 +112,7 @@ function Sidebar(props) {
             <NavigationLink
                 href={ApiRoutes.DOT11.CLIENTS.CONNECTED}
                 title="Clients"
+                pathMatch="/dot11/clients/"
                 icon={<i className="sidebar-icon fa-solid fa-timeline"/>}/>
 
             <NavigationLink
