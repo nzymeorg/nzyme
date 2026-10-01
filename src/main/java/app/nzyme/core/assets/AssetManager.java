@@ -250,6 +250,20 @@ public class AssetManager {
         );
     }
 
+    public List<AssetEntry> findAssetsByIpAddress(InetAddress ip, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
+                                "WHERE i.address = :ip AND a.organization_id = :organization_id " +
+                                "AND a.tenant_id = :tenant_id " +
+                                "GROUP BY a.id")
+                        .bind("ip", ip.getHostAddress())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(AssetEntry.class)
+                        .list()
+        );
+    }
+
     public void onNewAsset(Subsystem subsystem,
                            UUID assetUuid,
                            String mac,
@@ -273,7 +287,6 @@ public class AssetManager {
                 Set.of("asset_uuid")
         );
     }
-
 
     public void attachTransparentContextHostname(String macAddress,
                                                  UUID organizationId,
