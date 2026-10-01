@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 public abstract class GeoIpAsnInformation {
 
     @Nullable
-    public abstract Long number();
+    public abstract Integer number();
 
     @Nullable
     public abstract String name();
@@ -16,7 +16,7 @@ public abstract class GeoIpAsnInformation {
     @Nullable
     public abstract String domain();
 
-    public static GeoIpAsnInformation create(Long number, String name, String domain) {
+    public static GeoIpAsnInformation create(Integer number, String name, String domain) {
         return builder()
                 .number(number)
                 .name(name)
@@ -30,7 +30,7 @@ public abstract class GeoIpAsnInformation {
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder number(Long number);
+        public abstract Builder number(Integer number);
 
         public abstract Builder name(String name);
 

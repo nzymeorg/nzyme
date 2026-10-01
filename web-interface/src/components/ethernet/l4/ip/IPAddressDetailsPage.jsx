@@ -12,18 +12,24 @@ export default function IPAddressDetailsPage() {
 
   const { addressParam } = useParams()
 
-  // TODO replace with actual IP after we loaded it
-  usePageTitle("IP Address Details");
-
   const [organizationId, tenantId] = useSelectedTenant();
 
+  const [pageTitle, setPageTile] = useState("IP Details");
   const [address, setAddress] = useState();
+
+  usePageTitle(pageTitle);
 
   useEffect(() => {
     setAddress(null);
 
     ipAddressesService.findAddress(addressParam, organizationId, tenantId, setAddress);
   }, [addressParam, organizationId, tenantId])
+
+  useEffect(() => {
+    if (address) {
+      setPageTile("IP " + address.address + " Details");
+    }
+  }, [address])
 
   if (!address) {
     return <LoadingSpinner />
@@ -38,7 +44,7 @@ export default function IPAddressDetailsPage() {
                 <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
                 <li className="breadcrumb-item">IP</li>
                 <li className="breadcrumb-item">Addresses</li>
-                <li className="breadcrumb-item active" aria-current="page">{addressParam} TODO TODO TODO TODO TODO TODO TODO TODO</li>
+                <li className="breadcrumb-item active" aria-current="page">{address.address}</li>
               </ol>
             </nav>
           </div>
@@ -47,17 +53,16 @@ export default function IPAddressDetailsPage() {
         <div className="row">
           <div className="col-md-12">
             <h1>
-              IP Address &quot;{addressParam}&quot; TODO TODO TODO TODO TODO TODO
+              IP Address <span className="machine-data">{address.address}</span>
             </h1>
           </div>
         </div>
 
-        <div className="row">
+        <div className="row mt-3">
           <div className="col-md-12">
             <div className="card">
               <div className="card-body">
-                This page will show all details about the IP address, including an overview of where it connected
-                to, using which services and protocols.
+                
               </div>
             </div>
           </div>

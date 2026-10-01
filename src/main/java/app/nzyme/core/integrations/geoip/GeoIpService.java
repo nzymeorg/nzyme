@@ -164,11 +164,11 @@ public class GeoIpService {
                         null
                 );
 
-                Long asNumber;
+                Integer asNumber;
                 if (lookup.getAsNumber() != null) {
                     String[] parts = lookup.getAsNumber().split("^AS");
                     if (parts.length > 1) {
-                        asNumber = Long.parseLong(parts[1]);
+                        asNumber = Integer.parseInt(parts[1]);
                     } else {
                         asNumber = null;
                     }
