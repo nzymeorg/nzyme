@@ -250,15 +250,36 @@ public class AssetManager {
         );
     }
 
-    public List<AssetEntry> findAssetsByIpAddress(InetAddress ip, UUID organizationId, UUID tenantId) {
+    public long countAssetsOfIpAddress(InetAddress ip, UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
+                handle.createQuery("SELECT COUNT(DISTINCT a.id) FROM assets AS a " +
+                                "INNER JOIN assets_ip_addresses AS i ON i.asset_id = a.id " +
                                 "WHERE i.address = :ip AND a.organization_id = :organization_id " +
-                                "AND a.tenant_id = :tenant_id " +
-                                "GROUP BY a.id")
-                        .bind("ip", ip.getHostAddress())
+                                "AND a.tenant_id = :tenant_id")
+                        .bind("ip", ip)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<AssetEntry> findAssetsByIpAddress(InetAddress ip,
+                                                  UUID organizationId,
+                                                  UUID tenantId,
+                                                  int limit,
+                                                  int offset) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
+                                "WHERE a.id IN (SELECT asset_id FROM assets_ip_addresses WHERE address = :ip) " +
+                                "AND a.organization_id = :organization_id " +
+                                "AND a.tenant_id = :tenant_id " +
+                                "GROUP BY a.id ORDER BY a.last_seen DESC LIMIT :limit OFFSET :offset")
+                        .bind("ip", ip)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
                         .mapTo(AssetEntry.class)
                         .list()
         );

@@ -10,7 +10,7 @@ export default function AssetIpAddresses({addresses, filterElement = undefined})
     return <span>[+{addresses.length-1}]</span>
   }
 
-  if (addresses === null || addresses.length === 0) {
+  if (!addresses || addresses.length === 0) {
     return <span className="text-muted">None</span>;
   }
 

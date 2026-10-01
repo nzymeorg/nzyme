@@ -11,7 +11,7 @@ export default function AssetHostnames({hostnames, filterElement = undefined}) {
     return <span>(+{hostnames.length-1})</span>
   }
 
-  if (hostnames === null || hostnames.length === 0) {
+  if (!hostnames || hostnames.length === 0) {
     return <span className="text-muted">None</span>;
   }
 
