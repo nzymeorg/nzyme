@@ -195,7 +195,7 @@ export default function IPAddressDetailsPage() {
                                icon={locationIcon}
                                latitude={address.geo.latitude}
                                longitude={address.geo.longitude} />
-                  : <span className="text-muted">No coordinates defined for this location.</span>}
+                  : <span className="text-muted">This IP address does not carry geo location information..</span>}
               </div>
             </div>
           </div>
