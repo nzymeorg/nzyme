@@ -147,7 +147,7 @@ const ApiRoutes = {
       ADDRESS_DETAILS: addressParam => `/ethernet/l4/ip/show/${addressParam}`
     },
     L4: {
-      OVERVIEW: '/ethernet/l4',
+      SESSIONS: '/ethernet/l4',
       TCP: {
         SESSION_DETAILS: (sessionKey, startTime) => `/ethernet/l4/tcp/${sessionKey}/${startTime}`
       },

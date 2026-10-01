@@ -98,6 +98,7 @@ public class IPAddressesResource extends TapDataHandlingResource {
                     geo.get().asn().domain(),
                     geo.get().geo().city(),
                     geo.get().geo().countryCode(),
+                    geo.get().geo().countryName(),
                     geo.get().geo().latitude(),
                     geo.get().geo().longitude()
             );

@@ -40,7 +40,7 @@ export default function TCPSessionDetailsPage() {
               <ol className="breadcrumb">
                 <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
                 <li className="breadcrumb-item">TCP/UDP</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.L4.OVERVIEW}>Sessions</a></li>
+                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.L4.SESSIONS}>Sessions</a></li>
                 <li className="breadcrumb-item">TCP</li>
                 <li className="breadcrumb-item active" aria-current="page">{sessionKey}</li>
               </ol>

@@ -14,6 +14,10 @@ import AssetActiveIndicator from "../../assets/AssetActiveIndicator";
 import AssetHostnames from "../../assets/AssetHostnames";
 import AssetIpAddresses from "../../assets/AssetIpAddresses";
 import moment from "moment/moment";
+import Flag from "../../../misc/Flag";
+import LatLonMap from "../../../shared/LatLonMap";
+import LatitudeLongitude from "../../../shared/LatitudeLongitude";
+import * as L from "leaflet";
 
 const ipAddressesService = new IPAddressesService();
 
@@ -30,6 +34,13 @@ export default function IPAddressDetailsPage() {
   const perPage = 50;
 
   usePageTitle(pageTitle);
+
+  const locationIcon = L.icon({
+    iconUrl: window.appConfig.assetsUri + 'static/leaflet/icon-location.png',
+    iconSize: [40, 52],
+    iconAnchor: [20, 52],
+    tooltipAnchor: [0, -52]
+  });
 
   useEffect(() => {
     setAddress(null);
@@ -65,10 +76,23 @@ export default function IPAddressDetailsPage() {
             <th>IP Address</th>
             <th>First Seen</th>
             <th>Last Seen</th>
+            <th>&nbsp;</th>
           </tr>
           </thead>
           <tbody>
           {address.assets.assets.map((a, i) => {
+            const l4Filters = {
+              "source_mac": [{
+                field: "source_mac",
+                operator: "equals",
+                value: a.mac.address,
+              }],
+              "source_address": [{
+                field: "source_address",
+                operator: "equals",
+                value: address.address,
+              }]};
+
             return (
               <tr key={i}>
                 <td>
@@ -83,6 +107,9 @@ export default function IPAddressDetailsPage() {
                 <td><AssetIpAddresses addresses={a.ip_addresses} /></td>
                 <td title={moment(a.first_seen).format()}>{moment(a.first_seen).fromNow()}</td>
                 <td title={moment(a.last_seen).format()}>{moment(a.last_seen).fromNow()}</td>
+                <td>
+                  <a href={ApiRoutes.ETHERNET.L4.SESSIONS + "?filters=" + JSON.stringify(l4Filters)}>Show TCP/UDP Connections</a>
+                </td>
               </tr>
             )
           })}
@@ -118,6 +145,59 @@ export default function IPAddressDetailsPage() {
             <h1>
               IP Address <span className="machine-data">{address.address}</span>
             </h1>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Geo Information" />
+
+                <dl className="mb-0">
+                  <dt>ASN</dt>
+                  <dd>
+                    {address.geo.asn_number ? <span className="machine-data">{address.geo.asn_number}</span>
+                      : <span className="text-muted">n/a</span> }{' '}
+                    {address.geo.asn_name ? <span>({address.geo.asn_name})</span>
+                      : null }
+                  </dd>
+                  <dt>Domain</dt>
+                  <dd>
+                    {address.geo.asn_domain ? <span className="machine-data">{address.geo.asn_domain}</span>
+                      : <span className="text-muted">n/a</span> }
+                  </dd>
+                  <dt>Country</dt>
+                  <dd>
+                    {address.geo.country_code ? <span><Flag code={address.geo.country_code} />&nbsp;</span> : null }
+                    {address.geo.country ? <span>{address.geo.country}</span> : <span className="text-muted">n/a</span> }
+                  </dd>
+                  <dt>City</dt>
+                  <dd>
+                    {address.geo.city ? <span>{address.geo.city}</span>
+                      : <span className="text-muted">n/a</span> }
+                  </dd>
+                </dl>
+
+              </div>
+            </div>
+          </div>
+
+          <div className="col-md-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Coordinates" />
+
+                { address.geo.latitude && address.geo.longitude ?
+                  <LatLonMap editMode={false}
+                               containerHeight={190}
+                               defaultZoomLevel={5}
+                               icon={locationIcon}
+                               latitude={address.geo.latitude}
+                               longitude={address.geo.longitude} />
+                  : <span className="text-muted">No coordinates defined for this location.</span>}
+              </div>
+            </div>
           </div>
         </div>
 

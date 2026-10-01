@@ -31,7 +31,7 @@ export default function AssetDetailsL4Sessions({title, filters}) {
                              doNotPersistTimeRange={true}
                              timeRange={timerange}
                              setTimeRange={setTimerange}
-                             internalLink={ApiRoutes.ETHERNET.L4.OVERVIEW + "?filters=" + JSON.stringify(filters)}
+                             internalLink={ApiRoutes.ETHERNET.L4.SESSIONS + "?filters=" + JSON.stringify(filters)}
                              refreshAction={onRefresh} />
 
       <L4SessionsTable filters={filters}

@@ -49,7 +49,7 @@ export default function AssetDetailsL4Histograms({title, filters}) {
                                doNotPersistTimeRange={true}
                                timeRange={timerange}
                                setTimeRange={setTimerange}
-                               internalLink={ApiRoutes.ETHERNET.L4.OVERVIEW + "?filters=" + JSON.stringify(filters)}
+                               internalLink={ApiRoutes.ETHERNET.L4.SESSIONS + "?filters=" + JSON.stringify(filters)}
                                refreshAction={onRefresh} />
 
         <div className="row mt-3 card-container">

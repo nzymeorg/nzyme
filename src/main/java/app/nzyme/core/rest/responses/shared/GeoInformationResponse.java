@@ -28,6 +28,10 @@ public abstract class GeoInformationResponse {
     public abstract String countryCode();
 
     @Nullable
+    @JsonProperty("country")
+    public abstract String country();
+
+    @Nullable
     @JsonProperty("latitude")
     public abstract Float latitude();
 
@@ -35,13 +39,14 @@ public abstract class GeoInformationResponse {
     @JsonProperty("longitude")
     public abstract Float longitude();
 
-    public static GeoInformationResponse create(Integer asnNumber, String asnName, String asnDomain, String city, String countryCode, Float latitude, Float longitude) {
+    public static GeoInformationResponse create(Integer asnNumber, String asnName, String asnDomain, String city, String countryCode, String country, Float latitude, Float longitude) {
         return builder()
                 .asnNumber(asnNumber)
                 .asnName(asnName)
                 .asnDomain(asnDomain)
                 .city(city)
                 .countryCode(countryCode)
+                .country(country)
                 .latitude(latitude)
                 .longitude(longitude)
                 .build();
@@ -62,6 +67,8 @@ public abstract class GeoInformationResponse {
         public abstract Builder city(String city);
 
         public abstract Builder countryCode(String countryCode);
+
+        public abstract Builder country(String country);
 
         public abstract Builder latitude(Float latitude);
 

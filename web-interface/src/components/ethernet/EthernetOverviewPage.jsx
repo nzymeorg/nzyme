@@ -140,7 +140,7 @@ export default function EthernetOverviewPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="TCP/UDP: All Bytes Transferred"
-                                     internalLink={ApiRoutes.ETHERNET.L4.OVERVIEW}
+                                     internalLink={ApiRoutes.ETHERNET.L4.SESSIONS}
                                      timeRange={TimeRange.RELATIVE_HOURS_24} />
 
               <L4SessionsTotalBytesChart statistics={l4Stats} />
@@ -152,7 +152,7 @@ export default function EthernetOverviewPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="TCP/UDP: Internal Bytes Transferred"
-                                     internalLink={ApiRoutes.ETHERNET.L4.OVERVIEW}
+                                     internalLink={ApiRoutes.ETHERNET.L4.SESSIONS}
                                      timeRange={TimeRange.RELATIVE_HOURS_24} />
 
               <L4SessionsInternalBytesChart statistics={l4Stats} />
