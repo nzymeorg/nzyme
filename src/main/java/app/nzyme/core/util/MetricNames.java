@@ -50,6 +50,8 @@ public class MetricNames {
     public static final String TAP_TABLE_REQUEST_SIZES = name(TapTableSizeInterceptor.class, "request_size");
     public static final String CONTEXT_MAC_CACHE_SIZE = name(ContextService.class, "mac-cache-size");
     public static final String CONTEXT_MAC_LOOKUP_TIMING = name(ContextService.class, "mac-lookup-timing");
+    public static final String CONTEXT_IP_CACHE_SIZE = name(ContextService.class, "ip-cache-size");
+    public static final String CONTEXT_IP_LOOKUP_TIMING = name(ContextService.class, "ip-lookup-timing");
 
     public static final String DOT11_TOTAL_REPORT_PROCESSING_TIMER = name(Dot11Table.class, "total-report-processing-timing");
     public static final String DOT11_BSSID_REPORT_PROCESSING_TIMER = name(Dot11Table.class, "bssid-report-processing-timing");

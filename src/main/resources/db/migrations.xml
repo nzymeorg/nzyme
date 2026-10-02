@@ -8829,4 +8829,60 @@
         <addNotNullConstraint tableName="dot11_ssids" columnName="ssid" />
     </changeSet>
 
+    <changeSet id="create_ip_addresses_context" author="lennartkoopmann">
+        <createTable tableName="context_ip_addresses">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="ip_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="name" type="varchar(12)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="description" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="notes" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="context_ip_addresses" indexName="context_ip_addresses_stdlookup">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="ip_address" />
+        </createIndex>
+
+        <createIndex tableName="context_ip_addresses" indexName="context_ip_addresses_directlookup">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="uuid" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

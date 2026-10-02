@@ -33,6 +33,12 @@ public class Permissions {
                         "like 802.11/WiFi or Ethernet.",
                 true
         ));
+        put("ip_context_manage", Permission.create(
+                "ip_context_manage",
+                "Manage IP Address Context",
+                "Allows user to create, edit and delete IP address context.",
+                true
+        ));
         put("uav_monitoring_manage", Permission.create(
                 "uav_monitoring_manage",
                 "Manage UAV Monitoring",

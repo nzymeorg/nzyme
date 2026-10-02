@@ -14,6 +14,7 @@ import app.nzyme.core.rest.resources.alerts.AlertsResource;
 import app.nzyme.core.rest.resources.assets.WebInterfaceAssetsResource;
 import app.nzyme.core.rest.resources.bluetooth.BluetoothDevicesResource;
 import app.nzyme.core.rest.resources.context.AssetContextResource;
+import app.nzyme.core.rest.resources.context.IPAddressContextResource;
 import app.nzyme.core.rest.resources.dot11.*;
 import app.nzyme.core.rest.resources.dot11.BanditsResource;
 import app.nzyme.core.rest.resources.dot11.Dot11ClientsResource;
@@ -186,6 +187,7 @@ public class NzymeHttpServer {
         resourceConfig.register(PortalIntegrityResource.class);
         resourceConfig.register(WebRTCResource.class);
         resourceConfig.register(IPAddressesResource.class);
+        resourceConfig.register(IPAddressContextResource.class);
 
         // Plugin-supplied REST resources.
         for (Object resource : pluginRestResources) {

@@ -6,6 +6,7 @@ import app.nzyme.core.assets.db.AssetIpAddressEntryMapper;
 import app.nzyme.core.bluetooth.db.BluetoothDeviceEntryMapper;
 import app.nzyme.core.bluetooth.db.BluetoothDeviceSummaryMapper;
 import app.nzyme.core.configuration.node.NodeConfiguration;
+import app.nzyme.core.context.db.IpAddressContextEntryMapper;
 import app.nzyme.core.context.db.MacAddressContextEntryMapper;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntryMapper;
 import app.nzyme.core.crypto.database.TLSKeyAndCertificateEntryMapper;
@@ -229,7 +230,8 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new PortalIntegrityReportHopEntryMapper())
                 .registerRowMapper(new WebRTCSessionEntryMapper())
                 .registerRowMapper(new AssetPairNumberAggregationResultMapper())
-                .registerRowMapper(new L4AddressPairNumberAggregationResultMapper());
+                .registerRowMapper(new L4AddressPairNumberAggregationResultMapper())
+                .registerRowMapper(new IpAddressContextEntryMapper());
 
         if (configuration.slowQueryLogThreshold().isPresent()) {
             LOG.info("Slow query log enabled with threshold <{}ms>.", configuration.slowQueryLogThreshold().get());

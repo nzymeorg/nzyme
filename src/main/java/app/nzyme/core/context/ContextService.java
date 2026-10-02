@@ -1,6 +1,7 @@
 package app.nzyme.core.context;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.context.db.IpAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.util.MetricNames;
@@ -31,8 +32,10 @@ public class ContextService {
     private final NzymeNode nzyme;
 
     private final Timer macLookupTimer;
+    private final Timer ipLookupTimer;
 
     private final LoadingCache<MacAddressContextCacheKey, Optional<MacAddressContextEntry>> macAddressContextCache;
+    private final LoadingCache<IpAddressContextCacheKey, Optional<IpAddressContextEntry>> ipAddressContextCache;
 
     public ContextService(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -48,18 +51,40 @@ public class ContextService {
                     }
                 });
 
+        this.ipAddressContextCache = CacheBuilder.newBuilder()
+                .maximumSize(5000)
+                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .build(new CacheLoader<>() {
+                    @NotNull
+                    @Override
+                    public Optional<IpAddressContextEntry> load(@NotNull IpAddressContextCacheKey key) {
+                        return findIpAddressContextNoCache(key.ipAddress(), key.organizationId(), key.tenantId());
+                    }
+                });
+
         nzyme.getMetrics().register(MetricNames.CONTEXT_MAC_CACHE_SIZE, new Gauge<Long>() {
             @Override
             public Long getValue() {
                 return macAddressContextCache.size();
             }
         });
+        nzyme.getMetrics().register(MetricNames.CONTEXT_IP_CACHE_SIZE, new Gauge<Long>() {
+            @Override
+            public Long getValue() {
+                return ipAddressContextCache.size();
+            }
+        });
 
         this.macLookupTimer = nzyme.getMetrics().timer(MetricNames.CONTEXT_MAC_LOOKUP_TIMING);
+        this.ipLookupTimer = nzyme.getMetrics().timer(MetricNames.CONTEXT_IP_LOOKUP_TIMING);
     }
 
     public void invalidateMacAddressCache() {
         macAddressContextCache.invalidateAll();
+    }
+
+    public void invalidateIpAddressCache() {
+        ipAddressContextCache.invalidateAll();
     }
 
     public long createMacAddressContext(String macAddress,
@@ -326,6 +351,143 @@ public class ContextService {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("DELETE FROM context_mac_addresses_transparent WHERE last_seen < :cutoff")
                         .bind("cutoff", cutoff)
+                        .execute()
+        );
+    }
+
+
+    public Optional<IpAddressContextEntry> findIpAddressContext(InetAddress ip,
+                                                                @Nullable UUID organizationId,
+                                                                @Nullable UUID tenantId) {
+        if (ip == null) {
+            return Optional.empty();
+        }
+
+        try {
+            return ipAddressContextCache.get(IpAddressContextCacheKey.create(ip.getHostAddress(), organizationId, tenantId));
+        } catch(ExecutionException e) {
+            throw new RuntimeException("Could not load IP address context from cache.", e);
+        }
+    }
+
+    public Optional<IpAddressContextEntry> findIpAddressContextNoCache(String ip,
+                                                                       UUID organizationId,
+                                                                       UUID tenantId) {
+        if (ip == null) {
+            return Optional.empty();
+        }
+
+        try(Timer.Context ignored = ipLookupTimer.time()) {
+            return nzyme.getDatabase().withHandle(handle ->
+                    handle.createQuery("SELECT * FROM context_ip_addresses " +
+                                    "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                    "AND ip_address = :ip_address::inet")
+                            .bind("organization_id", organizationId)
+                            .bind("tenant_id", tenantId)
+                            .bind("ip_address", ip)
+                            .mapTo(IpAddressContextEntry.class)
+                            .findOne()
+            );
+        }
+    }
+
+    public Optional<IpAddressContextEntry> findIpAddressContext(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM context_ip_addresses " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND uuid = :uuid")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("uuid", uuid)
+                        .mapTo(IpAddressContextEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Long countIpAddressContext(UUID organizationId, UUID tenantId, String cidrFilter) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM context_ip_addresses " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND ip_address <<= :cidr_filter::inet")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cidr_filter", cidrFilter)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<IpAddressContextEntry> findAllIpAddressContext(UUID organizationId,
+                                                               UUID tenantId,
+                                                               String cidrFilter,
+                                                               int limit,
+                                                               int offset) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM context_ip_addresses " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND ip_address <<= :cidr_filter::inet " +
+                                "ORDER BY ip_address ASC LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cidr_filter", cidrFilter)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .mapTo(IpAddressContextEntry.class)
+                        .list()
+        );
+    }
+
+    public long createIpAddressContext(InetAddress ipAddress,
+                                       String name,
+                                       @Nullable String description,
+                                       @Nullable String notes,
+                                       UUID organizationId,
+                                       UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("INSERT INTO context_ip_addresses(ip_address, uuid, name, description, " +
+                                "notes, organization_id, tenant_id, created_at, updated_at) VALUES(:ip_address::inet, " +
+                                ":uuid, :name, :description, :notes, :organization_id, :tenant_id, NOW(), NOW()) " +
+                                "RETURNING id")
+                        .bind("ip_address", ipAddress.getHostAddress())
+                        .bind("uuid", UUID.randomUUID())
+                        .bind("name", name)
+                        .bind("description", description)
+                        .bind("notes", notes)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public void updateIpAddressContext(UUID uuid,
+                                       UUID organizationId,
+                                       UUID tenantId,
+                                       String name,
+                                       String description,
+                                       String notes) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE context_ip_addresses SET name = :name, description = :description, " +
+                                "notes = :notes, updated_at = NOW() WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("name", name)
+                        .bind("description", description)
+                        .bind("notes", notes)
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteIpAddressContext(UUID uuid, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM context_ip_addresses " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND uuid = :uuid")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("uuid", uuid)
                         .execute()
         );
     }

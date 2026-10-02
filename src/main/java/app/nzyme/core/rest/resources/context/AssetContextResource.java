@@ -1,7 +1,6 @@
 package app.nzyme.core.rest.resources.context;
 
 import app.nzyme.core.NzymeNode;
-import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.dot11.Dot11MacAddressMetadata;
@@ -16,9 +15,6 @@ import app.nzyme.core.rest.requests.CreateMacAddressContextRequest;
 import app.nzyme.core.rest.requests.UpdateMacAddressContextNameRequest;
 import app.nzyme.core.rest.requests.UpdateMacAddressContextRequest;
 import app.nzyme.core.rest.responses.context.*;
-import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
-import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
-import app.nzyme.core.rest.responses.ethernet.assets.AssetDetailsResponse;
 import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
@@ -42,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-@Path("/api/context")
+@Path("/api/context/mac")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
 public class AssetContextResource extends UserAuthenticatedResource {
@@ -51,7 +47,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
     private NzymeNode nzyme;
 
     @GET
-    @Path("/mac/organization/show/{organization_id}/tenant/show/{tenant_id}")
+    @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}")
     public Response macs(@Context SecurityContext sc,
                          @PathParam("organization_id") UUID organizationId,
                          @PathParam("tenant_id") UUID tenantId,
@@ -88,7 +84,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
     }
 
     @GET
-    @Path("/mac/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
+    @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
     public Response macByUuid(@Context SecurityContext sc,
                               @PathParam("organization_id") UUID organizationId,
                               @PathParam("tenant_id") UUID tenantId,
@@ -111,7 +107,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
     }
 
     @GET
-    @Path("/mac/show/{mac}")
+    @Path("/show/{mac}")
     public Response mac(@Context SecurityContext sc,
                         @QueryParam("organization_id") @NotNull UUID organizationId,
                         @QueryParam("tenant_id") @NotNull UUID tenantId,
@@ -180,7 +176,6 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
-    @Path("/mac")
     public Response createMac(@Context SecurityContext sc, @Valid CreateMacAddressContextRequest req) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -215,7 +210,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
-    @Path("/mac/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
+    @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
     public Response updateMac(@Context SecurityContext sc,
                               @Valid UpdateMacAddressContextRequest req,
                               @PathParam("organization_id") UUID organizationId,
@@ -247,7 +242,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
-    @Path("/mac/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
+    @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
     public Response deleteMac(@Context SecurityContext sc,
                               @PathParam("organization_id") UUID organizationId,
                               @PathParam("tenant_id") UUID tenantId,
@@ -271,7 +266,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
-    @Path("/mac/organization/show/{organization_id}/tenant/show/{tenant_id}/mac/{mac}/name")
+    @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/mac/{mac}/name")
     public Response updateMacName(@Context SecurityContext sc,
                                   @Valid UpdateMacAddressContextNameRequest req,
                                   @PathParam("organization_id") UUID organizationId,
@@ -301,80 +296,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
         return Response.ok().build();
     }
 
-    @GET
-    @Path("/ip/show/{address}")
-    public Response ip(@Context SecurityContext sc,
-                       @QueryParam("organization_id") @NotNull UUID organizationId,
-                       @QueryParam("tenant_id") @NotNull UUID tenantId,
-                       @PathParam("address") InetAddress address) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        List<AssetDetailsResponse> assets = Lists.newArrayList();
-        for (AssetEntry asset : nzyme.getAssetsManager()
-                .findAssetsByIpAddress(address, organizationId, tenantId, Integer.MAX_VALUE, 0)) {
-            Optional<MacAddressContextEntry> context = nzyme.getContextService()
-                    .findMacAddressContext(asset.mac(), organizationId, tenantId);
-
-            String oui = nzyme.getOuiService().lookup(asset.mac()).orElse(null);
-
-            EthernetMacAddressResponse mac = EthernetMacAddressResponse.create(
-                    asset.mac(),
-                    oui,
-                    asset.uuid(),
-                    asset.isActive(),
-                    context.map(ctx ->
-                            EthernetMacAddressContextResponse.create(
-                                    ctx.name(),
-                                    ctx.description()
-                            )
-                    ).orElse(null)
-            );
-
-            assets.add(AssetDetailsResponse.create(
-                    asset.uuid(),
-                    mac,
-                    oui,
-                    asset.isActive(),
-                    context.map(MacAddressContextEntry::name).orElse(null),
-                    asset.dhcpFingerprintInitial(),
-                    asset.dhcpFingerprintRenew(),
-                    asset.dhcpFingerprintReboot(),
-                    asset.dhcpFingerprintRebind(),
-                    asset.seenArp(),
-                    asset.seenDhcp(),
-                    asset.seenTcp(),
-                    asset.seenUdp(),
-                    asset.firstSeen(),
-                    asset.lastSeen()
-            ));
-            assets.add(AssetDetailsResponse.create(
-                    asset.uuid(),
-                    mac,
-                    oui,
-                    asset.isActive(),
-                    context.map(MacAddressContextEntry::name).orElse(null),
-                    asset.dhcpFingerprintInitial(),
-                    asset.dhcpFingerprintRenew(),
-                    asset.dhcpFingerprintReboot(),
-                    asset.dhcpFingerprintRebind(),
-                    asset.seenArp(),
-                    asset.seenDhcp(),
-                    asset.seenTcp(),
-                    asset.seenUdp(),
-                    asset.firstSeen(),
-                    asset.lastSeen()
-            ));
-        }
-
-        return Response.ok(EnrichedIpAddressContextDetailsResponse.create(
-                IpAddressContextDetailsResponse.create("NAME", "DESCRIPTION"),
-                assets
-        )).build();
-    }
-
-        private MacAddressContextDetailsResponse entryToResponse(MacAddressContextEntry m,
+    private MacAddressContextDetailsResponse entryToResponse(MacAddressContextEntry m,
                                                              List<MacAddressTransparentContextEntry> transparent) {
         String organizationName = nzyme.getAuthenticationService()
                 .findOrganization(m.organizationId())

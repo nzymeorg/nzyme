@@ -16,7 +16,8 @@ function NodeGauges(props) {
         </thead>
         <tbody>
           <GaugeRow title="GeoIP Cache Size" numberFormat="0,0" gauge={gauges.geoip_cache_size} />
-          <GaugeRow title="Mac Address Context Cache Size" numberFormat="0,0" gauge={gauges.context_mac_cache_size} />
+          <GaugeRow title="MAC Address Context Cache Size" numberFormat="0,0" gauge={gauges.context_mac_cache_size} />
+          <GaugeRow title="IP Address Context Cache Size" numberFormat="0,0" gauge={gauges.context_ip_cache_size} />
           <tr>
             <td>
               Internal logs written in last minute (Warning/Error/Fatal)

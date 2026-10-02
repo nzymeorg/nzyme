@@ -23,6 +23,7 @@ import app.nzyme.core.taps.Tap;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.hash.Hashing;
+import com.google.common.net.InetAddresses;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.apache.logging.log4j.LogManager;
@@ -171,6 +172,39 @@ public class Tools {
             // This shouldn't happen because we pass IP addresses.
             throw new RuntimeException(e);
         }
+    }
+
+    public static boolean isValidCidr(String s) {
+        if (s == null) return false;
+
+        int slash = s.indexOf('/');
+        String addrPart = slash < 0 ? s : s.substring(0, slash);
+
+        byte[] bytes;
+        try {
+            bytes = InetAddresses.forString(addrPart).getAddress();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+
+        int maxBits = bytes.length * 8;
+        int prefix = maxBits;
+
+        if (slash >= 0) {
+            String p = s.substring(slash + 1);
+            if (p.isEmpty() || p.length() > 3) return false;
+            for (char c : p.toCharArray()) {
+                if (c < '0' || c > '9') return false;
+            }
+            prefix = Integer.parseInt(p);
+            if (prefix > maxBits) return false;
+        }
+
+        for (int i = prefix; i < maxBits; i++) {
+            if ((bytes[i / 8] & (1 << (7 - i % 8))) != 0) return false;
+        }
+
+        return true;
     }
 
     public static boolean macAddressIsRandomized(String mac) {
