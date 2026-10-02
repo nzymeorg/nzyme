@@ -85,7 +85,8 @@ export default function L4AddressContextOverlay(props) {
             <h6>
               <i className="fa-solid fa-map-location-dot"/> {address.address}{' '}
               <span className="context-name">
-                {address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
+                {address.attributes && address.attributes.is_site_local
+                  && address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
               </span>
             </h6>
 

@@ -3,7 +3,6 @@ package app.nzyme.core.ethernet.rtsp;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
-import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntry;

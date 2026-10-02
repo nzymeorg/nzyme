@@ -399,7 +399,8 @@ public class L4 {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT source_address AS key_address, NULL as key_port, " +
+                handle.createQuery("SELECT source_address AS key_address, " +
+                                "MIN(source_mac) AS key_mac, NULL as key_port, " +
                                 "MIN(source_address_geo_asn_number) AS key_address_geo_asn_number, " +
                                 "MIN(source_address_geo_asn_name) AS key_address_geo_asn_name, " +
                                 "MIN(source_address_geo_asn_domain) AS key_address_geo_asn_domain, " +
@@ -462,7 +463,8 @@ public class L4 {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT destination_address AS key_address, NULL as key_port, " +
+                handle.createQuery("SELECT destination_address AS key_address, MAX(destination_mac) AS key_mac, " +
+                                "NULL as key_port, " +
                                 "MIN(destination_address_geo_asn_number) AS key_address_geo_asn_number, " +
                                 "MIN(destination_address_geo_asn_name) AS key_address_geo_asn_name, " +
                                 "MIN(destination_address_geo_asn_domain) AS key_address_geo_asn_domain, " +

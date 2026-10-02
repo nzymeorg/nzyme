@@ -313,6 +313,7 @@ public class SOCKS {
         String a = side.alias;
 
         return "MIN(" + tcp + "_address) AS " + a + "_address, " +
+                "MIN(" + tcp + "_mac) AS " + a + "_mac, " +
                 "MIN(" + tcp + "_port) AS " + a + "_port, " +
                 "MIN(" + tcp + "_address_geo_asn_number) AS " + a + "_geo_asn_number, " +
                 "MIN(" + tcp + "_address_geo_asn_name) AS " + a + "_geo_asn_name, " +

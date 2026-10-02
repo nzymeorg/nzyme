@@ -31,7 +31,7 @@ export default function L4Address({address,
   }
 
   const assetNameElement = () => {
-    if (withAssetName && address.mac && address.mac.context && address.mac.context.name) {
+    if (withAssetName && address.attributes && address.attributes.is_site_local && address.mac && address.mac.context && address.mac.context.name) {
       return <span className="context-name hide-narrow" style={{marginLeft: 5}}>{address.mac.context.name}</span>;
     }
 
