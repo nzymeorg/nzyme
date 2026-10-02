@@ -156,24 +156,24 @@ export default function IPAddressDetailsPage() {
                 <dl className="mb-0">
                   <dt>ASN</dt>
                   <dd>
-                    {address.geo.asn_number ? <span className="machine-data">{address.geo.asn_number}</span>
+                    {address.geo && address.geo.asn_number ? <span className="machine-data">{address.geo.asn_number}</span>
                       : <span className="text-muted">n/a</span> }{' '}
-                    {address.geo.asn_name ? <span>({address.geo.asn_name})</span>
+                    {address.geo && address.geo.asn_name ? <span>({address.geo.asn_name})</span>
                       : null }
                   </dd>
                   <dt>Domain</dt>
                   <dd>
-                    {address.geo.asn_domain ? <span className="machine-data">{address.geo.asn_domain}</span>
+                    {address.geo && address.geo.asn_domain ? <span className="machine-data">{address.geo.asn_domain}</span>
                       : <span className="text-muted">n/a</span> }
                   </dd>
                   <dt>Country</dt>
                   <dd>
-                    {address.geo.country_code ? <span><Flag code={address.geo.country_code} />&nbsp;</span> : null }
-                    {address.geo.country ? <span>{address.geo.country}</span> : <span className="text-muted">n/a</span> }
+                    {address.geo && address.geo.country_code ? <span><Flag code={address.geo.country_code} />&nbsp;</span> : null }
+                    {address.geo && address.geo.country ? <span>{address.geo.country}</span> : <span className="text-muted">n/a</span> }
                   </dd>
                   <dt>City</dt>
                   <dd>
-                    {address.geo.city ? <span>{address.geo.city}</span>
+                    {address.geo && address.geo.city ? <span>{address.geo.city}</span>
                       : <span className="text-muted">n/a</span> }
                   </dd>
                 </dl>
@@ -187,7 +187,7 @@ export default function IPAddressDetailsPage() {
               <div className="card-body">
                 <CardTitleWithControls title="Coordinates" />
 
-                { address.geo.latitude && address.geo.longitude ?
+                { address.geo && address.geo.latitude && address.geo.longitude ?
                   <LatLonMap editMode={false}
                                containerHeight={190}
                                defaultZoomLevel={5}
