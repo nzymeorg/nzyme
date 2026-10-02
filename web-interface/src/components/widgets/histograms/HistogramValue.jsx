@@ -52,9 +52,9 @@ function HistogramValue(props) {
         return <InternalAddressOnlyWrapper address="127.0.0.1" />
       }
     case "L4_ADDRESS":
-      return <L4Address address={value.value} filterElement={filterElement} />
+      return <L4Address address={value.value} filterElement={filterElement} withAssetName />
     case "L4_ADDRESS_NO_PORT":
-      return <L4Address address={value.value} hidePort={true} filterElement={filterElement} />
+      return <L4Address address={value.value} hidePort={true} filterElement={filterElement} withAssetName />
     case "L4_PORT":
       return <><span className="machine-data">{value.value}</span> {filterElement}</>
     case "BYTES":

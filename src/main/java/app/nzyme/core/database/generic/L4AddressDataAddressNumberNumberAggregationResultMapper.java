@@ -13,7 +13,7 @@ public class L4AddressDataAddressNumberNumberAggregationResultMapper
     @Override
     public L4AddressDataAddressNumberNumberAggregationResult map(ResultSet rs, StatementContext ctx) throws SQLException {
         return L4AddressDataAddressNumberNumberAggregationResult.create(
-                L4MapperTools.fieldsToAddressDataNoMac("key", rs),
+                L4MapperTools.fieldsToAddressData("key", rs),
                 rs.getLong("value1"),
                 rs.getLong("value2")
         );

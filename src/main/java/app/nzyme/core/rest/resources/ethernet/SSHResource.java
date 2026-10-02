@@ -173,7 +173,7 @@ public class SSHResource extends TapDataHandlingResource {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
                             RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.UDP, x.key()),
-                            HistogramValueType.L4_ADDRESS,
+                            HistogramValueType.L4_ADDRESS_NO_PORT,
                             null),
                     HistogramValueStructureResponse.create(x.value1(), HistogramValueType.INTEGER, null),
                     HistogramValueStructureResponse.create(x.value2(), HistogramValueType.BYTES, null),

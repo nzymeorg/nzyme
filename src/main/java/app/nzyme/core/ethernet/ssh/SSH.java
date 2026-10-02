@@ -413,6 +413,7 @@ public class SSH {
         String a = side.alias;
 
         return "MIN(" + tcp + "_address) AS " + a + "_address, " +
+                "MIN(" + tcp + "_mac) AS " + a + "_mac, " +
                 "MIN(" + tcp + "_port) AS " + a + "_port, " +
                 "MIN(" + tcp + "_address_geo_asn_number) AS " + a + "_geo_asn_number, " +
                 "MIN(" + tcp + "_address_geo_asn_name) AS " + a + "_geo_asn_name, " +
@@ -431,6 +432,7 @@ public class SSH {
 
         return "host(" + s + "_address) AS key, " +
                 "host(" + s + "_address) AS key_address, " +
+                "MAX(" + s + "_mac) AS key_mac, " +
                 "MAX(" + s + "_port) AS key_port, " +
                 "MAX(" + s + "_geo_asn_number) AS key_address_geo_asn_number, " +
                 "MAX(" + s + "_geo_asn_name) AS key_address_geo_asn_name, " +

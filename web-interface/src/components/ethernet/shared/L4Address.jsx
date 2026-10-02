@@ -4,15 +4,12 @@ import Flag from "../../misc/Flag";
 import ContextOverlayVisibilityWrapper from "../../shared/context/ContextOverlayVisibilityWrapper";
 import L4AddressContextOverlay from "../l4/ip/L4AddressContextOverlay";
 
-export default function L4Address(props) {
-
-  const address = props.address;
-
-  // Optional.
-  const hidePort = props.hidePort;
-  const hideFlag = props.hideFlag;
-  const filterElement = props.filterElement;
-  const suffixElement = props.suffixElement;
+export default function L4Address({address,
+                                    hidePort = false,
+                                    hideFlag = false,
+                                    withAssetName = false,
+                                    filterElement = undefined,
+                                    suffixElement = undefined}) {
 
   const [overlayTimeout, setOverlayTimeout] = useState(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -31,6 +28,14 @@ export default function L4Address(props) {
     }
 
     return <Flag code={geoCountryCode() }/>
+  }
+
+  const assetNameElement = () => {
+    if (withAssetName && address.mac && address.mac.context && address.mac.context.name) {
+      return <span className="context-name hide-narrow" style={{marginLeft: 5}}>{address.mac.context.name}</span>;
+    }
+
+    return null;
   }
 
   const mouseOver = () => {
@@ -58,6 +63,7 @@ export default function L4Address(props) {
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
         {flag()}{' '}
         <IPAddressLink ip={address.address} port={hidePort || !address.port ? null : address.port} />{' '}
+        {assetNameElement()}{' '}
         {filterElement ? filterElement : null}{' '}
         {suffixElement ? suffixElement : null}
 

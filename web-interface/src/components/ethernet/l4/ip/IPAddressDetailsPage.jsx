@@ -16,7 +16,6 @@ import AssetIpAddresses from "../../assets/AssetIpAddresses";
 import moment from "moment/moment";
 import Flag from "../../../misc/Flag";
 import LatLonMap from "../../../shared/LatLonMap";
-import LatitudeLongitude from "../../../shared/LatitudeLongitude";
 import * as L from "leaflet";
 
 const ipAddressesService = new IPAddressesService();
