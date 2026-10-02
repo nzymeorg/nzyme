@@ -7,6 +7,7 @@ countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
 export default function L4AddressContextOverlay(props) {
 
   const address = props.address;
+
   const attributeSummary = () => {
     if (address.attributes === null) {
       return null;
@@ -81,7 +82,12 @@ export default function L4AddressContextOverlay(props) {
       // Local IP.
       return (
           <React.Fragment>
-            <h6><i className="fa-solid fa-map-location-dot"/> {address.address}</h6>
+            <h6>
+              <i className="fa-solid fa-map-location-dot"/> {address.address}{' '}
+              <span className="context-name">
+                {address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
+              </span>
+            </h6>
 
             <div className="context-overlay-content">
               <p className="context-description">
