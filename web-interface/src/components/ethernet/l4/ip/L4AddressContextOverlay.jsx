@@ -1,12 +1,24 @@
-import React from "react";
+import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
+import ContextService from "../../../../services/ContextService";
+import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
+import ContextOverlayLoading from "../../../shared/context/ContextOverlayLoading";
 
 const countries = require("i18n-iso-countries");
 countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
 
-export default function L4AddressContextOverlay(props) {
+const contextService = new ContextService();
 
-  const address = props.address;
+export default function L4AddressContextOverlay({address}) {
+
+  const [organizationId, tenantId] = useSelectedTenant();
+
+  const [ctx, setCtx] = useState(null);
+
+  useEffect(() => {
+    setCtx(null);
+    contextService.findIpAddressContext(address.address, organizationId, tenantId, setCtx);
+  }, [address]);
 
   const attributeSummary = () => {
     if (address.attributes === null) {
@@ -52,6 +64,22 @@ export default function L4AddressContextOverlay(props) {
     }
   }
 
+  const associatedAsset = () => {
+    if (!ctx.assets || ctx.assets.length === 0) {
+      return <span className="text-muted">None</span>
+    }
+
+    const asset = ctx.assets[0]
+    const more = ctx.assets.length-1;
+    console.log(asset);
+    return (
+      <span>
+        <a href={ApiRoutes.ETHERNET.ASSETS.DETAILS(asset.uuid)} className="machine-data">{asset.name}</a>{' '}
+        {more > 0 ? <span className="italic text-muted">[+{more} more]</span> : null}
+      </span>
+    )
+  }
+
   const asn = () => {
     if (!address.geo || !address.geo.asn_name) {
       return <span className="text-muted">n/a</span>
@@ -76,6 +104,10 @@ export default function L4AddressContextOverlay(props) {
     return address.geo.city;
   }
 
+  if (!ctx) {
+    return <ContextOverlayLoading />
+  }
+
   if (address.attributes) {
     // This is a GEO-enriched address.
     if (address.attributes.is_site_local || address.attributes.is_multicast || address.attributes.is_loopback) {
@@ -95,9 +127,11 @@ export default function L4AddressContextOverlay(props) {
                 <i className="fa-solid fa-circle-info"></i> {attributeSummary()}
               </p>
 
-              <dl>
+              <dl className="ip-address">
                 <dt>Attributes:</dt>
                 <dd>{attributes()}</dd>
+                <dt>Associated Asset:</dt>
+                <dd>{associatedAsset()}</dd>
               </dl>
             </div>
 

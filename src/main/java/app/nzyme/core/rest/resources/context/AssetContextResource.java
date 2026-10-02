@@ -1,6 +1,7 @@
 package app.nzyme.core.rest.resources.context;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.dot11.Dot11MacAddressMetadata;
@@ -15,6 +16,9 @@ import app.nzyme.core.rest.requests.CreateMacAddressContextRequest;
 import app.nzyme.core.rest.requests.UpdateMacAddressContextNameRequest;
 import app.nzyme.core.rest.requests.UpdateMacAddressContextRequest;
 import app.nzyme.core.rest.responses.context.*;
+import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
+import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
+import app.nzyme.core.rest.responses.ethernet.assets.AssetDetailsResponse;
 import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
@@ -32,6 +36,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import javax.annotation.Nullable;
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -296,7 +301,80 @@ public class AssetContextResource extends UserAuthenticatedResource {
         return Response.ok().build();
     }
 
-    private MacAddressContextDetailsResponse entryToResponse(MacAddressContextEntry m,
+    @GET
+    @Path("/ip/show/{address}")
+    public Response ip(@Context SecurityContext sc,
+                       @QueryParam("organization_id") @NotNull UUID organizationId,
+                       @QueryParam("tenant_id") @NotNull UUID tenantId,
+                       @PathParam("address") InetAddress address) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        List<AssetDetailsResponse> assets = Lists.newArrayList();
+        for (AssetEntry asset : nzyme.getAssetsManager()
+                .findAssetsByIpAddress(address, organizationId, tenantId, Integer.MAX_VALUE, 0)) {
+            Optional<MacAddressContextEntry> context = nzyme.getContextService()
+                    .findMacAddressContext(asset.mac(), organizationId, tenantId);
+
+            String oui = nzyme.getOuiService().lookup(asset.mac()).orElse(null);
+
+            EthernetMacAddressResponse mac = EthernetMacAddressResponse.create(
+                    asset.mac(),
+                    oui,
+                    asset.uuid(),
+                    asset.isActive(),
+                    context.map(ctx ->
+                            EthernetMacAddressContextResponse.create(
+                                    ctx.name(),
+                                    ctx.description()
+                            )
+                    ).orElse(null)
+            );
+
+            assets.add(AssetDetailsResponse.create(
+                    asset.uuid(),
+                    mac,
+                    oui,
+                    asset.isActive(),
+                    context.map(MacAddressContextEntry::name).orElse(null),
+                    asset.dhcpFingerprintInitial(),
+                    asset.dhcpFingerprintRenew(),
+                    asset.dhcpFingerprintReboot(),
+                    asset.dhcpFingerprintRebind(),
+                    asset.seenArp(),
+                    asset.seenDhcp(),
+                    asset.seenTcp(),
+                    asset.seenUdp(),
+                    asset.firstSeen(),
+                    asset.lastSeen()
+            ));
+            assets.add(AssetDetailsResponse.create(
+                    asset.uuid(),
+                    mac,
+                    oui,
+                    asset.isActive(),
+                    context.map(MacAddressContextEntry::name).orElse(null),
+                    asset.dhcpFingerprintInitial(),
+                    asset.dhcpFingerprintRenew(),
+                    asset.dhcpFingerprintReboot(),
+                    asset.dhcpFingerprintRebind(),
+                    asset.seenArp(),
+                    asset.seenDhcp(),
+                    asset.seenTcp(),
+                    asset.seenUdp(),
+                    asset.firstSeen(),
+                    asset.lastSeen()
+            ));
+        }
+
+        return Response.ok(EnrichedIpAddressContextDetailsResponse.create(
+                IpAddressContextDetailsResponse.create("NAME", "DESCRIPTION"),
+                assets
+        )).build();
+    }
+
+        private MacAddressContextDetailsResponse entryToResponse(MacAddressContextEntry m,
                                                              List<MacAddressTransparentContextEntry> transparent) {
         String organizationName = nzyme.getAuthenticationService()
                 .findOrganization(m.organizationId())

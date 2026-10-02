@@ -998,6 +998,10 @@ div.context-overlay dd {
     margin-bottom: 1px;
 }
 
+div.context-overlay dl.ip-address dd {
+    margin-left: 110px;
+}
+
 span.context-name {
     font-family: 'B612 Mono', monospace;
     background-color: #fdff32;
