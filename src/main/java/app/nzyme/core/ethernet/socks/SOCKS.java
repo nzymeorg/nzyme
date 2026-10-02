@@ -332,6 +332,7 @@ public class SOCKS {
 
         return "host(" + t + "_address) AS key, " +
                 "host(" + t + "_address) AS key_address, " +
+                "MAX(" + t + "_mac) AS key_mac, " +
                 "MAX(" + t + "_port) AS key_port, " +
                 "MAX(" + t + "_geo_asn_number) AS key_address_geo_asn_number, " +
                 "MAX(" + t + "_geo_asn_name) AS key_address_geo_asn_name, " +
