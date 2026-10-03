@@ -2,7 +2,7 @@ import React, {useContext, useState} from "react";
 import ContextService from "../../../services/ContextService";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import {toast} from "react-toastify";
-import {formatAssetName, userHasPermission} from "../../../util/Tools";
+import {formatContextName, userHasPermission} from "../../../util/Tools";
 import {UserContext} from "../../../App";
 
 const contextService = new ContextService();
@@ -16,7 +16,7 @@ export default function AssetDetailsAssetName({asset, setRevision}) {
 
   const [showForm, setShowForm] = useState(false);
 
-  const [newName, setNewName] = useState(asset.name ? formatAssetName(asset.name) : "")
+  const [newName, setNewName] = useState(asset.name ? formatContextName(asset.name) : "")
 
   const [saveButtonText, setSaveButtonText] = useState(SAVE_BUTTON_TEXT);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,7 +71,7 @@ export default function AssetDetailsAssetName({asset, setRevision}) {
         <>
           <div className="input-group mt-2 mb-2">
             <input type="text" className="form-control" id="new-asset-name" maxLength={12}
-                   value={newName} onChange={(e) => { setNewName(formatAssetName(e.target.value)) }} />
+                   value={newName} onChange={(e) => { setNewName(formatContextName(e.target.value)) }} />
 
             <button className="btn btn-sm btn-primary" type="button" disabled={isSaving} onClick={onSubmit}>
               {saveButtonText}

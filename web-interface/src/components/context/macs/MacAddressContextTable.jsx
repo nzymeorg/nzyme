@@ -80,10 +80,10 @@ function MacAddressContextTable() {
                            title="This is a randomized MAC address."/>
                         : null}
                   </td>
-                  <td>{m.name}</td>
+                  <td>{m.name ? m.name : <span className="text-muted">n/a</span>}</td>
                   <td><FirstContextIpAddress addresses={m.transparent_ip_addresses} /></td>
                   <td><FirstContextHostname hostnames={m.transparent_hostnames} /></td>
-                  <td>{m.description}</td>
+                  <td>{m.description ? m.description : <span className="text-muted">n/a</span>}</td>
                 </tr>
             )
           })}

@@ -305,6 +305,12 @@ const ApiRoutes = {
       SHOW: (uuid) => `/context/macs/show/${uuid}`,
       EDIT: (uuid) => `/context/macs/show/${uuid}/edit`,
       CREATE: '/context/macs/create'
+    },
+    NETWORKS: {
+      INDEX: '/context/networks',
+      CREATE: '/context/networks/create',
+      SHOW: (uuid) => `/context/networks/show/${uuid}`,
+      EDIT: (uuid) => `/context/networks/show/${uuid}/edit`,
     }
   },
   NOT_FOUND: '/notfound',

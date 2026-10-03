@@ -36,10 +36,10 @@ public class CacheManager {
                                     message.sender());
                             nzyme.getContextService().invalidateMacAddressCache();
                             break;
-                        case "context_ips":
-                            LOG.info("Invalidating IP address context cache on request of node [{}].",
+                        case "context_networks":
+                            LOG.info("Invalidating network context cache on request of node [{}].",
                                     message.sender());
-                            nzyme.getContextService().invalidateIpAddressCache();
+                            nzyme.getContextService().invalidateNetworkCache();
                             break;
                         case "environment_data":
                             LOG.info("Invalidating environment data cache on request of node [{}].",

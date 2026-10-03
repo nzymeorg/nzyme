@@ -3,14 +3,14 @@ import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import ContextService from "../../../services/ContextService";
 import LoadingSpinner from "../../misc/LoadingSpinner";
-import MacAddressContextForm from "./MacAddressContextForm";
 import {toast} from "react-toastify";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
+import NetworkContextForm from "./NetworkContextForm";
 
 const contextService = new ContextService();
 
-function MacAddressContextDetailsPage() {
+export default function EditNetworkContextPage() {
 
   const {uuid} = useParams();
 
@@ -19,14 +19,14 @@ function MacAddressContextDetailsPage() {
   const [context, setContext] = useState(null);
   const [updated, setUpdated] = useState(false);
 
-  usePageTitle(context ? `Edit MAC Address Context: ${context.mac_address}` : "Edit MAC Address Context");
+  usePageTitle(context ? `Edit Network Context: ${context.cidr}` : "Edit Network Context");
 
   useEffect(() => {
-    contextService.findMacAddressContextByUuid(uuid, organizationId, tenantId, setContext);
+    contextService.findNetworkContextByUuid(uuid, organizationId, tenantId, setContext);
   }, [uuid, organizationId, tenantId]);
 
-  const onSubmit = (macAddress, name, description, notes, organizationId, tenantId, onComplete) => {
-    contextService.editMacAddressContext(uuid, name, description, notes, organizationId, tenantId, () => {
+  const onSubmit = (cidr, name, description, notes, organizationId, tenantId, onComplete) => {
+    contextService.editNetworkContext(uuid, name, description, notes, organizationId, tenantId, () => {
       toast.success('Context updated.');
       onComplete();
       setUpdated(true);
@@ -36,7 +36,7 @@ function MacAddressContextDetailsPage() {
   }
 
   if (updated) {
-    return <Navigate to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)} />
+    return <Navigate to={ApiRoutes.CONTEXT.NETWORKS.SHOW(context.uuid)} />
   }
 
   if (!context) {
@@ -50,10 +50,10 @@ function MacAddressContextDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</a></li>
+                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</a></li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
-                    {context.mac_address}
+                  <a href={ApiRoutes.CONTEXT.NETWORKS.SHOW(context.uuid)}>
+                    {context.cidr}
                   </a>
                 </li>
                 <li className="breadcrumb-item active">Edit</li>
@@ -65,14 +65,14 @@ function MacAddressContextDetailsPage() {
         <div className="row">
           <div className="col-md-8">
             <h1>
-              Edit Context of MAC Address &quot;{context.mac_address}&quot;
+              Edit Context of Network <span className="machine-data">{context.cidr}</span>
             </h1>
           </div>
 
           <div className="col-md-4">
             <span className="float-end">
               <a className="btn btn-primary"
-                 href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
+                 href={ApiRoutes.CONTEXT.NETWORKS.SHOW(context.uuid)}>
                 Back
               </a>
             </span>
@@ -83,17 +83,17 @@ function MacAddressContextDetailsPage() {
           <div className="col-xl-12 col-xxl-6">
             <div className="card">
               <div className="card-body">
-                <h3>Edit MAC Address Context</h3>
+                <h3>Edit Network Context</h3>
 
-                <MacAddressContextForm submitText={"Update Context"}
-                                       organizationId={context.organization_id}
-                                       tenantId={context.tenant_id}
-                                       macAddressDisabled={true}
-                                       macAddress={context.mac_address}
-                                       name={context.name}
-                                       description={context.description}
-                                       notes={context.notes}
-                                       onSubmit={onSubmit} />
+                <NetworkContextForm submitText={"Update Context"}
+                                    organizationId={context.organization_id}
+                                    tenantId={context.tenant_id}
+                                    cidrDisabled={true}
+                                    cidr={context.cidr}
+                                    name={context.name}
+                                    description={context.description}
+                                    notes={context.notes}
+                                    onSubmit={onSubmit} />
               </div>
             </div>
           </div>
@@ -102,5 +102,3 @@ function MacAddressContextDetailsPage() {
   )
 
 }
-
-export default MacAddressContextDetailsPage;

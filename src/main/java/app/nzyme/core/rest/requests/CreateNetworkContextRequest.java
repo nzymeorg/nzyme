@@ -7,14 +7,13 @@ import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.net.InetAddress;
 import java.util.UUID;
 
 @AutoValue
-public abstract class CreateIpAddressContextRequest {
+public abstract class CreateNetworkContextRequest {
 
     @NotNull
-    public abstract InetAddress ipAddress();
+    public abstract String cidr();
 
     @Nullable
     @Size(max = 12)
@@ -34,14 +33,14 @@ public abstract class CreateIpAddressContextRequest {
     public abstract UUID tenantId();
 
     @JsonCreator
-    public static CreateIpAddressContextRequest create(@JsonProperty("ip_address") InetAddress ipAddress,
-                                                       @JsonProperty("name") String name,
-                                                       @JsonProperty("description") String description,
-                                                       @JsonProperty("notes") String notes,
-                                                       @JsonProperty("organization_id") UUID organizationId,
-                                                       @JsonProperty("tenant_id") UUID tenantId) {
+    public static CreateNetworkContextRequest create(@JsonProperty("cidr") String cidr,
+                                                     @JsonProperty("name") String name,
+                                                     @JsonProperty("description") String description,
+                                                     @JsonProperty("notes") String notes,
+                                                     @JsonProperty("organization_id") UUID organizationId,
+                                                     @JsonProperty("tenant_id") UUID tenantId) {
         return builder()
-                .ipAddress(ipAddress)
+                .cidr(cidr)
                 .name(name)
                 .description(description)
                 .notes(notes)
@@ -51,12 +50,12 @@ public abstract class CreateIpAddressContextRequest {
     }
 
     public static Builder builder() {
-        return new AutoValue_CreateIpAddressContextRequest.Builder();
+        return new AutoValue_CreateNetworkContextRequest.Builder();
     }
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder ipAddress(@NotNull InetAddress ipAddress);
+        public abstract Builder cidr(@NotNull String cidr);
 
         public abstract Builder name(@Size(max = 12) String name);
 
@@ -68,6 +67,6 @@ public abstract class CreateIpAddressContextRequest {
 
         public abstract Builder tenantId(@NotNull UUID tenantId);
 
-        public abstract CreateIpAddressContextRequest build();
+        public abstract CreateNetworkContextRequest build();
     }
 }

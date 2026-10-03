@@ -57,7 +57,7 @@ const RESTClient = {
             toast.error('REST call failed. (HTTP ' + error.response.status + ')')
           }
         } else {
-          toast.error('REST call failed. No response. Is nzyme running?')
+          toast.error('REST call failed. No response. Is Nzyme running?')
         }
       })
   },
@@ -80,7 +80,7 @@ const RESTClient = {
             toast.error('REST call failed. (HTTP ' + error.response.status + ')')
           }
         } else {
-          toast.error('REST call failed. No response. Is nzyme running?')
+          toast.error('REST call failed. No response. Is Nzyme running?')
         }
       })
   },
@@ -102,7 +102,7 @@ const RESTClient = {
           if (error.response) {
             toast.error('REST call failed. (HTTP ' + error.response.status + ')')
           } else {
-            toast.error('REST call failed. No response. Is nzyme running?')
+            toast.error('REST call failed. No response. Is Nzyme running?')
           }
         }
       })
@@ -120,7 +120,7 @@ const RESTClient = {
           if (error.response) {
             toast.error('REST call failed. (HTTP ' + error.response.status + ')')
           } else {
-            toast.error('REST call failed. No response. Is nzyme running?')
+            toast.error('REST call failed. No response. Is Nzyme running?')
           }
         }
       })
@@ -138,7 +138,7 @@ const RESTClient = {
           if (error.response) {
             toast.error('REST call failed. (HTTP ' + error.response.status + ')')
           } else {
-            toast.error('REST call failed. No response. Is nzyme running?')
+            toast.error('REST call failed. No response. Is Nzyme running?')
           }
         }
       })

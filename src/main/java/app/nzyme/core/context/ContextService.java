@@ -1,9 +1,10 @@
 package app.nzyme.core.context;
 
 import app.nzyme.core.NzymeNode;
-import app.nzyme.core.context.db.IpAddressContextEntry;
+import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
+import app.nzyme.core.ethernet.CIDR;
 import app.nzyme.core.util.MetricNames;
 import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
@@ -16,6 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import org.joda.time.DateTime;
 
 import java.net.InetAddress;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,10 +34,10 @@ public class ContextService {
     private final NzymeNode nzyme;
 
     private final Timer macLookupTimer;
-    private final Timer ipLookupTimer;
+    private final Timer networkLookupTimer;
 
     private final LoadingCache<MacAddressContextCacheKey, Optional<MacAddressContextEntry>> macAddressContextCache;
-    private final LoadingCache<IpAddressContextCacheKey, Optional<IpAddressContextEntry>> ipAddressContextCache;
+    private final LoadingCache<NetworkContextCacheKey, List<NetworkContextEntry>> networkContextCache;
 
     public ContextService(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -51,14 +53,14 @@ public class ContextService {
                     }
                 });
 
-        this.ipAddressContextCache = CacheBuilder.newBuilder()
+        this.networkContextCache = CacheBuilder.newBuilder()
                 .maximumSize(5000)
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .build(new CacheLoader<>() {
                     @NotNull
                     @Override
-                    public Optional<IpAddressContextEntry> load(@NotNull IpAddressContextCacheKey key) {
-                        return findIpAddressContextNoCache(key.ipAddress(), key.organizationId(), key.tenantId());
+                    public List<NetworkContextEntry> load(@NotNull NetworkContextCacheKey key) {
+                        return findNetworkContextNoCache(key.ipAddress(), key.organizationId(), key.tenantId());
                     }
                 });
 
@@ -68,23 +70,23 @@ public class ContextService {
                 return macAddressContextCache.size();
             }
         });
-        nzyme.getMetrics().register(MetricNames.CONTEXT_IP_CACHE_SIZE, new Gauge<Long>() {
+        nzyme.getMetrics().register(MetricNames.CONTEXT_NETWORK_CACHE_SIZE, new Gauge<Long>() {
             @Override
             public Long getValue() {
-                return ipAddressContextCache.size();
+                return networkContextCache.size();
             }
         });
 
         this.macLookupTimer = nzyme.getMetrics().timer(MetricNames.CONTEXT_MAC_LOOKUP_TIMING);
-        this.ipLookupTimer = nzyme.getMetrics().timer(MetricNames.CONTEXT_IP_LOOKUP_TIMING);
+        this.networkLookupTimer = nzyme.getMetrics().timer(MetricNames.CONTEXT_NETWORK_LOOKUP_TIMING);
     }
 
     public void invalidateMacAddressCache() {
         macAddressContextCache.invalidateAll();
     }
 
-    public void invalidateIpAddressCache() {
-        ipAddressContextCache.invalidateAll();
+    public void invalidateNetworkCache() {
+        networkContextCache.invalidateAll();
     }
 
     public long createMacAddressContext(String macAddress,
@@ -356,99 +358,109 @@ public class ContextService {
     }
 
 
-    public Optional<IpAddressContextEntry> findIpAddressContext(InetAddress ip,
-                                                                @Nullable UUID organizationId,
-                                                                @Nullable UUID tenantId) {
-        if (ip == null) {
-            return Optional.empty();
+    public List<NetworkContextEntry> findNetworkContext(InetAddress address,
+                                                        @Nullable UUID organizationId,
+                                                        @Nullable UUID tenantId) {
+        if (address == null) {
+            return Collections.emptyList();
         }
 
         try {
-            return ipAddressContextCache.get(IpAddressContextCacheKey.create(ip.getHostAddress(), organizationId, tenantId));
+            return networkContextCache.get(NetworkContextCacheKey.create(address, organizationId, tenantId));
         } catch(ExecutionException e) {
-            throw new RuntimeException("Could not load IP address context from cache.", e);
+            throw new RuntimeException("Could not load network context from cache.", e);
         }
     }
 
-    public Optional<IpAddressContextEntry> findIpAddressContextNoCache(String ip,
-                                                                       UUID organizationId,
-                                                                       UUID tenantId) {
-        if (ip == null) {
-            return Optional.empty();
+    public List<NetworkContextEntry> findNetworkContextNoCache(InetAddress address,
+                                                               UUID organizationId,
+                                                               UUID tenantId) {
+        if (address == null) {
+            return Collections.emptyList();
         }
 
-        try(Timer.Context ignored = ipLookupTimer.time()) {
+        try(Timer.Context ignored = networkLookupTimer.time()) {
             return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT * FROM context_ip_addresses " +
-                                    "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                    "AND ip_address = :ip_address::inet")
+                    handle.createQuery("SELECT * FROM context_networks " +
+                                    "WHERE organization_id = :organization_id " +
+                                    "AND tenant_id = :tenant_id " +
+                                    "AND network <<= :address::inet " +
+                                    "ORDER BY masklen(network) DESC")
                             .bind("organization_id", organizationId)
                             .bind("tenant_id", tenantId)
-                            .bind("ip_address", ip)
-                            .mapTo(IpAddressContextEntry.class)
-                            .findOne()
+                            .bind("address", address.getHostAddress())
+                            .mapTo(NetworkContextEntry.class)
+                            .list()
             );
         }
     }
 
-    public Optional<IpAddressContextEntry> findIpAddressContext(UUID uuid, UUID organizationId, UUID tenantId) {
+    public Optional<NetworkContextEntry> findNetworkContext(CIDR cidr, UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT * FROM context_ip_addresses " +
+                handle.createQuery("SELECT * FROM context_networks " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND network = :network::cidr")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("network", cidr.toString())
+                        .mapTo(NetworkContextEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<NetworkContextEntry> findNetworkContext(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM context_networks " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND uuid = :uuid")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("uuid", uuid)
-                        .mapTo(IpAddressContextEntry.class)
+                        .mapTo(NetworkContextEntry.class)
                         .findOne()
         );
     }
 
-    public Long countIpAddressContext(UUID organizationId, UUID tenantId, String cidrFilter) {
+    public Long countNetworkContext(UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM context_ip_addresses " +
-                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND ip_address <<= :cidr_filter::inet")
+                handle.createQuery("SELECT COUNT(*) FROM context_networks " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
-                        .bind("cidr_filter", cidrFilter)
                         .mapTo(Long.class)
                         .one()
         );
     }
 
-    public List<IpAddressContextEntry> findAllIpAddressContext(UUID organizationId,
-                                                               UUID tenantId,
-                                                               String cidrFilter,
-                                                               int limit,
-                                                               int offset) {
+    public List<NetworkContextEntry> findAllNetworkContext(UUID organizationId,
+                                                             UUID tenantId,
+                                                             int limit,
+                                                             int offset) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT * FROM context_ip_addresses " +
+                handle.createQuery("SELECT * FROM context_networks " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND ip_address <<= :cidr_filter::inet " +
-                                "ORDER BY ip_address ASC LIMIT :limit OFFSET :offset")
+                                "ORDER BY masklen(network) DESC LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
-                        .bind("cidr_filter", cidrFilter)
                         .bind("limit", limit)
                         .bind("offset", offset)
-                        .mapTo(IpAddressContextEntry.class)
+                        .mapTo(NetworkContextEntry.class)
                         .list()
         );
     }
 
-    public long createIpAddressContext(InetAddress ipAddress,
-                                       String name,
-                                       @Nullable String description,
-                                       @Nullable String notes,
-                                       UUID organizationId,
-                                       UUID tenantId) {
+    public long createNetworkContext(CIDR network,
+                                     String name,
+                                     @Nullable String description,
+                                     @Nullable String notes,
+                                     UUID organizationId,
+                                     UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("INSERT INTO context_ip_addresses(ip_address, uuid, name, description, " +
-                                "notes, organization_id, tenant_id, created_at, updated_at) VALUES(:ip_address::inet, " +
+                handle.createQuery("INSERT INTO context_networks(network, uuid, name, description, " +
+                                "notes, organization_id, tenant_id, created_at, updated_at) VALUES(:network::cidr, " +
                                 ":uuid, :name, :description, :notes, :organization_id, :tenant_id, NOW(), NOW()) " +
                                 "RETURNING id")
-                        .bind("ip_address", ipAddress.getHostAddress())
+                        .bind("network", network.toString())
                         .bind("uuid", UUID.randomUUID())
                         .bind("name", name)
                         .bind("description", description)
@@ -460,14 +472,14 @@ public class ContextService {
         );
     }
 
-    public void updateIpAddressContext(UUID uuid,
-                                       UUID organizationId,
-                                       UUID tenantId,
-                                       String name,
-                                       String description,
-                                       String notes) {
+    public void updateNetworkContext(UUID uuid,
+                                     UUID organizationId,
+                                     UUID tenantId,
+                                     String name,
+                                     String description,
+                                     String notes) {
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE context_ip_addresses SET name = :name, description = :description, " +
+                handle.createUpdate("UPDATE context_networks SET name = :name, description = :description, " +
                                 "notes = :notes, updated_at = NOW() WHERE uuid = :uuid " +
                                 "AND organization_id = :organization_id AND tenant_id = :tenant_id")
                         .bind("name", name)
@@ -480,9 +492,9 @@ public class ContextService {
         );
     }
 
-    public void deleteIpAddressContext(UUID uuid, UUID organizationId, UUID tenantId) {
+    public void deleteNetworkContext(UUID uuid, UUID organizationId, UUID tenantId) {
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM context_ip_addresses " +
+                handle.createUpdate("DELETE FROM context_networks " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND uuid = :uuid")
                         .bind("organization_id", organizationId)

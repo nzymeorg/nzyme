@@ -7,7 +7,7 @@ export default function FirstContextIpAddress(props) {
   const addresses = props.addresses;
 
   if (!addresses || addresses.length === 0) {
-    return <span className="text-muted">None</span>
+    return <span className="text-muted">n/a</span>
   }
 
   return (

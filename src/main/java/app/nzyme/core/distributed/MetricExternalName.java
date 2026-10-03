@@ -23,7 +23,7 @@ public enum MetricExternalName {
 
     GEOIP_CACHE_SIZE("geoip_cache_size"),
     CONTEXT_MAC_CACHE_SIZE("context_mac_cache_size"),
-    CONTEXT_IP_CACHE_SIZE("context_ip_cache_size"),
+    CONTEXT_NETWORK_CACHE_SIZE("context_network_cache_size"),
     LOG_COUNTS_TRACE("log_counts_trace"),
     LOG_COUNTS_DEBUG("log_counts_debug"),
     LOG_COUNTS_INFO("log_counts_info"),

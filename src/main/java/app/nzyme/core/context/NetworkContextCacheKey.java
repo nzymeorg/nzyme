@@ -2,16 +2,17 @@ package app.nzyme.core.context;
 
 import com.google.auto.value.AutoValue;
 
+import java.net.InetAddress;
 import java.util.UUID;
 
 @AutoValue
-public abstract class IpAddressContextCacheKey {
+public abstract class NetworkContextCacheKey {
 
-    public abstract String ipAddress();
+    public abstract InetAddress ipAddress();
     public abstract UUID organizationId();
     public abstract UUID tenantId();
 
-    public static IpAddressContextCacheKey create(String ipAddress, UUID organizationId, UUID tenantId) {
+    public static NetworkContextCacheKey create(InetAddress ipAddress, UUID organizationId, UUID tenantId) {
         return builder()
                 .ipAddress(ipAddress)
                 .organizationId(organizationId)
@@ -20,17 +21,17 @@ public abstract class IpAddressContextCacheKey {
     }
 
     public static Builder builder() {
-        return new AutoValue_IpAddressContextCacheKey.Builder();
+        return new AutoValue_NetworkContextCacheKey.Builder();
     }
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder ipAddress(String ipAddress);
+        public abstract Builder ipAddress(InetAddress ipAddress);
 
         public abstract Builder organizationId(UUID organizationId);
 
         public abstract Builder tenantId(UUID tenantId);
 
-        public abstract IpAddressContextCacheKey build();
+        public abstract NetworkContextCacheKey build();
     }
 }

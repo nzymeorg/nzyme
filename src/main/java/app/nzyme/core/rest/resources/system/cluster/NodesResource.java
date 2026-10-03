@@ -223,8 +223,8 @@ public class NodesResource {
             gauges.put("context_mac_cache_size", GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
                     node.uuid(), MetricExternalName.CONTEXT_MAC_CACHE_SIZE.database_label, handle
             ).orElse(0D)));
-            gauges.put("context_ip_cache_size", GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
-                    node.uuid(), MetricExternalName.CONTEXT_IP_CACHE_SIZE.database_label, handle
+            gauges.put("context_network_cache_size", GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
+                    node.uuid(), MetricExternalName.CONTEXT_NETWORK_CACHE_SIZE.database_label, handle
             ).orElse(0D)));
 
             // Log counts.

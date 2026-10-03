@@ -61,6 +61,49 @@ class ContextService {
     RESTClient.get("/context/ip/show/" + ipAddress, { organization_id: organizationId, tenant_id: tenantId }, (response) => setContext(response.data))
   }
 
+  findAllNetworkContext(organizationId, tenantId, setContext, limit, offset) {
+    RESTClient.get("/context/networks", {limit: limit, offset: offset, organization_id: organizationId, tenant_id: tenantId},
+      (response) => setContext(response.data)
+    )
+  }
+
+  findNetworkContextByUuid(uuid, organizationId, tenantId, setContext) {
+    RESTClient.get(`/context/networks/show/uuid/${uuid}`,
+      {organization_id: organizationId, tenant_id: tenantId}, (response) => setContext(response.data))
+  }
+
+  createNetworkContext(cidr, name, description, notes, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.post(
+      "/context/networks",
+      {
+        cidr: cidr,
+        name: name,
+        description: description,
+        notes: notes,
+        organization_id: organizationId,
+        tenant_id: tenantId
+      },
+      successCallback, errorCallback
+    );
+  }
+
+  editNetworkContext(uuid, name, description, notes, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/context/networks/show/uuid/${uuid}`,
+      {
+        organization_id: organizationId,
+        tenant_id: tenantId,
+        name: name,
+        description: description,
+        notes: notes
+      },
+      successCallback, errorCallback
+    )
+  }
+
+  deleteNetworkContext(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/context/networks/show/organization/show/${organizationId}/tenant/show/${tenantId}/uuid/${uuid}`, successCallback)
+  }
+
 }
 
 export default ContextService;

@@ -12,12 +12,12 @@ public abstract class EnrichedIpAddressContextDetailsResponse {
 
     @JsonProperty("context")
     @Nullable
-    public abstract IpAddressContextDetailsResponse context();
+    public abstract List<NetworkContextDetailsResponse> context();
 
     @JsonProperty("assets")
     public abstract List<AssetDetailsResponse> assets();
 
-    public static EnrichedIpAddressContextDetailsResponse create(IpAddressContextDetailsResponse context, List<AssetDetailsResponse> assets) {
+    public static EnrichedIpAddressContextDetailsResponse create(List<NetworkContextDetailsResponse> context, List<AssetDetailsResponse> assets) {
         return builder()
                 .context(context)
                 .assets(assets)
@@ -30,7 +30,7 @@ public abstract class EnrichedIpAddressContextDetailsResponse {
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder context(IpAddressContextDetailsResponse context);
+        public abstract Builder context(List<NetworkContextDetailsResponse> context);
 
         public abstract Builder assets(List<AssetDetailsResponse> assets);
 

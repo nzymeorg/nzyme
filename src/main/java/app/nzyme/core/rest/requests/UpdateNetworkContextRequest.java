@@ -10,7 +10,7 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 @AutoValue
-public abstract class UpdateIpAddressContextRequest {
+public abstract class UpdateNetworkContextRequest {
 
     @Nullable
     @Size(max = 12)
@@ -30,11 +30,12 @@ public abstract class UpdateIpAddressContextRequest {
     @NotNull @app.nzyme.core.rest.constraints.UUID
     public abstract UUID tenantId();
 
-    public static UpdateIpAddressContextRequest create(@JsonProperty("name") String name,
-                                                       @JsonProperty("description") String description,
-                                                       @JsonProperty("notes") String notes,
-                                                       @JsonProperty("organization_id") UUID organizationId,
-                                                       @JsonProperty("tenant_id") UUID tenantId) {
+    @JsonCreator
+    public static UpdateNetworkContextRequest create(@JsonProperty("name") String name,
+                                                     @JsonProperty("description") String description,
+                                                     @JsonProperty("notes") String notes,
+                                                     @JsonProperty("organization_id") UUID organizationId,
+                                                     @JsonProperty("tenant_id") UUID tenantId) {
         return builder()
                 .name(name)
                 .description(description)
@@ -45,7 +46,7 @@ public abstract class UpdateIpAddressContextRequest {
     }
 
     public static Builder builder() {
-        return new AutoValue_UpdateIpAddressContextRequest.Builder();
+        return new AutoValue_UpdateNetworkContextRequest.Builder();
     }
 
     @AutoValue.Builder
@@ -60,6 +61,6 @@ public abstract class UpdateIpAddressContextRequest {
 
         public abstract Builder tenantId(@NotNull UUID tenantId);
 
-        public abstract UpdateIpAddressContextRequest build();
+        public abstract UpdateNetworkContextRequest build();
     }
 }

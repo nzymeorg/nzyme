@@ -69,6 +69,214 @@ export function isValidMACAddress(mac) {
   return /^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/.test(mac.trim());
 }
 
+export function isValidCIDR(cidr) {
+  if (typeof cidr !== "string" || cidr.trim() === "") {
+    return false;
+  }
+
+  const parts = cidr.trim().split("/");
+  if (parts.length > 2) {
+    return false;
+  }
+
+  const [addr, prefixStr] = parts;
+  const bytes = addr.includes(":") ? parseIPv6(addr) : parseIPv4(addr);
+  if (!bytes) {
+    return false;
+  }
+
+  if (bytes.length === 16 && isIPv4Mapped(bytes)) {
+    return false;
+  }
+
+  const maxBits = bytes.length * 8;
+  let prefix = maxBits;
+
+  if (prefixStr !== undefined) {
+    if (!/^[0-9]{1,3}$/.test(prefixStr)) {
+      return false;
+    }
+    prefix = Number(prefixStr);
+    if (prefix > maxBits) {
+      return false;
+    }
+  }
+
+  for (let i = prefix; i < maxBits; i++) {
+    if (bytes[i >> 3] & (0x80 >> (i % 8))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function parseIPv4(s) {
+  const parts = s.split(".");
+  if (parts.length !== 4) {
+    return null;
+  }
+
+  const bytes = [];
+  for (const p of parts) {
+    if (!/^(0|[1-9][0-9]{0,2})$/.test(p)) {
+      return null;
+    }
+    const n = Number(p);
+    if (n > 255) {
+      return null;
+    }
+    bytes.push(n);
+  }
+  return bytes;
+}
+
+function parseIPv6(s) {
+  const halves = s.split("::");
+  if (halves.length > 2) {
+    return null;
+  }
+
+  const head = parseIPv6Groups(halves[0], halves.length === 1);
+  const tail = halves.length === 2 ? parseIPv6Groups(halves[1], true) : [];
+  if (!head || !tail) {
+    return null;
+  }
+
+  if (halves.length === 1) {
+    return head.length === 16 ? head : null;
+  }
+
+  const missing = 16 - head.length - tail.length;
+  if (missing < 2) {
+    return null;
+  }
+
+  return [...head, ...new Array(missing).fill(0), ...tail];
+}
+
+function parseIPv6Groups(part, allowTrailingIPv4) {
+  if (part === "") {
+    return [];
+  }
+
+  const groups = part.split(":");
+  const bytes = [];
+
+  for (let i = 0; i < groups.length; i++) {
+    const g = groups[i];
+    const isLast = i === groups.length - 1;
+
+    if (isLast && allowTrailingIPv4 && g.includes(".")) {
+      const v4 = parseIPv4(g);
+      if (!v4) {
+        return null;
+      }
+      bytes.push(...v4);
+    } else if (/^[0-9a-fA-F]{1,4}$/.test(g)) {
+      const n = parseInt(g, 16);
+      bytes.push(n >> 8, n & 0xff);
+    } else {
+      return null;
+    }
+  }
+  return bytes;
+}
+
+function isIPv4Mapped(bytes) {
+  for (let i = 0; i < 10; i++) {
+    if (bytes[i] !== 0) {
+      return false;
+    }
+  }
+  return bytes[10] === 0xff && bytes[11] === 0xff;
+}
+
+export function cidrToRange(cidr, { usableHostsOnly = false } = {}) {
+  if (typeof cidr !== "string" || cidr.trim() === "") {
+    return null;
+  }
+
+  const parts = cidr.trim().split("/");
+  if (parts.length > 2) {
+    return null;
+  }
+
+  const [addr, prefixStr] = parts;
+  const isV6 = addr.includes(":");
+  const bytes = isV6 ? parseIPv6(addr) : parseIPv4(addr);
+  if (!bytes || (isV6 && isIPv4Mapped(bytes))) {
+    return null;
+  }
+
+  const maxBits = bytes.length * 8;
+  let prefix = maxBits;
+
+  if (prefixStr !== undefined) {
+    if (!/^[0-9]{1,3}$/.test(prefixStr)) {
+      return null;
+    }
+    prefix = Number(prefixStr);
+    if (prefix > maxBits) {
+      return null;
+    }
+  }
+
+  const from = [...bytes];
+  const to = [...bytes];
+  for (let i = prefix; i < maxBits; i++) {
+    const mask = 0x80 >> (i % 8);
+    from[i >> 3] &= ~mask;
+    to[i >> 3] |= mask;
+  }
+
+  if (usableHostsOnly && !isV6 && prefix <= 30) {
+    from[3] += 1;
+    to[3] -= 1;
+  }
+
+  const format = isV6 ? formatIPv6 : formatIPv4;
+  return { from: format(from), to: format(to) };
+}
+
+function formatIPv4(bytes) {
+  return bytes.join(".");
+}
+
+function formatIPv6(bytes) {
+  const groups = [];
+  for (let i = 0; i < 16; i += 2) {
+    groups.push((bytes[i] << 8) | bytes[i + 1]);
+  }
+
+  let bestStart = -1;
+  let bestLen = 0;
+  for (let i = 0; i < 8; ) {
+    if (groups[i] !== 0) {
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < 8 && groups[j] === 0) {
+      j++;
+    }
+    if (j - i > bestLen) {
+      bestStart = i;
+      bestLen = j - i;
+    }
+    i = j;
+  }
+
+  const hex = groups.map((g) => g.toString(16));
+  if (bestLen < 2) {
+    return hex.join(":");
+  }
+
+  const head = hex.slice(0, bestStart).join(":");
+  const tail = hex.slice(bestStart + bestLen).join(":");
+  return `${head}::${tail}`;
+}
+
 export function sanitizeHtml(string) {
   const map = {
     '&': '&amp;',
@@ -241,7 +449,7 @@ export function uavVerticalAccuracyNoHtml(x) {
   }
 }
 
-export function formatAssetName(name) {
+export function formatContextName(name) {
   return name.toUpperCase().replace(/[^a-z0-9_]/gi, '');
 }
 

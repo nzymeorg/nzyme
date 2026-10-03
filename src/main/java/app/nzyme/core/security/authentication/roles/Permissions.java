@@ -33,10 +33,10 @@ public class Permissions {
                         "like 802.11/WiFi or Ethernet.",
                 true
         ));
-        put("ip_context_manage", Permission.create(
-                "ip_context_manage",
-                "Manage IP Address Context",
-                "Allows user to create, edit and delete IP address context.",
+        put("network_context_manage", Permission.create(
+                "network_context_manage",
+                "Manage Ethernet Network Context",
+                "Allows user to create, edit and delete Ethernet network (CIDR) context.",
                 true
         ));
         put("uav_monitoring_manage", Permission.create(

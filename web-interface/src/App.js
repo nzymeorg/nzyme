@@ -189,6 +189,10 @@ import RTSPStreamDetailsPage from "./components/ethernet/streams/rtsp/RTSPStream
 import BluetoothMonitorsPage from "./components/bluetooth/monitoring/BluetoothMonitorsPage";
 import WebRTCSessionsPage from "./components/ethernet/streams/webrtc/WebRTCSessionsPage";
 import WebRTCSessionDetailsPage from "./components/ethernet/streams/webrtc/WebRTCSessionDetailsPage";
+import NetworksContextPage from "./components/context/networks/NetworkContextPage";
+import CreateNetworkContextPage from "./components/context/networks/CreateNetworkContextPage";
+import NetworkContextDetailsPage from "./components/context/networks/NetworkContextDetailsPage";
+import EditNetworkContextPage from "./components/context/networks/EditNetworkContextPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -681,6 +685,10 @@ function App() {
                               <Route path={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE} element={<CreateMacAddressContextPage />}/>
                               <Route path={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(':uuid')} element={<MacAddressContextDetailsPage />}/>
                               <Route path={ApiRoutes.CONTEXT.MAC_ADDRESSES.EDIT(':uuid')} element={<EditMacAddressContextPage />}/>
+                              <Route path={ApiRoutes.CONTEXT.NETWORKS.INDEX} element={<NetworksContextPage />}/>
+                              <Route path={ApiRoutes.CONTEXT.NETWORKS.CREATE} element={<CreateNetworkContextPage />}/>
+                              <Route path={ApiRoutes.CONTEXT.NETWORKS.SHOW(':uuid')} element={<NetworkContextDetailsPage />}/>
+                              <Route path={ApiRoutes.CONTEXT.NETWORKS.EDIT(':uuid')} element={<EditNetworkContextPage />}/>
 
                               { /* Alerts. */}
                               <Route path={ApiRoutes.ALERTS.INDEX} element={<AlertsPage />}/>

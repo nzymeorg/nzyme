@@ -1979,3 +1979,8 @@ div.arp-description p {
 #main.narrow td.hide-narrow {
     display: none !important;
 }
+
+dl.cidr-calculator dt, dl.cidr-calculator dd {
+    float: left;
+    margin-right: 5px;
+}

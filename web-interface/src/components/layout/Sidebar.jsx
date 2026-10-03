@@ -174,6 +174,10 @@ function Sidebar(props) {
                 title="MAC Addresses"
                 icon={<i className="sidebar-icon fa-regular fa-address-card"/>}/>
 
+            <NavigationLink
+              href={ApiRoutes.CONTEXT.NETWORKS.INDEX}
+              title="Networks"
+              icon={<i className="sidebar-icon fa-solid fa-globe"/>}/>
           </SidebarSubmenu>
 
           <SidebarSubmenu title="Alerts"

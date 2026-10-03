@@ -7,46 +7,52 @@ import LoadingSpinner from "../../misc/LoadingSpinner";
 import {toast} from "react-toastify";
 import moment from "moment";
 import ContextNotes from "../ContextNotes";
-import TransparentIpAddressTable from "../../shared/context/transparent/TransparentIpAddressTable";
-import TransparentHostnamesTable from "../../shared/context/transparent/TransparentHostnamesTable";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
+import {cidrToRange} from "../../../util/Tools";
 
 const contextService = new ContextService();
 
-function MacAddressContextDetailsPage() {
+export default function NetworkContextDetailsPage() {
 
   const {uuid} = useParams();
 
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [context, setContext] = useState(null);
+  const [range, setRange] = useState({from: null, to: null});
 
   const [deleted, setDeleted] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  usePageTitle(context ? `MAC Address Context: ${context.mac_address}` : "MAC Address Context Details");
+  usePageTitle(context ? `Network Context: ${context.cidr}` : "Network Context Details");
 
   useEffect(() => {
-    contextService.findMacAddressContextByUuid(uuid, organizationId, tenantId, setContext);
+    contextService.findNetworkContextByUuid(uuid, organizationId, tenantId, setContext);
   }, [uuid, organizationId, tenantId]);
+
+  useEffect(() => {
+    if (context) {
+      setRange(cidrToRange(context.cidr));
+    }
+  }, [context])
 
   const onDelete = (e) => {
     e.preventDefault();
 
-    if (!confirm("Really delete MAC address context?")) {
+    if (!confirm("Really delete network context?")) {
       return;
     }
 
     setDeleting(true);
-    contextService.deleteMacAddressContext(uuid, organizationId, tenantId, () => {
-      toast.success('MAC address context deleted.');
+    contextService.deleteNetworkContext(uuid, organizationId, tenantId, () => {
+      toast.success('Network context deleted.');
       setDeleted(true);
     });
   }
 
   if (deleted) {
-    return <Navigate to={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX} />
+    return <Navigate to={ApiRoutes.CONTEXT.NETWORKS.INDEX} />
   }
 
   if (!context) {
@@ -60,8 +66,8 @@ function MacAddressContextDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</a></li>
-                <li className="breadcrumb-item active">{context.mac_address}</li>
+                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</a></li>
+                <li className="breadcrumb-item active">{context.cidr}</li>
               </ol>
             </nav>
           </div>
@@ -70,25 +76,20 @@ function MacAddressContextDetailsPage() {
         <div className="row">
           <div className="col-md-8">
             <h1>
-              Context of MAC Address &quot;{context.mac_address}&quot;{' '}
-
-              {context.mac_address_is_randomized ?
-                  <i className="fa-solid fa-triangle-exclamation text-danger cursor-help"
-                     title="This is a randomized MAC address."/>
-                  : null}
+              Context of Network <span className="machine-data">{context.cidr}</span>
             </h1>
           </div>
 
           <div className="col-md-4">
             <span className="float-end">
-              <WithPermission permission="mac_context_manage">
+              <WithPermission permission="network_context_manage">
                 <button className="btn btn-danger" onClick={onDelete} disabled={deleting}>{deleting ? "Please wait ..." : "Delete"}</button>&nbsp;
                 <a className="btn btn-secondary"
-                   href={ApiRoutes.CONTEXT.MAC_ADDRESSES.EDIT(context.uuid)}>
+                   href={ApiRoutes.CONTEXT.NETWORKS.EDIT(context.uuid)}>
                   Edit
                 </a>&nbsp;
               </WithPermission>
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>Back</a>
+              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Back</a>
             </span>
           </div>
         </div>
@@ -105,6 +106,15 @@ function MacAddressContextDetailsPage() {
                       <span className="text-muted">None</span>}</dd>
                   <dt>Description</dt>
                   <dd>{context.description ? context.description : <span className="text-muted">None</span>}</dd>
+                  <dt>Matches</dt>
+                  <dd>
+                    <dl className="cidr-calculator mt-1 mb-0 ms-0">
+                      <dt>From</dt>
+                      <dd className="machine-data">{range.from}</dd>
+                      <dt>To</dt>
+                      <dd className="machine-data">{range.to}</dd>
+                    </dl>
+                  </dd>
                 </dl>
               </div>
             </div>
@@ -127,28 +137,6 @@ function MacAddressContextDetailsPage() {
         </div>
 
         <div className="row mt-3">
-          <div className="col-4">
-            <div className="card">
-              <div className="card-body">
-                <h3>IP Addresses</h3>
-
-                <TransparentIpAddressTable addresses={context.transparent_ip_addresses} />
-              </div>
-            </div>
-          </div>
-
-          <div className="col-4">
-            <div className="card">
-              <div className="card-body">
-                <h3>Hostnames</h3>
-
-                <TransparentHostnamesTable hostnames={context.transparent_hostnames} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="row mt-3">
           <div className="col-8">
             <div className="card">
               <div className="card-body">
@@ -163,5 +151,3 @@ function MacAddressContextDetailsPage() {
   )
 
 }
-
-export default MacAddressContextDetailsPage;
