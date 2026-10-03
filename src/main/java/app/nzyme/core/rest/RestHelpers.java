@@ -5,18 +5,21 @@ import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.ContextService;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
+import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
 import app.nzyme.core.rest.misc.CategorizedTransparentContextData;
 import app.nzyme.core.rest.responses.context.MacAddressTransparentHostnameResponse;
 import app.nzyme.core.rest.responses.context.MacAddressTransparentIpAddressResponse;
+import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.*;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -76,6 +79,16 @@ public class RestHelpers {
             attributes = null;
         }
 
+        // IP address context.
+        List<L4AddressNetworkContextResponse> networkContext = Lists.newArrayList();
+        for (NetworkContextEntry ctx : nzyme.getContextService()
+                .findNetworkContext(InetAddress.ofLiteral(data.address()), organizationId, tenantId)) {
+            networkContext.add(L4AddressNetworkContextResponse.create(
+                    ctx.name(),
+                    ctx.description()
+            ));
+        }
+
         Optional<MacAddressContextEntry> context = nzyme.getContextService()
                 .findMacAddressContext(data.mac(), organizationId, tenantId);
 
@@ -113,7 +126,7 @@ public class RestHelpers {
                 data.port(),
                 geo,
                 attributes,
-                L4AddressContextResponse.create()
+                L4AddressContextResponse.create(networkContext)
         );
     }
 
@@ -182,6 +195,15 @@ public class RestHelpers {
             return null;
         }
 
+        List<L4AddressNetworkContextResponse> networkContext = Lists.newArrayList();
+        for (NetworkContextEntry ctx : nzyme.getContextService()
+                .findNetworkContext(InetAddress.ofLiteral(address), organizationId, tenantId)) {
+            networkContext.add(L4AddressNetworkContextResponse.create(
+                    ctx.name(),
+                    ctx.description()
+            ));
+        }
+
         Optional<AssetEntry> asset;
         EthernetMacAddressResponse macResponse;
         if (mac != null) {
@@ -210,7 +232,7 @@ public class RestHelpers {
                 macResponse,
                 address,
                 null,
-                L4AddressContextResponse.create()
+                L4AddressContextResponse.create(networkContext)
         );
     }
 

@@ -41,10 +41,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
@@ -175,7 +172,7 @@ public class TimeResource extends TapDataHandlingResource {
                     null,
                     null,
                     null,
-                    L4AddressContextResponse.create()
+                    L4AddressContextResponse.create(Collections.emptyList())
             );
 
             values.add(ThreeColumnTableHistogramValueResponse.create(
@@ -262,7 +259,7 @@ public class TimeResource extends TapDataHandlingResource {
                         null,
                         null,
                         null,
-                        L4AddressContextResponse.create()
+                        L4AddressContextResponse.create(Collections.emptyList())
                 );
             }
 

@@ -359,8 +359,8 @@ public class ContextService {
 
 
     public List<NetworkContextEntry> findNetworkContext(InetAddress address,
-                                                        @Nullable UUID organizationId,
-                                                        @Nullable UUID tenantId) {
+                                                        UUID organizationId,
+                                                        UUID tenantId) {
         if (address == null) {
             return Collections.emptyList();
         }
@@ -384,7 +384,7 @@ public class ContextService {
                     handle.createQuery("SELECT * FROM context_networks " +
                                     "WHERE organization_id = :organization_id " +
                                     "AND tenant_id = :tenant_id " +
-                                    "AND network <<= :address::inet " +
+                                    "AND network >>= :address::inet " +
                                     "ORDER BY masklen(network) DESC")
                             .bind("organization_id", organizationId)
                             .bind("tenant_id", tenantId)

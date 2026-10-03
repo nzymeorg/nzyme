@@ -3,17 +3,17 @@ package app.nzyme.core.rest.responses.ethernet;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 
+import java.util.List;
+
 @AutoValue
 public abstract class L4AddressContextResponse {
 
-    // TODO: Implement L4 Address Context and then use this Response.
+    @JsonProperty("networks")
+    public abstract List<L4AddressNetworkContextResponse> networks();
 
-    @JsonProperty("implemented")
-    public abstract boolean implemented();
-
-    public static L4AddressContextResponse create() {
+    public static L4AddressContextResponse create(List<L4AddressNetworkContextResponse> networks) {
         return builder()
-                .implemented(false)
+                .networks(networks)
                 .build();
     }
 
@@ -23,7 +23,7 @@ public abstract class L4AddressContextResponse {
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder implemented(boolean implemented);
+        public abstract Builder networks(List<L4AddressNetworkContextResponse> networks);
 
         public abstract L4AddressContextResponse build();
     }
