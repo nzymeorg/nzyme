@@ -25,6 +25,7 @@ import AssetDetailsAssetName from "./AssetDetailsAssetName";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import AssetDetailsNTPTransactions from "./AssetDetailsNTPTransactions";
 import usePageTitle from "../../../util/UsePageTitle";
+import ContextNotes from "../../context/ContextNotes";
 
 const assetsService = new AssetsService();
 
@@ -115,6 +116,27 @@ export default function AssetDetailsPage() {
     })
   }
 
+  const description = () => {
+    if (!asset.mac || !asset.mac.context || !asset.mac.context.description
+      || asset.mac.context.description.trim().length === 0) {
+      return <span className="text-muted">n/a</span>
+    }
+
+    return asset.mac.context.description;
+  }
+
+  const notes = () => {
+    if (!asset.mac || !asset.mac.context || !asset.mac.context.notes
+      || asset.mac.context.notes.trim().length === 0) {
+      return <div className="alert alert-info mb-0">
+        This asset has no associated notes. You can add notes on the{' '}
+        <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)}>Asset Context page</a>.
+      </div>
+    }
+
+    return <ContextNotes notes={asset.mac.context.notes} />
+  }
+
   if (!asset) {
     return <LoadingSpinner />
   }
@@ -122,14 +144,14 @@ export default function AssetDetailsPage() {
   return (
       <React.Fragment>
         <div className="row">
-          <div className="col-md-12">
+          <div className="col-12">
             <SectionMenuBar items={ASSETS_MENU_ITEMS}
                             activeRoute={ApiRoutes.ETHERNET.ASSETS.INDEX} />
           </div>
         </div>
 
         <div className="row mt-3">
-          <div className="col-md-8">
+          <div className="col-8">
             <h1>
               <AssetActiveIndicator active={asset.is_active} />{' '}
               Asset <span className="machine-data">{asset.mac.address}</span>{' '}
@@ -138,13 +160,16 @@ export default function AssetDetailsPage() {
             </h1>
           </div>
 
-          <div className="col-md-4 text-end">
+          <div className="col-4 text-end">
+            {asset.mac && asset.mac.context ?
+              <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)} className="btn btn-secondary me-1">Open Asset Context</a>
+              : null}
             <a href={ApiRoutes.ETHERNET.ASSETS.INDEX} className="btn btn-primary">Back to Assets List</a>
           </div>
         </div>
 
         <div className="row mt-3">
-          <div className="col-md-6">
+          <div className="col-6">
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Details" />
@@ -157,6 +182,8 @@ export default function AssetDetailsPage() {
                   </dd>
                   <dt>Name</dt>
                   <dd><AssetDetailsAssetName asset={asset} setRevision={setRevision} /></dd>
+                  <dt>Context Description</dt>
+                  <dd>{description()}</dd>
                   <dt>OUI</dt>
                   <dd>{asset.oui ? asset.oui : <span className="text-muted">n/a</span>}</dd>
                 </dl>
@@ -164,7 +191,7 @@ export default function AssetDetailsPage() {
             </div>
           </div>
 
-          <div className="col-md-6">
+          <div className="col-6">
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Metadata" />
@@ -186,45 +213,57 @@ export default function AssetDetailsPage() {
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="row mt-3">
-            <div className="col-md-6">
-              <div className="card">
-                <div className="card-body">
-                  <CardTitleWithControls title="Hostnames"
-                                         timeRange={hostnamesTimeRange}
-                                         setTimeRange={setHostnamesTimeRange} />
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Notes" />
 
-                  <AssetHostnamesTable hostnames={hostnames}
-                                       page={hostnamesPage}
-                                       setPage={setHostnamesPage}
-                                       perPage={hostnamesPerPage}
-                                       setOrderColumn={setHostnamesOrderColumn}
-                                       orderColumn={hostnamesOrderColumn}
-                                       setOrderDirection={setHostnamesOrderDirection}
-                                       orderDirection={hostnamesOrderDirection}
-                                       onDeleteHostname={onDeleteHostname} />
-                </div>
+                {notes()}
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="col-md-6">
-              <div className="card">
-                <div className="card-body">
-                  <CardTitleWithControls title="IP Addresses"
-                                         timeRange={ipAddressesTimeRange}
-                                         setTimeRange={setIpAddressesTimeRange} />
+        <div className="row mt-3">
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Hostnames"
+                                       timeRange={hostnamesTimeRange}
+                                       setTimeRange={setHostnamesTimeRange} />
 
-                  <AssetIpAddressesTable addresses={ipAddresses}
-                                         page={ipAddressesPage}
-                                         setPage={setIpAddressesPage}
-                                         perPage={ipAddressesPerPage}
-                                         setOrderColumn={setIpAddressesOrderColumn}
-                                         orderColumn={ipAddressesOrderColumn}
-                                         setOrderDirection={setIpAddressesOrderDirection}
-                                         orderDirection={ipAddressesOrderDirection}
-                                         onDeleteIpAddress={onDeleteIpAddress} />
-                </div>
+                <AssetHostnamesTable hostnames={hostnames}
+                                     page={hostnamesPage}
+                                     setPage={setHostnamesPage}
+                                     perPage={hostnamesPerPage}
+                                     setOrderColumn={setHostnamesOrderColumn}
+                                     orderColumn={hostnamesOrderColumn}
+                                     setOrderDirection={setHostnamesOrderDirection}
+                                     orderDirection={hostnamesOrderDirection}
+                                     onDeleteHostname={onDeleteHostname} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="IP Addresses"
+                                       timeRange={ipAddressesTimeRange}
+                                       setTimeRange={setIpAddressesTimeRange} />
+
+                <AssetIpAddressesTable addresses={ipAddresses}
+                                       page={ipAddressesPage}
+                                       setPage={setIpAddressesPage}
+                                       perPage={ipAddressesPerPage}
+                                       setOrderColumn={setIpAddressesOrderColumn}
+                                       orderColumn={ipAddressesOrderColumn}
+                                       setOrderDirection={setIpAddressesOrderDirection}
+                                       orderDirection={ipAddressesOrderDirection}
+                                       onDeleteIpAddress={onDeleteIpAddress} />
               </div>
             </div>
           </div>

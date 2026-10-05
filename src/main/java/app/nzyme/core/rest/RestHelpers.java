@@ -108,12 +108,7 @@ public class RestHelpers {
                     nzyme.getOuiService().lookup(data.mac()).orElse(null),
                     assetId,
                     asset.map(AssetEntry::isActive).orElse(null),
-                    context.map(ctx ->
-                            EthernetMacAddressContextResponse.create(
-                                    ctx.name(),
-                                    ctx.description()
-                            )
-                    ).orElse(null)
+                    macContextEntryToResponse(context)
             );
         } else {
             macResponse = null;
@@ -215,12 +210,7 @@ public class RestHelpers {
                     nzyme.getOuiService().lookup(mac).orElse(null),
                     asset.map(AssetEntry::uuid).orElse(null),
                     asset.map(AssetEntry::isActive).orElse(null),
-                    context.map(ctx ->
-                            EthernetMacAddressContextResponse.create(
-                                    ctx.name(),
-                                    ctx.description()
-                            )
-                    ).orElse(null)
+                    macContextEntryToResponse(context)
             );
         } else {
             asset = null;
@@ -234,6 +224,17 @@ public class RestHelpers {
                 null,
                 L4AddressContextResponse.create(networkContext)
         );
+    }
+
+    public static EthernetMacAddressContextResponse macContextEntryToResponse(Optional<MacAddressContextEntry> context) {
+        return context.map(ctx ->
+                EthernetMacAddressContextResponse.create(
+                        ctx.uuid(),
+                        ctx.name(),
+                        ctx.description(),
+                        ctx.notes()
+                )
+        ).orElse(null);
     }
 
 }

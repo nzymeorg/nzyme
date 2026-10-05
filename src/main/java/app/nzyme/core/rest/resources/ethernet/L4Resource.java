@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/l4")
@@ -215,12 +216,7 @@ public class L4Resource extends TapDataHandlingResource  {
                                     nzyme.getOuiService().lookup(source.key()).orElse(null),
                                     sourceAsset.map(AssetEntry::uuid).orElse(null),
                                     sourceAsset.map(AssetEntry::isActive).orElse(null),
-                                    sourceContext.map(ctx ->
-                                            EthernetMacAddressContextResponse.create(
-                                                    ctx.name(),
-                                                    ctx.description()
-                                            )
-                                    ).orElse(null)
+                                    macContextEntryToResponse(sourceContext)
                             )
                     ),
                     HistogramValueStructureResponse.create(source.value1(), HistogramValueType.BYTES, null),
@@ -316,12 +312,7 @@ public class L4Resource extends TapDataHandlingResource  {
                                     nzyme.getOuiService().lookup(dest.key()).orElse(null),
                                     destinationAsset.map(AssetEntry::uuid).orElse(null),
                                     destinationAsset.map(AssetEntry::isActive).orElse(null),
-                                    destinationContext.map(ctx ->
-                                            EthernetMacAddressContextResponse.create(
-                                                    ctx.name(),
-                                                    ctx.description()
-                                            )
-                                    ).orElse(null)
+                                    macContextEntryToResponse(destinationContext)
                             )
                     ),
                     HistogramValueStructureResponse.create(dest.value1(), HistogramValueType.BYTES, null),

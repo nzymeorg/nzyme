@@ -44,6 +44,7 @@ import org.joda.time.DateTime;
 import java.net.InetAddress;
 import java.util.*;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/assets")
@@ -99,12 +100,7 @@ public class AssetsResource extends TapDataHandlingResource {
                             nzyme.getOuiService().lookup(asset.mac()).orElse(null),
                             asset.uuid(),
                             asset.isActive(),
-                            context.map(ctx ->
-                                    EthernetMacAddressContextResponse.create(
-                                            ctx.name(),
-                                            ctx.description()
-                                    )
-                            ).orElse(null)
+                            macContextEntryToResponse(context)
                     ),
                     nzyme.getOuiService().lookup(asset.mac()).orElse(null),
                     asset.isActive(),
@@ -181,12 +177,7 @@ public class AssetsResource extends TapDataHandlingResource {
                             nzyme.getOuiService().lookup(asset.mac()).orElse(null),
                             asset.uuid(),
                             asset.isActive(),
-                            context.map(ctx ->
-                                    EthernetMacAddressContextResponse.create(
-                                            ctx.name(),
-                                            ctx.description()
-                                    )
-                            ).orElse(null)
+                            macContextEntryToResponse(context)
                     )
             );
 
@@ -244,12 +235,7 @@ public class AssetsResource extends TapDataHandlingResource {
                             nzyme.getOuiService().lookup(asset.mac()).orElse(null),
                             asset.uuid(),
                             asset.isActive(),
-                            context.map(ctx ->
-                                    EthernetMacAddressContextResponse.create(
-                                            ctx.name(),
-                                            ctx.description()
-                                    )
-                            ).orElse(null)
+                            macContextEntryToResponse(context)
                     )
             );
 
@@ -297,12 +283,7 @@ public class AssetsResource extends TapDataHandlingResource {
                         nzyme.getOuiService().lookup(asset.get().mac()).orElse(null),
                         asset.get().uuid(),
                         asset.map(AssetEntry::isActive).orElse(null),
-                        context.map(ctx ->
-                                EthernetMacAddressContextResponse.create(
-                                        ctx.name(),
-                                        ctx.description()
-                                )
-                        ).orElse(null)
+                        macContextEntryToResponse(context)
                 ),
                 nzyme.getOuiService().lookup(asset.get().mac()).orElse(null),
                 asset.get().isActive(),

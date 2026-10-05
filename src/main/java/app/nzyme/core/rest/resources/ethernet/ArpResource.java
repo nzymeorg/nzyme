@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/arp")
@@ -227,24 +228,14 @@ public class ArpResource extends TapDataHandlingResource {
                         nzyme.getOuiService().lookup(packet.ethernetSourceMac()).orElse(null),
                         ethernetSourceAsset.map(AssetEntry::uuid).orElse(null),
                         ethernetSourceAsset.map(AssetEntry::isActive).orElse(null),
-                        ethernetSourceMacContext.map(ctx ->
-                                EthernetMacAddressContextResponse.create(
-                                        ctx.name(),
-                                        ctx.description()
-                                )
-                        ).orElse(null)
+                        macContextEntryToResponse(ethernetSourceMacContext)
                 ),
                 EthernetMacAddressResponse.create(
                         packet.ethernetDestinationMac(),
                         nzyme.getOuiService().lookup(packet.ethernetDestinationMac()).orElse(null),
                         ethernetDestinationAsset.map(AssetEntry::uuid).orElse(null),
                         ethernetDestinationAsset.map(AssetEntry::isActive).orElse(null),
-                        ethernetDestinationMacContext.map(ctx ->
-                                EthernetMacAddressContextResponse.create(
-                                        ctx.name(),
-                                        ctx.description()
-                                )
-                        ).orElse(null)
+                        macContextEntryToResponse(ethernetDestinationMacContext)
                 ),
                 packet.hardwareType(),
                 packet.protocolType(),
@@ -307,12 +298,7 @@ public class ArpResource extends TapDataHandlingResource {
                                     nzyme.getOuiService().lookup(pair.mac1()).orElse(null),
                                     senderAsset.map(AssetEntry::uuid).orElse(null),
                                     senderAsset.map(AssetEntry::isActive).orElse(null),
-                                    senderMacContext.map(ctx ->
-                                            EthernetMacAddressContextResponse.create(
-                                                    ctx.name(),
-                                                    ctx.description()
-                                            )
-                                    ).orElse(null)
+                                    macContextEntryToResponse(senderMacContext)
                             )
                     ),
                     HistogramValueStructureResponse.create(
@@ -323,12 +309,7 @@ public class ArpResource extends TapDataHandlingResource {
                                     nzyme.getOuiService().lookup(pair.mac2()).orElse(null),
                                     targetAsset.map(AssetEntry::uuid).orElse(null),
                                     targetAsset.map(AssetEntry::isActive).orElse(null),
-                                    targetMacContext.map(ctx ->
-                                            EthernetMacAddressContextResponse.create(
-                                                    ctx.name(),
-                                                    ctx.description()
-                                            )
-                                    ).orElse(null)
+                                    macContextEntryToResponse(targetMacContext)
                             )
                     ),
                     HistogramValueStructureResponse.create(pair.value(), HistogramValueType.INTEGER, null),

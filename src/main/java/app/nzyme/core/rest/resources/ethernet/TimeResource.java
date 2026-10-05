@@ -43,6 +43,7 @@ import org.joda.time.DateTime;
 
 import java.util.*;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/time")
@@ -237,12 +238,7 @@ public class TimeResource extends TapDataHandlingResource {
                             nzyme.getOuiService().lookup(s.value1()).orElse(null),
                             serverAsset.map(AssetEntry::uuid).orElse(null),
                             serverAsset.map(AssetEntry::isActive).orElse(null),
-                            serverContext.map(ctx ->
-                                    EthernetMacAddressContextResponse.create(
-                                            ctx.name(),
-                                            ctx.description()
-                                    )
-                            ).orElse(null)
+                            macContextEntryToResponse(serverContext)
                     );
                 } else {
                     value1 = null;

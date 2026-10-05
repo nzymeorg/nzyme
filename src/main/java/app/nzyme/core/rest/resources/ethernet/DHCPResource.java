@@ -37,6 +37,7 @@ import org.joda.time.Duration;
 
 import java.util.*;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/dhcp")
@@ -180,12 +181,7 @@ public class DHCPResource extends TapDataHandlingResource {
                         nzyme.getOuiService().lookup(tx.clientMac()).orElse(null),
                         asset.map(AssetEntry::uuid).orElse(null),
                         asset.map(AssetEntry::isActive).orElse(null),
-                        clientMacContext.map(macAddressContextEntry ->
-                                        EthernetMacAddressContextResponse.create(
-                                                macAddressContextEntry.name(),
-                                                macAddressContextEntry.description()
-                                        ))
-                                .orElse(null)
+                        macContextEntryToResponse(clientMacContext)
                 ),
                 tx.additionalClientMacs(),
                 buildServerMacResponse(tx, organizationId, tenantId),
@@ -229,12 +225,7 @@ public class DHCPResource extends TapDataHandlingResource {
                     nzyme.getOuiService().lookup(tx.serverMac()).orElse(null),
                     asset.map(AssetEntry::uuid).orElse(null),
                     asset.map(AssetEntry::isActive).orElse(null),
-                    serverMacContext.map(macAddressContextEntry ->
-                                    EthernetMacAddressContextResponse.create(
-                                            macAddressContextEntry.name(),
-                                            macAddressContextEntry.description()
-                                    ))
-                            .orElse(null)
+                    macContextEntryToResponse(serverMacContext)
             );
         } else {
             return null;

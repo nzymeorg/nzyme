@@ -35,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
+
 @Path("/api/context/networks")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
@@ -96,12 +98,7 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
                     oui,
                     asset.uuid(),
                     asset.isActive(),
-                    context.map(ctx ->
-                            EthernetMacAddressContextResponse.create(
-                                    ctx.name(),
-                                    ctx.description()
-                            )
-                    ).orElse(null)
+                    macContextEntryToResponse(context)
             );
 
             assets.add(AssetDetailsResponse.create(

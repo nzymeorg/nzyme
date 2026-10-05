@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
+
 @Path("/api/ethernet/ips")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
@@ -63,12 +65,7 @@ public class IPAddressesResource extends TapDataHandlingResource {
                     oui,
                     asset.uuid(),
                     asset.isActive(),
-                    context.map(ctx ->
-                            EthernetMacAddressContextResponse.create(
-                                    ctx.name(),
-                                    ctx.description()
-                            )
-                    ).orElse(null)
+                    macContextEntryToResponse(context)
             );
 
             assets.add(AssetDetailsResponse.create(
