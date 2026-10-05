@@ -729,14 +729,8 @@ div.context-overlay dd {
 }
 
 span.context-name {
-    color: #e8e8ed;
-    background-color: #3d4e7a;
+    color: #000;
 }
-
-div.context-overlay h6 span.context-name {
-    color: #e8e8ed;
-}
-
 i.additional-context-available {
     color: #6b7280;
 }
@@ -1231,4 +1225,47 @@ input.form-control[type="file"]::file-selector-button:hover {
 
 .timeline-histogram-tooltip-row-count {
     color: #c4c4d4;
+}
+
+.dropdown-menu {
+    --bs-dropdown-bg: #1c1c22;
+    --bs-dropdown-border-color: #33333d;
+    --bs-dropdown-link-color: #c4c4d4;
+    --bs-dropdown-link-hover-color: #e8e8ed;
+    --bs-dropdown-link-hover-bg: #2e2e38;
+    --bs-dropdown-link-active-color: #fff;
+    --bs-dropdown-link-active-bg: #5a6fa0;
+    background-color: #1c1c22;
+    border-color: #33333d;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+
+.dropdown-item {
+    color: #c4c4d4;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: #2e2e38;
+    color: #e8e8ed;
+}
+
+.dropdown-item:active,
+.dropdown-item.active {
+    background-color: #5a6fa0;
+    color: #fff;
+}
+
+a.btn-outline-primary.show,
+button.btn-outline-primary.show,
+a.btn-outline-primary:active,
+button.btn-outline-primary:active {
+    background-color: #5a6fa0;
+    border-color: #5a6fa0;
+    color: #fff;
+}
+
+a.btn-outline-primary:focus-visible,
+button.btn-outline-primary:focus-visible {
+    box-shadow: 0 0 0 2px rgba(123, 147, 219, 0.25);
 }

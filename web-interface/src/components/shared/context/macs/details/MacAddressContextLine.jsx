@@ -137,7 +137,7 @@ export default function MacAddressContextLine({address, context, onChange = () =
 
   return (
       <React.Fragment>
-        {context.name ? <span className="context-name">{context.name}</span> : <span className="text-muted">No Name</span> }
+        {context.name ? <span className="context-name context-name-asset">{context.name}</span> : <span className="text-muted">No Name</span> }
         {' '}
         {context.description ? <span>({context.description})</span> : null }
         {' '}

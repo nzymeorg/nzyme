@@ -1004,12 +1004,21 @@ div.context-overlay dl.ip-address dd {
 
 span.context-name {
     font-family: 'B612 Mono', monospace;
-    background-color: #fdff32;
+    padding-left: 2px;
+    padding-right: 2px;
 }
 
 div.context-overlay h6 span.context-name {
     display: inline-block;
     float: right;
+}
+
+span.context-name-asset {
+    background-color: #fdff32;
+}
+
+span.context-name-network {
+    background-color: #72affa;
 }
 
 div.context-overlay i.context-owner-information {

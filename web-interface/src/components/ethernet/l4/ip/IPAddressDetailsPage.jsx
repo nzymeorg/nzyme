@@ -101,7 +101,7 @@ export default function IPAddressDetailsPage() {
                 </td>
                 <td>{a.oui ? truncate(a.oui, 30, false) : <span className="text-muted">Unknown</span>}</td>
                 <td><AssetActiveIndicator active={a.is_active} /></td>
-                <td>{a.name ? <span className="context-name">{a.name}</span> : <span className="text-muted">None</span>}</td>
+                <td>{a.name ? <span className="context-name context-name-asset">{a.name}</span> : <span className="text-muted">None</span>}</td>
                 <td><AssetHostnames hostnames={a.hostnames} /></td>
                 <td><AssetIpAddresses addresses={a.ip_addresses} /></td>
                 <td title={moment(a.first_seen).format()}>{moment(a.first_seen).fromNow()}</td>
@@ -118,6 +118,10 @@ export default function IPAddressDetailsPage() {
         <Paginator itemCount={address.assets.total} perPage={perPage} setPage={setPage} page={page} />
       </React.Fragment>
     )
+  }
+
+  const networkContextTable = () => {
+    console.log(address)
   }
 
   if (!address) {
@@ -212,6 +216,18 @@ export default function IPAddressDetailsPage() {
 
                 {assetsTable()}
 
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Network Context" />
+
+                {networkContextTable()}
               </div>
             </div>
           </div>

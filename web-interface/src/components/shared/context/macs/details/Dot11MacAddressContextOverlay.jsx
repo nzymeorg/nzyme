@@ -136,7 +136,7 @@ function Dot11MacAddressContextOverlay(props) {
       <React.Fragment>
         <h6>
           <i className="fa-regular fa-address-card" /> {address}{' '}
-          <span className="context-name">{ctx.context.name}</span>
+          <span className="context-name context-name-asset">{ctx.context.name}</span>
         </h6>
 
         <div className="context-overlay-content">
@@ -158,7 +158,7 @@ function Dot11MacAddressContextOverlay(props) {
             <dt>Is Monitored:</dt>
             <dd>{monitored(ctx.context_type, ctx.serves_dot11_monitored_network)}</dd>
             <dt>Has Notes:</dt>
-            <dd>{ctx.context.notes ? "Yes" : "No"}</dd>
+            <dd>{ctx.context.notes ? <span className="bold text-warning">Yes</span> : "No"}</dd>
             <dt>Is Randomized:</dt>
             <dd>{isRandomized === null ? <span className="text-muted">n/a</span> : (isRandomized ? "Yes" : "No")}</dd>
           </dl>

@@ -71,7 +71,7 @@ export default function AssetsTable(props) {
                   </td>
                   <td>{a.oui ? truncate(a.oui, 30, false) : <span className="text-muted">Unknown</span>}</td>
                   <td><AssetActiveIndicator active={a.is_active} /></td>
-                  <td>{a.name ? <span className="context-name">{a.name}</span> : <span className="text-muted">None</span>}</td>
+                  <td>{a.name ? <span className="context-name context-name-asset">{a.name}</span> : <span className="text-muted">None</span>}</td>
                   <td>
                     <AssetHostnames hostnames={a.hostnames}
                                     filterElement={a.hostnames && a.hostnames.length > 0 ?

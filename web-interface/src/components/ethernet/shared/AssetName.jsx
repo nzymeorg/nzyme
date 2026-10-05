@@ -8,6 +8,6 @@ export default function AssetName(props) {
     return <span className="text-muted">None</span>
   }
 
-  return <span className="context-name">{addressWithContext.context.name}</span>;
+  return <span className="context-name context-name-asset">{addressWithContext.context.name}</span>;
 
 }

@@ -84,7 +84,7 @@ export default function EthernetMacAddressContextOverlay(props) {
       <React.Fragment>
         <h6>
           <i className="fa-regular fa-address-card" /> {address}{' '}
-          <span className="context-name">{ctx.context.name}</span>
+          <span className="context-name context-name-asset">{ctx.context.name}</span>
         </h6>
 
         <div className="context-overlay-content">

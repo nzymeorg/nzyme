@@ -32,10 +32,19 @@ export default function L4Address({address,
 
   const assetNameElement = () => {
     if (withAssetName && address.attributes && address.attributes.is_site_local && address.mac && address.mac.context && address.mac.context.name) {
-      return <span className="context-name hide-narrow" style={{marginLeft: 5}}>{address.mac.context.name}</span>;
+      return <span className="context-name hide-narrow context-name-asset" style={{marginLeft: 5}}>{address.mac.context.name}</span>;
     }
 
     return null;
+  }
+
+  const contextElement = () => {
+    if (!address.context || !address.context.networks || address.context.networks.length === 0) {
+      return null
+    }
+
+    return <i className="fa-solid fa-circle-info additional-context-available"
+              title="Additional context available." />
   }
 
   const mouseOver = () => {
@@ -63,7 +72,7 @@ export default function L4Address({address,
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
         {flag()}{' '}
         <IPAddressLink ip={address.address} port={hidePort || !address.port ? null : address.port} />{' '}
-        {assetNameElement()}{' '}
+        {contextElement()}{assetNameElement()}{' '}
         {filterElement ? filterElement : null}{' '}
         {suffixElement ? suffixElement : null}
 

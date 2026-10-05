@@ -3,8 +3,10 @@ package app.nzyme.core.rest.resources.ethernet;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
+import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.rest.TapDataHandlingResource;
+import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.assets.AssetDetailsResponse;
@@ -104,8 +106,22 @@ public class IPAddressesResource extends TapDataHandlingResource {
             );
         }
 
+        List<NetworkContextDetailsResponse> context = Lists.newArrayList();
+        for (NetworkContextEntry ctx : nzyme.getContextService()
+                .findNetworkContext(address, organizationId, tenantId)) {
+            context.add(NetworkContextDetailsResponse.create(
+                    ctx.uuid(),
+                    ctx.network().toString(),
+                    ctx.name(),
+                    ctx.description(),
+                    ctx.notes(),
+                    ctx.createdAt(),
+                    ctx.updatedAt()
+            ));
+        }
+
         return Response.ok(IPAddressDetailsResponse.create(
-                address.getHostAddress(), AssetsListResponse.create(totalAssets, assets), geoResponse
+                address.getHostAddress(), AssetsListResponse.create(totalAssets, assets), context, geoResponse
         )).build();
     }
 

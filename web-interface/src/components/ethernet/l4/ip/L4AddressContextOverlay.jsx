@@ -104,6 +104,100 @@ export default function L4AddressContextOverlay({address}) {
     return address.geo.city;
   }
 
+  const hasNotes = () => {
+    if (!ctx || ctx.context.length === 0) {
+      return false;
+    }
+
+    for (const c of ctx.context) {
+      if (c.notes && c.notes.trim().length > 0) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  const description = () => {
+    if (!ctx || ctx.context.length === 0) {
+      return false;
+    }
+
+    for (const c of ctx.context) {
+      if (c.description && c.description.trim().length > 0) {
+        return (
+          <>
+            <span>
+              {c.description}{' '}
+              {ctx.context.length > 1 ? <span className="italic text-muted">[+{ctx.context.length-1} more]</span> : null}
+            </span>
+          </>
+        )
+      }
+    }
+
+    return <span className="text-muted">No Description</span>
+  }
+
+  const name = () => {
+    if (!ctx || ctx.context.length === 0) {
+      return false;
+    }
+
+    for (const c of ctx.context) {
+      if (c.name && c.name.trim().length > 0) {
+        return (
+          <>
+            <span>
+              <span className="context-name context-name-network">{c.name}</span>{' '}
+              {ctx.context.length > 1 ? <span className="italic text-muted">[+{ctx.context.length-1} more]</span> : null}
+            </span>
+          </>
+        )
+      }
+    }
+
+    return <span className="text-muted">No Name</span>
+  }
+
+  const contextDetailsLink = () => {
+    if (!ctx || ctx.context.length === 0) {
+      return null;
+    }
+
+    if (ctx.context.length === 1) {
+      // Single CIDR matched and we can link directly.
+      return (
+        <a href={ApiRoutes.CONTEXT.NETWORKS.SHOW(ctx.context[0].uuid)}
+           className="btn btn-sm btn-outline-primary">
+          Context Details
+        </a>
+      )
+    }
+
+    // Multiple CIDRs matched, so let the user pick one.
+    return (
+      <div className="btn-group">
+        <button className="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap"
+                type="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false">
+          Context Details
+        </button>
+        <ul className="dropdown-menu">
+          {ctx.context.map((c) => (
+            <li key={c.uuid}>
+              <a className="dropdown-item"
+                 href={ApiRoutes.CONTEXT.NETWORKS.SHOW(c.uuid)}>
+                {c.cidr}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   if (!ctx) {
     return <ContextOverlayLoading />
   }
@@ -116,7 +210,7 @@ export default function L4AddressContextOverlay({address}) {
           <React.Fragment>
             <h6>
               <i className="fa-solid fa-map-location-dot"/> {address.address}{' '}
-              <span className="context-name">
+              <span className="context-name context-name-asset">
                 {address.attributes && address.attributes.is_site_local
                   && address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
               </span>
@@ -125,20 +219,30 @@ export default function L4AddressContextOverlay({address}) {
             <div className="context-overlay-content">
               <p className="context-description">
                 <i className="fa-solid fa-circle-info"></i> {attributeSummary()}
+
+                <div className="mt-2">
+                  <i className="fa-solid fa-angle-right"></i> {description()}
+                </div>
               </p>
 
               <dl className="ip-address">
+                <dt>Network Name:</dt>
+                <dd>{name()}</dd>
                 <dt>Attributes:</dt>
                 <dd>{attributes()}</dd>
                 <dt>Associated Asset:</dt>
                 <dd>{associatedAsset()}</dd>
+                <dt>Has Notes:</dt>
+                <dd>{hasNotes() ? <span className="bold text-warning">Yes</span> : "No"}</dd>
               </dl>
             </div>
 
-            <div className="context-overlay-actions">
-              <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)} className="btn btn-sm btn-outline-primary">
-                Open Address Details
+            <div className="context-overlay-actions d-flex flex-nowrap align-items-center gap-1">
+              <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)}
+                 className="btn btn-sm btn-outline-primary text-nowrap">
+                Address Details
               </a>
+              {contextDetailsLink()}
             </div>
           </React.Fragment>
       )
@@ -149,7 +253,13 @@ export default function L4AddressContextOverlay({address}) {
             <h6><i className="fa-solid fa-map-location-dot"/> {address.address}</h6>
 
             <div className="context-overlay-content">
-              <dl>
+              <p className="context-description">
+                <i className="fa-solid fa-angle-right"></i> {description()}
+              </p>
+
+              <dl className="ip-address">
+                <dt>Network Name:</dt>
+                <dd>{name()}</dd>
                 <dt>Attributes:</dt>
                 <dd>{attributes()}</dd>
                 <dt>ASN:</dt>
@@ -161,13 +271,17 @@ export default function L4AddressContextOverlay({address}) {
                 <dd>{country()}</dd>
                 <dt>City:</dt>
                 <dd>{city()}</dd>
+                <dt>Has Notes:</dt>
+                <dd>{hasNotes() ? <span className="bold text-warning">Yes</span> : "No"}</dd>
               </dl>
             </div>
 
-            <div className="context-overlay-actions">
-              <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)} className="btn btn-sm btn-outline-primary">
-                Open Address Details
+            <div className="context-overlay-actions d-flex flex-nowrap align-items-center gap-1">
+              <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)}
+                 className="btn btn-sm btn-outline-primary text-nowrap">
+                Address Details
               </a>
+              {contextDetailsLink()}
             </div>
           </React.Fragment>
       )
@@ -180,18 +294,30 @@ export default function L4AddressContextOverlay({address}) {
           <h6><i className="fa-solid fa-map-location-dot"/> {address.address}</h6>
 
           <div className="context-overlay-content">
-            <p className="context-description">No attributes.</p>
+            <p className="context-description">
+              No attributes.
 
-            <dl>
+              <div className="mt-2">
+                <i className="fa-solid fa-angle-right"></i> {description()}
+              </div>
+            </p>
+
+            <dl className="ip-address">
+              <dt>Network Name:</dt>
+              <dd>{name()}</dd>
               <dt>Attributes:</dt>
               <dd>{attributes()}</dd>
+              <dt>Has Notes:</dt>
+              <dd>{hasNotes() ? <span className="bold text-warning">Yes</span> : "No"}</dd>
             </dl>
           </div>
 
-          <div className="context-overlay-actions">
-            <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)} className="btn btn-sm btn-outline-primary">
-              Open Address Details
+          <div className="context-overlay-actions d-flex flex-nowrap align-items-center gap-1">
+            <a href={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(address.address)}
+               className="btn btn-sm btn-outline-primary text-nowrap">
+              Address Details
             </a>
+            {contextDetailsLink()}
           </div>
         </React.Fragment>
     )

@@ -44,7 +44,7 @@ export default function AssetDetailsAssetName({asset, setRevision}) {
 
   const name = () => {
     if (asset.name) {
-      return <span className="context-name">{asset.name}</span>
+      return <span className="context-name context-name-asset">{asset.name}</span>
     } else {
       return <span className="text-muted">n/a</span>
     }

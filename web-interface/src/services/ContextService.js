@@ -58,7 +58,7 @@ class ContextService {
   }
 
   findIpAddressContext(ipAddress, organizationId, tenantId, setContext) {
-    RESTClient.get("/context/ip/show/" + ipAddress, { organization_id: organizationId, tenant_id: tenantId }, (response) => setContext(response.data))
+    RESTClient.get("/context/networks/show/" + ipAddress, { organization_id: organizationId, tenant_id: tenantId }, (response) => setContext(response.data))
   }
 
   findAllNetworkContext(organizationId, tenantId, setContext, limit, offset) {

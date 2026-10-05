@@ -102,7 +102,7 @@ export default function NetworkContextDetailsPage() {
 
                 <dl className="mb-0">
                   <dt>Name</dt>
-                  <dd>{context.name ? <span className="context-name">{context.name}</span> :
+                  <dd>{context.name ? <span className="context-name context-name-network">{context.name}</span> :
                       <span className="text-muted">None</span>}</dd>
                   <dt>Description</dt>
                   <dd>{context.description ? context.description : <span className="text-muted">None</span>}</dd>
