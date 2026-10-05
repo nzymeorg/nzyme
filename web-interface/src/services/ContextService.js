@@ -61,8 +61,8 @@ class ContextService {
     RESTClient.get("/context/networks/show/" + ipAddress, { organization_id: organizationId, tenant_id: tenantId }, (response) => setContext(response.data))
   }
 
-  findAllNetworkContext(organizationId, tenantId, setContext, limit, offset) {
-    RESTClient.get("/context/networks", {limit: limit, offset: offset, organization_id: organizationId, tenant_id: tenantId},
+  findAllNetworkContext(organizationId, tenantId, addressFilter, setContext, limit, offset) {
+    RESTClient.get("/context/networks", {address_filter: addressFilter, limit: limit, offset: offset, organization_id: organizationId, tenant_id: tenantId},
       (response) => setContext(response.data)
     )
   }

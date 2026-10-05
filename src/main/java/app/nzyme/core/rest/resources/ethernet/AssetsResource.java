@@ -8,9 +8,11 @@ import app.nzyme.core.assets.db.AssetHostnameEntry;
 import app.nzyme.core.assets.db.AssetIpAddressEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
+import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
+import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.assets.*;
@@ -39,6 +41,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.joda.time.DateTime;
 
+import java.net.InetAddress;
 import java.util.*;
 
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
@@ -408,10 +411,25 @@ public class AssetsResource extends TapDataHandlingResource {
         List<AssetIpAddressDetailsResponse> addresses = Lists.newArrayList();
         for (AssetIpAddressEntry i : nzyme.getAssetsManager()
                 .findIpAddressesOfAsset(asset.get().id(), timeRange, limit, offset, orderColumn, orderDirection)) {
+            List<NetworkContextDetailsResponse> context =  Lists.newArrayList();
+            for (NetworkContextEntry c : nzyme.getContextService()
+                    .findNetworkContext(InetAddress.ofLiteral(i.address()), organizationId, tenantId)) {
+                context.add(NetworkContextDetailsResponse.create(
+                        c.uuid(),
+                        c.network().toString(),
+                        c.name(),
+                        c.description(),
+                        c.notes(),
+                        c.createdAt(),
+                        c.updatedAt()
+                ));
+            }
+
             addresses.add(AssetIpAddressDetailsResponse.create(
                     i.uuid(),
                     i.address(),
                     i.source(),
+                    context,
                     i.firstSeen(),
                     i.lastSeen()
             ));

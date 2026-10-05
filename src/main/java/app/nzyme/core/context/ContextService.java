@@ -421,27 +421,32 @@ public class ContextService {
         );
     }
 
-    public Long countNetworkContext(UUID organizationId, UUID tenantId) {
+    public Long countNetworkContext(UUID organizationId, UUID tenantId, String addressFilter) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM context_networks " +
-                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND network::text LIKE :filter")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("filter", addressFilter)
                         .mapTo(Long.class)
                         .one()
         );
     }
 
     public List<NetworkContextEntry> findAllNetworkContext(UUID organizationId,
-                                                             UUID tenantId,
-                                                             int limit,
-                                                             int offset) {
+                                                           UUID tenantId,
+                                                           String addressFilter,
+                                                           int limit,
+                                                           int offset) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM context_networks " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND network::text LIKE :filter " +
                                 "ORDER BY masklen(network) DESC LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("filter", addressFilter)
                         .bind("limit", limit)
                         .bind("offset", offset)
                         .mapTo(NetworkContextEntry.class)

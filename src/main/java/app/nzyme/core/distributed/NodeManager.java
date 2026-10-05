@@ -321,6 +321,7 @@ public class NodeManager {
             writeGauge(MetricExternalName.LOG_COUNTS_FATAL.database_label, logCounts.getOrDefault("FATAL", 0L));
             writeGauge(MetricExternalName.GEOIP_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.GEOIP_CACHE_SIZE));
             writeGauge(MetricExternalName.CONTEXT_MAC_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_MAC_CACHE_SIZE));
+            writeGauge(MetricExternalName.CONTEXT_NETWORK_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_NETWORK_CACHE_SIZE));
 
             writeTimer(MetricExternalName.PGP_ENCRYPTION_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.PGP_ENCRYPTION_TIMING));

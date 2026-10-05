@@ -27,6 +27,27 @@ export default function AssetIpAddressesTable(props) {
                           setOrderDirection={setOrderDirection} />
   }
 
+  const ipAddressNetworkName = (address) => {
+    if (!address || !address.context || address.context.length === 0) {
+      return <span className="text-muted">n/a</span>;
+    }
+
+    for (const c of address.context) {
+      if (c.name && c.name.trim().length > 0) {
+        return (
+          <>
+          <span>
+            <span className="context-name context-name-network">{c.name}</span>{' '}
+            {address.context.length > 1 ? <span className="italic text-muted">[+{address.context.length-1} more]</span> : null}
+          </span>
+          </>
+        )
+      }
+    }
+
+    return <span className="text-muted">n/a</span>
+  }
+
   if (addresses === null) {
     return <LoadingSpinner />
   }
@@ -45,6 +66,7 @@ export default function AssetIpAddressesTable(props) {
           <thead>
           <tr>
             <th>Address {columnSorting("address")}</th>
+            <th>Network</th>
             <th>Source {columnSorting("source")}</th>
             <th>First Seen {columnSorting("first_seen")}</th>
             <th>Last Seen {columnSorting("last_seen")}</th>
@@ -56,6 +78,7 @@ export default function AssetIpAddressesTable(props) {
             return (
                 <tr key={i}>
                   <td>{address.address}</td>
+                  <td>{ipAddressNetworkName(address)}</td>
                   <td><TransparentContextSource source={address.source}/></td>
                   <td title={moment(address.first_seen).format()}>
                     {moment(address.first_seen).fromNow()}

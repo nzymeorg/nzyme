@@ -7,7 +7,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 
 const contextService = new ContextService();
 
-export default function NetworkContextTable() {
+export default function NetworkContextTable({addressFilter, addressFilterRevision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -17,8 +17,9 @@ export default function NetworkContextTable() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    contextService.findAllNetworkContext(organizationId, tenantId, setContext, perPage, (page - 1) * perPage);
-  }, [page, organizationId, tenantId]);
+    setContext(null);
+    contextService.findAllNetworkContext(organizationId, tenantId, addressFilter, setContext, perPage, (page - 1) * perPage);
+  }, [page, organizationId, tenantId, addressFilterRevision]);
 
   if (!context) {
     return <LoadingSpinner />
@@ -27,7 +28,7 @@ export default function NetworkContextTable() {
   if (context.total === 0) {
     return (
         <React.Fragment>
-          <div className="alert alert-info mb-0">No context has been created yet.</div>
+          <div className="alert alert-info mb-0">No context configurations found.</div>
         </React.Fragment>
     )
   }

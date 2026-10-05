@@ -9,19 +9,17 @@ import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const contextService = new ContextService();
 
-function MacAddressContextTable() {
+function MacAddressContextTable({addressFilter, addressFilterRevision}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [context, setContext] = useState(null);
 
-  const [addressFilter, setAddressFilter] = useState("");
-  const [addressFilterRevision, setAddressFilterRevision] = useState(0);
-
   const perPage = 25;
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    setContext(null);
     contextService.findAllMacAddressContext(organizationId, tenantId, addressFilter, setContext, perPage, (page - 1) * perPage);
   }, [page, organizationId, tenantId, addressFilterRevision]);
 
@@ -32,30 +30,13 @@ function MacAddressContextTable() {
   if (context.total === 0) {
     return (
         <React.Fragment>
-          <div className="alert alert-info mb-0">No context has been created yet.</div>
+          <div className="alert alert-info mb-0">No context configurations found.</div>
         </React.Fragment>
-
     )
   }
 
   return (
       <React.Fragment>
-        <div className="row mb-3">
-          <div className="col-xl-12 col-xxl-8">
-            <div className="input-group">
-              <input type="text" className="form-control" id="macAddress"
-                     autoComplete="off"
-                     value={addressFilter} onChange={(e) => { setAddressFilter(e.target.value.toUpperCase()) }} />
-              <div className="input-group-append">
-                <button className="btn btn-outline-secondary"
-                        onClick={() => setAddressFilterRevision(prevRev => prevRev + 1)}>
-                  Filter MAC Address
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <table className="table table-sm table-hover table-striped">
           <thead>
           <tr>

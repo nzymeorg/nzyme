@@ -28,6 +28,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
+import javax.annotation.Nullable;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
@@ -46,17 +47,26 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
     public Response allNetworks(@Context SecurityContext sc,
                                 @QueryParam("organization_id") UUID organizationId,
                                 @QueryParam("tenant_id") UUID tenantId,
+                                @QueryParam("address_filter") @Nullable String addressFilter,
                                 @QueryParam("limit") @Max(250) int limit,
                                 @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long count = nzyme.getContextService().countNetworkContext(organizationId, tenantId);
+        String filter;
+        if (addressFilter == null || addressFilter.trim().isEmpty()) {
+            // Set to SQL wildcard matcher to find all addresses if no filter set.
+            filter = "%";
+        } else {
+            filter = "%" + addressFilter.trim().toUpperCase() + "%";
+        }
+
+        long count = nzyme.getContextService().countNetworkContext(organizationId, tenantId, filter);
 
         List<NetworkContextDetailsResponse> networks = Lists.newArrayList();
         for (NetworkContextEntry m : nzyme.getContextService()
-                .findAllNetworkContext(organizationId, tenantId, limit, offset)) {
+                .findAllNetworkContext(organizationId, tenantId, filter, limit, offset)) {
             networks.add(entryToResponse(m));
         }
 

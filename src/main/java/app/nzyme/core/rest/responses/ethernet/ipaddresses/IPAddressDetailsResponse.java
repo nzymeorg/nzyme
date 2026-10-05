@@ -19,7 +19,7 @@ public abstract class IPAddressDetailsResponse {
     @JsonProperty("assets")
     public abstract AssetsListResponse assets();
 
-    @Nullable
+    @JsonProperty("context")
     public abstract List<NetworkContextDetailsResponse> context();
 
     @Nullable @JsonProperty("geo")

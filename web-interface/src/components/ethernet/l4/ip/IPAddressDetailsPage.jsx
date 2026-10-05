@@ -121,7 +121,37 @@ export default function IPAddressDetailsPage() {
   }
 
   const networkContextTable = () => {
-    console.log(address)
+    if (address.context === null || address.context.length === 0) {
+      return <div className="alert alert-info mb-0">No Network Context is attached to this IP address.</div>
+    }
+
+    return (
+      <table className="table table-sm table-hover table-striped mb-4 mt-3">
+        <thead>
+        <tr>
+          <th>Network</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Has Notes</th>
+        </tr>
+        </thead>
+        <tbody>
+        {address.context.map((c, i) => {
+          return <tr key={i}>
+            <td>
+              <a href={ApiRoutes.CONTEXT.NETWORKS.SHOW(c.uuid)} className="machine-data">{c.cidr}</a>
+            </td>
+            <td>
+              {c.name ? <span className="context-name context-name-network">{c.name}</span>
+                : <span className="text-muted">n/a</span> }
+            </td>
+            <td>{c.description ? c.description : <span className="text-muted">n/a</span> }</td>
+            <td>{c.notes ? <span className="bold text-warning">Yes</span> : "No"}</td>
+          </tr>
+        })}
+        </tbody>
+      </table>
+    )
   }
 
   if (!address) {
@@ -226,6 +256,10 @@ export default function IPAddressDetailsPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Network Context" />
+
+                <p className="text-muted">
+                  This IP address has the following Network Context attached to it:
+                </p>
 
                 {networkContextTable()}
               </div>
