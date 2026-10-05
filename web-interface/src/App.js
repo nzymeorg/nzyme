@@ -193,6 +193,7 @@ import NetworksContextPage from "./components/context/networks/NetworkContextPag
 import CreateNetworkContextPage from "./components/context/networks/CreateNetworkContextPage";
 import NetworkContextDetailsPage from "./components/context/networks/NetworkContextDetailsPage";
 import EditNetworkContextPage from "./components/context/networks/EditNetworkContextPage";
+import L4SessionsPage from "./components/ethernet/l4/L4SessionsPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -570,7 +571,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(':addressParam')} element={<IPAddressDetailsPage />}/>
 
                                 { /* Ethernet/L4. */}
-                                <Route path={ApiRoutes.ETHERNET.L4.SESSIONS} element={<L4OverviewPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.L4.OVERVIEW} element={<L4OverviewPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.L4.SESSIONS} element={<L4SessionsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.L4.TCP.SESSION_DETAILS(':sessionKey', ':startTime')} element={<TCPSessionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.L4.UDP.SESSION_DETAILS(':sessionKey', ':startTime')} element={<UDPSessionDetailsPage />}/>
 
