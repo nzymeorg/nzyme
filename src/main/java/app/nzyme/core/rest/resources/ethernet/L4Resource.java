@@ -194,11 +194,11 @@ public class L4Resource extends TapDataHandlingResource  {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long total = nzyme.getEthernet().l4().countTopTrafficSourceMacs(timeRange, filters, taps);
+        L4.AggregationPage<StringNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getTopTrafficSourceMacs(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (StringNumberNumberAggregationResult source : nzyme.getEthernet().l4()
-                .getTopTrafficSourceMacs(timeRange, filters, limit, offset, taps)) {
+        for (StringNumberNumberAggregationResult source : page.results()) {
             Optional<MacAddressContextEntry> sourceContext = nzyme.getContextService().findMacAddressContext(
                     source.key(),
                     organizationId,
@@ -225,7 +225,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
     @GET
@@ -247,11 +247,11 @@ public class L4Resource extends TapDataHandlingResource  {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long total = nzyme.getEthernet().l4().countTopTrafficSourceAddresses(timeRange, filters, taps);
+        L4.AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getTopTrafficSourceAddresses(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (L4AddressDataAddressNumberNumberAggregationResult source : nzyme.getEthernet().l4()
-                .getTopTrafficSourceAddresses(timeRange, filters, limit, offset, taps)) {
+        for (L4AddressDataAddressNumberNumberAggregationResult source : page.results()) {
 
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
@@ -267,7 +267,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
 
@@ -290,11 +290,11 @@ public class L4Resource extends TapDataHandlingResource  {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long total = nzyme.getEthernet().l4().countTopTrafficDestinationMacs(timeRange, filters, taps);
+        L4.AggregationPage<StringNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getTopTrafficDestinationMacs(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (StringNumberNumberAggregationResult dest : nzyme.getEthernet().l4()
-                .getTopTrafficDestinationMacs(timeRange, filters, limit, offset, taps)) {
+        for (StringNumberNumberAggregationResult dest : page.results()) {
             Optional<MacAddressContextEntry> destinationContext = nzyme.getContextService().findMacAddressContext(
                     dest.key(),
                     organizationId,
@@ -321,7 +321,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
     @GET
@@ -343,11 +343,11 @@ public class L4Resource extends TapDataHandlingResource  {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long total = nzyme.getEthernet().l4().countTopTrafficDestinationAddresses(timeRange, filters, taps);
+        L4.AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getTopTrafficDestinationAddresses(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (L4AddressDataAddressNumberNumberAggregationResult dest : nzyme.getEthernet().l4()
-                .getTopTrafficDestinationAddresses(timeRange, filters, limit, offset, taps)) {
+        for (L4AddressDataAddressNumberNumberAggregationResult dest : page.results()) {
 
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
@@ -363,7 +363,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
     @GET
@@ -379,11 +379,11 @@ public class L4Resource extends TapDataHandlingResource  {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
 
-        long total = nzyme.getEthernet().l4().countTopDestinationPorts(timeRange, filters, taps);
+        L4.AggregationPage<NumberNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getTopDestinationPorts(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (NumberNumberNumberAggregationResult port : nzyme.getEthernet().l4()
-                .getTopDestinationPorts(timeRange, filters, limit, offset, taps)) {
+        for (NumberNumberNumberAggregationResult port : page.results()) {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(port.key(), HistogramValueType.L4_PORT, null),
                     HistogramValueStructureResponse.create(port.value1(), HistogramValueType.INTEGER, null),
@@ -392,7 +392,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
     @GET
@@ -408,11 +408,11 @@ public class L4Resource extends TapDataHandlingResource  {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
 
-        long total = nzyme.getEthernet().l4().countLeastCommonNonEphemeralDestinationPorts(timeRange, filters, taps);
+        L4.AggregationPage<NumberNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getLeastCommonNonEphemeralDestinationPorts(timeRange, filters, limit, offset, taps);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
-        for (NumberNumberNumberAggregationResult port : nzyme.getEthernet().l4()
-                .getLeastCommonNonEphemeralDestinationPorts(timeRange, filters, limit, offset, taps)) {
+        for (NumberNumberNumberAggregationResult port : page.results()) {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(port.key(), HistogramValueType.L4_PORT, null),
                     HistogramValueStructureResponse.create(port.value1(), HistogramValueType.INTEGER, null),
@@ -421,31 +421,7 @@ public class L4Resource extends TapDataHandlingResource  {
             ));
         }
 
-        return Response.ok(ThreeColumnTableHistogramResponse.create(total, false, values)).build();
-    }
-
-    @GET
-    @Path("/ips/show/{ip_address}")
-    public Response ipAddress(@Context SecurityContext sc,
-                              @PathParam("ip_address") String ipAddress,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("time_range") String timeRangeParameter,
-                              @QueryParam("taps") String tapIds) {
-        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
-        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (!InetAddresses.isInetAddress(ipAddress)) {
-            return Response.status(Response.Status.BAD_REQUEST).build();
-        }
-
-        // just return L4AddressResponse? check how we query data and if that gives all we need.
-
-        return Response.ok().build();
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), false, values)).build();
     }
 
     private L4SessionDetailsResponse buildSessionDetailsResponse(UUID organizationId, UUID tenantId, L4Session session) {

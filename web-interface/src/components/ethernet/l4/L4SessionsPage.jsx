@@ -38,7 +38,7 @@ export default function L4SessionsPage() {
         <div className="row">
           <div className="col-md-12">
             <SectionMenuBar items={L4_MENU_ITEMS}
-                            activeRoute={ApiRoutes.ETHERNET.L4.OVERVIEW} />
+                            activeRoute={ApiRoutes.ETHERNET.L4.SESSIONS} />
           </div>
         </div>
 

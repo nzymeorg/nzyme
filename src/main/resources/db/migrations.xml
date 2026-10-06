@@ -8952,4 +8952,38 @@
     </sql>
     </changeSet>
 
+    <changeSet id="add_l4_sessions_index_20261005" author="lennartkoopmann">
+        <sql>
+            CREATE INDEX idx_l4_sessions_tap_mrst
+                ON l4_sessions (tap_uuid, most_recent_segment_time DESC)
+                INCLUDE (session_key, l4_type, state);
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS idx_l4_sessions_tap_mrst;</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="l4_sessions_drop_redundant_session_key_index" author="lennartkoopmann">
+        <sql>DROP INDEX l4_sessions_lookup_session_key;</sql>
+        <rollback>
+            <sql>CREATE INDEX l4_sessions_lookup_session_key ON l4_sessions (session_key);</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="l4_sessions_address_indexes" author="lennartkoopmann">
+        <sql>
+            CREATE INDEX l4_sessions_source_address_mrst
+                ON l4_sessions (source_address, most_recent_segment_time);
+            CREATE INDEX l4_sessions_destination_address_mrst
+                ON l4_sessions (destination_address, most_recent_segment_time);
+        </sql>
+        <rollback>
+            <sql>
+                DROP INDEX IF EXISTS l4_sessions_source_address_mrst;
+                DROP INDEX IF EXISTS l4_sessions_destination_address_mrst;
+            </sql>
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

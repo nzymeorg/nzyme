@@ -17,14 +17,49 @@ import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
 import app.nzyme.core.util.filters.Filters;
+import org.jdbi.v3.core.mapper.RowMapper;
 import org.joda.time.DateTime;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 public class L4 {
+
+    private static final String SESSION_AGGREGATES = "MIN(source_mac) AS source_mac, " +
+                    "MIN(source_address) AS source_address, MIN(source_port) AS source_port, " +
+                    "MIN(source_address_geo_asn_number) AS source_address_geo_asn_number, " +
+                    "MIN(source_address_geo_asn_name) AS source_address_geo_asn_name, " +
+                    "MIN(source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
+                    "MIN(source_address_geo_city) AS source_address_geo_city, " +
+                    "MIN(source_address_geo_country_code) AS source_address_geo_country_code, " +
+                    "MIN(source_address_geo_latitude) AS source_address_geo_latitude, " +
+                    "MIN(source_address_geo_longitude) AS source_address_geo_longitude, " +
+                    "BOOL_AND(source_address_is_site_local) AS source_address_is_site_local, " +
+                    "BOOL_AND(source_address_is_loopback) AS source_address_is_loopback, " +
+                    "BOOL_AND(source_address_is_multicast) AS source_address_is_multicast, " +
+                    "MIN(destination_mac) AS destination_mac, " +
+                    "MIN(destination_address) AS destination_address, " +
+                    "MIN(destination_port) AS destination_port, " +
+                    "MIN(destination_address_geo_asn_number) AS destination_address_geo_asn_number, " +
+                    "MIN(destination_address_geo_asn_name) AS destination_address_geo_asn_name, " +
+                    "MIN(destination_address_geo_asn_domain) AS destination_address_geo_asn_domain, " +
+                    "MIN(destination_address_geo_city) AS destination_address_geo_city, " +
+                    "MIN(destination_address_geo_country_code) AS destination_address_geo_country_code, " +
+                    "MIN(destination_address_geo_latitude) AS destination_address_geo_latitude, " +
+                    "MIN(destination_address_geo_longitude) AS destination_address_geo_longitude, " +
+                    "BOOL_AND(destination_address_is_site_local) AS destination_address_is_site_local, " +
+                    "BOOL_AND(destination_address_is_loopback) AS destination_address_is_loopback, " +
+                    "BOOL_AND(destination_address_is_multicast) AS destination_address_is_multicast, " +
+                    "MIN(fingerprint) AS fingerprint, MIN(tags::text)::jsonb AS tags, " +
+                    "MAX(bytes_rx_count) AS bytes_rx_count, MAX(bytes_tx_count) AS bytes_tx_count, " +
+                    "MAX(segments_count) AS segments_count, " +
+                    "MIN(start_time) AS start_time, MAX(end_time) AS end_time, " +
+                    "MAX(most_recent_segment_time) AS most_recent_segment_time, " +
+                    "(EXTRACT(EPOCH FROM (MAX(most_recent_segment_time) - MIN(start_time))) * 1000) AS duration_ms, " +
+                    "MIN(created_at) AS created_at ";
 
     private final NzymeNode nzyme;
 
@@ -59,8 +94,40 @@ public class L4 {
 
     }
 
+    public record AggregationPage<T>(List<T> results, long total) {
+
+        public static <T> AggregationPage<T> empty() {
+            return new AggregationPage<>(Collections.emptyList(), 0);
+        }
+
+    }
+
+    private record AggregationRow<T>(T value, long total) {
+    }
+
     public L4(Ethernet ethernet) {
         this.nzyme = ethernet.getNzyme();
+    }
+
+    private static boolean hasHavingFilters(FilterSqlFragment filterFragment) {
+        return filterFragment.havingSql() != null && !filterFragment.havingSql().isBlank();
+    }
+
+    private static <T> RowMapper<AggregationRow<T>> withTotal(Class<T> type) {
+        return (rs, ctx) -> new AggregationRow<>(
+                ctx.findRowMapperFor(type)
+                        .orElseThrow(() -> new IllegalStateException("No row mapper registered for " + type.getName()))
+                        .map(rs, ctx),
+                rs.getLong("total_groups")
+        );
+    }
+
+    private static <T> AggregationPage<T> toPage(List<AggregationRow<T>> rows, int offset, LongSupplier fallbackCount) {
+        if (rows.isEmpty()) {
+            return new AggregationPage<>(Collections.emptyList(), offset > 0 ? fallbackCount.getAsLong() : 0);
+        }
+
+        return new AggregationPage<>(rows.stream().map(AggregationRow::value).toList(), rows.get(0).total());
     }
 
     public long countAllSessions(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -69,6 +136,20 @@ public class L4 {
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
+
+        if (taps.size() == 1 && !hasHavingFilters(filterFragment)) {
+            return nzyme.getDatabase().withHandle(handle ->
+                    handle.createQuery("SELECT COUNT(*) FROM l4_sessions " +
+                                    "WHERE most_recent_segment_time >= :tr_from AND most_recent_segment_time <= :tr_to " +
+                                    "AND tap_uuid = :tap_uuid " + filterFragment.whereSql())
+                            .bindMap(filterFragment.bindings())
+                            .bind("tap_uuid", taps.get(0))
+                            .bind("tr_from", timeRange.from())
+                            .bind("tr_to", timeRange.to())
+                            .mapTo(Long.class)
+                            .one()
+            );
+        }
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM (SELECT session_key, l4_type, state FROM l4_sessions " +
@@ -98,45 +179,20 @@ public class L4 {
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
+        if (orderColumn == OrderColumn.MOST_RECENT_SEGMENT_TIME
+                && orderDirection == OrderDirection.DESC
+                && !hasHavingFilters(filterFragment)) {
+            return findAllSessionsNewestFirst(timeRange, filterFragment, limit, offset, taps);
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT session_key, l4_type, state, MIN(source_mac) AS source_mac, " +
-                                "MIN(source_address) AS source_address, MIN(source_port) AS source_port, " +
-                                "MIN(source_address_geo_asn_number) AS source_address_geo_asn_number, " +
-                                "MIN(source_address_geo_asn_name) AS source_address_geo_asn_name, " +
-                                "MIN(source_address_geo_asn_domain) AS source_address_geo_asn_domain, " +
-                                "MIN(source_address_geo_city) AS source_address_geo_city, " +
-                                "MIN(source_address_geo_country_code) AS source_address_geo_country_code, " +
-                                "MIN(source_address_geo_latitude) AS source_address_geo_latitude, " +
-                                "MIN(source_address_geo_longitude) AS source_address_geo_longitude, " +
-                                "BOOL_AND(source_address_is_site_local) AS source_address_is_site_local, " +
-                                "BOOL_AND(source_address_is_loopback) AS source_address_is_loopback, " +
-                                "BOOL_AND(source_address_is_multicast) AS source_address_is_multicast, " +
-                                "MIN(destination_mac) AS destination_mac, " +
-                                "MIN(destination_address) AS destination_address, " +
-                                "MIN(destination_port) AS destination_port, " +
-                                "MIN(destination_address_geo_asn_number) AS destination_address_geo_asn_number, " +
-                                "MIN(destination_address_geo_asn_name) AS destination_address_geo_asn_name, " +
-                                "MIN(destination_address_geo_asn_domain) AS destination_address_geo_asn_domain, " +
-                                "MIN(destination_address_geo_city) AS destination_address_geo_city, " +
-                                "MIN(destination_address_geo_country_code) AS destination_address_geo_country_code, " +
-                                "MIN(destination_address_geo_latitude) AS destination_address_geo_latitude, " +
-                                "MIN(destination_address_geo_longitude) AS destination_address_geo_longitude, " +
-                                "BOOL_AND(destination_address_is_site_local) AS destination_address_is_site_local, " +
-                                "BOOL_AND(destination_address_is_loopback) AS destination_address_is_loopback, " +
-                                "BOOL_AND(destination_address_is_multicast) AS destination_address_is_multicast, " +
-                                "MIN(fingerprint) AS fingerprint, MIN(tags::text)::jsonb AS tags, " +
-                                "MAX(bytes_rx_count) AS bytes_rx_count, MAX(bytes_tx_count) AS bytes_tx_count, " +
-                                "MAX(segments_count) AS segments_count, " +
-                                "MIN(start_time) AS start_time, MAX(end_time) AS end_time, " +
-                                "MAX(most_recent_segment_time) AS most_recent_segment_time, " +
-                                "(EXTRACT(EPOCH FROM (MAX(most_recent_segment_time) - MIN(start_time))) * 1000) AS duration_ms, " +
-                                "MIN(created_at) AS created_at " +
+                handle.createQuery("SELECT session_key, l4_type, state, " + SESSION_AGGREGATES +
                                 "FROM l4_sessions " +
                                 "WHERE most_recent_segment_time >= :tr_from AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 "GROUP BY session_key, l4_type, state " +
                                 "HAVING 1=1 " + filterFragment.havingSql() + " " +
-                                "ORDER BY <order_column> <order_direction> " +
+                                "ORDER BY <order_column> <order_direction>, session_key, l4_type, state " +
                                 "LIMIT :limit OFFSET :offset")
                         .bindList("taps", taps)
                         .bindMap(filterFragment.bindings())
@@ -146,6 +202,58 @@ public class L4 {
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())
                         .define("order_direction", orderDirection)
+                        .mapTo(L4Session.class)
+                        .list()
+        );
+    }
+
+    private List<L4Session> findAllSessionsNewestFirst(TimeRange timeRange,
+                                                       FilterSqlFragment filterFragment,
+                                                       int limit,
+                                                       int offset,
+                                                       List<UUID> taps) {
+        long scanLimit = ((long) offset + limit) * taps.size();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH recent AS (" +
+                                "SELECT r.p_session_key, r.p_l4_type, r.p_state, r.p_mrst " +
+                                "FROM unnest(ARRAY[<taps>]::uuid[]) AS t(tap) " +
+                                "CROSS JOIN LATERAL (" +
+                                "SELECT session_key AS p_session_key, l4_type AS p_l4_type, " +
+                                "state AS p_state, most_recent_segment_time AS p_mrst " +
+                                "FROM l4_sessions " +
+                                "WHERE tap_uuid = t.tap " +
+                                "AND most_recent_segment_time >= :tr_from AND most_recent_segment_time <= :tr_to " +
+                                filterFragment.whereSql() + " " +
+                                "ORDER BY most_recent_segment_time DESC, session_key, l4_type, state " +
+                                "LIMIT <scan_limit>" +
+                                ") AS r " +
+                                "ORDER BY r.p_mrst DESC, r.p_session_key, r.p_l4_type, r.p_state " +
+                                "LIMIT <scan_limit>" +
+                                "), page AS (" +
+                                "SELECT p_session_key, p_l4_type, p_state, MAX(p_mrst) AS page_mrst " +
+                                "FROM recent " +
+                                "GROUP BY p_session_key, p_l4_type, p_state " +
+                                "ORDER BY page_mrst DESC, p_session_key, p_l4_type, p_state " +
+                                "LIMIT :limit OFFSET :offset" +
+                                ") " +
+                                "SELECT s.session_key, s.l4_type, s.state, " + SESSION_AGGREGATES +
+                                "FROM page JOIN l4_sessions AS s " +
+                                "ON s.session_key = page.p_session_key " +
+                                "AND s.l4_type = page.p_l4_type " +
+                                "AND s.state IS NOT DISTINCT FROM page.p_state " +
+                                "WHERE s.most_recent_segment_time >= :tr_from " +
+                                "AND s.most_recent_segment_time <= :tr_to " +
+                                "AND s.tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                "GROUP BY s.session_key, s.l4_type, s.state " +
+                                "ORDER BY most_recent_segment_time DESC, s.session_key, s.l4_type, s.state")
+                        .bindList("taps", taps)
+                        .bindMap(filterFragment.bindings())
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("scan_limit", scanLimit)
                         .mapTo(L4Session.class)
                         .list()
         );
@@ -279,20 +387,20 @@ public class L4 {
         );
     }
 
-    public List<StringNumberNumberAggregationResult> getTopTrafficSourceMacs(TimeRange timeRange,
-                                                                             Filters filters,
-                                                                             int limit,
-                                                                             int offset,
-                                                                             List<UUID> taps) {
+    public AggregationPage<StringNumberNumberAggregationResult> getTopTrafficSourceMacs(TimeRange timeRange,
+                                                                                        Filters filters,
+                                                                                        int limit,
+                                                                                        int offset,
+                                                                                        List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<StringNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT source_mac AS key, SUM(bytes_rx_count) AS value1, " +
-                                "SUM(bytes_tx_count) AS value2 " +
+                                "SUM(bytes_tx_count) AS value2, COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " +
@@ -305,9 +413,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(StringNumberNumberAggregationResult.class)
+                        .map(withTotal(StringNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countTopTrafficSourceMacs(timeRange, filters, taps));
     }
 
     public long countTopTrafficDestinationMacs(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -333,20 +443,20 @@ public class L4 {
         );
     }
 
-    public List<StringNumberNumberAggregationResult> getTopTrafficDestinationMacs(TimeRange timeRange,
-                                                                                  Filters filters,
-                                                                                  int limit,
-                                                                                  int offset,
-                                                                                  List<UUID> taps) {
+    public AggregationPage<StringNumberNumberAggregationResult> getTopTrafficDestinationMacs(TimeRange timeRange,
+                                                                                             Filters filters,
+                                                                                             int limit,
+                                                                                             int offset,
+                                                                                             List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<StringNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT destination_mac AS key, SUM(bytes_rx_count) AS value1, " +
-                                "SUM(bytes_tx_count) AS value2 " +
+                                "SUM(bytes_tx_count) AS value2, COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " +
@@ -359,9 +469,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(StringNumberNumberAggregationResult.class)
+                        .map(withTotal(StringNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countTopTrafficDestinationMacs(timeRange, filters, taps));
     }
 
 
@@ -387,18 +499,18 @@ public class L4 {
         );
     }
 
-    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopTrafficSourceAddresses(TimeRange timeRange,
-                                                                                                Filters filters,
-                                                                                                int limit,
-                                                                                                int offset,
-                                                                                                List<UUID> taps) {
+    public AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> getTopTrafficSourceAddresses(TimeRange timeRange,
+                                                                                                           Filters filters,
+                                                                                                           int limit,
+                                                                                                           int offset,
+                                                                                                           List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<L4AddressDataAddressNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT source_address AS key_address, " +
                                 "MIN(source_mac) AS key_mac, NULL as key_port, " +
                                 "MIN(source_address_geo_asn_number) AS key_address_geo_asn_number, " +
@@ -411,7 +523,8 @@ public class L4 {
                                 "BOOL_AND(source_address_is_site_local) AS key_address_is_site_local, " +
                                 "BOOL_AND(source_address_is_loopback) AS key_address_is_loopback, " +
                                 "BOOL_AND(source_address_is_multicast) AS key_address_is_multicast, " +
-                                "SUM(bytes_rx_count) AS value1, SUM(bytes_tx_count) AS value2 " +
+                                "SUM(bytes_rx_count) AS value1, SUM(bytes_tx_count) AS value2, " +
+                                "COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -423,9 +536,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .map(withTotal(L4AddressDataAddressNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countTopTrafficSourceAddresses(timeRange, filters, taps));
     }
 
     public long countTopTrafficDestinationAddresses(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -451,18 +566,18 @@ public class L4 {
         );
     }
 
-    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopTrafficDestinationAddresses(TimeRange timeRange,
-                                                                                                     Filters filters,
-                                                                                                     int limit,
-                                                                                                     int offset,
-                                                                                                     List<UUID> taps) {
+    public AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> getTopTrafficDestinationAddresses(TimeRange timeRange,
+                                                                                                                Filters filters,
+                                                                                                                int limit,
+                                                                                                                int offset,
+                                                                                                                List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<L4AddressDataAddressNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT destination_address AS key_address, MAX(destination_mac) AS key_mac, " +
                                 "NULL as key_port, " +
                                 "MIN(destination_address_geo_asn_number) AS key_address_geo_asn_number, " +
@@ -475,7 +590,8 @@ public class L4 {
                                 "BOOL_AND(destination_address_is_site_local) AS key_address_is_site_local, " +
                                 "BOOL_AND(destination_address_is_loopback) AS key_address_is_loopback, " +
                                 "BOOL_AND(destination_address_is_multicast) AS key_address_is_multicast, " +
-                                "SUM(bytes_rx_count) AS value1, SUM(bytes_tx_count) AS value2 " +
+                                "SUM(bytes_rx_count) AS value1, SUM(bytes_tx_count) AS value2, " +
+                                "COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " +  filterFragment.whereSql() + " " +
@@ -487,9 +603,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(L4AddressDataAddressNumberNumberAggregationResult.class)
+                        .map(withTotal(L4AddressDataAddressNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countTopTrafficDestinationAddresses(timeRange, filters, taps));
     }
 
     public long countTopDestinationPorts(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -514,20 +632,20 @@ public class L4 {
         );
     }
 
-    public List<NumberNumberNumberAggregationResult> getTopDestinationPorts(TimeRange timeRange,
-                                                                            Filters filters,
-                                                                            int limit,
-                                                                            int offset,
-                                                                            List<UUID> taps) {
+    public AggregationPage<NumberNumberNumberAggregationResult> getTopDestinationPorts(TimeRange timeRange,
+                                                                                       Filters filters,
+                                                                                       int limit,
+                                                                                       int offset,
+                                                                                       List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<NumberNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT destination_port AS key, COUNT(*) AS value1, " +
-                                "SUM(bytes_rx_count+bytes_tx_count) AS value2 " +
+                                "SUM(bytes_rx_count+bytes_tx_count) AS value2, COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE  most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -539,9 +657,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(NumberNumberNumberAggregationResult.class)
+                        .map(withTotal(NumberNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countTopDestinationPorts(timeRange, filters, taps));
     }
 
 
@@ -568,20 +688,20 @@ public class L4 {
         );
     }
 
-    public List<NumberNumberNumberAggregationResult> getLeastCommonNonEphemeralDestinationPorts(TimeRange timeRange,
-                                                                                                Filters filters,
-                                                                                                int limit,
-                                                                                                int offset,
-                                                                                                List<UUID> taps) {
+    public AggregationPage<NumberNumberNumberAggregationResult> getLeastCommonNonEphemeralDestinationPorts(TimeRange timeRange,
+                                                                                                           Filters filters,
+                                                                                                           int limit,
+                                                                                                           int offset,
+                                                                                                           List<UUID> taps) {
         if (taps.isEmpty()) {
-            return Collections.emptyList();
+            return AggregationPage.empty();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
-        return nzyme.getDatabase().withHandle(handle ->
+        List<AggregationRow<NumberNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT destination_port AS key, COUNT(*) AS value1, " +
-                                "SUM(bytes_rx_count+bytes_tx_count) AS value2 " +
+                                "SUM(bytes_rx_count+bytes_tx_count) AS value2, COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE destination_port < 32768 " +
                                 "AND most_recent_segment_time >= :tr_from " +
                                 "AND most_recent_segment_time <= :tr_to " +
@@ -594,9 +714,11 @@ public class L4 {
                         .bind("offset", offset)
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
-                        .mapTo(NumberNumberNumberAggregationResult.class)
+                        .map(withTotal(NumberNumberNumberAggregationResult.class))
                         .list()
         );
+
+        return toPage(rows, offset, () -> countLeastCommonNonEphemeralDestinationPorts(timeRange, filters, taps));
     }
 
     public Optional<L4AddressData> findMostRecentDestinationAddressData(List<UUID> taps, String address) {
@@ -617,34 +739,6 @@ public class L4 {
                                 "destination_address_is_loopback AS is_loopback, " +
                                 "destination_address_is_multicast AS is_multicast " +
                                 "FROM l4_sessions WHERE destination_address = :address::inet AND " +
-                                "tap_uuid IN (<taps>) " +
-                                "ORDER BY most_recent_segment_time " +
-                                "DESC LIMIT 1")
-                        .bindList("taps", taps)
-                        .bind("address", address)
-                        .mapTo(L4AddressData.class)
-                        .findOne()
-        );
-    }
-
-    public Optional<L4AddressData> findMostRecentSourceAddressData(List<UUID> taps, String address) {
-        if (taps.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT source_mac AS mac, source_address AS address, " +
-                                "source_port AS port, source_address_geo_asn_number AS geo_asn_number, " +
-                                "source_address_geo_asn_name AS geo_asn_name, " +
-                                "source_address_geo_asn_domain AS geo_asn_domain, " +
-                                "source_address_geo_city AS geo_city, " +
-                                "source_address_geo_country_code AS geo_country_code, " +
-                                "source_address_geo_latitude AS geo_latitude, " +
-                                "source_address_geo_longitude AS geo_longitude, " +
-                                "source_address_is_site_local AS is_site_local, " +
-                                "source_address_is_loopback AS is_loopback, " +
-                                "source_address_is_multicast AS is_multicast " +
-                                "FROM l4_sessions WHERE source_address = :address::inet AND " +
                                 "tap_uuid IN (<taps>) " +
                                 "ORDER BY most_recent_segment_time " +
                                 "DESC LIMIT 1")
