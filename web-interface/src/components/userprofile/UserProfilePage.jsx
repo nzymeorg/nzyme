@@ -6,6 +6,9 @@ import {toast} from "react-toastify";
 import ApiRoutes from "../../util/ApiRoutes";
 import {UserContext} from "../../App";
 import usePageTitle from "../../util/UsePageTitle";
+import WithPermission from "../misc/WithPermission";
+import UserApiKeysTable from "./apikeys/UserApiKeysTable";
+import CreateUserApiKeyForm from "./apikeys/CreateUserApiKeyForm";
 
 const userProfileService = new UserProfileService();
 
@@ -19,6 +22,8 @@ function UserProfilePage(props) {
   const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
 
   const [unitSystem, setUnitSystem] = useState(user.unit_system);
+
+  const [apiKeysRevision, setApiKeysRevision] = useState(new Date());
 
   const resetMfa = function() {
     if (!confirm("Really reset your MFA? You will be logged out and prompted to set up a new MFA method " +
@@ -138,6 +143,33 @@ function UserProfilePage(props) {
               </div>
             </div>
             }
+
+            <WithPermission permission="api_keys_manage_own">
+              <div className="row mt-3">
+                <div className="col-md-12">
+                  <div className="card">
+                    <div className="card-body">
+                      <h3>API Keys</h3>
+
+                      <p>
+                        API keys let scripts and other clients access the Nzyme REST API with your permissions.
+                      </p>
+
+                      <h4>Create API Key</h4>
+
+                      <CreateUserApiKeyForm onKeyCreated={() => setApiKeysRevision(new Date())} />
+
+                      <hr/>
+
+                      <h4>Your API Keys</h4>
+
+                      <UserApiKeysTable revision={apiKeysRevision}
+                                        onKeyDeleted={() => setApiKeysRevision(new Date())} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </WithPermission>
           </div>
 
           <div className="col-md-4">

@@ -5,10 +5,7 @@ import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.floorplans.db.TenantLocationFloorEntry;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
-import app.nzyme.core.security.authentication.db.OrganizationEntry;
-import app.nzyme.core.security.authentication.db.TapPermissionEntry;
-import app.nzyme.core.security.authentication.db.TenantEntry;
-import app.nzyme.core.security.authentication.db.UserEntry;
+import app.nzyme.core.security.authentication.db.*;
 import app.nzyme.core.security.sessions.db.SessionEntry;
 import app.nzyme.core.security.sessions.db.SessionEntryWithUserDetails;
 import tools.jackson.core.JacksonException;
@@ -1363,13 +1360,33 @@ public class AuthenticationService {
         );
     }
 
-    public void setUserDefaultTenant(UUID userId, @Nullable UUID organizationId, @Nullable UUID tenantId) {
+    public List<ApiKeyEntry> findAllApiKeys(UUID userId) {
+        return nzyme.getDatabase().withHandle(handle ->
+            handle.createQuery("SELECT * FROM auth_users_api_keys WHERE user_id = :user_id")
+                    .bind("user_id", userId)
+                    .mapTo(ApiKeyEntry.class)
+                    .list()
+        );
+    }
+
+    public void createApiKey(UUID userId, String name, String keyHash, DateTime expiresAt) {
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE auth_users SET default_organization = :organization_uuid, " +
-                                "default_tenant = :tenant_uuid WHERE uuid = :uuid")
-                        .bind("organization_uuid", organizationId)
-                        .bind("tenant_uuid", tenantId)
-                        .bind("uuid", userId)
+                handle.createUpdate("INSERT INTO auth_users_api_keys(uuid, user_id, name, key, last_activity, " +
+                                "expires_at, created_at) VALUES(:uuid, :user_id, :name, :key, NULL, :expires_at, NOW())")
+                        .bind("uuid", UUID.randomUUID())
+                        .bind("user_id", userId)
+                        .bind("name", name)
+                        .bind("key", keyHash)
+                        .bind("expires_at", expiresAt)
+                        .execute()
+        );
+    }
+
+    public void deleteApiKey(UUID userId, UUID keyId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM auth_users_api_keys WHERE user_id = :user_id AND uuid = :key_id")
+                        .bind("user_id", userId)
+                        .bind("key_id", keyId)
                         .execute()
         );
     }

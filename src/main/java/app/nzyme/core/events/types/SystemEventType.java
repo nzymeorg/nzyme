@@ -107,6 +107,13 @@ public enum SystemEventType {
                     "attempts have been intentionally delayed and slowed down until a successful login is achieved."
     ),
 
+    AUTHENTICATION_USER_API_KEY_CREATED(
+            SystemEventCategory.AUTHENTICATION,
+            SystemEventScope.SYSTEM,
+            "An API for a user was created",
+            "A user created an API key that is valid for their scope of access."
+    ),
+
     HEALTH_INDICATOR_CRYPTO_SYNC_TOGGLED(
             SystemEventCategory.HEALTH_INDICATOR,
             SystemEventScope.SYSTEM,

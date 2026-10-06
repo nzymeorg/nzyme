@@ -60,6 +60,12 @@ public class Permissions {
                 "Allows user to create, edit and delete configurations related to Ethernet asset management.",
                 false
         ));
+        put("api_keys_manage_own", Permission.create(
+                "api_keys_manage_own",
+                "Manage own API Keys",
+                "Allows user to manage their own API keys. Note that removing this permissions does not delete existing API keys.",
+                true
+        ));
     }};
 
 }

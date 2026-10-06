@@ -27,6 +27,20 @@ class UserProfileService {
     RESTClient.put(`/user/unitsystem/${unitSystem}`, {}, successCallback)
   }
 
+  findOwnApiKeys(setKeys) {
+    RESTClient.get('/user/apikeys/', {}, function (response) {
+      setKeys(response.data);
+    })
+  }
+
+  createOwnApiKey(name, expiryDays, successCallback) {
+    RESTClient.post(`/user/apikeys`, { name: name, expiry_days: expiryDays }, successCallback)
+  }
+
+  deleteOwnApiKey(keyId, successCallback) {
+    RESTClient.delete(`/user/apikeys/show/${keyId}`, successCallback)
+  }
+
 }
 
 export default UserProfileService

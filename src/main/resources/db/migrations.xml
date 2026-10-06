@@ -8986,4 +8986,48 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="create_api_keys" author="lennartkoopmann">
+        <createTable tableName="auth_users_api_keys">
+            <column name="uuid" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="key" type="text">
+                <constraints nullable="false" unique="true" />
+            </column>
+
+            <column name="last_activity" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="expires_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="auth_users_api_keys" indexName="apikeys_user_id">
+            <column name="user_id" />
+        </createIndex>
+
+        <addForeignKeyConstraint constraintName="link_apikeys2users"
+                                 baseTableName="auth_users_api_keys"
+                                 baseColumnNames="user_id"
+                                 referencedTableName="auth_users"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+    </changeSet>
+
 </databaseChangeLog>
