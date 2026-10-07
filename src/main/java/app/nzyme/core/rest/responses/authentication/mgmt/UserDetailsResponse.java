@@ -69,7 +69,10 @@ public abstract class UserDetailsResponse {
     @JsonProperty("mfa_disabled")
     public abstract boolean mfaDisabled();
 
-    public static UserDetailsResponse create(UUID id, UUID organization_id, UUID tenantId, String email, String name, DateTime createdAt, DateTime updatedAt, DateTime lastActivity, String lastRemoteIp, String lastGeoCity, String lastGeoCountry, String lastGeoAsn, List<String> permissions, boolean allowAccessAllTenantTaps, List<UUID> tapPermissions, boolean isLoginThrottled, boolean mfaDisabled) {
+    @JsonProperty("api_keys")
+    public abstract long apiKeys();
+
+    public static UserDetailsResponse create(UUID id, UUID organization_id, UUID tenantId, String email, String name, DateTime createdAt, DateTime updatedAt, DateTime lastActivity, String lastRemoteIp, String lastGeoCity, String lastGeoCountry, String lastGeoAsn, List<String> permissions, boolean allowAccessAllTenantTaps, List<UUID> tapPermissions, boolean isLoginThrottled, boolean mfaDisabled, long apiKeys) {
         return builder()
                 .id(id)
                 .organization_id(organization_id)
@@ -88,6 +91,7 @@ public abstract class UserDetailsResponse {
                 .tapPermissions(tapPermissions)
                 .isLoginThrottled(isLoginThrottled)
                 .mfaDisabled(mfaDisabled)
+                .apiKeys(apiKeys)
                 .build();
     }
 
@@ -130,6 +134,8 @@ public abstract class UserDetailsResponse {
         public abstract Builder isLoginThrottled(boolean isLoginThrottled);
 
         public abstract Builder mfaDisabled(boolean mfaDisabled);
+
+        public abstract Builder apiKeys(long apiKeys);
 
         public abstract UserDetailsResponse build();
     }

@@ -17,6 +17,7 @@ import app.nzyme.core.rest.authentication.SessionOnly;
 import app.nzyme.core.rest.requests.*;
 import app.nzyme.core.rest.responses.authentication.SessionDetailsResponse;
 import app.nzyme.core.rest.responses.authentication.SessionsListResponse;
+import app.nzyme.core.rest.responses.authentication.apikeys.ApiKeyDetailsResponse;
 import app.nzyme.core.rest.responses.authentication.mgmt.*;
 import app.nzyme.core.rest.responses.events.EventActionDetailsResponse;
 import app.nzyme.core.rest.responses.events.EventActionsListResponse;
@@ -25,10 +26,7 @@ import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.rest.responses.subsystems.SubsystemsConfigurationResponse;
 import app.nzyme.core.security.authentication.AuthenticationRegistryKeys;
 import app.nzyme.core.security.authentication.PasswordHasher;
-import app.nzyme.core.security.authentication.db.OrganizationEntry;
-import app.nzyme.core.security.authentication.db.TapPermissionEntry;
-import app.nzyme.core.security.authentication.db.TenantEntry;
-import app.nzyme.core.security.authentication.db.UserEntry;
+import app.nzyme.core.security.authentication.db.*;
 import app.nzyme.core.security.authentication.roles.Permission;
 import app.nzyme.core.security.authentication.roles.Permissions;
 import app.nzyme.core.security.sessions.db.SessionEntry;
@@ -453,8 +451,21 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         boolean isDeletable = !authenticatedUser.getUserId().equals(userId);
 
+        // Find API keys of this user.
+        List<ApiKeyDetailsResponse> apiKeys = Lists.newArrayList();
+        for (ApiKeyEntry key : nzyme.getAuthenticationService().findAllApiKeys(orgAdmin.get().uuid())) {
+            apiKeys.add(ApiKeyDetailsResponse.create(
+                    key.uuid(),
+                    key.userId(),
+                    key.name(),
+                    key.lastActivity(),
+                    key.expiresAt(),
+                    key.createdAt()
+            ));
+        }
+
         return Response.ok(OrganizationAdministratorDetailsResponse.create(
-                userEntryToResponse(orgAdmin.get(), Collections.emptyList(), Collections.emptyList()), isDeletable
+                userEntryToResponse(orgAdmin.get(), Collections.emptyList(), Collections.emptyList()), isDeletable, apiKeys
         )).build();
     }
 
@@ -607,7 +618,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                                     @PathParam("id") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
-        if (authenticatedUser.getUserId() == userId) {
+        if (authenticatedUser.getUserId().equals(userId)) {
             LOG.warn("Organization administrators cannot delete themselves.");
             return Response.status(Response.Status.FORBIDDEN).build();
         }
@@ -1065,7 +1076,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         }
 
         // Users cannot delete themselves.
-        boolean isDeletable = authenticatedUser.getUserId() != userId;
+        boolean isDeletable = !authenticatedUser.getUserId().equals(userId);
+
+        // Find API keys of this user.
+        List<ApiKeyDetailsResponse> apiKeys = Lists.newArrayList();
+        for (ApiKeyEntry key : nzyme.getAuthenticationService().findAllApiKeys(user.get().uuid())) {
+            apiKeys.add(ApiKeyDetailsResponse.create(
+                    key.uuid(),
+                    key.userId(),
+                    key.name(),
+                    key.lastActivity(),
+                    key.expiresAt(),
+                    key.createdAt()
+            ));
+        }
 
         return Response.ok(UserOfTenantDetailsResponse.create(
                 userEntryToResponse(
@@ -1073,7 +1097,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                         nzyme.getAuthenticationService().findPermissionsOfUser(user.get().uuid()),
                         nzyme.getAuthenticationService().findTapPermissionsOfUser(user.get().uuid())
                 ),
-                isDeletable)
+                isDeletable,
+                apiKeys)
         ).build();
     }
 
@@ -1281,7 +1306,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        if (authenticatedUser.getUserId() == userId) {
+        if (authenticatedUser.getUserId().equals(userId)) {
             LOG.warn("User [{}] cannot delete themselves.", user.get().email());
             return Response.status(Response.Status.FORBIDDEN).build();
         }
@@ -2531,7 +2556,6 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         return Response.status(Response.Status.OK).build();
     }
 
-
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/events/actions")
@@ -2721,14 +2745,27 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         }
 
         boolean isDeletable = nzyme.getAuthenticationService().countSuperAdministrators() != 1
-                && sessionUser.getUserId() != userId;
+                && !sessionUser.getUserId().equals(userId);
+
+        // Find API keys of this user.
+        List<ApiKeyDetailsResponse> apiKeys = Lists.newArrayList();
+        for (ApiKeyEntry key : nzyme.getAuthenticationService().findAllApiKeys(superAdmin.get().uuid())) {
+            apiKeys.add(ApiKeyDetailsResponse.create(
+                    key.uuid(),
+                    key.userId(),
+                    key.name(),
+                    key.lastActivity(),
+                    key.expiresAt(),
+                    key.createdAt()
+            ));
+        }
 
         return Response.ok(SuperAdministratorDetailsResponse.create(
                 userEntryToResponse(
                         superAdmin.get(),
                         Collections.emptyList(),
                         Collections.emptyList()
-                ), isDeletable
+                ), isDeletable, apiKeys
         )).build();
     }
 
@@ -2965,6 +3002,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     }
 
     private UserDetailsResponse userEntryToResponse(UserEntry u, List<String> permissions, List<UUID> tapPermissions) {
+        long apiKeys = nzyme.getAuthenticationService().countAllApiKeys(u.uuid());
+
         return UserDetailsResponse.create(
                 u.uuid(),
                 u.organizationId(),
@@ -2982,7 +3021,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                 u.accessAllTenantTaps(),
                 tapPermissions,
                 u.isLoginThrottled(),
-                u.hasMfaDisabled()
+                u.hasMfaDisabled(),
+                apiKeys
         );
     }
 

@@ -90,11 +90,11 @@ public class AuthenticationService {
 
         OrganizationEntry organization = createOrganization(
                 "Default Organization",
-                "The nzyme default organization"
+                "The Nzyme default organization"
         );
         createTenant(organization.uuid(),
                 "Default Tenant",
-                "The nzyme default tenant",
+                "The Nzyme default tenant",
                 Integer.parseInt(AuthenticationRegistryKeys.SESSION_TIMEOUT_MINUTES.defaultValue().get()),
                 Integer.parseInt(AuthenticationRegistryKeys.SESSION_INACTIVITY_TIMEOUT_MINUTES.defaultValue().get()),
                 Integer.parseInt(AuthenticationRegistryKeys.MFA_TIMEOUT_MINUTES.defaultValue().get())
@@ -1357,6 +1357,15 @@ public class AuthenticationService {
                 handle.createUpdate("UPDATE auth_tenants_locations_floors SET updated_at = NOW() WHERE id = :id")
                         .bind("id", floorId)
                         .execute()
+        );
+    }
+
+    public long countAllApiKeys(UUID userId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM auth_users_api_keys WHERE user_id = :user_id")
+                        .bind("user_id", userId)
+                        .mapTo(Long.class)
+                        .one()
         );
     }
 

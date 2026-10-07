@@ -63,7 +63,8 @@ public class Permissions {
         put("api_keys_manage_own", Permission.create(
                 "api_keys_manage_own",
                 "Manage own API Keys",
-                "Allows user to manage their own API keys. Note that removing this permissions does not delete existing API keys.",
+                "Allows user to manage their own API keys. Note that removing this permission does not " +
+                        "delete existing API keys. You can review API keys of a user on the user details page.",
                 true
         ));
     }};

@@ -28,6 +28,7 @@ function SuperAdminTable() {
           <tr>
             <th>Name</th>
             <th>Email</th>
+            <th>API Keys</th>
             <th>MFA</th>
             <th>Last Activity</th>
           </tr>

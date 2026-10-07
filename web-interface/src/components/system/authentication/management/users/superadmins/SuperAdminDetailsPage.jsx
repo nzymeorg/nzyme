@@ -20,6 +20,7 @@ function SuperAdminDetailsPage() {
 
   const [user, setUser] = useState(null);
   const [isDeletable, setIsDeletable] = useState(null);
+  const [apiKeys, setApiKeys] = useState(null);
 
   const [redirect, setRedirect] = useState(false);
 
@@ -44,8 +45,45 @@ function SuperAdminDetailsPage() {
     });
   }
 
+  const apiKeysTable = () => {
+    if (!apiKeys || apiKeys.length === 0) {
+      return <div className="alert alert-info mb-0">No API keys.</div>
+    }
+
+    return (
+      <table className="table table-sm table-hover table-striped mb-0">
+        <thead>
+        <tr>
+          <th>Name</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th>Last Activity</th>
+        </tr>
+        </thead>
+        <tbody>
+        {apiKeys.map((key, i) => {
+          return (
+            <tr key={"apikey-" + i}>
+              <td>{key.name}</td>
+              <td title={moment(key.created_at).format()}>
+                {moment(key.created_at).fromNow()}
+              </td>
+              <td>
+                {key.expires_at ? moment(key.expires_at).format() : "Never"}
+              </td>
+              <td>
+                {key.last_activity ? moment(key.last_activity).format() : "Never used"}
+              </td>
+            </tr>
+          )
+        })}
+        </tbody>
+      </table>
+    )
+  }
+
   useEffect(() => {
-    authenticationManagementService.findSuperAdmin(userId, setUser, setIsDeletable);
+    authenticationManagementService.findSuperAdmin(userId, setUser, setIsDeletable, setApiKeys);
   }, [userId])
 
   if (redirect) {
@@ -141,6 +179,18 @@ function SuperAdminDetailsPage() {
                         remoteCountry={user.last_geo_country}
                         remoteCity={user.last_geo_city}
                         remoteAsn={user.last_geo_asn} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="row mt-3">
+              <div className="col-md-12">
+                <div className="card">
+                  <div className="card-body">
+                    <h3>API Keys</h3>
+
+                    {apiKeysTable()}
                   </div>
                 </div>
               </div>

@@ -123,13 +123,17 @@ class AuthenticationManagementService {
         {email: email, password: password, name: name, disable_mfa: disableMfa}, successCallback, errorCallback);
   }
 
-  findOrganizationAdmin(organizationId, userId, setUser, setIsDeletable) {
+  findOrganizationAdmin(organizationId, userId, setUser, setIsDeletable = undefined, setApiKeys = undefined) {
     RESTClient.get('/system/authentication/mgmt/organizations/show/' + organizationId + '/administrators/show/' + userId,
         {}, function (response) {
           setUser(response.data.user);
 
           if (setIsDeletable) {
             setIsDeletable(response.data.is_deletable);
+          }
+
+          if (setApiKeys) {
+            setApiKeys(response.data.api_keys);
           }
         })
   }
@@ -166,7 +170,7 @@ class AuthenticationManagementService {
     });
   }
 
-  findUserOfTenant(organizationId, tenantId, userId, setUser, setIsDeletable = undefined) {
+  findUserOfTenant(organizationId, tenantId, userId, setUser, setIsDeletable = undefined, setApiKeys = undefined) {
     RESTClient.get('/system/authentication/mgmt/organizations/show/' + organizationId + '/tenants/show/' + tenantId + '/users/show/' + userId,
         {}, function (response) {
           setUser(response.data.user)
@@ -174,6 +178,10 @@ class AuthenticationManagementService {
           if (setIsDeletable) {
             setIsDeletable(response.data.is_deletable);
           }
+
+        if (setApiKeys) {
+          setApiKeys(response.data.api_keys);
+        }
         });
   }
 
@@ -370,13 +378,17 @@ class AuthenticationManagementService {
     })
   }
 
-  findSuperAdmin(userId, setUser, setIsDeletable = undefined) {
+  findSuperAdmin(userId, setUser, setIsDeletable = undefined, setApiKeys = undefined) {
     RESTClient.get('/system/authentication/mgmt/organizations/superadmins/show/' + userId,
         {}, function (response) {
       setUser(response.data.user);
 
       if (setIsDeletable) {
         setIsDeletable(response.data.is_deletable);
+      }
+
+      if (setApiKeys) {
+        setApiKeys(response.data.api_keys);
       }
     })
   }
