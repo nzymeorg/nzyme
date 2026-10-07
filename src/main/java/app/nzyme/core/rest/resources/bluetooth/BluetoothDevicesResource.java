@@ -25,6 +25,13 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -45,22 +52,33 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/bluetooth/devices")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Bluetooth", description = "Bluetooth devices that the Bluetooth adapters of your taps discovered in "
+        + "range, over Bluetooth Classic, Bluetooth Low Energy or both. The data includes device names, "
+        + "manufacturers, device classes, discovered services and signal strength.")
 public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @Inject
     private NzymeNode nzyme;
 
     @GET
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                            @QueryParam("filters") String filtersParameter,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @QueryParam("taps") String taps) {
+    @Operation(operationId = "findBluetoothDevices", summary = "List Bluetooth devices",
+            description = "Returns all Bluetooth devices seen in the time range, strongest average signal first by "
+                    + "default. Devices are grouped by MAC address, so names, aliases and transports of a device "
+                    + "arrive as lists.")
+    @ApiResponse(responseCode = "200", description = "Devices found.",
+            content = @Content(schema = @Schema(implementation = BluetoothDeviceSummaryListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUuids = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -93,10 +111,15 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/histogram")
-    public Response deviceCountHistogram(@Context SecurityContext sc,
-                                         @QueryParam("time_range") @Valid String timeRangeParameter,
-                                         @QueryParam("filters") String filtersParameter,
-                                         @QueryParam("taps") String taps) {
+    @Operation(operationId = "findBluetoothDeviceCountHistogram", summary = "Get histogram of Bluetooth device counts",
+            description = "Returns the number of Bluetooth devices seen in each bucket of the time range. The bucket "
+                    + "size is chosen automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    public Response deviceCountHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                         @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                         @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -113,14 +136,21 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/manufacturers/histogram")
-    public Response manufacturersHistogram(@Context SecurityContext sc,
-                                           @QueryParam("time_range") @Valid String timeRangeParameter,
-                                           @QueryParam("filters") String filtersParameter,
-                                           @QueryParam("taps") String taps,
-                                           @QueryParam("order_column") @Nullable String orderColumnParam,
-                                           @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                           @QueryParam("limit") int limit,
-                                           @QueryParam("offset") int offset) {
+    @Operation(operationId = "findBluetoothManufacturers", summary = "List Bluetooth device manufacturers",
+            description = "Returns the manufacturers of the Bluetooth devices seen in the time range, together with "
+                    + "the number of devices per manufacturer. The manufacturer comes from the Bluetooth company "
+                    + "identifier the device advertised, so devices without a known manufacturer are left out.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    public Response manufacturersHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                           @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                           @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                           @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -152,14 +182,21 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ouis/histogram")
-    public Response ouisHistogram(@Context SecurityContext sc,
-                                  @QueryParam("time_range") @Valid String timeRangeParameter,
-                                  @QueryParam("filters") String filtersParameter,
-                                  @QueryParam("taps") String taps,
-                                  @QueryParam("order_column") @Nullable String orderColumnParam,
-                                  @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                  @QueryParam("limit") int limit,
-                                  @QueryParam("offset") int offset) {
+    @Operation(operationId = "findBluetoothOuis", summary = "List Bluetooth device OUIs",
+            description = "Returns the OUIs of the Bluetooth devices seen in the time range, together with the number "
+                    + "of devices per OUI. The OUI is resolved from the vendor part of the device MAC address, so "
+                    + "devices with a randomized address do not appear here.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    public Response ouisHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                  @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                  @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                  @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -191,11 +228,18 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{mac}")
-    public Response findOne(@Context SecurityContext sc,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @PathParam("mac") @MacAddress String mac,
-                            @QueryParam("taps") String taps) {
+    @Operation(operationId = "findBluetoothDevice", summary = "Get a Bluetooth device",
+            description = "Returns everything Nzyme knows about one Bluetooth device, including the context of its "
+                    + "MAC address. Devices are grouped by MAC address, so names, aliases, transports and "
+                    + "discovered services arrive as lists.")
+    @ApiResponse(responseCode = "200", description = "Device found.",
+            content = @Content(schema = @Schema(implementation = BluetoothDeviceDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Device not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "MAC address of the Bluetooth device.") @PathParam("mac") @MacAddress String mac,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
 
@@ -216,10 +260,16 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{mac}/rssi/histogram")
-    public Response rssiHistogram(@Context SecurityContext sc,
-                                  @PathParam("mac") @MacAddress String mac,
-                                  @QueryParam("time_range") @Valid String timeRangeParameter,
-                                  @QueryParam("taps") String taps) {
+    @Operation(operationId = "findBluetoothDeviceRssiHistogram", summary = "Get signal strength histogram of a Bluetooth device",
+            description = "Returns the average signal strength of the device in each bucket of the time range. The "
+                    + "response is an object that maps the bucket timestamp to the signal strength in dBm. Buckets "
+                    + "in which no tap saw the device are missing from the response.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    public Response rssiHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "MAC address of the Bluetooth device.") @PathParam("mac") @MacAddress String mac,
+                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -233,10 +283,15 @@ public class BluetoothDevicesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{mac}/rssi/bytap")
-    public Response rssiByTap(@Context SecurityContext sc,
-                              @PathParam("mac") @MacAddress String mac,
-                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                              @QueryParam("taps") String taps) {
+    @Operation(operationId = "findBluetoothDeviceRssiByTap", summary = "Get signal strength of a Bluetooth device per tap",
+            description = "Returns the average signal strength of the device in the time range, one entry per tap "
+                    + "that saw it. Taps that did not see the device are left out, so the list can be empty.")
+    @ApiResponse(responseCode = "200", description = "Signal strengths found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = TapBasedSignalStrengthResponse.class))))
+    public Response rssiByTap(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "MAC address of the Bluetooth device.") @PathParam("mac") @MacAddress String mac,
+                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);

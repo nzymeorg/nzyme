@@ -22,6 +22,12 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -44,6 +50,10 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/rtsp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "RTSP", description = "RTSP streams that Nzyme taps observed on the network. RTSP is what cameras, "
+        + "network video recorders and streaming appliances use to negotiate live audio and video. Nzyme reads the "
+        + "clear text control connection and links the media flow back to it, so a stream reports its negotiation "
+        + "state, its authentication posture and the devices on both ends.")
 public class RTSPResource extends TapDataHandlingResource {
 
     @Inject
@@ -53,16 +63,25 @@ public class RTSPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/streams")
-    public Response allStreams(@Context SecurityContext sc,
-                               @QueryParam("organization_id") UUID organizationId,
-                               @QueryParam("tenant_id") UUID tenantId,
-                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                               @QueryParam("filters") String filtersParameter,
-                               @QueryParam("order_column") @Nullable String orderColumnParam,
-                               @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                               @QueryParam("limit") int limit,
-                               @QueryParam("offset") int offset,
-                               @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findRtspStreams", summary = "List RTSP streams",
+            description = "Returns all RTSP streams observed in the time range, newest setup first by default. Each "
+                    + "stream carries the control connection, the media transport addresses and the exchanged bytes, "
+                    + "plus the negotiation state, the requested URI, the client and server software, the "
+                    + "authentication posture and flags such as an unauthenticated stream. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Streams found.",
+            content = @Content(schema = @Schema(implementation = RTSPStreamsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allStreams(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                               @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                               @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                               @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                               @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -95,11 +114,17 @@ public class RTSPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/streams/show/{session_id}")
-    public Response oneStream(@Context SecurityContext sc,
-                              @PathParam("session_id") String sessionId,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findRtspStream", summary = "Get an RTSP stream",
+            description = "Returns a single RTSP stream by the session key of the TCP control connection that set "
+                    + "it up.")
+    @ApiResponse(responseCode = "200", description = "Stream found.",
+            content = @Content(schema = @Schema(implementation = RTSPStreamDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Stream not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response oneStream(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Session key of the TCP control connection of the stream.") @PathParam("session_id") String sessionId,
+                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -117,10 +142,15 @@ public class RTSPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/streams/active/histogram")
-    public Response activeStreamsHistogram(@Context SecurityContext sc,
-                                           @QueryParam("time_range") @Valid String timeRangeParameter,
-                                           @QueryParam("filters") String filtersParameter,
-                                           @QueryParam("taps") String taps) {
+    @Operation(operationId = "findRtspActiveStreamsHistogram", summary = "Get histogram of active RTSP streams",
+            description = "Returns the number of RTSP streams that were active in each bucket of the time range. "
+                    + "The bucket size is chosen automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    public Response activeStreamsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -137,16 +167,23 @@ public class RTSPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/streams/servers/top/histogram")
-    public Response topServersHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findRtspTopServers", summary = "List top RTSP servers",
+            description = "Returns the server addresses and ports with the most RTSP streams in the time range, "
+                    + "together with the stream count and the number of exchanged bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topServersHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -173,7 +210,7 @@ public class RTSPResource extends TapDataHandlingResource {
                 .getTopServers(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
-                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.UDP, x.key()),
+                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.TCP, x.key()),
                             HistogramValueType.L4_ADDRESS,
                             null),
                     HistogramValueStructureResponse.create(x.value1(), HistogramValueType.INTEGER, null),
@@ -187,16 +224,23 @@ public class RTSPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/streams/clients/top/histogram")
-    public Response topClientsHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findRtspTopClients", summary = "List top RTSP clients",
+            description = "Returns the client addresses with the most RTSP streams in the time range, together with "
+                    + "the stream count and the number of exchanged bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topClientsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -223,7 +267,7 @@ public class RTSPResource extends TapDataHandlingResource {
                 .getTopClients(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)) {
             values.add(ThreeColumnTableHistogramValueResponse.create(
                     HistogramValueStructureResponse.create(
-                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.UDP, x.key()),
+                            RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.TCP, x.key()),
                             HistogramValueType.L4_ADDRESS_NO_PORT,
                             null),
                     HistogramValueStructureResponse.create(x.value1(), HistogramValueType.INTEGER, null),

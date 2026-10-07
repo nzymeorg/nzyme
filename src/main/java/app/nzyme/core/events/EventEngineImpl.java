@@ -135,18 +135,21 @@ public class EventEngineImpl implements EventEngine {
         }
     }
 
-    public long countAllEventsOfAllOrganizations() {
+    public long countAllEventsOfAllOrganizations(List<String> eventTypes) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM events")
+                handle.createQuery("SELECT COUNT(*) FROM events WHERE event_type IN (<event_types>)")
+                        .bindList("event_types", eventTypes)
                         .mapTo(Long.class)
                         .one()
         );
     }
 
-    public long countAllEventsOfOrganization(UUID organizationId) {
+    public long countAllEventsOfOrganization(List<String> eventTypes, UUID organizationId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM events WHERE organization_id = :organization_id")
+                handle.createQuery("SELECT COUNT(*) FROM events WHERE organization_id = :organization_id " +
+                                "AND event_type IN (<event_types>)")
                         .bind("organization_id", organizationId)
+                        .bindList("event_types", eventTypes)
                         .mapTo(Long.class)
                         .one()
         );

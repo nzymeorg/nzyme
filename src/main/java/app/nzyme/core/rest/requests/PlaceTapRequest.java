@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 
+@Schema(description = "Body for placing a tap on the floor plan of a tenant location.")
 @AutoValue
 public abstract class PlaceTapRequest {
 
@@ -17,7 +19,9 @@ public abstract class PlaceTapRequest {
     public abstract int y();
 
     @JsonCreator
-    public static PlaceTapRequest create(@JsonProperty("x") int x,
+    public static PlaceTapRequest create(@Schema(description = "Horizontal position of the tap on the floor plan, in pixels.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                         @JsonProperty("x") int x,
+                                         @Schema(description = "Vertical position of the tap on the floor plan, in pixels.", requiredMode = Schema.RequiredMode.REQUIRED)
                                          @JsonProperty("y") int y) {
         return builder()
                 .x(x)

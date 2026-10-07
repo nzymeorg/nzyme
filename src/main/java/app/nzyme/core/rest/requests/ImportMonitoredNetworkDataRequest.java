@@ -3,10 +3,12 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
+@Schema(description = "Body for importing BSSIDs, channels and security suites into a monitored WiFi network.")
 @AutoValue
 public abstract class ImportMonitoredNetworkDataRequest {
 
@@ -20,8 +22,11 @@ public abstract class ImportMonitoredNetworkDataRequest {
     public abstract List<String> securitySuites();
 
     @JsonCreator
-    public static ImportMonitoredNetworkDataRequest create(@JsonProperty("bssids") List<ImportMonitoredNetworkDataBSSIDRequest> bssids,
+    public static ImportMonitoredNetworkDataRequest create(@Schema(description = "Expected BSSIDs of the network and their fingerprints.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                           @JsonProperty("bssids") List<ImportMonitoredNetworkDataBSSIDRequest> bssids,
+                                                           @Schema(description = "Expected channel frequencies in MHz.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                            @JsonProperty("channels") List<Long> channels,
+                                                           @Schema(description = "Expected security suite identifiers like \"WPA2-PSK-CCMP/CCMP\".", requiredMode = Schema.RequiredMode.REQUIRED)
                                                            @JsonProperty("security_suites") List<String> securitySuites) {
         return builder()
                 .bssids(bssids)

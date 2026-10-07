@@ -28,6 +28,12 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.net.InetAddresses;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -49,6 +55,9 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/l4")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "L4", description = "Layer 4 traffic that taps recorded on the Ethernet network. Nzyme reassembles "
+        + "TCP sessions and groups UDP traffic into conversations, and reports both as sessions with traffic "
+        + "statistics and histograms of the busiest addresses, MAC addresses and ports.")
 public class L4Resource extends TapDataHandlingResource  {
 
     @Inject
@@ -56,16 +65,25 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions")
-    public Response allSessions(@Context SecurityContext sc,
-                                @QueryParam("organization_id") UUID organizationId,
-                                @QueryParam("tenant_id") UUID tenantId,
-                                @QueryParam("time_range") String timeRangeParameter,
-                                @QueryParam("filters") String filtersParameter,
-                                @QueryParam("limit") int limit,
-                                @QueryParam("offset") int offset,
-                                @QueryParam("order_column") @Nullable String orderColumnParam,
-                                @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4Sessions", summary = "List TCP and UDP sessions",
+            description = "Returns all layer 4 sessions in the time range, most recent segment first by default. "
+                    + "Source and destination addresses are enriched with asset, context and geo information. Each "
+                    + "session carries its state and the tags Nzyme assigned to it, for example SSH or HTTP. A TCP "
+                    + "session is only recorded if a tap observed its initial SYN. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = L4SessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allSessions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                @Parameter(description = "Sorting column. Defaults to the time of the most recent segment.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -98,13 +116,20 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/show/{type}/{session_key}/{start_time}")
-    public Response session(@Context SecurityContext sc,
-                            @PathParam("type") String typeP,
-                            @PathParam("session_key") String sessionKey,
-                            @PathParam("start_time") String startTimeP,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4Session", summary = "Get a TCP or UDP session",
+            description = "Session keys are not unique over time, so the transport type and the session start time "
+                    + "are part of the path. Pass the start time as an ISO 8601 timestamp.")
+    @ApiResponse(responseCode = "200", description = "Session found.",
+            content = @Content(schema = @Schema(implementation = L4SessionDetailsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown transport type, or the start time is not a valid timestamp.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response session(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Transport type, TCP or UDP.") @PathParam("type") String typeP,
+                            @Parameter(description = "Session key.") @PathParam("session_key") String sessionKey,
+                            @Parameter(description = "Start time of the session as an ISO 8601 timestamp.") @PathParam("start_time") String startTimeP,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -131,9 +156,16 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/statistics")
-    public Response sessionsStatistics(@Context SecurityContext sc,
-                                       @QueryParam("time_range") @Valid String timeRangeParameter,
-                                       @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4SessionStatistics", summary = "Get TCP and UDP session statistics",
+            description = "Returns an object with two fields. The statistics field maps each time bucket to its "
+                    + "byte, segment, datagram and session counts, split by transport and by internal or external "
+                    + "traffic. The numbers field holds the totals for the whole time range. The bucket size is "
+                    + "chosen automatically from the time range.")
+    @ApiResponse(responseCode = "200", description = "Statistics found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    public Response sessionsStatistics(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -177,14 +209,20 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/sources/traffic/macs/top")
-    public Response topTrafficSourceMacs(@Context SecurityContext sc,
-                                         @QueryParam("organization_id") UUID organizationId,
-                                         @QueryParam("tenant_id") UUID tenantId,
-                                         @QueryParam("time_range") String timeRangeParameter,
-                                         @QueryParam("filters") String filtersParameter,
-                                         @QueryParam("limit") int limit,
-                                         @QueryParam("offset") int offset,
-                                         @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4TopTrafficSourceMacs", summary = "List top traffic source MAC addresses",
+            description = "Returns the MAC addresses that sent the most session traffic, with received and "
+                    + "transmitted bytes. Busiest first. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topTrafficSourceMacs(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                         @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                         @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                         @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                         @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                         @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -230,14 +268,20 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/sources/traffic/addresses/top")
-    public Response topTrafficSourceAddresses(@Context SecurityContext sc,
-                                              @QueryParam("organization_id") UUID organizationId,
-                                              @QueryParam("tenant_id") UUID tenantId,
-                                              @QueryParam("time_range") String timeRangeParameter,
-                                              @QueryParam("filters") String filtersParameter,
-                                              @QueryParam("limit") int limit,
-                                              @QueryParam("offset") int offset,
-                                              @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4TopTrafficSourceAddresses", summary = "List top traffic source addresses",
+            description = "Returns the IP addresses that sent the most session traffic, with received and "
+                    + "transmitted bytes. Busiest first. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topTrafficSourceAddresses(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                              @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -273,14 +317,20 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/destinations/traffic/macs/top")
-    public Response topTrafficDestinationMacs(@Context SecurityContext sc,
-                                              @QueryParam("organization_id") UUID organizationId,
-                                              @QueryParam("tenant_id") UUID tenantId,
-                                              @QueryParam("time_range") String timeRangeParameter,
-                                              @QueryParam("filters") String filtersParameter,
-                                              @QueryParam("limit") int limit,
-                                              @QueryParam("offset") int offset,
-                                              @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4TopTrafficDestinationMacs", summary = "List top traffic destination MAC addresses",
+            description = "Returns the MAC addresses that received the most session traffic, with received and "
+                    + "transmitted bytes. Busiest first. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topTrafficDestinationMacs(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                              @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -326,14 +376,20 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/destinations/traffic/addresses/top")
-    public Response topTrafficDestinationAddresses(@Context SecurityContext sc,
-                                                   @QueryParam("organization_id") UUID organizationId,
-                                                   @QueryParam("tenant_id") UUID tenantId,
-                                                   @QueryParam("time_range") String timeRangeParameter,
-                                                   @QueryParam("filters") String filtersParameter,
-                                                   @QueryParam("limit") int limit,
-                                                   @QueryParam("offset") int offset,
-                                                   @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4TopTrafficDestinationAddresses", summary = "List top traffic destination addresses",
+            description = "Returns the IP addresses that received the most session traffic, with received and "
+                    + "transmitted bytes. Busiest first. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topTrafficDestinationAddresses(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                                   @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                                   @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                                   @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -368,12 +424,17 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/ports/destination/all/top")
-    public Response topDestinationPorts(@Context SecurityContext sc,
-                                        @QueryParam("time_range") String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset,
-                                        @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4TopDestinationPorts", summary = "List top destination ports",
+            description = "Returns the destination ports with the most sessions, including the session count and "
+                    + "the total bytes per port. Busiest first. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    public Response topDestinationPorts(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -397,12 +458,18 @@ public class L4Resource extends TapDataHandlingResource  {
 
     @GET
     @Path("/sessions/histograms/ports/destination/non-ephemeral/bottom")
-    public Response leastCommonNonEphemeralDestinationPorts(@Context SecurityContext sc,
-                                                            @QueryParam("time_range") String timeRangeParameter,
-                                                            @QueryParam("filters") String filtersParameter,
-                                                            @QueryParam("limit") int limit,
-                                                            @QueryParam("offset") int offset,
-                                                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findL4LeastCommonDestinationPorts", summary = "List least common destination ports",
+            description = "Returns the non-ephemeral destination ports with the fewest sessions, including the "
+                    + "session count and the total bytes per port. Rarely used service ports often point at "
+                    + "unexpected services on the network. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    public Response leastCommonNonEphemeralDestinationPorts(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);

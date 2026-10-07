@@ -24,6 +24,14 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -42,15 +50,32 @@ import static app.nzyme.core.environment.EnvironmentService.*;
 @Path("/api/locations/organizations/{organization_id}/tenants/{tenant_id}")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Locations", description = "A location groups the taps of a tenant that are deployed at the same "
+        + "physical site, for example a campus or a building, and can have floors with floor plans. These endpoints "
+        + "return the high-level status of a location: its floors, its taps, active detection alerts and "
+        + "environmental data. Creating and changing locations is part of the tenant settings.",
+        externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
+                url = "https://go.nzyme.org/locations"))
 public class LocationsResource extends UserAuthenticatedResource {
 
     @Inject
     private NzymeNode nzyme;
 
     @GET
-    public Response findAll(@Context SecurityContext sc,
-                            @PathParam("organization_id") UUID organizationId,
-                            @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findLocations", summary = "List locations of a tenant",
+            description = "Returns a summary of every location of the tenant with its floors, its taps and the "
+                    + "current environmental data. Environmental data is null for locations without latitude and "
+                    + "longitude. Up to 15 active detection alerts of the taps at a location are included, and only "
+                    + "if the calling user holds the alerts_view feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Environmental monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/environmental-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Locations found.",
+            content = @Content(array = @ArraySchema(
+                    schema = @Schema(implementation = LocationSummaryResponse.class))))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -69,10 +94,22 @@ public class LocationsResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/show/{location_id}")
-    public Response findOne(@Context SecurityContext sc,
-                            @PathParam("location_id") UUID locationId,
-                            @PathParam("organization_id") UUID organizationId,
-                            @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findLocation", summary = "Get a location of a tenant",
+            description = "Returns the floors, the taps, the environmental data and the timezone of the location. "
+                    + "The timezone and the environmental data are only set if the location has a latitude and a "
+                    + "longitude, and only severe environmental alerts that are currently relevant are included. Up "
+                    + "to 15 active detection alerts of the taps at the location are included, and only if the "
+                    + "calling user holds the alerts_view feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Environmental monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/environmental-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Location found.",
+            content = @Content(schema = @Schema(implementation = LocationSummaryResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Location UUID.") @PathParam("location_id") UUID locationId,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {

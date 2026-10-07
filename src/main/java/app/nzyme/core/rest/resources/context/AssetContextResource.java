@@ -22,6 +22,14 @@ import app.nzyme.plugin.distributed.messaging.MessageType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -41,6 +49,12 @@ import java.util.UUID;
 @Path("/api/context/mac")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Context", description = "Context is the knowledge you attach to an identifier, a MAC address or a "
+        + "network in CIDR notation, as a short name, a description and free form notes. Nzyme shows it everywhere "
+        + "the identifier appears in the web interface. Context always belongs to one tenant and is not shared "
+        + "across tenants.",
+        externalDocs = @ExternalDocumentation(description = "Context in the Nzyme documentation",
+                url = "https://go.nzyme.org/context"))
 public class AssetContextResource extends UserAuthenticatedResource {
 
     @Inject
@@ -48,12 +62,19 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}")
-    public Response macs(@Context SecurityContext sc,
-                         @PathParam("organization_id") UUID organizationId,
-                         @PathParam("tenant_id") UUID tenantId,
-                         @QueryParam("address_filter") @Nullable String addressFilter,
-                         @QueryParam("limit") @Max(250) int limit,
-                         @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAssetContext", summary = "List MAC address context of a tenant",
+            description = "Returns all MAC address context entries of a tenant, ordered by address. Entries Nzyme "
+                    + "created transparently are included and have no name. Each entry also carries the transparent "
+                    + "context Nzyme learned for the address, the recently observed IP addresses and hostnames.")
+    @ApiResponse(responseCode = "200", description = "Context entries found.",
+            content = @Content(schema = @Schema(implementation = MacAddressContextListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response macs(@Parameter(hidden = true) @Context SecurityContext sc,
+                         @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                         @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                         @Parameter(description = "Only return addresses that contain this string. Omit to return all addresses.") @QueryParam("address_filter") @Nullable String addressFilter,
+                         @Parameter(description = "Page size. The maximum is 250.") @QueryParam("limit") @Max(250) int limit,
+                         @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -85,10 +106,14 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
-    public Response macByUuid(@Context SecurityContext sc,
-                              @PathParam("organization_id") UUID organizationId,
-                              @PathParam("tenant_id") UUID tenantId,
-                              @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findAssetContextByUuid", summary = "Get MAC address context by UUID")
+    @ApiResponse(responseCode = "200", description = "Context entry found.",
+            content = @Content(schema = @Schema(implementation = MacAddressContextDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Context entry not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response macByUuid(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -108,10 +133,17 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/show/{mac}")
-    public Response mac(@Context SecurityContext sc,
-                        @QueryParam("organization_id") @NotNull UUID organizationId,
-                        @QueryParam("tenant_id") @NotNull UUID tenantId,
-                        @PathParam("mac") @MacAddress String mac) {
+    @Operation(operationId = "findAssetContextByMac", summary = "Get enriched MAC address context",
+            description = "Returns the context of a MAC address together with what Nzyme learned about the address "
+                    + "itself: if it acts as a WiFi access point or client, and if it serves a monitored network. The "
+                    + "context is null when you have not created one for this address yet.")
+    @ApiResponse(responseCode = "200", description = "Address found.",
+            content = @Content(schema = @Schema(implementation = EnrichedMacAddressContextDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response mac(@Parameter(hidden = true) @Context SecurityContext sc,
+                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                        @Parameter(description = "MAC address to look up.") @PathParam("mac") @MacAddress String mac) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -176,7 +208,18 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
-    public Response createMac(@Context SecurityContext sc, @Valid CreateMacAddressContextRequest req) {
+    @Operation(operationId = "createAssetContext", summary = "Create MAC address context",
+            description = "Creates context for a MAC address. The entry applies wherever the address appears, in "
+                    + "WiFi, Ethernet and Bluetooth data, and only one entry can exist per address and tenant. The "
+                    + "call waits a few seconds for the context caches of all cluster nodes to invalidate before it "
+                    + "returns. Requires the mac_context_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Context created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Context for this MAC address exists already.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response createMac(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @RequestBody(description = "MAC address, context fields, organization and tenant.", required = true, content = @Content(mediaType = "application/json"))
+                              @Valid CreateMacAddressContextRequest req) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -211,11 +254,18 @@ public class AssetContextResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
     @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
-    public Response updateMac(@Context SecurityContext sc,
+    @Operation(operationId = "updateAssetContext", summary = "Update MAC address context",
+            description = "Updates the name, description and notes of a MAC address context entry. The MAC address, "
+                    + "organization and tenant of an existing entry cannot be changed. Requires the "
+                    + "mac_context_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Context updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Context entry not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response updateMac(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @RequestBody(description = "New name, description and notes.", required = true, content = @Content(mediaType = "application/json"))
                               @Valid UpdateMacAddressContextRequest req,
-                              @PathParam("organization_id") UUID organizationId,
-                              @PathParam("tenant_id") UUID tenantId,
-                              @PathParam("uuid") UUID uuid) {
+                              @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -243,10 +293,16 @@ public class AssetContextResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
     @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
-    public Response deleteMac(@Context SecurityContext sc,
-                              @PathParam("organization_id") UUID organizationId,
-                              @PathParam("tenant_id") UUID tenantId,
-                              @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteAssetContext", summary = "Delete MAC address context",
+            description = "Deletes a MAC address context entry. The call succeeds even if no entry with this UUID "
+                    + "exists. If the address is still being observed, Nzyme transparently creates a new entry "
+                    + "without a name. Requires the mac_context_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Context deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteMac(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -267,11 +323,19 @@ public class AssetContextResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "mac_context_manage" })
     @Path("/organization/show/{organization_id}/tenant/show/{tenant_id}/mac/{mac}/name")
-    public Response updateMacName(@Context SecurityContext sc,
+    @Operation(operationId = "updateAssetContextName", summary = "Update the name of MAC address context",
+            description = "Updates only the name of the context of a MAC address, addressed by the MAC address "
+                    + "instead of the context UUID. The name of a MAC address context doubles as the asset name in "
+                    + "the Ethernet asset inventory. Context has to exist for the address already. Requires the "
+                    + "mac_context_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Name updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "No context exists for this MAC address, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response updateMacName(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @RequestBody(description = "New name for the context.", required = true, content = @Content(mediaType = "application/json"))
                                   @Valid UpdateMacAddressContextNameRequest req,
-                                  @PathParam("organization_id") UUID organizationId,
-                                  @PathParam("tenant_id") UUID tenantId,
-                                  @PathParam("mac") @MacAddress String mac) {
+                                  @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                  @Parameter(description = "MAC address the context belongs to.") @PathParam("mac") @MacAddress String mac) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

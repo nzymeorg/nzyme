@@ -60,6 +60,13 @@ import dev.samstevens.totp.secret.DefaultSecretGenerator;
 import dev.samstevens.totp.secret.SecretGenerator;
 import dev.samstevens.totp.time.SystemTimeProvider;
 import dev.samstevens.totp.time.TimeProvider;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -80,6 +87,9 @@ import java.util.*;
 
 @Path("/api/system/authentication")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Authentication", description = "Logging in and out of Nzyme, and setting up or passing the multi-factor "
+        + "authentication challenge of a session. Nzyme requires multi-factor authentication for every user unless "
+        + "an administrator disabled it for that account.")
 public class AuthenticationResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(AuthenticationResource.class);
@@ -90,8 +100,24 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @POST
     @Path("/session")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response createSession(@Context org.glassfish.grizzly.http.server.Request rc,
-                                  @NotNull CreateSessionRequest request) {
+    @Operation(operationId = "createSession", summary = "Log in and create a session",
+            description = "Exchanges an email address and a password for a session token. This endpoint needs no "
+                    + "authentication. The returned session still has to pass the multi-factor authentication "
+                    + "challenge before it can be used for anything else, unless multi-factor authentication is "
+                    + "disabled for the user. Creating a session invalidates all other sessions of the same user. "
+                    + "After five failed logins the user is throttled, which delays every further response by five "
+                    + "seconds and raises a system event.")
+    @ApiResponse(responseCode = "201", description = "Session created.",
+            content = @Content(schema = @Schema(implementation = SessionTokenResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The remote address of the request or the X-Forwarded-For "
+            + "header was not a valid IP address.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "Wrong email address or password, or the password did not meet "
+            + "the password preconditions.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The login throttling delay was interrupted.",
+            content = @Content)
+    public Response createSession(@Parameter(hidden = true) @Context org.glassfish.grizzly.http.server.Request rc,
+                                  @RequestBody(description = "Email address and password of the user.",
+                                          required = true, content = @Content(mediaType = "application/json")) @NotNull CreateSessionRequest request) {
         String remoteIp = rc.getHeader("X-Forwarded-For") == null
                 ? rc.getRemoteAddr() : rc.getHeader("X-Forwarded-For").split(",")[0];
 
@@ -183,9 +209,19 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @GET
     @PreMFASecured
     @Path("/session")
-    public Response getSessionInformation(@Context SecurityContext sc,
-                                          @QueryParam("organization_id") @Nullable UUID organizationId,
-                                          @QueryParam("tenant_id") @Nullable UUID tenantId) {
+    @Operation(operationId = "findSession", summary = "Get information about the current session",
+            description = "Returns the user behind the session, their permissions, the enabled subsystems, the "
+                    + "multi-factor authentication state of the session and the branding of the web interface. The "
+                    + "organization and tenant parameters are optional because the web interface calls this endpoint "
+                    + "before the user has selected a tenant. Pass both to also receive the active alert status. "
+                    + "Available while multi-factor authentication is still pending for the session.")
+    @ApiResponse(responseCode = "200", description = "Session information found.",
+            content = @Content(schema = @Schema(implementation = SessionInformationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Session or user not found, or the passed organization and "
+            + "tenant are not accessible by the calling user.", content = @Content)
+    public Response getSessionInformation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Organization UUID. Optional, but required together with the tenant UUID to receive the alert status.") @QueryParam("organization_id") @Nullable UUID organizationId,
+                                          @Parameter(description = "Tenant UUID. Optional, but required together with the organization UUID to receive the alert status.") @QueryParam("tenant_id") @Nullable UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         /*
@@ -316,7 +352,12 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @PreMFASecured
     @Path("/session/touch")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response touchSession(@Context SecurityContext sc) {
+    @Operation(operationId = "touchSession", summary = "Keep the current session alive",
+            description = "Records user activity on the session so that it is not considered inactive. The web "
+                    + "interface calls this while a user is working. Available while multi-factor authentication is "
+                    + "still pending for the session.")
+    @ApiResponse(responseCode = "200", description = "Session activity recorded.", content = @Content)
+    public Response touchSession(@Parameter(hidden = true) @Context SecurityContext sc) {
         // The filter updates last user activity. We may add more actions here in the future.
 
         return Response.ok().build();
@@ -325,7 +366,20 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @GET
     @PreMFASecured
     @Path("/mfa/setup/initialize")
-    public Response initializeMfaSetup(@Context SecurityContext sc) {
+    @Operation(operationId = "initializeMfaSetup", summary = "Start multi-factor authentication setup",
+            description = "Returns the TOTP secret and the recovery codes a user needs to set up multi-factor "
+                    + "authentication. Both are generated and stored encrypted on the first call. A later call "
+                    + "returns the existing secret and codes, so an aborted setup can be resumed. Users should store "
+                    + "the recovery codes in a safe place, because they are the only way back in without the "
+                    + "authenticator app. Available while multi-factor authentication is still pending for the "
+                    + "session.")
+    @ApiResponse(responseCode = "200", description = "Setup data created or restored.",
+            content = @Content(schema = @Schema(implementation = MFAInitResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Session or user not found, the session already passed "
+            + "multi-factor authentication, or the user already completed the setup.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The secret or the recovery codes could not be encrypted, "
+            + "decrypted or serialized.", content = @Content)
+    public Response initializeMfaSetup(@Parameter(hidden = true) @Context SecurityContext sc) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(
@@ -419,7 +473,20 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @POST
     @PreMFASecured
     @Path("/mfa/setup/verify")
-    public Response verifyMfaSetup(@Context SecurityContext sc, MFAVerificationRequest req) {
+    @Operation(operationId = "verifyMfaSetup", summary = "Verify a code during multi-factor setup",
+            description = "Checks a TOTP code against the secret created during setup. This confirms that the "
+                    + "authenticator app of the user is configured correctly. It does not complete the setup and it "
+                    + "does not mark the session as passed. Available while multi-factor authentication is still "
+                    + "pending for the session.")
+    @ApiResponse(responseCode = "200", description = "The code was correct.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The code was wrong or expired.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session or user not found, the session already passed "
+            + "multi-factor authentication, or the user already completed the setup.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The stored secret could not be decrypted.",
+            content = @Content)
+    public Response verifyMfaSetup(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @RequestBody(description = "The TOTP code from the authenticator app.",
+                                           required = true, content = @Content(mediaType = "application/json")) MFAVerificationRequest req) {
         // THIS IS THE RESOURCE THAT VERIFIES THE INITIAL MFA SETUP, NOT THE LOGIN FLOW.
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -466,7 +533,14 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @POST
     @PreMFASecured
     @Path("/mfa/setup/complete")
-    public Response completeMfaSetup(@Context SecurityContext sc) {
+    @Operation(operationId = "completeMfaSetup", summary = "Complete multi-factor authentication setup",
+            description = "Marks multi-factor authentication as fully set up for the user. From now on, every login "
+                    + "requires a TOTP code or a recovery code. Available while multi-factor authentication is still "
+                    + "pending for the session.")
+    @ApiResponse(responseCode = "200", description = "Setup completed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session or user not found, the session already passed "
+            + "multi-factor authentication, or the user already completed the setup.", content = @Content)
+    public Response completeMfaSetup(@Parameter(hidden = true) @Context SecurityContext sc) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(
@@ -492,7 +566,21 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @POST
     @PreMFASecured
     @Path("/mfa/verify")
-    public Response verifyMfa(@Context SecurityContext sc, MFAVerificationRequest req) {
+    @Operation(operationId = "verifyMfa", summary = "Pass the multi-factor authentication challenge",
+            description = "Checks a TOTP code and marks the session as having passed multi-factor authentication. "
+                    + "This is the second step of the login flow. TOTP codes rely on local time, so the clocks of "
+                    + "the Nzyme node and the authenticator app have to be accurate. Available while multi-factor "
+                    + "authentication is still pending for the session.")
+    @ApiResponse(responseCode = "200", description = "The code was correct and the session is now fully "
+            + "authenticated.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The code was wrong or expired.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session or user not found, the session already passed "
+            + "multi-factor authentication, or the user has not completed the setup yet.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The stored secret could not be decrypted.",
+            content = @Content)
+    public Response verifyMfa(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @RequestBody(description = "The TOTP code from the authenticator app.",
+                                      required = true, content = @Content(mediaType = "application/json")) MFAVerificationRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(
@@ -539,7 +627,23 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @POST
     @PreMFASecured
     @Path("/mfa/recovery")
-    public Response mfaRecoveryCodeValidation(@Context SecurityContext sc, MFARecoveryCodeRequest req) {
+    @Operation(operationId = "useMfaRecoveryCode", summary = "Pass multi-factor authentication with a recovery code",
+            description = "Uses one of the recovery codes of a user to pass the multi-factor authentication "
+                    + "challenge. Each code works only once and is marked as used. Nzyme records a system event for "
+                    + "every used code and for every attempt to reuse one. Available while multi-factor "
+                    + "authentication is still pending for the session.")
+    @ApiResponse(responseCode = "200", description = "The recovery code was valid and the session is now fully "
+            + "authenticated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The recovery code is unknown or has been used before.",
+            content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session or user not found, the session already passed "
+            + "multi-factor authentication, the user has not completed the setup yet, or the user has no recovery "
+            + "codes.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The recovery codes could not be serialized or encrypted.",
+            content = @Content)
+    public Response mfaRecoveryCodeValidation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @RequestBody(description = "One of the recovery codes of the user.",
+                                                      required = true, content = @Content(mediaType = "application/json")) MFARecoveryCodeRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(
@@ -655,7 +759,11 @@ public class AuthenticationResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ANY)
     @SessionOnly
     @Path("/session")
-    public Response deleteSessionOfOwnUser(@Context SecurityContext sc) {
+    @Operation(operationId = "deleteSession", summary = "Log out of Nzyme",
+            description = "Deletes all sessions of the calling user, which logs them out everywhere. Available to "
+                    + "any user. Requires an interactive session; API keys are rejected.")
+    @ApiResponse(responseCode = "200", description = "Sessions deleted.", content = @Content)
+    public Response deleteSessionOfOwnUser(@Parameter(hidden = true) @Context SecurityContext sc) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
         nzyme.getAuthenticationService().deleteAllSessionsOfUser(user.getUserId());
 

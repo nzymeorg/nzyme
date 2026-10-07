@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for adding a restricted SSID substring to a monitored WiFi network.")
 @AutoValue
 public abstract class CreateDot11MonitoredNetworkRestrictedSSIDSubstringRequest {
 
@@ -12,7 +14,8 @@ public abstract class CreateDot11MonitoredNetworkRestrictedSSIDSubstringRequest 
     public abstract String substring();
 
     @JsonCreator
-    public static CreateDot11MonitoredNetworkRestrictedSSIDSubstringRequest create(@JsonProperty("substring") String substring) {
+    public static CreateDot11MonitoredNetworkRestrictedSSIDSubstringRequest create(@Schema(description = "Substring that no other SSID in range is allowed to contain.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                                                   @JsonProperty("substring") String substring) {
         return builder()
                 .substring(substring)
                 .build();

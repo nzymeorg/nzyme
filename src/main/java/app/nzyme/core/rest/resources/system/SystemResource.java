@@ -35,6 +35,15 @@ import app.nzyme.core.rest.responses.system.VersionResponse;
 import com.google.common.base.Strings;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.SchemaProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -55,6 +64,8 @@ import java.util.Map;
 @Path("/api/system")
 @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "System", description = "System-wide settings of an Nzyme cluster: version information, subsystems and "
+        + "the look and feel of the web interface.")
 public class SystemResource {
 
     private static final Logger LOG = LogManager.getLogger(SystemResource.class);
@@ -64,12 +75,22 @@ public class SystemResource {
 
     @GET
     @Path("/status")
+    @Operation(operationId = "findSystemStatus", summary = "Check if the node is responding",
+            description = "Always returns an empty 200 response if the node is up and the request was authenticated. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "The node is responding.", content = @Content)
     public Response getStatus() {
         return Response.ok().build();
     }
 
     @GET
     @Path("/version")
+    @Operation(operationId = "findSystemVersion", summary = "Get version information",
+            description = "Returns the version of this Nzyme node, whether a newer version is available and whether "
+                    + "version checks are enabled in the node configuration. Requires super administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Version information found.",
+            content = @Content(schema = @Schema(implementation = VersionResponse.class)))
     public Response getVersion() {
         boolean newVersionAvailable = Boolean.valueOf(nzyme.getDatabaseCoreRegistry()
                 .getValue(NodeRegistryKeys.VERSIONCHECK_STATUS.key())
@@ -85,6 +106,12 @@ public class SystemResource {
 
     @GET
     @Path("/lookandfeel/sidebartitle")
+    @Operation(operationId = "findSidebarTitle", summary = "Get the sidebar title",
+            description = "Returns the title and subtitle shown in the sidebar of the web interface. The title falls "
+                    + "back to the built-in default if it was never set. The subtitle is null if it was never set. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Sidebar title found.",
+            content = @Content(schema = @Schema(implementation = SidebarTitleResponse.class)))
     public Response getSidebarTitle() {
         //noinspection OptionalGetWithoutIsPresent
         String title = nzyme.getDatabaseCoreRegistry()
@@ -98,7 +125,14 @@ public class SystemResource {
 
     @PUT
     @Path("/lookandfeel/sidebartitle")
-    public Response setSidebarTitle(UpdateSidebarTitleRequest req) {
+    @Operation(operationId = "updateSidebarTitle", summary = "Update the sidebar title",
+            description = "Sets the title and subtitle shown in the sidebar of the web interface. An empty subtitle "
+                    + "removes the stored subtitle. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Sidebar title updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The title or subtitle did not pass validation. The response "
+            + "body explains why.", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public Response setSidebarTitle(@RequestBody(description = "New sidebar title and optional subtitle.",
+            required = true, content = @Content(mediaType = "application/json")) UpdateSidebarTitleRequest req) {
         for (ConfigurationEntryConstraint c : BrandingRegistryKeys.SIDEBAR_TITLE_TEXT.constraints().get()) {
             ConstraintValidationResult result = ConstraintValidator.validate(req.title(), c);
             if (!result.isOk()) {
@@ -132,7 +166,21 @@ public class SystemResource {
 
     @POST
     @Path("/lookandfeel/loginimage")
-    public Response uploadLoginImage(@FormDataParam("image") InputStream imageFile) {
+    @Operation(operationId = "uploadLoginImage", summary = "Upload the login page image",
+            description = "Uploads the image shown on the login page of the web interface. The file is sent as "
+                    + "multipart form data. It must be a JPG or PNG file, no larger than 1MB, and exactly 700x600 "
+                    + "pixels. Nzyme converts it to PNG before storing it. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "201", description = "Login image stored.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The file was empty, too large, not a readable image or had the "
+            + "wrong dimensions. The response body explains why.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "500", description = "The uploaded file could not be read.", content = @Content)
+    @RequestBody(description = "Multipart form with the image file to show on the login page.", required = true,
+            content = @Content(mediaType = "multipart/form-data",
+                    schemaProperties = @SchemaProperty(name = "image",
+                            schema = @Schema(type = "string", format = "binary", description = "The file to upload."))))
+    public Response uploadLoginImage(@Parameter(hidden = true)
+                                     @FormDataParam("image") InputStream imageFile) {
         byte[] imageBytes;
         try {
             /*
@@ -195,6 +243,10 @@ public class SystemResource {
 
     @DELETE
     @Path("/lookandfeel/loginimage")
+    @Operation(operationId = "resetLoginImage", summary = "Reset the login page image",
+            description = "Removes a previously uploaded login page image. The login page falls back to the default "
+                    + "Nzyme image. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Login image reset.", content = @Content)
     public Response resetLoginImage() {
         nzyme.getDatabaseCoreRegistry().deleteValue(BrandingRegistryKeys.LOGIN_IMAGE.key());
         return Response.ok().build();
@@ -202,6 +254,14 @@ public class SystemResource {
 
     @GET
     @Path("/subsystems/configuration")
+    @Operation(operationId = "findSubsystemsConfiguration", summary = "Get subsystem configuration",
+            description = "Returns the cluster-wide activation state of the Ethernet, WiFi, Bluetooth and UAV "
+                    + "subsystems. Organizations and tenants can disable subsystems further down, but they can never "
+                    + "enable a subsystem that is disabled here. Requires super administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Subsystem configuration found.",
+            content = @Content(schema = @Schema(implementation = SubsystemsConfigurationResponse.class)))
     public Response getSubsystemsConfiguration() {
         SubsystemsConfigurationResponse response = SubsystemsConfigurationResponse.create(
                 true,
@@ -255,7 +315,19 @@ public class SystemResource {
 
     @PUT
     @Path("/subsystems/configuration")
-    public Response updateSubsystemsConfiguration(UpdateConfigurationRequest req) {
+    @Operation(operationId = "updateSubsystemsConfiguration", summary = "Update subsystem configuration",
+            description = "Enables or disables subsystems cluster-wide. The body carries a change map of registry "
+                    + "keys and their new values. Disabling a subsystem hides its pages in the web interface and "
+                    + "turns off its API resources. It does not change the configuration of organizations and "
+                    + "tenants, which takes effect again once you re-enable the subsystem. Requires super "
+                    + "administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Subsystem configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change map was empty or a value did not pass the "
+            + "constraints of its configuration key.", content = @Content)
+    public Response updateSubsystemsConfiguration(@RequestBody(description = "Map of subsystem configuration keys "
+            + "and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
         if (req.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();

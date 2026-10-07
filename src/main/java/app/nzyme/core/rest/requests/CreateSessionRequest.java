@@ -20,8 +20,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for creating a session.")
 @AutoValue
 public abstract class CreateSessionRequest {
 
@@ -34,7 +36,8 @@ public abstract class CreateSessionRequest {
     public abstract String password();
 
     @JsonCreator
-    public static CreateSessionRequest create(@JsonProperty("username") @NotEmpty String username, @JsonProperty("password") @NotEmpty String password) {
+    public static CreateSessionRequest create(@Schema(description = "Email address of the user.", requiredMode = Schema.RequiredMode.REQUIRED) @JsonProperty("username") @NotEmpty String username, @Schema(description = "Password of the user.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                              @JsonProperty("password") @NotEmpty String password) {
         return builder()
                 .username(username)
                 .password(password)

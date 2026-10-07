@@ -22,6 +22,13 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -42,6 +49,11 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/socks")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "SOCKS", description = "SOCKS4, SOCKS4A and SOCKS5 tunnels that Nzyme taps observed on the "
+        + "network, including the tunnel endpoints, the authentication status and the tunneled destination. Each "
+        + "tunnel is tracked over its lifetime and keyed by its underlying TCP session.",
+        externalDocs = @ExternalDocumentation(description = "SOCKS in the Nzyme documentation",
+                url = "https://go.nzyme.org/ethernet-socks"))
 public class SocksResource extends TapDataHandlingResource {
 
     @Inject
@@ -49,16 +61,24 @@ public class SocksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/tunnels")
-    public Response tunnels(@Context SecurityContext sc,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                            @QueryParam("filters") String filtersParameter,
-                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findSocksTunnels", summary = "List SOCKS tunnels",
+            description = "Returns all SOCKS tunnels observed in the time range, newest established first by default. "
+                    + "Each tunnel carries the SOCKS version, the handshake and authentication status and the "
+                    + "tunneled destination.")
+    @ApiResponse(responseCode = "200", description = "Tunnels found.",
+            content = @Content(schema = @Schema(implementation = SocksTunnelsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response tunnels(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -91,11 +111,16 @@ public class SocksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/tunnels/show/{session_key}")
-    public Response tunnel(@Context SecurityContext sc,
-                           @PathParam("session_key") String sessionKey,
-                           @QueryParam("organization_id") UUID organizationId,
-                           @QueryParam("tenant_id") UUID tenantId,
-                           @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findSocksTunnel", summary = "Get a SOCKS tunnel",
+            description = "Returns a single SOCKS tunnel by the session key of the underlying TCP session.")
+    @ApiResponse(responseCode = "200", description = "Tunnel found.",
+            content = @Content(schema = @Schema(implementation = SocksTunnelDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tunnel not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response tunnel(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Session key of the underlying TCP session.") @PathParam("session_key") String sessionKey,
+                           @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -113,10 +138,15 @@ public class SocksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/tunnels/active/histogram")
-    public Response activeTunnelsHistogram(@Context SecurityContext sc,
-                                           @QueryParam("time_range") @Valid String timeRangeParameter,
-                                           @QueryParam("filters") String filtersParameter,
-                                           @QueryParam("taps") String taps) {
+    @Operation(operationId = "findSocksActiveTunnelsHistogram", summary = "Get histogram of active SOCKS tunnels",
+            description = "Returns the number of SOCKS tunnels that were active in each bucket of the time range. "
+                    + "The bucket size is chosen automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    public Response activeTunnelsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -133,16 +163,23 @@ public class SocksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/tunnels/clients/top/histogram")
-    public Response topClientsHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSocksTopClients", summary = "List top SOCKS clients",
+            description = "Returns the client addresses with the most SOCKS tunnels in the time range, together with "
+                    + "the tunnel count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topClientsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -183,16 +220,23 @@ public class SocksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/tunnels/servers/top/histogram")
-    public Response topServersHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSocksTopServers", summary = "List top SOCKS servers",
+            description = "Returns the SOCKS server addresses with the most tunnels in the time range, together with "
+                    + "the tunnel count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topServersHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);

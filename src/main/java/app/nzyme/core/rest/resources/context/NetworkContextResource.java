@@ -18,6 +18,14 @@ import app.nzyme.plugin.distributed.messaging.MessageType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -40,18 +48,31 @@ import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 @Path("/api/context/networks")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Context", description = "Context is the knowledge you attach to an identifier, a MAC address or a "
+        + "network in CIDR notation, as a short name, a description and free form notes. Nzyme shows it everywhere "
+        + "the identifier appears in the web interface. Context always belongs to one tenant and is not shared "
+        + "across tenants.",
+        externalDocs = @ExternalDocumentation(description = "Context in the Nzyme documentation",
+                url = "https://go.nzyme.org/context"))
 public class NetworkContextResource extends UserAuthenticatedResource  {
 
     @Inject
     private NzymeNode nzyme;
 
     @GET
-    public Response allNetworks(@Context SecurityContext sc,
-                                @QueryParam("organization_id") UUID organizationId,
-                                @QueryParam("tenant_id") UUID tenantId,
-                                @QueryParam("address_filter") @Nullable String addressFilter,
-                                @QueryParam("limit") @Max(250) int limit,
-                                @QueryParam("offset") int offset) {
+    @Operation(operationId = "findNetworkContext", summary = "List network context of a tenant",
+            description = "Returns all network context entries of a tenant, most specific prefix first. A network "
+                    + "context entry describes a network in CIDR notation, for example a user VLAN, a guest WiFi "
+                    + "range or a VPN address pool, and applies to every IP address inside it.")
+    @ApiResponse(responseCode = "200", description = "Context entries found.",
+            content = @Content(schema = @Schema(implementation = NetworkContextListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allNetworks(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "Only return networks that contain this string. Omit to return all networks.") @QueryParam("address_filter") @Nullable String addressFilter,
+                                @Parameter(description = "Page size. The maximum is 250.") @QueryParam("limit") @Max(250) int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -77,10 +98,17 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
 
     @GET
     @Path("/show/{address}")
-    public Response network(@Context SecurityContext sc,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId,
-                            @PathParam("address") InetAddress address) {
+    @Operation(operationId = "findNetworkContextByAddress", summary = "Get network context of an IP address",
+            description = "Returns every network context entry whose network contains this IP address, most specific "
+                    + "prefix first, together with all assets that were seen using the address. Overlapping networks "
+                    + "are expected and all of them match. Both lists are empty when nothing matches.")
+    @ApiResponse(responseCode = "200", description = "Address looked up.",
+            content = @Content(schema = @Schema(implementation = EnrichedIpAddressContextDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response network(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                            @Parameter(description = "IP address to look up.") @PathParam("address") InetAddress address) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -134,10 +162,14 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
 
     @GET
     @Path("/show/uuid/{uuid}")
-    public Response networkByUuid(@Context SecurityContext sc,
-                                  @QueryParam("organization_id") @NotNull UUID organizationId,
-                                  @QueryParam("tenant_id") @NotNull UUID tenantId,
-                                  @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findNetworkContextByUuid", summary = "Get network context by UUID")
+    @ApiResponse(responseCode = "200", description = "Context entry found.",
+            content = @Content(schema = @Schema(implementation = NetworkContextDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Context entry not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response networkByUuid(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                  @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -154,7 +186,20 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
 
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "network_context_manage" })
-    public Response create(@Context SecurityContext sc, @Valid CreateNetworkContextRequest req) {
+    @Operation(operationId = "createNetworkContext", summary = "Create network context",
+            description = "Creates context for an IPv4 or IPv6 network. The address has to be the start of the "
+                    + "range, so host bits must not be set, and leaving out the prefix length matches that single "
+                    + "address. Only one context entry can exist per exact network and tenant, but overlapping "
+                    + "networks with different prefix lengths are allowed. The call waits a few seconds for the "
+                    + "context caches of all cluster nodes to invalidate before it returns. Requires the "
+                    + "network_context_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Context created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Context for this network exists already.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response create(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @RequestBody(description = "CIDR range, context fields, organization and tenant.", required = true, content = @Content(mediaType = "application/json"))
+                           @Valid CreateNetworkContextRequest req) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -191,9 +236,16 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "network_context_manage" })
     @Path("/show/uuid/{uuid}")
-    public Response update(@Context SecurityContext sc,
+    @Operation(operationId = "updateNetworkContext", summary = "Update network context",
+            description = "Updates the name, description and notes of a network context entry. The network, "
+                    + "organization and tenant of an existing entry cannot be changed. Requires the "
+                    + "network_context_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Context updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Context entry not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response update(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @RequestBody(description = "New name, description and notes, plus organization and tenant.", required = true, content = @Content(mediaType = "application/json"))
                            @Valid UpdateNetworkContextRequest req,
-                           @PathParam("uuid") UUID uuid) {
+                           @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -221,10 +273,15 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "network_context_manage" })
     @Path("/show/organization/show/{organization_id}/tenant/show/{tenant_id}/uuid/{uuid}")
-    public Response delete(@Context SecurityContext sc,
-                           @PathParam("organization_id") UUID organizationId,
-                           @PathParam("tenant_id") UUID tenantId,
-                           @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteNetworkContext", summary = "Delete network context",
+            description = "Deletes a network context entry. The call succeeds even if no entry with this UUID "
+                    + "exists. Requires the network_context_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Context deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response delete(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                           @Parameter(description = "UUID of the context entry.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

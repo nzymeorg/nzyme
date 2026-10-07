@@ -24,6 +24,14 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.rest.responses.metrics.TimerResponse;
 import com.google.common.collect.Sets;
 import com.google.common.math.Stats;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.glassfish.jersey.media.multipart.FormDataParam;
@@ -45,6 +53,8 @@ import java.util.regex.Pattern;
 @Path("/api/system/crypto")
 @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Crypto", description = "The TLS certificates of the Nzyme web interface and API, and the PGP keys that "
+        + "Nzyme uses to encrypt sensitive data in the database.")
 public class CryptoResource {
 
     private static final Logger LOG = LogManager.getLogger(CryptoResource.class);
@@ -54,6 +64,15 @@ public class CryptoResource {
 
     @GET
     @Path("summary")
+    @Operation(operationId = "findCryptoSummary", summary = "Get a summary of all crypto configuration",
+            description = "Returns the PGP key of every node, the PGP encryption and decryption performance metrics "
+                    + "per node and for the whole cluster, the TLS certificate of every node that reported in during "
+                    + "the last two minutes, all wildcard TLS certificates and the PGP configuration. Requires super "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Crypto summary found.",
+            content = @Content(schema = @Schema(implementation = CryptoResponse.class)))
+    @ApiResponse(responseCode = "500", description = "One of the certificates could not be parsed.",
+            content = @Content)
     public Response summary() {
         Map<String, PGPKeyResponse> fingerprints = Maps.newHashMap();
         for (PGPKeyFingerprint fp : nzyme.getCrypto().getPGPKeysByNode()) {
@@ -263,7 +282,16 @@ public class CryptoResource {
 
     @GET
     @Path("/tls/node/{node_id}")
-    public Response tlsCertificate(@PathParam("node_id") UUID nodeId) {
+    @Operation(operationId = "findNodeTlsCertificate", summary = "Get the TLS certificate of a node",
+            description = "Returns the individual TLS certificate of a node, including issuer, subject, signature "
+                    + "algorithm and validity. A wildcard certificate that matches this node is not considered here. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Certificate found.",
+            content = @Content(schema = @Schema(implementation = TLSCertificateResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Node not found, or the node has no TLS certificate.",
+            content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate could not be parsed.", content = @Content)
+    public Response tlsCertificate(@Parameter(description = "Node UUID.") @PathParam("node_id") UUID nodeId) {
         Optional<Node> node = nzyme.getNodeManager().getNode(nodeId);
         if (node.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -303,7 +331,14 @@ public class CryptoResource {
 
     @GET
     @Path("/tls/wildcard/{cert_id}")
-    public Response tlsWildcardCertificate(@PathParam("cert_id") long certificateId) {
+    @Operation(operationId = "findWildcardTlsCertificate", summary = "Get a wildcard TLS certificate",
+            description = "Returns a wildcard TLS certificate, its node matcher and the nodes the matcher currently "
+                    + "applies to. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Certificate found.",
+            content = @Content(schema = @Schema(implementation = TLSWildcartCertificateResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Certificate not found.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate could not be parsed.", content = @Content)
+    public Response tlsWildcardCertificate(@Parameter(description = "Wildcard certificate ID.") @PathParam("cert_id") long certificateId) {
         Optional<TLSWildcardKeyAndCertificate> certResult = nzyme.getCrypto().getTLSWildcardCertificate(certificateId);
 
         if (certResult.isEmpty()) {
@@ -339,7 +374,15 @@ public class CryptoResource {
 
     @PUT
     @Path("/tls/node/{node_id}/regenerate")
-    public Response regenerateTLSCertificate(@PathParam("node_id") UUID nodeId) {
+    @Operation(operationId = "regenerateNodeTlsCertificate", summary = "Regenerate the TLS certificate of a node",
+            description = "Replaces the TLS certificate of a node with a newly generated self-signed certificate "
+                    + "that is valid for 12 months, then asks the node to restart its HTTP server. Requires super "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Certificate regenerated and an HTTP server restart requested.",
+            content = @Content)
+    @ApiResponse(responseCode = "404", description = "Node not found.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate could not be generated.", content = @Content)
+    public Response regenerateTLSCertificate(@Parameter(description = "Node UUID.") @PathParam("node_id") UUID nodeId) {
         if (nzyme.getNodeManager().getNode(nodeId).isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -363,8 +406,20 @@ public class CryptoResource {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Path("/tls/test")
-    public Response testNodeTLSCertificate(@FormDataParam("certificate") InputStream certificate,
-                                           @FormDataParam("private_key") InputStream privateKey) {
+    @Operation(operationId = "testTlsCertificate", summary = "Test a TLS certificate and private key",
+            description = "Parses a certificate chain and a private key sent as multipart form data and reports "
+                    + "whether each of them is readable. Nothing is stored. On success, the details of the first "
+                    + "certificate in the chain are returned so you can check it before uploading. Requires super "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Both the certificate chain and the private key are valid.",
+            content = @Content(schema = @Schema(implementation = TLSCertificateTestResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The certificate chain or the private key could not be read. "
+            + "The response body says which one failed.",
+            content = @Content(schema = @Schema(implementation = TLSCertificateTestResponse.class)))
+    @ApiResponse(responseCode = "500", description = "The uploaded data could not be read, or the certificate "
+            + "fingerprint could not be calculated.", content = @Content)
+    public Response testNodeTLSCertificate(@Parameter(description = "The certificate chain in PEM format.") @FormDataParam("certificate") InputStream certificate,
+                                           @Parameter(description = "The private key in PEM format.") @FormDataParam("private_key") InputStream privateKey) {
         String certificateInput, keyInput;
         try {
             certificateInput = new String(certificate.readAllBytes());
@@ -445,9 +500,18 @@ public class CryptoResource {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Path("/tls/node/{node_id}")
-    public Response uploadNodeTLSCertificate(@PathParam("node_id") UUID nodeId,
-                                             @FormDataParam("certificate") InputStream certificate,
-                                             @FormDataParam("private_key") InputStream privateKey) {
+    @Operation(operationId = "uploadNodeTlsCertificate", summary = "Upload the TLS certificate of a node",
+            description = "Replaces the individual TLS certificate of a node with a certificate chain and private "
+                    + "key sent as multipart form data, then asks the node to restart its HTTP server. Test the "
+                    + "files first to avoid locking yourself out. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "201", description = "Certificate stored and an HTTP server restart requested.",
+            content = @Content)
+    @ApiResponse(responseCode = "404", description = "Node not found.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate chain or the private key could not be read.",
+            content = @Content)
+    public Response uploadNodeTLSCertificate(@Parameter(description = "Node UUID.") @PathParam("node_id") UUID nodeId,
+                                             @Parameter(description = "The certificate chain in PEM format.") @FormDataParam("certificate") InputStream certificate,
+                                             @Parameter(description = "The private key in PEM format.") @FormDataParam("private_key") InputStream privateKey) {
         if (nzyme.getNodeManager().getNode(nodeId).isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -465,15 +529,25 @@ public class CryptoResource {
 
         requestHttpServerRestart(nodeId);
 
-        return Response.ok(Response.Status.CREATED).build();
+        return Response.status(Response.Status.CREATED).build();
     }
 
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Path("/tls/wildcard")
-    public Response uploadWildcardTLSCertificate(@FormDataParam("node_matcher") String nodeMatcher,
-                                                 @FormDataParam("certificate") InputStream certificate,
-                                                 @FormDataParam("private_key") InputStream privateKey) {
+    @Operation(operationId = "uploadWildcardTlsCertificate", summary = "Upload a wildcard TLS certificate",
+            description = "Stores a certificate chain and private key sent as multipart form data as a wildcard "
+                    + "certificate. The node matcher is a regular expression that decides which nodes use this "
+                    + "certificate instead of their individual one. All online nodes are asked to restart their HTTP "
+                    + "server. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "201", description = "Certificate stored and HTTP server restarts requested.",
+            content = @Content)
+    @ApiResponse(responseCode = "401", description = "The node matcher was empty.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate chain or the private key could not be read.",
+            content = @Content)
+    public Response uploadWildcardTLSCertificate(@Parameter(description = "Regular expression that matches the names of the nodes this certificate applies to.") @FormDataParam("node_matcher") String nodeMatcher,
+                                                 @Parameter(description = "The certificate chain in PEM format.") @FormDataParam("certificate") InputStream certificate,
+                                                 @Parameter(description = "The private key in PEM format.") @FormDataParam("private_key") InputStream privateKey) {
         if (nodeMatcher == null || nodeMatcher.trim().isEmpty()) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -491,15 +565,25 @@ public class CryptoResource {
 
         requestHttpServerRestartAcrossCluster();
 
-        return Response.ok(Response.Status.CREATED).build();
+        return Response.status(Response.Status.CREATED).build();
     }
 
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Path("/tls/wildcard/{cert_id}/replace")
-    public Response replaceWildcardTLSCertificate(@PathParam("cert_id") long certificateId,
-                                                  @FormDataParam("certificate") InputStream certificate,
-                                                  @FormDataParam("private_key") InputStream privateKey) {
+    @Operation(operationId = "replaceWildcardTlsCertificate", summary = "Replace a wildcard TLS certificate",
+            description = "Replaces the certificate chain and private key of an existing wildcard certificate with "
+                    + "files sent as multipart form data. The node matcher of the existing certificate is kept. All "
+                    + "online nodes are asked to restart their HTTP server. Requires super administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "201", description = "Certificate replaced and HTTP server restarts requested.",
+            content = @Content)
+    @ApiResponse(responseCode = "404", description = "Certificate not found.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The certificate chain or the private key could not be read.",
+            content = @Content)
+    public Response replaceWildcardTLSCertificate(@Parameter(description = "Wildcard certificate ID.") @PathParam("cert_id") long certificateId,
+                                                  @Parameter(description = "The certificate chain in PEM format.") @FormDataParam("certificate") InputStream certificate,
+                                                  @Parameter(description = "The private key in PEM format.") @FormDataParam("private_key") InputStream privateKey) {
         Optional<TLSWildcardKeyAndCertificate> certResult = nzyme.getCrypto().getTLSWildcardCertificate(certificateId);
 
         if (certResult.isEmpty()) {
@@ -519,18 +603,34 @@ public class CryptoResource {
 
         requestHttpServerRestartAcrossCluster();
 
-        return Response.ok(Response.Status.CREATED).build();
+        return Response.status(Response.Status.CREATED).build();
     }
 
     @GET
     @Path("/tls/wildcard/nodematchertest")
-    public Response testTLSWildcardNodeMatcher(@QueryParam("regex") String regex) {
+    @Operation(operationId = "testTlsWildcardNodeMatcher", summary = "Test a wildcard node matcher",
+            description = "Returns all nodes whose name matches the passed regular expression. Use this to check a "
+                    + "node matcher before you store it with a wildcard certificate. The list is empty if nothing "
+                    + "matches. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Matching nodes found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = MatchingNodeResponse.class))))
+    public Response testTLSWildcardNodeMatcher(@Parameter(description = "Regular expression to match node names against.") @QueryParam("regex") String regex) {
         return Response.ok(buildMatchingNodes(regex)).build();
     }
 
     @PUT
     @Path("/tls/wildcard/{cert_id}/node_matcher")
-    public Response updateTLSWildcardCertificateNodeMatcher(@PathParam("cert_id") long certificateId,
+    @Operation(operationId = "updateWildcardTlsNodeMatcher",
+            summary = "Update the node matcher of a wildcard certificate",
+            description = "Changes the regular expression that decides which nodes use this wildcard certificate. "
+                    + "All online nodes are asked to restart their HTTP server. Requires super administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Node matcher updated and HTTP server restarts requested.",
+            content = @Content)
+    @ApiResponse(responseCode = "401", description = "The node matcher was empty.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Certificate not found.", content = @Content)
+    public Response updateTLSWildcardCertificateNodeMatcher(@Parameter(description = "Wildcard certificate ID.") @PathParam("cert_id") long certificateId,
+                                                            @RequestBody(description = "The new node matcher regular expression.", required = true, content = @Content(mediaType = "application/json"))
                                                             UpdateTLSWildcardNodeMatcherRequest request) {
         Optional<TLSWildcardKeyAndCertificate> certResult = nzyme.getCrypto().getTLSWildcardCertificate(certificateId);
 
@@ -551,7 +651,13 @@ public class CryptoResource {
 
     @DELETE
     @Path("/tls/wildcard/{cert_id}")
-    public Response deleteTLSWildcardCertificate(@PathParam("cert_id") long certificateId) {
+    @Operation(operationId = "deleteWildcardTlsCertificate", summary = "Delete a wildcard TLS certificate",
+            description = "Deletes a wildcard certificate. The nodes it applied to fall back to their individual "
+                    + "certificates. All online nodes are asked to restart their HTTP server. Deleting a certificate "
+                    + "that does not exist is not an error. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Certificate deleted and HTTP server restarts requested.",
+            content = @Content)
+    public Response deleteTLSWildcardCertificate(@Parameter(description = "Wildcard certificate ID.") @PathParam("cert_id") long certificateId) {
         nzyme.getCrypto().deleteTLSWildcardCertificate(certificateId);
 
         requestHttpServerRestartAcrossCluster();
@@ -561,7 +667,15 @@ public class CryptoResource {
 
     @PUT
     @Path("/pgp/configuration")
-    public Response update(PGPConfigurationUpdateRequest ur) {
+    @Operation(operationId = "updatePgpConfiguration", summary = "Update the PGP configuration",
+            description = "Changes PGP settings of the cluster. The body carries a change map of registry keys and "
+                    + "their new values. The only supported key is pgp_key_sync_enabled, which controls whether "
+                    + "nodes synchronize their PGP keys with each other. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "PGP configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change map was empty, contained an unknown key, or a value "
+            + "did not pass the constraints of its configuration key.", content = @Content)
+    public Response update(@RequestBody(description = "Map of PGP configuration keys and their new values.",
+            required = true, content = @Content(mediaType = "application/json")) PGPConfigurationUpdateRequest ur) {
         if (ur.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();

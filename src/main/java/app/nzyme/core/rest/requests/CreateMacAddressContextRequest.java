@@ -4,6 +4,7 @@ import app.nzyme.core.rest.constraints.MacAddress;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -11,6 +12,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+@Schema(description = "Body for creating MAC address context of a tenant.")
 @AutoValue
 public abstract class CreateMacAddressContextRequest {
 
@@ -34,11 +36,17 @@ public abstract class CreateMacAddressContextRequest {
     public abstract UUID tenantId();
 
     @JsonCreator
-    public static CreateMacAddressContextRequest create(@JsonProperty("mac_address") String macAddress,
+    public static CreateMacAddressContextRequest create(@Schema(description = "MAC address like \"00:11:22:33:44:55\".", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                        @JsonProperty("mac_address") String macAddress,
+                                                        @Schema(description = "Short name of the asset. Up to 12 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                         @JsonProperty("name") String name,
+                                                        @Schema(description = "Description of the asset. Up to 32 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                         @JsonProperty("description") String description,
+                                                        @Schema(description = "Free form notes about the asset.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                         @JsonProperty("notes") String notes,
+                                                        @Schema(description = "Organization UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("organization_id") UUID organizationId,
+                                                        @Schema(description = "Tenant UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("tenant_id") UUID tenantId) {
         return builder()
                 .macAddress(macAddress)

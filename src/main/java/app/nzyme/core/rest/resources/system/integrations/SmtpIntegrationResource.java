@@ -11,6 +11,12 @@ import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.configuration.EncryptedConfigurationEntryResponse;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.PUT;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -27,6 +33,9 @@ import java.util.Map;
 @Path("/api/system/integrations/smtp")
 @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Integrations", description = "Configuration of the services Nzyme talks to, for example the SMTP server "
+        + "it uses to send system and alert emails. Integrations are configured for the whole cluster and not per "
+        + "tenant.")
 public class SmtpIntegrationResource {
 
     private static final Logger LOG = LogManager.getLogger(SmtpIntegrationResource.class);
@@ -36,6 +45,14 @@ public class SmtpIntegrationResource {
 
     @GET
     @Path("/configuration")
+    @Operation(operationId = "findSmtpConfiguration", summary = "Get SMTP configuration",
+            description = "Returns the SMTP settings Nzyme uses to send emails, including the current value, the "
+                    + "default value and the validation constraints of every setting. The password is never returned. "
+                    + "The response only tells you whether a password is stored. Requires super administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = SmtpConfigurationResponse.class)))
+    @ApiResponse(responseCode = "500", description = "The stored password could not be decrypted.", content = @Content)
     public Response getSmtpConfiguration() {
         String transportStrategy = nzyme.getDatabaseCoreRegistry()
                 .getValueOrNull(SMTPConfigurationRegistryKeys.TRANSPORT_STRATEGY.key());
@@ -129,7 +146,7 @@ public class SmtpIntegrationResource {
                 ),
                 ConfigurationEntryResponse.create(
                         SMTPConfigurationRegistryKeys.WEB_INTERFACE_URL.key(),
-                        "URL of nzyme Web Interface",
+                        "URL of Nzyme Web Interface",
                         webInterfaceUrl,
                         ConfigurationEntryValueType.STRING,
                         SMTPConfigurationRegistryKeys.WEB_INTERFACE_URL.defaultValue().orElse(null),
@@ -144,7 +161,14 @@ public class SmtpIntegrationResource {
 
     @PUT
     @Path("/configuration")
-    public Response updateSmtpConfiguration(SmtpIntegrationConfigurationUpdateRequest ur) {
+    @Operation(operationId = "updateSmtpConfiguration", summary = "Update SMTP configuration",
+            description = "Each submitted value is validated against the constraints of its configuration key before "
+                    + "it is stored. The password is stored encrypted. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No changes were submitted, or a value failed validation.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The password could not be encrypted.", content = @Content)
+    public Response updateSmtpConfiguration(@RequestBody(description = "Configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json"))
+                                            SmtpIntegrationConfigurationUpdateRequest ur) {
         if (ur.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();

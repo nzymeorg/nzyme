@@ -24,6 +24,15 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -43,6 +52,8 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/dot11/networks")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Networks", description = "Access points, BSSIDs and SSIDs that taps recorded on the air. "
+        + "Use these endpoints to explore the WiFi networks around your taps and their signal behavior.")
 public class Dot11NetworksResource extends TapDataHandlingResource {
 
     private final static List<Integer> DEFAULT_X_VALUES = Lists.newArrayList();
@@ -58,14 +69,21 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids")
-    public Response bssids(@Context SecurityContext sc,
-                           @QueryParam("time_range") @Valid String timeRangeParameter,
-                           @QueryParam("filters") String filtersParameter,
-                           @QueryParam("limit") int limit,
-                           @QueryParam("offset") int offset,
-                           @QueryParam("order_column") @Nullable String orderColumnParam,
-                           @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                           @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11Bssids", summary = "List recorded BSSIDs",
+            description = "Returns all BSSIDs that the selected taps recorded in the time range, with a summary of "
+                    + "their SSIDs, security protocols, fingerprints and client counts. Sorts by average signal "
+                    + "strength descending unless you pass a sorting column and direction.")
+    @ApiResponse(responseCode = "200", description = "BSSIDs found.",
+            content = @Content(schema = @Schema(implementation = BSSIDListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    public Response bssids(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                           @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                           @Parameter(description = "Sorting column. Omit to sort by average signal strength.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                           @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -128,9 +146,16 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}")
-    public Response bssid(@Context SecurityContext sc,
-                          @PathParam("bssid") @NotEmpty String bssidParam,
-                          @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11Bssid", summary = "Get details of a BSSID",
+            description = "Looks the BSSID up over all time, not a selected time range. Includes the clients that "
+                    + "connected to it in the last 24 hours and the signal strength each tap recorded in the last "
+                    + "15 minutes.")
+    @ApiResponse(responseCode = "200", description = "BSSID found.",
+            content = @Content(schema = @Schema(implementation = BSSIDDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this BSSID.", content = @Content)
+    public Response bssid(@Parameter(hidden = true) @Context SecurityContext sc,
+                          @Parameter(description = "BSSID MAC address.") @PathParam("bssid") @NotEmpty String bssidParam,
+                          @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
 
@@ -211,11 +236,20 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/signal/waterfall")
-    public Response bssidSignalWaterfall(@Context SecurityContext sc,
-                                         @PathParam("bssid") String bssid,
-                                         @QueryParam("time_range") @Valid String timeRangeParameter,
-                                         @QueryParam("frequency") int frequency,
-                                         @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11BssidSignalWaterfall", summary = "Get signal waterfall of a BSSID",
+            description = "Returns a signal strength heatmap of the BSSID on one frequency. Exactly one tap must be "
+                    + "selected because signal strength is only comparable within a single tap. Track detection is "
+                    + "not performed here and no tracks are returned.",
+            externalDocs = @ExternalDocumentation(description = "Signal tracks in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-network-monitoring-signal-tracks"))
+    @ApiResponse(responseCode = "200", description = "Waterfall data found.",
+            content = @Content(schema = @Schema(implementation = SignalWaterfallResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Not exactly one tap was selected.", content = @Content)
+    public Response bssidSignalWaterfall(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                         @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                         @Parameter(description = "Frequency in MHz.") @QueryParam("frequency") int frequency,
+                                         @Parameter(description = "UUID of exactly one tap to include.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -247,10 +281,15 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/advertisements/histogram")
-    public Response bssidAdvertisementHistogram(@Context SecurityContext sc,
-                                                @PathParam("bssid") String bssid,
-                                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11BssidAdvertisementHistogram", summary = "Get advertisement histogram of a BSSID",
+            description = "Returns the number of beacons and probe responses the BSSID sent per time bucket. The "
+                    + "bucket size is derived from the time range. Buckets without data are missing from the result.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = AdvertisementHistogramResponse.class)))
+    public Response bssidAdvertisementHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -275,10 +314,15 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/frequencies/histogram")
-    public Response bssidActiveChannelHistogram(@Context SecurityContext sc,
-                                                @PathParam("bssid") String bssid,
-                                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11BssidChannelHistogram", summary = "List active channels of a BSSID",
+            description = "Returns every channel the BSSID was active on in the time range, with the number of frames "
+                    + "and bytes recorded on each.")
+    @ApiResponse(responseCode = "200", description = "Channels found.",
+            content = @Content(schema = @Schema(implementation = ActiveChannelListResponse.class)))
+    public Response bssidActiveChannelHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -298,10 +342,16 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/ssids")
-    public Response bssidSSIDs(@Context SecurityContext sc,
-                               @PathParam("bssid") String bssid,
-                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                               @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11BssidSsids", summary = "List SSIDs advertised by a BSSID",
+            description = "Returns one entry per SSID and channel combination. Each entry is flagged if its channel "
+                    + "is the most active one for that SSID.")
+    @ApiResponse(responseCode = "200", description = "SSIDs found.",
+            content = @Content(schema = @Schema(implementation = SSIDChannelListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "The BSSID was not recorded in the time range.", content = @Content)
+    public Response bssidSSIDs(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -359,10 +409,15 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/histogram")
-    public Response histogram(@Context SecurityContext sc,
-                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                              @QueryParam("filters") String filtersParameter,
-                              @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11NetworksHistogram", summary = "Get BSSID and SSID count histogram",
+            description = "Returns how many distinct BSSIDs and SSIDs the selected taps recorded per time bucket. The "
+                    + "response also carries the bucket size in milliseconds.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = BSSIDAndSSIDHistogramResponse.class)))
+    public Response histogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                              @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -388,11 +443,18 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}")
-    public Response ssidOfBSSID(@Context SecurityContext sc,
-                                @PathParam("bssid") String bssid,
-                                @PathParam("ssid") String ssid,
-                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11Ssid", summary = "Get details of an SSID of a BSSID",
+            description = "Returns frequencies, frame and byte counts, security suites, fingerprints and connected "
+                    + "clients of one SSID as advertised by one BSSID. The signal strength per tap covers the last "
+                    + "15 minutes regardless of the time range.")
+    @ApiResponse(responseCode = "200", description = "SSID found.",
+            content = @Content(schema = @Schema(implementation = SSIDDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "This BSSID did not advertise this SSID in the time range.", content = @Content)
+    public Response ssidOfBSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                @Parameter(description = "SSID name.") @PathParam("ssid") String ssid,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -490,11 +552,16 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}/advertisements/histogram")
-    public Response ssidOfBSSIDAdvertisementHistogram(@Context SecurityContext sc,
-                                                      @PathParam("bssid") String bssid,
-                                                      @PathParam("ssid") String ssid,
-                                                      @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                      @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11SsidAdvertisementHistogram", summary = "Get advertisement histogram of an SSID",
+            description = "Returns the number of beacons and probe responses that carried this SSID per time bucket. "
+                    + "Buckets without data are missing from the result.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = AdvertisementHistogramResponse.class)))
+    public Response ssidOfBSSIDAdvertisementHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                      @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                                      @Parameter(description = "SSID name.") @PathParam("ssid") String ssid,
+                                                      @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                      @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -519,11 +586,16 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}/frequencies/histogram")
-    public Response ssidOfBSSIDActiveChannelHistogram(@Context SecurityContext sc,
-                                                      @PathParam("bssid") String bssid,
-                                                      @PathParam("ssid") String ssid,
-                                                      @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                      @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11SsidChannelHistogram", summary = "List active channels of an SSID",
+            description = "Returns every channel this SSID of this BSSID was active on in the time range, with the "
+                    + "number of frames and bytes recorded on each.")
+    @ApiResponse(responseCode = "200", description = "Channels found.",
+            content = @Content(schema = @Schema(implementation = ActiveChannelListResponse.class)))
+    public Response ssidOfBSSIDActiveChannelHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                      @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                                      @Parameter(description = "SSID name.") @PathParam("ssid") String ssid,
+                                                      @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                      @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -543,12 +615,21 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}/frequencies/show/{frequency}/signal/waterfall")
-    public Response ssidOfBSSIDSignalWaterfall(@Context SecurityContext sc,
-                                               @PathParam("bssid") String bssid,
-                                               @PathParam("ssid") String ssid,
-                                               @PathParam("frequency") int frequency,
-                                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                                               @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11SsidSignalWaterfall", summary = "Get signal waterfall of an SSID",
+            description = "Returns a signal strength heatmap of this SSID on one frequency, together with the signal "
+                    + "tracks the track detector found and the track detector configuration that was used. Exactly "
+                    + "one tap must be selected because signal strength is only comparable within a single tap.",
+            externalDocs = @ExternalDocumentation(description = "Signal tracks in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-network-monitoring-signal-tracks"))
+    @ApiResponse(responseCode = "200", description = "Waterfall data found.",
+            content = @Content(schema = @Schema(implementation = SignalWaterfallResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Not exactly one tap was selected.", content = @Content)
+    public Response ssidOfBSSIDSignalWaterfall(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                               @Parameter(description = "SSID name.") @PathParam("ssid") String ssid,
+                                               @Parameter(description = "Frequency in MHz.") @PathParam("frequency") int frequency,
+                                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                               @Parameter(description = "UUID of exactly one tap to include.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -602,10 +683,20 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}/frequencies/show/{frequency}/signal/trackdetector/configuration")
-    public Response updateTrackDetectorConfig(@Context SecurityContext sc,
-                                              @PathParam("bssid") String bssid,
-                                              @PathParam("ssid") String ssid,
-                                              @PathParam("frequency") int frequency,
+    @Operation(operationId = "updateDot11TrackDetectorConfiguration", summary = "Update track detector configuration",
+            description = "Stores a custom track detector configuration for this BSSID, SSID and frequency on the tap "
+                    + "referenced in the request body. The configuration replaces the built in defaults for signal "
+                    + "waterfall track detection. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Signal tracks in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-network-monitoring-signal-tracks"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The referenced tap is not accessible by the calling user.", content = @Content)
+    public Response updateTrackDetectorConfig(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssid,
+                                              @Parameter(description = "SSID name.") @PathParam("ssid") String ssid,
+                                              @Parameter(description = "Frequency in MHz.") @PathParam("frequency") int frequency,
+                                              @RequestBody(description = "Tap UUID and the frame threshold, gap "
+                                                      + "threshold and signal centerline jitter to use.", required = true, content = @Content(mediaType = "application/json"))
                                               UpdateTrackDetectorConfigurationRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -634,9 +725,15 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ssids/names")
-    public Response allSSIDNames(@Context SecurityContext sc,
-                                 @QueryParam("organization_id") @NotNull UUID organizationId,
-                                 @QueryParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findDot11SsidNames", summary = "List all recorded SSID names",
+            description = "Returns the distinct names of all SSIDs that the taps of a tenant ever recorded. The list "
+                    + "is empty if the user cannot access any tap of the tenant.")
+    @ApiResponse(responseCode = "200", description = "SSID names found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = String.class))))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allSSIDNames(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc,  organizationId, tenantId)) {

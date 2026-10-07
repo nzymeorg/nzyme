@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 
+@Schema(description = "Body for approving known WiFi networks of a tenant.")
 @AutoValue
 public abstract class ApproveByRegexRequest {
 
@@ -12,7 +14,8 @@ public abstract class ApproveByRegexRequest {
     public abstract String regex();
 
     @JsonCreator
-    public static ApproveByRegexRequest create(@JsonProperty("regex") String regex) {
+    public static ApproveByRegexRequest create(@Schema(description = "Java regular expression matched against the SSIDs. Omit to approve every known network " + "of the tenant.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                               @JsonProperty("regex") String regex) {
         return builder()
                 .regex(regex)
                 .build();

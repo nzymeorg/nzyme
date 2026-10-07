@@ -3,12 +3,14 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 
 import java.util.List;
 
+@Schema(description = "Body for updating an email event action.")
 @AutoValue
 public abstract class UpdateEmailEventActionRequest {
 
@@ -25,9 +27,13 @@ public abstract class UpdateEmailEventActionRequest {
     public abstract List<String> receivers();
 
     @JsonCreator
-    public static UpdateEmailEventActionRequest create(@JsonProperty("name") String name,
+    public static UpdateEmailEventActionRequest create(@Schema(description = "New name of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                       @JsonProperty("name") String name,
+                                                       @Schema(description = "New description of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("description") String description,
+                                                       @Schema(description = "Prefix added to the subject of every email this action sends.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("subject_prefix") String subjectPrefix,
+                                                       @Schema(description = "Email addresses that receive the email.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("receivers") List<String> receivers) {
         return builder()
                 .name(name)

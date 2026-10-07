@@ -12,6 +12,12 @@ import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.configuration.EncryptedConfigurationEntryResponse;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -30,6 +36,9 @@ import java.util.*;
 
 @Produces(MediaType.APPLICATION_JSON)
 @Path("/api/system/connect")
+@Tag(name = "Nzyme Connect", description = "Nzyme Connect is an optional cloud service that your cluster reports to. "
+        + "In return it provides curated operational data, for example GeoIP, ASN, UAV and MAC address vendor "
+        + "information. All it needs is an API key.")
 public class ConnectResource {
 
     private static final Logger LOG = LogManager.getLogger(ConnectResource.class);
@@ -40,6 +49,13 @@ public class ConnectResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/status")
+    @Operation(operationId = "findConnectStatus", summary = "Get Nzyme Connect status",
+            description = "The connection summary is disabled when Connect is turned off, never_connected when no "
+                    + "report has ever been accepted, fail when the last accepted report is older than two minutes, "
+                    + "and ok otherwise. The response also lists the services Connect currently provides to this "
+                    + "cluster. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Status found.",
+            content = @Content(schema = @Schema(implementation = ConnectStatusResponse.class)))
     public Response status() {
         Optional<String> lastReport = nzyme.getDatabaseCoreRegistry()
                 .getValue(ConnectRegistryKeys.LAST_SUCCESSFUL_REPORT_SUBMISSION.key());
@@ -94,6 +110,12 @@ public class ConnectResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/configuration")
+    @Operation(operationId = "findConnectConfiguration", summary = "Get Nzyme Connect configuration",
+            description = "The API key is never returned. The response only tells you whether a key is stored. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = ConnectConfigurationResponse.class)))
+    @ApiResponse(responseCode = "500", description = "The stored API key could not be decrypted.", content = @Content)
     public Response configuration() {
         boolean connectEnabled = nzyme.getDatabaseCoreRegistry()
                 .getValue(ConnectRegistryKeys.CONNECT_ENABLED.key())
@@ -137,7 +159,15 @@ public class ConnectResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/configuration")
-    public Response update(ConnectConfigurationUpdateRequest ur) {
+    @Operation(operationId = "updateConnectConfiguration", summary = "Update Nzyme Connect configuration",
+            description = "Each submitted value is validated against the constraints of its configuration key before "
+                    + "it is stored. The API key is stored encrypted. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No changes were submitted, a value failed validation, or an "
+            + "unknown configuration key was submitted.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The API key could not be encrypted.", content = @Content)
+    public Response update(@RequestBody(description = "Configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json"))
+                           ConnectConfigurationUpdateRequest ur) {
         if (ur.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();

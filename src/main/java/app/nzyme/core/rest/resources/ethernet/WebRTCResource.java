@@ -23,6 +23,13 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -41,6 +48,12 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/webrtc")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "WebRTC", description = "WebRTC sessions that Nzyme taps observed on the network. WebRTC carries "
+        + "live audio and video and the data channels of browser and app based calls, screen shares and remote "
+        + "control tools. Nzyme recognizes a session when a STUN negotiation also carries RTP or DTLS, and reports "
+        + "what the connection is carrying rather than how it was established.",
+        externalDocs = @ExternalDocumentation(description = "WebRTC in the Nzyme documentation",
+                url = "https://go.nzyme.org/ethernet-webrtc"))
 public class WebRTCResource extends TapDataHandlingResource {
 
     @Inject
@@ -48,16 +61,25 @@ public class WebRTCResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions")
-    public Response allSessions(@Context SecurityContext sc,
-                                @QueryParam("organization_id") UUID organizationId,
-                                @QueryParam("tenant_id") UUID tenantId,
-                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                @QueryParam("filters") String filtersParameter,
-                                @QueryParam("order_column") @Nullable String orderColumnParam,
-                                @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                @QueryParam("limit") int limit,
-                                @QueryParam("offset") int offset,
-                                @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findWebRtcSessions", summary = "List WebRTC sessions",
+            description = "Returns all WebRTC sessions observed in the time range, newest initiated first by "
+                    + "default. Each session reports whether it carries RTP, DTLS, audio and video, and the audio "
+                    + "or video classification of a stream is a best effort guess from traffic characteristics. "
+                    + "Sub sessions and the STUN negotiation are only included in the single session endpoint.")
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = WebRTCSessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allSessions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -93,11 +115,18 @@ public class WebRTCResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/show/{negotiation_key_sha256}")
-    public Response oneSession(@Context SecurityContext sc,
-                               @PathParam("negotiation_key_sha256") String negotiationKeySha256,
-                               @QueryParam("organization_id") UUID organizationId,
-                               @QueryParam("tenant_id") UUID tenantId,
-                               @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findWebRtcSession", summary = "Get a WebRTC session",
+            description = "Returns a single WebRTC session by its negotiation key. All sub sessions are included, "
+                    + "which are the individual network flows that belong to the same negotiation, and the STUN "
+                    + "negotiation is included if Nzyme recorded one.")
+    @ApiResponse(responseCode = "200", description = "Session found.",
+            content = @Content(schema = @Schema(implementation = WebRTCSessionDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Session not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response oneSession(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "SHA256 hash of the session negotiation key.") @PathParam("negotiation_key_sha256") String negotiationKeySha256,
+                               @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                               @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -136,10 +165,15 @@ public class WebRTCResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/active/histogram")
-    public Response activeSessionsHistogram(@Context SecurityContext sc,
-                                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                                            @QueryParam("filters") String filtersParameter,
-                                            @QueryParam("taps") String taps) {
+    @Operation(operationId = "findWebRtcActiveSessionsHistogram", summary = "Get histogram of active WebRTC sessions",
+            description = "Returns the number of WebRTC sessions that were active in each bucket of the time range. "
+                    + "The bucket size is chosen automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    public Response activeSessionsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -156,16 +190,24 @@ public class WebRTCResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/peers/addresses/top/histogram")
-    public Response topPeerAddressPairHistogram(@Context SecurityContext sc,
-                                                @QueryParam("organization_id") UUID organizationId,
-                                                @QueryParam("tenant_id") UUID tenantId,
-                                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                @QueryParam("filters") String filtersParameter,
-                                                @QueryParam("taps") String taps,
-                                                @QueryParam("order_column") @Nullable String orderColumnParam,
-                                                @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                                @QueryParam("limit") int limit,
-                                                @QueryParam("offset") int offset) {
+    @Operation(operationId = "findWebRtcTopPeerAddressPairs", summary = "List top WebRTC peer address pairs",
+            description = "Returns the peer address pairs that exchanged the most bytes in WebRTC sessions during "
+                    + "the time range. Each row holds both peer addresses and the number of exchanged bytes. "
+                    + "Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topPeerAddressPairHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                                @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);

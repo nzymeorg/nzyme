@@ -46,6 +46,16 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.SchemaProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
@@ -68,6 +78,8 @@ import java.util.*;
 
 @Path("/api/system/authentication/mgmt/organizations")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Organizations", description = "Organizations are the top level of the Nzyme tenancy model. They hold "
+        + "tenants, users, taps and their own configuration and quotas.")
 public class OrganizationsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(OrganizationsResource.class);
@@ -77,7 +89,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
-    public Response findAll(@QueryParam("limit") int limit, @QueryParam("offset") int offset) {
+    @Operation(operationId = "findOrganizations", summary = "List all organizations",
+            description = "Returns all organizations of this Nzyme installation with their tenant, user and tap "
+                    + "counts. The page size is limited to 250. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Organizations found.",
+            content = @Content(schema = @Schema(implementation = OrganizationsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    public Response findAll(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -97,7 +115,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{id}")
-    public Response find(@Context SecurityContext sc, @PathParam("id") UUID id) {
+    @Operation(operationId = "findOrganization", summary = "Get an organization",
+            description = "Organization administrators can only request their own organization. Requires "
+                    + "organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Organization found.",
+            content = @Content(schema = @Schema(implementation = OrganizationDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response find(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Organization UUID.") @PathParam("id") UUID id) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
@@ -116,7 +140,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
     @POST
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
-    public Response create(@Valid CreateOrganizationRequest req) {
+    @Operation(operationId = "createOrganization", summary = "Create an organization",
+            description = "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "201", description = "Organization created.", content = @Content)
+    public Response create(@RequestBody(description = "Name and description of the new organization.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateOrganizationRequest req) {
         nzyme.getAuthenticationService().createOrganization(
                 req.name(),
                 req.description()
@@ -128,8 +155,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/show/{id}")
-    public Response update(@PathParam("id") UUID id,
-                           @Valid UpdateOrganizationRequest req) {
+    @Operation(operationId = "updateOrganization", summary = "Update an organization",
+            description = "Changes name and description of an organization. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Organization updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
+    public Response update(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id,
+                           @RequestBody(description = "New name and description of the organization.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateOrganizationRequest req) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -146,7 +177,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/show/{id}")
-    public Response delete(@PathParam("id") UUID id) {
+    @Operation(operationId = "deleteOrganization", summary = "Delete an organization",
+            description = "An organization can only be deleted after all of its tenants, users and taps are gone. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Organization deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The organization still has tenants, users or taps and cannot be deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
+    public Response delete(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -165,7 +202,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/show/{id}/subsystems/configuration")
-    public Response getOrganizationSubsystemConfiguration(@PathParam("id") UUID id) {
+    @Operation(operationId = "findOrganizationSubsystemsConfiguration",
+            summary = "Get subsystem configuration of an organization",
+            description = "Returns which subsystems, Ethernet, WiFi, Bluetooth and UAV, are enabled for this "
+                    + "organization and whether they are available system-wide. Requires super administrator "
+                    + "permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = SubsystemsConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
+    public Response getOrganizationSubsystemConfiguration(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -231,7 +278,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/show/{id}/subsystems/configuration")
-    public Response updateOrganizationSubsystemConfiguration(@PathParam("id") UUID id, UpdateConfigurationRequest req) {
+    @Operation(operationId = "updateOrganizationSubsystemsConfiguration",
+            summary = "Update subsystem configuration of an organization",
+            description = "Enables or disables subsystems for this organization. A subsystem that is disabled "
+                    + "system-wide cannot be enabled here. Enabling a subsystem here does not enable it for the "
+                    + "tenants of the organization. Requires super administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subsystem is disabled system-wide.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No configuration values were passed or a value failed validation.", content = @Content)
+    public Response updateOrganizationSubsystemConfiguration(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id, @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
         if (req.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();
@@ -296,7 +354,16 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{id}/quotas")
-    public Response getOrganizationQuotas(@Context SecurityContext sc, @PathParam("id") UUID id) {
+    @Operation(operationId = "findOrganizationQuotas", summary = "List quotas of an organization",
+            description = "Returns every quota type with its configured limit and the current use. A limit of null "
+                    + "means the quota is unlimited, which is the default for every quota. A quota can be exceeded "
+                    + "if it was lowered below the current use. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Quotas in the Nzyme documentation",
+                    url = "https://go.nzyme.org/quotas"))
+    @ApiResponse(responseCode = "200", description = "Quotas found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = QuotaDetailsResponse.class))))
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response getOrganizationQuotas(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Organization UUID.") @PathParam("id") UUID id) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
@@ -330,9 +397,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/show/{id}/quotas/show/{quota_type}")
-    public Response setOrganizationQuota(@PathParam("id") UUID id,
-                                         @PathParam("quota_type") String quotaTypeParam,
-                                         @Valid ConfigureQuotaRequest req) {
+    @Operation(operationId = "updateOrganizationQuota", summary = "Set a quota of an organization",
+            description = "Sets the limit of a single quota type. Pass a null quota to reset it back to unlimited. "
+                    + "Lowering a quota below the current use does not delete anything, but the organization cannot "
+                    + "create new entities of that type until it is back under the limit. Requires super "
+                    + "administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Quotas in the Nzyme documentation",
+                    url = "https://go.nzyme.org/quotas"))
+    @ApiResponse(responseCode = "200", description = "Quota updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Unknown quota type.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
+    public Response setOrganizationQuota(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id,
+                                         @Parameter(description = "Quota type name.") @PathParam("quota_type") String quotaTypeParam,
+                                         @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @Valid ConfigureQuotaRequest req) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -360,10 +437,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants")
-    public Response findTenantsOfOrganization(@Context SecurityContext sc,
-                                              @PathParam("organizationId") UUID organizationId,
-                                              @QueryParam("limit") int limit,
-                                              @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenants", summary = "List tenants of an organization",
+            description = "Returns all tenants of an organization with their user and tap counts. The page size is "
+                    + "limited to 250. Requires organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Tenants found.",
+            content = @Content(schema = @Schema(implementation = TenantsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response findTenantsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -397,10 +481,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators")
-    public Response findAllOrganizationAdministrators(@Context SecurityContext sc,
-                                                      @PathParam("organizationId") UUID organizationId,
-                                                      @QueryParam("limit") int limit,
-                                                      @QueryParam("offset") int offset) {
+    @Operation(operationId = "findOrganizationAdministrators", summary = "List organization administrators",
+            description = "Returns all administrators of an organization. The page size is limited to 250. Requires "
+                    + "organization administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Organization administrators found.",
+            content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response findAllOrganizationAdministrators(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                      @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                      @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                      @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -433,9 +524,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}")
-    public Response findOrganizationAdministrator(@Context SecurityContext sc,
-                                                  @PathParam("organizationId") UUID organizationId,
-                                                  @PathParam("id") UUID userId) {
+    @Operation(operationId = "findOrganizationAdministrator", summary = "Get an organization administrator",
+            description = "Returns the administrator together with the API keys they own. Requires organization "
+                    + "administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Organization administrator found.",
+            content = @Content(schema = @Schema(implementation = OrganizationAdministratorDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
+    public Response findOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                  @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         Optional<UserEntry> orgAdmin = nzyme.getAuthenticationService().findOrganizationAdministrator(
                 organizationId, userId);
@@ -473,9 +570,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators")
     @SessionOnly
-    public Response createOrganizationAdministrator(@Context SecurityContext sc,
-                                                    @PathParam("organizationId") UUID organizationId,
-                                                    @Valid CreateUserRequest req) {
+    @Operation(operationId = "createOrganizationAdministrator", summary = "Create an organization administrator",
+            description = "The email address must be unique across the whole installation and the password must be "
+                    + "between 12 and 128 characters long. Requires organization administrator permissions. Requires "
+                    + "an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "201", description = "Organization administrator created.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response createOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                    @RequestBody(description = "Name, email address, password and MFA setting of the new organization administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!validateCreateUserRequest(req)) {
@@ -512,10 +617,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}")
-    public Response editOrganizationAdministrator(@Context SecurityContext sc,
-                                                  @PathParam("organizationId") UUID organizationId,
-                                                  @PathParam("id") UUID userId,
-                                                  @Valid UpdateUserRequest req) {
+    @Operation(operationId = "updateOrganizationAdministrator", summary = "Update an organization administrator",
+            description = "Changes name, email address and the multi-factor authentication requirement. Turning "
+                    + "multi-factor authentication off records a system event. Requires organization administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Organization administrator updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
+    public Response editOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                  @Parameter(description = "User UUID.") @PathParam("id") UUID userId,
+                                                  @RequestBody(description = "New name, email address and MFA setting of the organization administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> orgAdmin = nzyme.getAuthenticationService().findOrganizationAdministrator(
@@ -566,10 +679,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}/password")
     @SessionOnly
-    public Response editOrganizationAdministratorPassword(@Context SecurityContext sc,
-                                                          @PathParam("organizationId") UUID organizationId,
-                                                          @PathParam("id") UUID userId,
-                                                          @Valid UpdatePasswordRequest req) {
+    @Operation(operationId = "updateOrganizationAdministratorPassword",
+            summary = "Set password of an organization administrator",
+            description = "All sessions of the administrator are invalidated and a system event is recorded. The "
+                    + "password must be between 12 and 128 characters long. Requires organization administrator "
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Password changed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The password failed validation.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
+    public Response editOrganizationAdministratorPassword(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                          @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                          @Parameter(description = "User UUID.") @PathParam("id") UUID userId,
+                                                          @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> orgAdmin = nzyme.getAuthenticationService().findOrganizationAdministrator(
@@ -613,9 +734,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}")
-    public Response deleteOrganizationAdministrator(@Context SecurityContext sc,
-                                                    @PathParam("organizationId") UUID organizationId,
-                                                    @PathParam("id") UUID userId) {
+    @Operation(operationId = "deleteOrganizationAdministrator", summary = "Delete an organization administrator",
+            description = "Administrators cannot delete themselves. Requires organization administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Organization administrator deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The calling user tried to delete themselves.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
+    public Response deleteOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                    @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (authenticatedUser.getUserId().equals(userId)) {
@@ -644,9 +771,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}/mfa/reset")
     @SessionOnly
-    public Response resetOrganizationAdministratorMFA(@Context SecurityContext sc,
-                                                      @PathParam("organizationId") UUID organizationId,
-                                                      @PathParam("id") UUID userId) {
+    @Operation(operationId = "resetOrganizationAdministratorMfa", summary = "Reset MFA of an organization administrator",
+            description = "Removes the multi-factor authentication credentials so the administrator can enroll a "
+                    + "new method on their next login. Records a system event. Requires organization administrator "
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "MFA credentials reset.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
+    public Response resetOrganizationAdministratorMFA(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                      @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                      @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Check if user is org admin for this org.
@@ -679,9 +812,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}")
-    public Response findTenantOfOrganization(@Context SecurityContext sc,
-                                             @PathParam("organizationId") UUID organizationId,
-                                             @PathParam("tenantId") UUID tenantId) {
+    @Operation(operationId = "findTenant", summary = "Get a tenant",
+            description = "Returns the tenant with its user and tap counts and its timeout settings. Requires "
+                    + "organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Tenant found.",
+            content = @Content(schema = @Schema(implementation = TenantDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tenant not found or not accessible by the calling user.", content = @Content)
+    public Response findTenantOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
+                                             @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                             @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Check if user is org admin for this org.
@@ -701,9 +840,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/")
-    public Response createTenant(@Context SecurityContext sc,
-                                 @PathParam("organizationId") UUID organizationId,
-                                 @Valid CreateTenantRequest req) {
+    @Operation(operationId = "createTenant", summary = "Create a tenant",
+            description = "Session and multi-factor authentication timeouts are configured per tenant. Requires "
+                    + "organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "201", description = "Tenant created.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The tenant quota of the organization is exhausted.", content = @Content)
+    public Response createTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                 @RequestBody(description = "Name, description and timeout settings of the new tenant.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTenantRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Check if user is org admin for this org.
@@ -731,10 +876,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}")
-    public Response updateTenant(@Context SecurityContext sc,
-                                 @PathParam("organizationId") UUID organizationId,
-                                 @PathParam("tenantId") UUID tenantId,
-                                 @Valid UpdateTenantRequest req) {
+    @Operation(operationId = "updateTenant", summary = "Update a tenant",
+            description = "Changes name, description and the session and multi-factor authentication timeouts. "
+                    + "Requires organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Tenant updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response updateTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                 @RequestBody(description = "New name, description and timeout settings of the tenant.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTenantRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -761,9 +911,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}")
-    public Response deleteTenant(@Context SecurityContext sc,
-                                 @PathParam("organizationId") UUID organizationId,
-                                 @PathParam("tenantId") UUID tenantId) {
+    @Operation(operationId = "deleteTenant", summary = "Delete a tenant",
+            description = "Requires organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Tenant deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -783,9 +937,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/quotas")
-    public Response getTenantQuotas(@Context SecurityContext sc,
-                                    @PathParam("organizationId") UUID organizationId,
-                                    @PathParam("tenantId") UUID tenantId) {
+    @Operation(operationId = "findTenantQuotas", summary = "List quotas of a tenant",
+            description = "Returns every quota type with its configured limit and the current use. The tenants "
+                    + "quota is left out because a tenant cannot have tenants. A limit of null means no tenant "
+                    + "quota is configured, in which case the quota of the organization applies. Requires "
+                    + "organization administrator permissions.", tags = {"Tenants"},
+            externalDocs = @ExternalDocumentation(description = "Quotas in the Nzyme documentation",
+                    url = "https://go.nzyme.org/quotas"))
+    @ApiResponse(responseCode = "200", description = "Quotas found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = QuotaDetailsResponse.class))))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getTenantQuotas(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -815,11 +979,23 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/quotas/show/{quota_type}")
-    public Response setTenantQuota(@Context SecurityContext sc,
-                                   @PathParam("organizationId") UUID organizationId,
-                                   @PathParam("tenantId") UUID tenantId,
-                                   @PathParam("quota_type") String quotaTypeParam,
-                                   @Valid ConfigureQuotaRequest req) {
+    @Operation(operationId = "updateTenantQuota", summary = "Set a quota of a tenant",
+            description = "Sets the limit of a single quota type. Pass a null quota to remove the tenant quota, "
+                    + "after which the quota of the organization applies. The quotas of all tenants of a type "
+                    + "together cannot exceed the organization quota. Requires organization administrator "
+                    + "permissions.", tags = {"Tenants"},
+            externalDocs = @ExternalDocumentation(description = "Quotas in the Nzyme documentation",
+                    url = "https://go.nzyme.org/quotas"))
+    @ApiResponse(responseCode = "200", description = "Quota updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Unknown quota type.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The requested quota would exceed the organization quota.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response setTenantQuota(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                   @Parameter(description = "Quota type name.") @PathParam("quota_type") String quotaTypeParam,
+                                   @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @Valid ConfigureQuotaRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -867,9 +1043,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/subsystems/configuration")
-    public Response getTenantSubsystemConfiguration(@Context SecurityContext sc,
-                                                    @PathParam("organizationId") UUID organizationId,
-                                                    @PathParam("tenantId") UUID tenantId) {
+    @Operation(operationId = "findTenantSubsystemsConfiguration", summary = "Get subsystem configuration of a tenant",
+            description = "Returns which subsystems, Ethernet, WiFi, Bluetooth and UAV, are enabled for this tenant "
+                    + "and whether they are available in the organization. Requires organization administrator "
+                    + "permissions.", tags = {"Tenants"},
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = SubsystemsConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getTenantSubsystemConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -940,10 +1125,22 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/subsystems/configuration")
-    public Response updateTenantSubsystemConfiguration(@Context SecurityContext sc,
-                                                       @PathParam("organizationId") UUID organizationId,
-                                                       @PathParam("tenantId") UUID tenantId,
-                                                       UpdateConfigurationRequest req) {
+    @Operation(operationId = "updateTenantSubsystemsConfiguration",
+            summary = "Update subsystem configuration of a tenant",
+            description = "Enables or disables subsystems for this tenant. A subsystem that is disabled for the "
+                    + "organization cannot be enabled here. Disabling a subsystem hides its pages in the web "
+                    + "interface and turns off its API resources for this tenant. Requires organization "
+                    + "administrator permissions.", tags = {"Tenants"},
+            externalDocs = @ExternalDocumentation(description = "Subsystems in the Nzyme documentation",
+                    url = "https://go.nzyme.org/subsystems"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subsystem is disabled for the organization.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No configuration values were passed or a value failed validation.", content = @Content)
+    public Response updateTenantSubsystemConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                       @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                       @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                       @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1013,11 +1210,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users")
-    public Response findAllUsersOfTenant(@Context SecurityContext sc,
-                                         @PathParam("organizationId") UUID organizationId,
-                                         @PathParam("tenantId") UUID tenantId,
-                                         @QueryParam("limit") int limit,
-                                         @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenantUsers", summary = "List users of a tenant",
+            description = "Returns all users of a tenant with their feature and tap permissions. The page size is "
+                    + "limited to 250. Requires organization administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Users found.",
+            content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
+    public Response findAllUsersOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                         @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                         @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -1054,10 +1258,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}")
-    public Response findUserOfTenant(@Context SecurityContext sc,
-                                     @PathParam("organizationId") UUID organizationId,
-                                     @PathParam("tenantId") UUID tenantId,
-                                     @PathParam("userId") UUID userId) {
+    @Operation(operationId = "findTenantUser", summary = "Get a user of a tenant",
+            description = "Returns the user with their feature and tap permissions and the API keys they own. "
+                    + "Requires organization administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "User found.",
+            content = @Content(schema = @Schema(implementation = UserOfTenantDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response findUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                     @Parameter(description = "User UUID.") @PathParam("userId") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1106,10 +1317,21 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users")
     @SessionOnly
-    public Response createUserOfTenant(@Context SecurityContext sc,
-                                       @PathParam("organizationId") UUID organizationId,
-                                       @PathParam("tenantId") UUID tenantId,
-                                       @Valid CreateUserRequest req) {
+    @Operation(operationId = "createTenantUser", summary = "Create a user of a tenant",
+            description = "The email address must be unique across the whole installation and the password must be "
+                    + "between 12 and 128 characters long. A new user has no permissions until you grant them. "
+                    + "Requires organization administrator permissions. Requires an interactive session; API keys "
+                    + "are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "201", description = "User created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The request failed validation.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The user quota of the tenant is exhausted.", content = @Content)
+    public Response createUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                       @RequestBody(description = "Name, email address, password and MFA setting of the new user.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1149,11 +1371,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}")
-    public Response editUserOfTenant(@Context SecurityContext sc,
-                                     @PathParam("organizationId") UUID organizationId,
-                                     @PathParam("tenantId") UUID tenantId,
-                                     @PathParam("userId") UUID userId,
-                                     @Valid UpdateUserRequest req) {
+    @Operation(operationId = "updateTenantUser", summary = "Update a user of a tenant",
+            description = "Changes name, email address and the multi-factor authentication requirement. Turning "
+                    + "multi-factor authentication off records a system event. Requires organization administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "User updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found, the request failed validation, or the email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response editUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                     @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                     @RequestBody(description = "New name, email address and MFA setting of the user.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1206,11 +1436,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/taps")
-    public Response editUserOfTenantTapPermissions(@Context SecurityContext sc,
-                                                   @PathParam("organizationId") UUID organizationId,
-                                                   @PathParam("tenantId") UUID tenantId,
-                                                   @PathParam("userId") UUID userId,
-                                                   UpdateUserTapPermissionsRequest req) {
+    @Operation(operationId = "updateTenantUserTapPermissions", summary = "Set tap permissions of a user",
+            description = "Replaces the list of taps this user can access. Tap UUIDs that do not belong to the "
+                    + "tenant are ignored. Set the allow all flag to grant access to every current and future tap "
+                    + "of the tenant. Requires organization administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Tap permissions updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response editUserOfTenantTapPermissions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                   @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                   @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                   @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                                   @RequestBody(description = "List of tap UUIDs the user may access and the flag that grants access to all taps of the tenant.", required = true, content = @Content(mediaType = "application/json")) UpdateUserTapPermissionsRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1255,11 +1492,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/permissions")
-    public Response editUserOfTenantPermissions(@Context SecurityContext sc,
-                                                @PathParam("organizationId") UUID organizationId,
-                                                @PathParam("tenantId") UUID tenantId,
-                                                @PathParam("userId") UUID userId,
-                                                UpdateUserPermissionsRequest req) {
+    @Operation(operationId = "updateTenantUserPermissions", summary = "Set feature permissions of a user",
+            description = "Replaces the feature permissions of this user with the passed permission ids. List the "
+                    + "available ids with the permissions endpoint. Requires organization administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Permissions updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response editUserOfTenantPermissions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                                @RequestBody(description = "List of feature permission ids the user should have.", required = true, content = @Content(mediaType = "application/json")) UpdateUserPermissionsRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1285,10 +1529,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}")
-    public Response deleteUserOfTenant(@Context SecurityContext sc,
-                                       @PathParam("organizationId") UUID organizationId,
-                                       @PathParam("tenantId") UUID tenantId,
-                                       @PathParam("userId") UUID userId) {
+    @Operation(operationId = "deleteTenantUser", summary = "Delete a user of a tenant",
+            description = "Users cannot delete themselves. Requires organization administrator permissions.",
+            tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "User deleted.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The calling user tried to delete themselves.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response deleteUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                       @Parameter(description = "User UUID.") @PathParam("userId") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1320,11 +1571,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/password")
     @SessionOnly
-    public Response editUserOfTenantPassword(@Context SecurityContext sc,
-                                             @PathParam("organizationId") UUID organizationId,
-                                             @PathParam("tenantId") UUID tenantId,
-                                             @PathParam("userId") UUID userId,
-                                             UpdatePasswordRequest req) {
+    @Operation(operationId = "updateTenantUserPassword", summary = "Set password of a user of a tenant",
+            description = "All sessions of the user are invalidated and a system event is recorded. The password "
+                    + "must be between 12 and 128 characters long. Requires organization administrator permissions. "
+                    + "Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Password changed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found, or the password failed validation.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response editUserOfTenantPassword(@Parameter(hidden = true) @Context SecurityContext sc,
+                                             @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                             @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                             @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                             @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1372,10 +1630,16 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/mfa/reset")
     @SessionOnly
-    public Response resetMFAOfUserOfTenant(@Context SecurityContext sc,
-                                           @PathParam("organizationId") UUID organizationId,
-                                           @PathParam("tenantId") UUID tenantId,
-                                           @PathParam("userId") UUID userId) {
+    @Operation(operationId = "resetTenantUserMfa", summary = "Reset MFA of a user of a tenant",
+            description = "Removes the multi-factor authentication credentials so the user can enroll a new method "
+                    + "on their next login. Records a system event. Requires organization administrator "
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "MFA credentials reset.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
+    public Response resetMFAOfUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                           @Parameter(description = "User UUID.") @PathParam("userId") UUID userId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> user = nzyme.getAuthenticationService().findUserOfTenant(organizationId, tenantId, userId);
@@ -1406,7 +1670,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/sessions")
-    public Response findAllSessions(@QueryParam("limit") int limit, @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSessions", summary = "List all sessions",
+            description = "Returns every session of this Nzyme installation, including sessions that have not "
+                    + "passed multi-factor authentication yet. The page size is limited to 250. Requires super "
+                    + "administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    public Response findAllSessions(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -1440,10 +1711,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/sessions")
-    public Response findSessionsOfOrganization(@Context SecurityContext sc,
-                                               @PathParam("organizationId") UUID organizationId,
-                                               @QueryParam("limit") int limit,
-                                               @QueryParam("offset") int offset) {
+    @Operation(operationId = "findOrganizationSessions", summary = "List sessions of an organization",
+            description = "The page size is limited to 250. Requires organization administrator permissions.",
+            tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response findSessionsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -1489,11 +1767,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/sessions")
-    public Response findSessionsOfTenant(@Context SecurityContext sc,
-                                         @PathParam("organizationId") UUID organizationId,
-                                         @PathParam("tenantId") UUID tenantId,
-                                         @QueryParam("limit") int limit,
-                                         @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenantSessions", summary = "List sessions of a tenant",
+            description = "The page size is limited to 250. Requires organization administrator permissions.",
+            tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
+    public Response findSessionsOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                         @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                         @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -1540,8 +1825,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/sessions/show/{sessionId}")
-    public Response invalidateSession(@Context SecurityContext sc,
-                                      @PathParam("sessionId") long sessionId) {
+    @Operation(operationId = "invalidateSession", summary = "Invalidate a session",
+            description = "Logs the user of this session out right away. Requires organization administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Session invalidated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Session not found or not accessible by the calling user.", content = @Content)
+    public Response invalidateSession(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Session ID.") @PathParam("sessionId") long sessionId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<SessionEntry> session = nzyme.getAuthenticationService()
@@ -1570,11 +1860,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps")
-    public Response findAllTapsOfTenant(@Context SecurityContext sc,
-                                @PathParam("organizationId") UUID organizationId,
-                                @PathParam("tenantId") UUID tenantId,
-                                @QueryParam("limit") int limit,
-                                @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenantTaps", summary = "List taps of a tenant for management",
+            description = "Returns all taps of a tenant with their secret and their location and floor assignment. "
+                    + "The page size is limited to 250. Requires organization administrator permissions.",
+            tags = {"Taps"})
+    @ApiResponse(responseCode = "200", description = "Taps found.",
+            content = @Content(schema = @Schema(implementation = TapPermissionsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
+    public Response findAllTapsOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -1617,10 +1915,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps/show/{tapUuid}")
-    public Response findTap(@Context SecurityContext sc,
-                            @PathParam("organizationId") UUID organizationId,
-                            @PathParam("tenantId") UUID tenantId,
-                            @PathParam("tapUuid") UUID tapId) {
+    @Operation(operationId = "findTenantTap", summary = "Get a tap of a tenant for management",
+            description = "Returns the tap with its secret and its location and floor assignment. Requires "
+                    + "organization administrator permissions.", tags = {"Taps"})
+    @ApiResponse(responseCode = "200", description = "Tap found.",
+            content = @Content(schema = @Schema(implementation = TapPermissionDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response findTap(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                            @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1654,10 +1959,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps")
-    public Response createTap(@Context SecurityContext sc,
-                              @PathParam("organizationId") UUID organizationId,
-                              @PathParam("tenantId") UUID tenantId,
-                              @Valid CreateTapRequest req) {
+    @Operation(operationId = "createTap", summary = "Create a tap",
+            description = "Registers a new tap for a tenant and generates its secret. Configure the nzyme-tap "
+                    + "process with that secret to connect the tap. Requires organization administrator "
+                    + "permissions.", tags = {"Taps"})
+    @ApiResponse(responseCode = "201", description = "Tap created.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The tap quota of the tenant is exhausted.", content = @Content)
+    public Response createTap(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                              @RequestBody(description = "Name, description, location, floor and coordinates of the new tap.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTapRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1687,11 +1999,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps/show/{tapUuid}")
-    public Response editTap(@Context SecurityContext sc,
-                            @PathParam("organizationId") UUID organizationId,
-                            @PathParam("tenantId") UUID tenantId,
-                            @PathParam("tapUuid") UUID tapId,
-                            @Valid UpdateTapRequest req) {
+    @Operation(operationId = "updateTap", summary = "Update a tap",
+            description = "Changes name, description, location, floor and coordinates of a tap. Assigning a tap to a "
+                    + "location lets Nzyme group it with the other taps at the same site. Requires organization "
+                    + "administrator permissions.", tags = {"Taps"},
+            externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
+                    url = "https://go.nzyme.org/locations"))
+    @ApiResponse(responseCode = "200", description = "Tap updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response editTap(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                            @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId,
+                            @RequestBody(description = "New name, description, location, floor and coordinates of the tap.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTapRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1720,10 +2040,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps/show/{tapUuid}")
-    public Response deleteTap(@Context SecurityContext sc,
-                              @PathParam("organizationId") UUID organizationId,
-                              @PathParam("tenantId") UUID tenantId,
-                              @PathParam("tapUuid") UUID tapId) {
+    @Operation(operationId = "deleteTap", summary = "Delete a tap",
+            description = "Deletes the tap and removes it from all monitors. Data the tap already reported stays. "
+                    + "Requires organization administrator permissions.", tags = {"Taps"})
+    @ApiResponse(responseCode = "200", description = "Tap deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response deleteTap(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                              @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1746,10 +2071,16 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/taps/show/{tapUuid}/secret/cycle")
-    public Response cycleTapSecret(@Context SecurityContext sc,
-                                   @PathParam("organizationId") UUID organizationId,
-                                   @PathParam("tenantId") UUID tenantId,
-                                   @PathParam("tapUuid") UUID tapId) {
+    @Operation(operationId = "cycleTapSecret", summary = "Cycle the secret of a tap",
+            description = "Generates a new secret for the tap. The tap cannot connect again until you configure the "
+                    + "nzyme-tap process with the new secret. Requires organization administrator permissions.",
+            tags = {"Taps"})
+    @ApiResponse(responseCode = "200", description = "Secret cycled.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response cycleTapSecret(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                   @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -1769,10 +2100,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}")
-    public Response findTenantLocation(@Context SecurityContext sc,
-                                       @PathParam("organizationId") UUID organizationId,
-                                       @PathParam("tenantId") UUID tenantId,
-                                       @PathParam("locationId") UUID locationId) {
+    @Operation(operationId = "findTenantLocation", summary = "Get a location of a tenant",
+            description = "Returns the location with its floor and tap counts. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Location found.",
+            content = @Content(schema = @Schema(implementation = TenantLocationDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response findTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                       @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1811,11 +2149,21 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations")
-    public Response findAllTenantLocations(@Context SecurityContext sc,
-                                           @PathParam("organizationId") UUID organizationId,
-                                           @PathParam("tenantId") UUID tenantId,
-                                           @QueryParam("limit") int limit,
-                                           @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenantLocations", summary = "List locations of a tenant",
+            description = "A location is a site such as a campus or a building. It groups the floors of that site "
+                    + "and the taps placed on them, which makes data easier to read when a tenant has taps spread "
+                    + "over several sites. Requires organization administrator permissions.", tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
+                    url = "https://go.nzyme.org/locations"))
+    @ApiResponse(responseCode = "200", description = "Locations found.",
+            content = @Content(schema = @Schema(implementation = TenantLocationListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
+    public Response findAllTenantLocations(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                           @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1855,10 +2203,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations")
-    public Response createTenantLocation(@Context SecurityContext sc,
-                                         @Valid CreateTenantLocationRequest req,
-                                         @PathParam("organizationId") UUID organizationId,
-                                         @PathParam("tenantId") UUID tenantId) {
+    @Operation(operationId = "createTenantLocation", summary = "Create a location of a tenant",
+            description = "Creates a location for a tenant and invalidates the environment data cache on all "
+                    + "cluster nodes. Assign taps to the location afterwards to make use of it. Requires "
+                    + "organization administrator permissions.", tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
+                    url = "https://go.nzyme.org/locations"))
+    @ApiResponse(responseCode = "201", description = "Location created.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
+    public Response createTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @RequestBody(description = "Name, description and coordinates of the new location.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTenantLocationRequest req,
+                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1889,11 +2246,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}")
-    public Response updateTenantLocation(@Context SecurityContext sc,
-                                         @Valid UpdateTenantLocationRequest req,
-                                         @PathParam("organizationId") UUID organizationId,
-                                         @PathParam("tenantId") UUID tenantId,
-                                         @PathParam("locationId") UUID locationId) {
+    @Operation(operationId = "updateTenantLocation", summary = "Update a location of a tenant",
+            description = "Invalidates the environment data cache on all cluster nodes. Requires organization "
+                    + "administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Location updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response updateTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @RequestBody(description = "New name, description and coordinates of the location.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTenantLocationRequest req,
+                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                         @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1926,16 +2289,23 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                 true
         ));
 
-        return Response.status(Response.Status.CREATED).build();
+        return Response.ok().build();
     }
 
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}")
-    public Response deleteTenantLocation(@Context SecurityContext sc,
-                                         @PathParam("organizationId") UUID organizationId,
-                                         @PathParam("tenantId") UUID tenantId,
-                                         @PathParam("locationId") UUID locationId) {
+    @Operation(operationId = "deleteTenantLocation", summary = "Delete a location of a tenant",
+            description = "A location can only be deleted after all of its floors are gone. Requires organization "
+                    + "administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Location deleted.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The location still has floors and cannot be deleted.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response deleteTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                         @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1969,11 +2339,22 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/environment/alerts/eventing/enabled/{enabled}")
-    public Response setEnvironmentalAlertEventingOfTenantLocation(@Context SecurityContext sc,
-                                                                  @PathParam("organizationId") UUID organizationId,
-                                                                  @PathParam("tenantId") UUID tenantId,
-                                                                  @PathParam("locationId") UUID locationId,
-                                                                  @PathParam("enabled") boolean enabled) {
+    @Operation(operationId = "updateTenantLocationEnvironmentalAlertEventing",
+            summary = "Toggle environmental alert eventing of a location",
+            description = "Controls whether severe environmental alerts of this location raise detection events "
+                    + "and trigger the event actions subscribed to them. Environmental monitoring needs Nzyme "
+                    + "Connect and a location with latitude and longitude. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Environmental monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/environmental-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Setting updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response setEnvironmentalAlertEventingOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                                  @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                                  @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                                                  @Parameter(description = "Set to true to enable eventing, false to disable it.") @PathParam("enabled") boolean enabled) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2004,12 +2385,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors")
-    public Response findAllFloorsOfTenantLocation(@Context SecurityContext sc,
-                                                  @PathParam("organizationId") UUID organizationId,
-                                                  @PathParam("tenantId") UUID tenantId,
-                                                  @PathParam("locationId") UUID locationId,
-                                                  @QueryParam("limit") int limit,
-                                                  @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTenantLocationFloors", summary = "List floors of a location",
+            description = "Returns all floors with the taps placed on them and whether a floor plan has been "
+                    + "uploaded. Requires organization administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floors found.",
+            content = @Content(schema = @Schema(implementation = TenantLocationFloorListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response findAllFloorsOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                  @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                  @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2061,11 +2449,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}")
-    public Response findFloorOfTenantLocation(@Context SecurityContext sc,
-                                              @PathParam("organizationId") UUID organizationId,
-                                              @PathParam("tenantId") UUID tenantId,
-                                              @PathParam("locationId") UUID locationId,
-                                              @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "findTenantLocationFloor", summary = "Get a floor of a location",
+            description = "Returns the floor with the taps placed on it. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floor found.",
+            content = @Content(schema = @Schema(implementation = TenantLocationFloorDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
+    public Response findFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                              @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                              @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                              @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2119,11 +2514,21 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors")
-    public Response createFloorOfTenantLocation(@Context SecurityContext sc,
-                                                @Valid CreateFloorOfTenantLocationRequest req,
-                                                @PathParam("organizationId") UUID organizationId,
-                                                @PathParam("tenantId") UUID tenantId,
-                                                @PathParam("locationId") UUID locationId) {
+    @Operation(operationId = "createTenantLocationFloor", summary = "Create a floor of a location",
+            description = "The floor number must be unique within the location. The path loss exponent describes "
+                    + "how quickly signal strength drops on this floor and is used for trilateration. It is rounded "
+                    + "to one decimal. Requires organization administrator permissions.", tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Trilateration in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-trilateration"))
+    @ApiResponse(responseCode = "201", description = "Floor created.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found, or the location already has a floor with that number.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
+    public Response createFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @RequestBody(description = "Number, name and path loss exponent of the new floor.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateFloorOfTenantLocationRequest req,
+                                                @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2161,12 +2566,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}")
-    public Response updateFloorOfTenantLocation(@Context SecurityContext sc,
-                                                @Valid UpdateFloorOfTenantLocationRequest req,
-                                                @PathParam("organizationId") UUID organizationId,
-                                                @PathParam("tenantId") UUID tenantId,
-                                                @PathParam("locationId") UUID locationId,
-                                                @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "updateTenantLocationFloor", summary = "Update a floor of a location",
+            description = "The floor number must stay unique within the location. Requires organization "
+                    + "administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floor updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found, or the location already has a floor with that number.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
+    public Response updateFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @RequestBody(description = "New number, name and path loss exponent of the floor.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateFloorOfTenantLocationRequest req,
+                                                @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                                @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2216,12 +2628,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}")
-    public Response deleteFloorOfTenantLocation(@Context SecurityContext sc,
-                                                @Valid UpdateFloorOfTenantLocationRequest req,
-                                                @PathParam("organizationId") UUID organizationId,
-                                                @PathParam("tenantId") UUID tenantId,
-                                                @PathParam("locationId") UUID locationId,
-                                                @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "deleteTenantLocationFloor", summary = "Delete a floor of a location",
+            description = "All taps placed on the floor are removed from it first. Requires organization "
+                    + "administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floor deleted.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                                @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2265,11 +2682,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan")
-    public Response findFloorPlan(@Context SecurityContext sc,
-                                  @PathParam("organizationId") UUID organizationId,
-                                  @PathParam("tenantId") UUID tenantId,
-                                  @PathParam("locationId") UUID locationId,
-                                  @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "findTenantLocationFloorPlan", summary = "Get the floor plan of a floor",
+            description = "Returns the floor plan image Base64 encoded, with its pixel dimensions and its real "
+                    + "world width and length in meters. Requires organization administrator permissions.",
+            tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floor plan found.",
+            content = @Content(schema = @Schema(implementation = FloorPlanResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, no floor plan has been uploaded, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The stored floor plan image could not be read.", content = @Content)
+    public Response findFloorPlan(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                  @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                  @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2320,14 +2746,32 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan")
-    public Response uploadFloorPlan(@Context SecurityContext sc,
-                                    @FormDataParam("plan") InputStream planFile,
-                                    @FormDataParam("width_meters") int widthMeters,
-                                    @FormDataParam("length_meters") int lengthMeters,
-                                    @PathParam("organizationId") UUID organizationId,
-                                    @PathParam("tenantId") UUID tenantId,
-                                    @PathParam("locationId") UUID locationId,
-                                    @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "uploadTenantLocationFloorPlan", summary = "Upload a floor plan",
+            description = "Takes a JPG or PNG file of up to 5MB as multipart form data and converts it to PNG. "
+                    + "Pass the real world width and length of the floor in meters so Nzyme can translate pixels "
+                    + "into distances. A floor plan with taps placed on it is what enables trilateration for the "
+                    + "subsystems that support it. Requires organization administrator permissions.",
+            tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Trilateration in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-trilateration"))
+    @ApiResponse(responseCode = "201", description = "Floor plan uploaded.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The dimensions are not positive, or the file is empty, too large or not a readable JPG or PNG file.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The uploaded file could not be read.", content = @Content)
+    @RequestBody(description = "Multipart form with the floor plan image file.", required = true,
+            content = @Content(mediaType = "multipart/form-data",
+                    schemaProperties = @SchemaProperty(name = "plan",
+                            schema = @Schema(type = "string", format = "binary", description = "The file to upload."))))
+    public Response uploadFloorPlan(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(hidden = true) @FormDataParam("plan") InputStream planFile,
+                                    @Parameter(hidden = true) @FormDataParam("width_meters") int widthMeters,
+                                    @Parameter(hidden = true) @FormDataParam("length_meters") int lengthMeters,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                    @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                    @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (widthMeters <= 0 || lengthMeters <= 0) {
@@ -2419,11 +2863,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan")
-    public Response deleteFloorPlan(@Context SecurityContext sc,
-                                    @PathParam("organizationId") UUID organizationId,
-                                    @PathParam("tenantId") UUID tenantId,
-                                    @PathParam("locationId") UUID locationId,
-                                    @PathParam("floorId") UUID floorId) {
+    @Operation(operationId = "deleteTenantLocationFloorPlan", summary = "Delete the floor plan of a floor",
+            description = "All taps placed on the floor are removed from it. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Floor plan deleted.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFloorPlan(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                    @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                    @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2464,13 +2914,22 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan/taps/show/{tapId}/coords")
-    public Response placeTapOnFloor(@Context SecurityContext sc,
-                                    @Valid PlaceTapRequest req,
-                                    @PathParam("organizationId") UUID organizationId,
-                                    @PathParam("tenantId") UUID tenantId,
-                                    @PathParam("locationId") UUID locationId,
-                                    @PathParam("floorId") UUID floorId,
-                                    @PathParam("tapId") UUID tapId) {
+    @Operation(operationId = "placeTapOnFloor", summary = "Place a tap on a floor plan",
+            description = "Sets the pixel coordinates of the tap on the floor plan. Nzyme uses the positions of the "
+                    + "taps on a floor to trilaterate the position of signal sources. Requires organization "
+                    + "administrator permissions.", tags = {"Locations"},
+            externalDocs = @ExternalDocumentation(description = "Trilateration in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-trilateration"))
+    @ApiResponse(responseCode = "200", description = "Tap placed on the floor.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location, floor or tap not found, or not accessible by the calling user.", content = @Content)
+    public Response placeTapOnFloor(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @RequestBody(description = "Pixel coordinates of the tap on the floor plan.", required = true, content = @Content(mediaType = "application/json")) @Valid PlaceTapRequest req,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                    @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                    @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId,
+                                    @Parameter(description = "Tap UUID.") @PathParam("tapId") UUID tapId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2512,12 +2971,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan/taps/show/{tapId}")
-    public Response deleteTapFromFloor(@Context SecurityContext sc,
-                                    @PathParam("organizationId") UUID organizationId,
-                                    @PathParam("tenantId") UUID tenantId,
-                                    @PathParam("locationId") UUID locationId,
-                                    @PathParam("floorId") UUID floorId,
-                                    @PathParam("tapId") UUID tapId) {
+    @Operation(operationId = "removeTapFromFloor", summary = "Remove a tap from a floor plan",
+            description = "Requires organization administrator permissions.", tags = {"Locations"})
+    @ApiResponse(responseCode = "200", description = "Tap removed from the floor.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Location, floor or tap not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteTapFromFloor(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                    @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
+                                    @Parameter(description = "Floor UUID.") @PathParam("floorId") UUID floorId,
+                                    @Parameter(description = "Tap UUID.") @PathParam("tapId") UUID tapId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -2559,10 +3023,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/events/actions")
-    public Response findAllEventActionsOfOrganization(@Context SecurityContext sc,
-                                                      @PathParam("organizationId") UUID organizationId,
-                                                      @QueryParam("limit") int limit,
-                                                      @QueryParam("offset") int offset) {
+    @Operation(operationId = "findOrganizationEventActions", summary = "List event actions of an organization",
+            description = "Returns all event actions of an organization with the system event types and detection "
+                    + "types each action is subscribed to. Actions created in an organization can be subscribed to "
+                    + "detection events and to the system events of that organization. Requires organization "
+                    + "administrator permissions.", tags = {"Event Actions"},
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Event actions found.",
+            content = @Content(schema = @Schema(implementation = EventActionsListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
+    public Response findAllEventActionsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                      @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                      @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                      @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationExists(organizationId)) {
@@ -2596,9 +3070,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/events/actions/show/{actionId}")
-    public Response findEventActionOfOrganization(@Context SecurityContext sc,
-                                                  @PathParam("organizationId") UUID organizationId,
-                                                  @PathParam("actionId") UUID actionId) {
+    @Operation(operationId = "findOrganizationEventAction", summary = "Get an event action of an organization",
+            description = "Returns the event action with the system event types and detection types it is "
+                    + "subscribed to. Requires organization administrator permissions.", tags = {"Event Actions"})
+    @ApiResponse(responseCode = "200", description = "Event action found.",
+            content = @Content(schema = @Schema(implementation = EventActionDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or event action not found, or not accessible by the calling user.", content = @Content)
+    public Response findEventActionOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                  @Parameter(description = "Event action UUID.") @PathParam("actionId") UUID actionId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationExists(organizationId)) {
@@ -2631,6 +3111,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/global/configuration")
+    @Operation(operationId = "findGlobalAuthenticationConfiguration",
+            summary = "Get global authentication configuration",
+            description = "Returns the session, session inactivity and multi-factor authentication timeouts that "
+                    + "apply to super administrators. Requires super administrator permissions.", tags = {"System"})
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = SuperadminSettingsResponse.class)))
     public Response getGlobalSuperAdministratorConfiguration() {
 
         int sessionTimeoutMinutes = Integer.parseInt(nzyme.getDatabaseCoreRegistry()
@@ -2684,7 +3170,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/global/configuration")
-    public Response setGlobalSuperAdministratorConfiguration(@Valid SuperadminSettingsUpdateRequest ur) {
+    @Operation(operationId = "updateGlobalAuthenticationConfiguration",
+            summary = "Update global authentication configuration",
+            description = "Requires super administrator permissions.", tags = {"System"})
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "A configuration value failed validation.", content = @Content)
+    public Response setGlobalSuperAdministratorConfiguration(@RequestBody(description = "Map of authentication configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @Valid SuperadminSettingsUpdateRequest ur) {
         for (Map.Entry<String, Object> c : ur.change().entrySet()) {
             switch (c.getKey()) {
                 case "session_timeout_minutes":
@@ -2713,7 +3204,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins")
-    public Response findAllSuperAdministrators(@QueryParam("limit") int limit, @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSuperAdministrators", summary = "List super administrators",
+            description = "The page size is limited to 250. Requires super administrator permissions.",
+            tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Super administrators found.",
+            content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
+    public Response findAllSuperAdministrators(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -2736,7 +3233,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{id}")
-    public Response findSuperAdministrator(@Context SecurityContext sc, @PathParam("id") UUID userId) {
+    @Operation(operationId = "findSuperAdministrator", summary = "Get a super administrator",
+            description = "Returns the super administrator with the API keys they own. The last remaining super "
+                    + "administrator and the calling user themselves are reported as not deletable. Requires super "
+                    + "administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Super administrator found.",
+            content = @Content(schema = @Schema(implementation = SuperAdministratorDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
+    public Response findSuperAdministrator(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser sessionUser = getAuthenticatedUser(sc);
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
 
@@ -2773,7 +3277,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins")
     @SessionOnly
-    public Response createSuperAdministrator(@Valid CreateUserRequest req) {
+    @Operation(operationId = "createSuperAdministrator", summary = "Create a super administrator",
+            description = "The email address must be unique across the whole installation and the password must be "
+                    + "between 12 and 128 characters long. Records a system event. Requires super administrator "
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "201", description = "Super administrator created.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public Response createSuperAdministrator(@RequestBody(description = "Name, email address, password and MFA setting of the new super administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
         if (!validateCreateUserRequest(req)) {
             LOG.info("Invalid parameters in create user request.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -2809,8 +3320,16 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{userId}")
-    public Response editSuperAdministrator(@PathParam("userId") UUID userId,
-                                           @Valid UpdateUserRequest req) {
+    @Operation(operationId = "updateSuperAdministrator", summary = "Update a super administrator",
+            description = "Changes name, email address and the multi-factor authentication requirement. Turning "
+                    + "multi-factor authentication off records a system event. Requires super administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Super administrator updated.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
+    public Response editSuperAdministrator(@Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                           @RequestBody(description = "New name, email address and MFA setting of the super administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
 
         if (superAdmin.isEmpty()) {
@@ -2853,9 +3372,16 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{userId}/password")
     @SessionOnly
-    public Response editSuperAdministratorPassword(@Context SecurityContext sc,
-                                                   @PathParam("userId") UUID userId,
-                                                   UpdatePasswordRequest req) {
+    @Operation(operationId = "updateSuperAdministratorPassword", summary = "Set password of a super administrator",
+            description = "All sessions of the super administrator are invalidated and a system event is recorded. "
+                    + "The password must be between 12 and 128 characters long. Requires super administrator "
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Password changed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The password failed validation.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
+    public Response editSuperAdministratorPassword(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                   @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
+                                                   @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
 
@@ -2893,7 +3419,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{id}")
-    public Response deleteSuperAdministrator(@Context SecurityContext sc, @PathParam("id") UUID userId) {
+    @Operation(operationId = "deleteSuperAdministrator", summary = "Delete a super administrator",
+            description = "Super administrators cannot delete themselves and the last remaining super "
+                    + "administrator cannot be deleted. Records a system event. Requires super administrator "
+                    + "permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Super administrator deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The calling user tried to delete themselves or the last remaining super administrator.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
+    public Response deleteSuperAdministrator(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser sessionUser = getAuthenticatedUser(sc);
 
         if (sessionUser.getUserId().equals(userId)) {
@@ -2928,7 +3461,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{id}/mfa/reset")
     @SessionOnly
-    public Response resetSuperAdministratorMFA(@Context SecurityContext sc, @PathParam("id") UUID userId) {
+    @Operation(operationId = "resetSuperAdministratorMfa", summary = "Reset MFA of a super administrator",
+            description = "Removes the multi-factor authentication credentials so the super administrator can "
+                    + "enroll a new method on their next login. Records a system event. Requires super "
+                    + "administrator permissions. Requires an interactive session; API keys are rejected.",
+            tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "MFA credentials reset.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
+    public Response resetSuperAdministratorMFA(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "User UUID.") @PathParam("id") UUID userId) {
         AuthenticatedUser sessionUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
@@ -2955,6 +3495,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/permissions/all")
+    @Operation(operationId = "findPermissions", summary = "List all assignable feature permissions",
+            description = "Returns every feature permission with its id, name, description and whether it respects "
+                    + "the tap scope of a user. Use these ids when you set the permissions of a user. Requires "
+                    + "organization administrator permissions.", tags = {"Users"})
+    @ApiResponse(responseCode = "200", description = "Permissions found.",
+            content = @Content(schema = @Schema(implementation = PermissionListResponse.class)))
     public Response getAllPermissions() {
         List<PermissionDetailsResponse> permissions = Lists.newArrayList();
 

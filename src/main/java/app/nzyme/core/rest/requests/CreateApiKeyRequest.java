@@ -3,10 +3,12 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
+@Schema(description = "Body for creating an API key.")
 @AutoValue
 public abstract class CreateApiKeyRequest {
 
@@ -17,7 +19,9 @@ public abstract class CreateApiKeyRequest {
     public abstract Integer expiryDays();
 
     @JsonCreator
-    public static CreateApiKeyRequest create(@JsonProperty("name") String name,
+    public static CreateApiKeyRequest create(@Schema(description = "Name of the API key.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                             @JsonProperty("name") String name,
+                                             @Schema(description = "Number of days until the key expires. Omit for a key that never expires. Minimum is 1.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                              @JsonProperty("expiry_days") Integer expiryDays) {
         return builder()
                 .name(name)

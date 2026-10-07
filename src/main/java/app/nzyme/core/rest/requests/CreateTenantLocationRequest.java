@@ -3,11 +3,13 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for creating a location of a tenant.")
 @AutoValue
 public abstract class CreateTenantLocationRequest {
 
@@ -26,9 +28,13 @@ public abstract class CreateTenantLocationRequest {
     public abstract Double longitude();
 
     @JsonCreator
-    public static CreateTenantLocationRequest create(@JsonProperty("name") String name,
+    public static CreateTenantLocationRequest create(@Schema(description = "Name of the location.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                     @JsonProperty("name") String name,
+                                                     @Schema(description = "Description of the location.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                      @JsonProperty("description") String description,
+                                                     @Schema(description = "Latitude of the location in decimal degrees. Between -90 and 90.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                      @JsonProperty("latitude") Double latitude,
+                                                     @Schema(description = "Longitude of the location in decimal degrees. Between -180 and 180.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                      @JsonProperty("longitude") Double longitude) {
         return builder()
                 .name(name)

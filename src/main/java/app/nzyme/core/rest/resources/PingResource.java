@@ -20,6 +20,11 @@ package app.nzyme.core.rest.resources;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.branding.BrandingRegistryKeys;
 import app.nzyme.core.rest.responses.system.PingResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -30,6 +35,7 @@ import jakarta.ws.rs.core.Response;
 
 @Path("/api/ping")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Ping", description = "Unauthenticated liveness check of a Nzyme node.")
 public class PingResource {
 
     /*
@@ -40,6 +46,12 @@ public class PingResource {
     private NzymeNode nzyme;
 
     @GET
+    @Operation(operationId = "ping", summary = "Check if the node is alive",
+            description = "Responds as soon as the node is up and the database is reachable. This endpoint requires "
+                    + "no authentication and returns only information needed by the login page, including whether "
+                    + "initial setup is still required and the configured login image.")
+    @ApiResponse(responseCode = "200", description = "The node is alive.",
+            content = @Content(schema = @Schema(implementation = PingResponse.class)))
     public Response ping() {
         String loginImage = nzyme.getDatabaseCoreRegistry()
                 .getValue(BrandingRegistryKeys.LOGIN_IMAGE.key())

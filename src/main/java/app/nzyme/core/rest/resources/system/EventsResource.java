@@ -19,6 +19,14 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import org.apache.logging.log4j.LogManager;
@@ -39,6 +47,11 @@ import java.util.stream.Collectors;
 
 @Path("/api/system/events")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Events", description = "System events record what happened in Nzyme itself, for example a user signing "
+        + "in or an organization being changed. They are either super administrator events, which affect the whole "
+        + "cluster, or organization events. Event actions can be subscribed to every event type.",
+        externalDocs = @ExternalDocumentation(description = "Alerting in the Nzyme documentation",
+                url = "https://go.nzyme.org/alerting"))
 public class EventsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(UserAuthenticatedResource.class);
@@ -48,11 +61,19 @@ public class EventsResource extends UserAuthenticatedResource {
 
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
-    public Response findAllEvents(@Context SecurityContext sc,
-                                  @QueryParam("limit") int limit,
-                                  @QueryParam("offset") int offset,
-                                  @QueryParam("event_types")String eventTypes,
-                                  @QueryParam("organization_id") @Nullable UUID organizationId) {
+    @Operation(operationId = "findEvents", summary = "List events",
+            description = "Returns recorded events, newest first. You have to pass at least one event type: an empty "
+                    + "event_types parameter returns an empty list. Omit organization_id as a super administrator to "
+                    + "get the events of all organizations. The total count in the response counts the events that "
+                    + "match the event type filter. Requires organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Events found.",
+            content = @Content(schema = @Schema(implementation = EventsListResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The requested organization is not administered by the calling user.", content = @Content)
+    public Response findAllEvents(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                  @Parameter(description = "Comma separated list of event type names to include. An empty value returns no events.") @QueryParam("event_types")String eventTypes,
+                                  @Parameter(description = "Organization UUID. Super administrators can omit this to query all organizations.") @QueryParam("organization_id") @Nullable UUID organizationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (Strings.isNullOrEmpty(eventTypes)) {
@@ -73,12 +94,12 @@ public class EventsResource extends UserAuthenticatedResource {
         if (organizationId == null) {
             // Superadmin.
             events = ((EventEngineImpl) nzyme.getEventEngine()).findAllEventsOfAllOrganizations(types, limit, offset);
-            totalEvents = ((EventEngineImpl) nzyme.getEventEngine()).countAllEventsOfAllOrganizations();
+            totalEvents = ((EventEngineImpl) nzyme.getEventEngine()).countAllEventsOfAllOrganizations(types);
         } else {
             // Organization admin.
             events = ((EventEngineImpl) nzyme.getEventEngine())
                     .findAllEventsOfOrganization(types, organizationId, limit, offset);
-            totalEvents = ((EventEngineImpl) nzyme.getEventEngine()).countAllEventsOfOrganization(organizationId);
+            totalEvents = ((EventEngineImpl) nzyme.getEventEngine()).countAllEventsOfOrganization(types, organizationId);
         }
 
         List<EventDetailsResponse> result = Lists.newArrayList();
@@ -98,11 +119,20 @@ public class EventsResource extends UserAuthenticatedResource {
     @GET
     @Path("/types")
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
-    public Response findAllEventTypes(@Context SecurityContext sc,
-                                      @QueryParam("limit") int limit,
-                                      @QueryParam("offset") int offset,
-                                      @QueryParam("categories") String eventCategories,
-                                      @QueryParam("organization_id") @Nullable UUID organizationId) {
+    @Operation(operationId = "findEventTypes", summary = "List event types and their subscriptions",
+            description = "Returns the available event types with the event actions subscribed to each of them. You "
+                    + "have to pass at least one category: an empty categories parameter returns an empty list. "
+                    + "Passing organization_id returns the organization scoped types, omitting it returns the "
+                    + "remaining types and is reserved for super administrators. Requires organization administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Event types found.",
+            content = @Content(schema = @Schema(implementation = EventTypesListResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The requested organization is not administered by the calling user.", content = @Content)
+    public Response findAllEventTypes(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                      @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                      @Parameter(description = "Comma separated list of event category names to include. An empty value returns no event types.") @QueryParam("categories") String eventCategories,
+                                      @Parameter(description = "Organization UUID. Super administrators can omit this to query the types that are not organization scoped.") @QueryParam("organization_id") @Nullable UUID organizationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Org admins can only request data for own org. (types are always the same, but subs are not)
@@ -169,9 +199,16 @@ public class EventsResource extends UserAuthenticatedResource {
     @GET
     @Path("/types/system/show/{eventTypeName}")
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
-    public Response findSystemEventType(@Context SecurityContext sc,
-                                        @PathParam("eventTypeName") @NotEmpty String eventTypeName,
-                                        @QueryParam("organization_id") @Nullable UUID organizationId) {
+    @Operation(operationId = "findSystemEventType", summary = "Get a system event type",
+            description = "Returns the description of a system event type and the event actions subscribed to it. "
+                    + "Requires organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Event type found.",
+            content = @Content(schema = @Schema(implementation = SystemEventTypeDetailsResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The requested organization is not administered by the calling user, or the event type is not organization scoped.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Event type not found.", content = @Content)
+    public Response findSystemEventType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "System event type name.") @PathParam("eventTypeName") @NotEmpty String eventTypeName,
+                                        @Parameter(description = "Organization UUID. Super administrators can omit this for the types that are not organization scoped.") @QueryParam("organization_id") @Nullable UUID organizationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Org admins can only request data for own org. (types are always the same, but subs are not)
@@ -213,8 +250,21 @@ public class EventsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/types/system/show/{eventTypeName}/subscriptions")
-    public Response subscribeActionToSystemEvent(@Context SecurityContext sc,
-                                                 @PathParam("eventTypeName") @NotEmpty String eventTypeName,
+    @Operation(operationId = "createSystemEventSubscription", summary = "Subscribe an action to a system event type",
+            description = "The action runs every time the event type fires. An action can only be subscribed once per "
+                    + "event type, but the same action can be subscribed to as many event types as you want. "
+                    + "Organization administrators can only subscribe actions of their own organization and only to "
+                    + "organization scoped event types. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Action subscribed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The action is already subscribed to this event type.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The event type or the event action is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Event type or event action not found.", content = @Content)
+    public Response subscribeActionToSystemEvent(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                 @Parameter(description = "System event type name.") @PathParam("eventTypeName") @NotEmpty String eventTypeName,
+                                                 @RequestBody(description = "UUID of the event action to subscribe and the organization it belongs to.", required = true, content = @Content(mediaType = "application/json"))
                                                  @Valid SystemEventSubscriptionRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -270,9 +320,15 @@ public class EventsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/types/system/show/{eventTypeName}/subscriptions/show/{subscriptionId}")
-    public Response unsubscribeActionFromSystemEvent(@Context SecurityContext sc,
-                                                     @PathParam("eventTypeName") @NotEmpty String eventTypeName,
-                                                     @PathParam("subscriptionId") UUID subscriptionId) {
+    @Operation(operationId = "deleteSystemEventSubscription", summary = "Unsubscribe an action from a system event type",
+            description = "Deletes the subscription. The event action itself is kept. Requires organization "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Action unsubscribed.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subscribed event action belongs to another organization.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Subscription or event action not found.", content = @Content)
+    public Response unsubscribeActionFromSystemEvent(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "System event type name.") @PathParam("eventTypeName") @NotEmpty String eventTypeName,
+                                                     @Parameter(description = "Subscription UUID.") @PathParam("subscriptionId") UUID subscriptionId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());

@@ -3,10 +3,12 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
+@Schema(description = "Body for updating a webhook event action.")
 @AutoValue
 public abstract class UpdateWebhookEventActionRequest {
 
@@ -26,10 +28,15 @@ public abstract class UpdateWebhookEventActionRequest {
     public abstract String bearerToken();
 
     @JsonCreator
-    public static UpdateWebhookEventActionRequest create(@JsonProperty("name") String name,
+    public static UpdateWebhookEventActionRequest create(@Schema(description = "New name of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                         @JsonProperty("name") String name,
+                                                         @Schema(description = "New description of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                          @JsonProperty("description") String description,
+                                                         @Schema(description = "HTTP or HTTPS URL that Nzyme posts the event to.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                          @JsonProperty("url") String url,
+                                                         @Schema(description = "Set to true to accept invalid or untrusted TLS certificates.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                          @JsonProperty("allow_insecure") boolean allowInsecure,
+                                                         @Schema(description = "Bearer token sent in the Authorization header. Omit for no authentication.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                          @JsonProperty("bearer_token") String bearerToken) {
         return builder()
                 .name(name)

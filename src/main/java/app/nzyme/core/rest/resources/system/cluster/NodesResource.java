@@ -22,6 +22,13 @@ import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
@@ -38,6 +45,8 @@ import java.util.UUID;
 @Path("/api/system/cluster/nodes")
 @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Cluster", description = "A cluster consists of one or more Nzyme nodes that share a database. These "
+        + "endpoints expose the nodes, the message bus and the tasks queue that connect them.")
 public class NodesResource {
 
     private static final Logger LOG = LogManager.getLogger(NodesResource.class);
@@ -46,6 +55,12 @@ public class NodesResource {
     private NzymeNode nzyme;
 
     @GET
+    @Operation(operationId = "findNodes", summary = "List cluster nodes",
+            description = "Returns all nodes of the cluster with their most recent metrics and TLS certificate "
+                    + "information. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Nodes found.",
+            content = @Content(schema = @Schema(implementation = NodesListResponse.class)))
+    @ApiResponse(responseCode = "500", description = "A node has no TLS certificate on record.", content = @Content)
     public Response findAll() {
         List<NodeResponse> nodes = Lists.newArrayList();
         for (Node node : nzyme.getNodeManager().getNodes()) {
@@ -63,7 +78,15 @@ public class NodesResource {
 
     @GET
     @Path("/show/{uuid}")
-    public Response findOne(@PathParam("uuid") String uuid) {
+    @Operation(operationId = "findNode", summary = "Get details of a cluster node",
+            description = "Returns the configuration, process information and most recent metrics of a single node. "
+                    + "Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Node found.",
+            content = @Content(schema = @Schema(implementation = NodeResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The node ID is not a valid UUID.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Node not found.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The node has no TLS certificate on record.", content = @Content)
+    public Response findOne(@Parameter(description = "Node UUID.") @PathParam("uuid") String uuid) {
         UUID nodeId;
 
         try {
@@ -89,7 +112,13 @@ public class NodesResource {
 
     @DELETE
     @Path("/show/{uuid}")
-    public Response deleteNode(@PathParam("uuid") String uuid) {
+    @Operation(operationId = "deleteNode", summary = "Delete a cluster node",
+            description = "Removes a node from the cluster. A node that is still running will register itself again "
+                    + "with its next report. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Node deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The node ID is not a valid UUID.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Node not found.", content = @Content)
+    public Response deleteNode(@Parameter(description = "Node UUID.") @PathParam("uuid") String uuid) {
         UUID nodeId;
 
         try {
@@ -111,7 +140,15 @@ public class NodesResource {
 
     @GET
     @Path("/show/{uuid}/metrics/gauges/{metricname}/histogram")
-    public Response findMetricsGaugeHistogram(@PathParam("uuid") String uuid, @PathParam("metricname") String n) {
+    @Operation(operationId = "findNodeGaugeHistogram", summary = "Get 24 hour histogram of a node gauge metric",
+            description = "Buckets are one minute wide and ordered oldest first. Requires super administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NodeMetricsGaugeHistogramResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The node ID is not a valid UUID, or the metric name is unknown.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "The node has not reported this metric.", content = @Content)
+    public Response findMetricsGaugeHistogram(@Parameter(description = "Node UUID.") @PathParam("uuid") String uuid,
+                                              @Parameter(description = "Metric name as reported by the node.") @PathParam("metricname") String n) {
         MetricExternalName metricName;
         UUID nodeId;
 
@@ -149,6 +186,13 @@ public class NodesResource {
 
     @GET
     @Path("/configuration")
+    @Operation(operationId = "findNodesConfiguration", summary = "Get cluster node configuration",
+            description = "Returns the configuration that applies to all nodes of the cluster, including the current "
+                    + "value, the default value and the validation constraints of every setting. This is currently "
+                    + "only the regular expression that marks nodes with a matching name as ephemeral. Requires super "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = NodesConfigurationResponse.class)))
     public Response configuration() {
         String ephemeralNodesRegexValue = nzyme.getDatabaseCoreRegistry().getValue(NodeRegistryKeys.EPHEMERAL_NODES_REGEX.key())
                 .orElse(null);
@@ -169,7 +213,14 @@ public class NodesResource {
 
     @PUT
     @Path("/configuration")
-    public Response update(NodesConfigurationUpdateRequest ur) {
+    @Operation(operationId = "updateNodesConfiguration", summary = "Update cluster node configuration",
+            description = "Each submitted value is validated against the constraints of its configuration key before "
+                    + "it is stored. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No changes were submitted, a value failed validation, or an "
+            + "unknown configuration key was submitted.", content = @Content)
+    public Response update(@RequestBody(description = "Configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json"))
+                           NodesConfigurationUpdateRequest ur) {
         if (ur.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();

@@ -3,6 +3,7 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -11,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.UUID;
 
+@Schema(description = "Body for creating a monitor.")
 @AutoValue
 public abstract class CreateMonitorRequest {
 
@@ -42,14 +44,23 @@ public abstract class CreateMonitorRequest {
     public abstract UUID tenantId();
 
     @JsonCreator
-    public static CreateMonitorRequest create(@JsonProperty("name") String name,
+    public static CreateMonitorRequest create(@Schema(description = "Name of the monitor.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                              @JsonProperty("name") String name,
+                                              @Schema(description = "Description of the monitor.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("description") String description,
+                                              @Schema(description = "Tap UUIDs the monitor runs against. Omit for all taps the calling user can access.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("taps") List<String> taps,
+                                              @Schema(description = "Number of matching results that triggers the monitor. Minimum is 0.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("trigger_condition") Integer triggerCondition,
+                                              @Schema(description = "How often the monitor runs, in minutes. Minimum is 1.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("interval") Integer interval,
+                                              @Schema(description = "How far back the monitor looks on each run, in minutes. Minimum is 1.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("lookback") Integer lookback,
+                                              @Schema(description = "JSON encoded filter definition as produced by the web interface filter builder.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("filters") String filters,
+                                              @Schema(description = "Organization UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("organization_id") UUID organizationId,
+                                              @Schema(description = "Tenant UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("tenant_id") UUID tenantId) {
         return builder()
                 .name(name)

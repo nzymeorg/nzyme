@@ -3,11 +3,13 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
+@Schema(description = "Body for creating a custom bandit of a tenant.")
 @AutoValue
 public abstract class CreateCustomBanditRequest {
 
@@ -24,9 +26,13 @@ public abstract class CreateCustomBanditRequest {
     public abstract String description();
 
     @JsonCreator
-    public static CreateCustomBanditRequest create(@JsonProperty("organization_id") @NotNull UUID organizationId,
+    public static CreateCustomBanditRequest create(@Schema(description = "Organization UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                   @JsonProperty("organization_id") @NotNull UUID organizationId,
+                                                   @Schema(description = "Tenant UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                    @JsonProperty("tenant_id") @NotNull UUID tenantId,
+                                                   @Schema(description = "Name of the bandit.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                    @JsonProperty("name")  @NotEmpty String name,
+                                                   @Schema(description = "Description of the bandit.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                    @JsonProperty("description") @NotEmpty String description) {
         return builder()
                 .organizationId(organizationId)

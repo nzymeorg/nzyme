@@ -3,6 +3,7 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.NotEmpty;
 
 import java.util.UUID;
 
+@Schema(description = "Body for creating a syslog event action.")
 @AutoValue
 public abstract class CreateSyslogEventActionRequest {
 
@@ -36,12 +38,19 @@ public abstract class CreateSyslogEventActionRequest {
     public abstract int port();
 
     @JsonCreator
-    public static CreateSyslogEventActionRequest create(@JsonProperty("organization_id") UUID organizationId,
+    public static CreateSyslogEventActionRequest create(@Schema(description = "Organization UUID. Omit for an action that is available to all organizations.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                                        @JsonProperty("organization_id") UUID organizationId,
+                                                        @Schema(description = "Name of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("name") String name,
+                                                        @Schema(description = "Description of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("description") String description,
+                                                        @Schema(description = "Syslog protocol to use.", allowableValues = {"UDP_RFC5424"}, requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("protocol") String protocol,
+                                                        @Schema(description = "Hostname Nzyme reports as the source of the syslog messages.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("syslog_hostname") String syslogHostname,
+                                                        @Schema(description = "Hostname or IP address of the syslog receiver.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("host") String host,
+                                                        @Schema(description = "Port of the syslog receiver. Between 1 and 65535.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("port") int port) {
         return builder()
                 .organizationId(organizationId)

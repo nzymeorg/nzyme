@@ -31,6 +31,14 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -50,21 +58,33 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/assets")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Assets", description = "An asset is a device Nzyme detected in the monitored Ethernet traffic, "
+        + "identified by its MAC address. Nzyme builds this inventory passively and uses it to enrich MAC addresses "
+        + "with the hostnames and IP addresses of the asset, its DHCP fingerprints and when it was first and last "
+        + "seen.")
 public class AssetsResource extends TapDataHandlingResource {
 
     @Inject
     private NzymeNode nzyme;
 
     @GET
-    public Response allAssets(@Context SecurityContext sc,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                              @QueryParam("filters") String filtersParameter,
-                              @QueryParam("order_column") @Nullable String orderColumnParam,
-                              @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                              @QueryParam("limit") int limit,
-                              @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAssets", summary = "List assets of a tenant",
+            description = "Returns all assets that were seen in the time range, most recently seen first by "
+                    + "default. Each asset carries its MAC address with OUI and context information, all known "
+                    + "hostnames and IP addresses and its DHCP fingerprints. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Assets found.",
+            content = @Content(schema = @Schema(implementation = AssetSummariesListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allAssets(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                              @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                              @Parameter(description = "Sorting column. Defaults to the time the asset was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                              @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
 
@@ -121,10 +141,17 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/active/histogram")
-    public Response activeAssetHistogram(@Context SecurityContext sc,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("time_range") @Valid String timeRangeParameter) {
+    @Operation(operationId = "findActiveAssetsHistogram", summary = "Get the active asset count histogram",
+            description = "Returns the number of active assets per time bucket. The response is an object that "
+                    + "maps each bucket timestamp to a count. The bucket size is chosen automatically from the "
+                    + "time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response activeAssetHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
@@ -143,13 +170,19 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/latest/histogram")
-    public Response latestAssets(@Context SecurityContext sc,
-                                 @QueryParam("organization_id") UUID organizationId,
-                                 @QueryParam("tenant_id") UUID tenantId,
-                                 @QueryParam("time_range") @Valid String timeRangeParameter,
-                                 @QueryParam("filters") String filtersParameter,
-                                 @QueryParam("limit") int limit,
-                                 @QueryParam("offset") int offset) {
+    @Operation(operationId = "findNewestAssets", summary = "List newly appeared assets",
+            description = "Returns the assets of the tenant ordered by the time they were first seen, newest "
+                    + "first, as a table of MAC address, hostnames and first seen time. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Assets found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response latestAssets(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                 @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
 
@@ -201,13 +234,20 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/disappeared/histogram")
-    public Response recentlyDisappearedAssets(@Context SecurityContext sc,
-                                              @QueryParam("organization_id") UUID organizationId,
-                                              @QueryParam("tenant_id") UUID tenantId,
-                                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                                              @QueryParam("filters") String filtersParameter,
-                                              @QueryParam("limit") int limit,
-                                              @QueryParam("offset") int offset) {
+    @Operation(operationId = "findDisappearedAssets", summary = "List recently disappeared assets",
+            description = "Returns the assets that are no longer active, ordered by the time they were last seen, "
+                    + "most recent first, as a table of MAC address, hostnames and last seen time. Results are "
+                    + "paginated.")
+    @ApiResponse(responseCode = "200", description = "Assets found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response recentlyDisappearedAssets(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                              @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
 
@@ -258,10 +298,16 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{asset_id}")
-    public Response one(@Context SecurityContext sc,
-                        @PathParam("asset_id") UUID assetId,
-                        @QueryParam("organization_id") UUID organizationId,
-                        @QueryParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findAsset", summary = "Get asset details",
+            description = "Returns one asset with its MAC address, OUI, context name, DHCP fingerprints, which "
+                    + "protocols it was seen with and when it was first and last seen.")
+    @ApiResponse(responseCode = "200", description = "Asset found.",
+            content = @Content(schema = @Schema(implementation = AssetDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response one(@Parameter(hidden = true) @Context SecurityContext sc,
+                        @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -303,15 +349,23 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{asset_id}/hostnames")
-    public Response hostnames(@Context SecurityContext sc,
-                              @PathParam("asset_id") UUID assetId,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                              @QueryParam("order_column") @Nullable String orderColumnParam,
-                              @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                              @QueryParam("limit") int limit,
-                              @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAssetHostnames", summary = "List hostnames of an asset",
+            description = "Returns all hostnames the asset was seen with in the time range, most recently seen "
+                    + "first by default. Each entry names the protocol the hostname was learned from. Results are "
+                    + "paginated.")
+    @ApiResponse(responseCode = "200", description = "Hostnames found.",
+            content = @Content(schema = @Schema(implementation = AssetHostnamesListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response hostnames(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                              @Parameter(description = "Sorting column. Defaults to the time the hostname was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                              @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                              @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                              @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -355,15 +409,23 @@ public class AssetsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{asset_id}/ip_addresses")
-    public Response ipAddresses(@Context SecurityContext sc,
-                                @PathParam("asset_id") UUID assetId,
-                                @QueryParam("organization_id") UUID organizationId,
-                                @QueryParam("tenant_id") UUID tenantId,
-                                @QueryParam("time_range") @Valid String timeRangeParameter,
-                                @QueryParam("order_column") @Nullable String orderColumnParam,
-                                @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                @QueryParam("limit") int limit,
-                                @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAssetIpAddresses", summary = "List IP addresses of an asset",
+            description = "Returns all IP addresses the asset was seen with in the time range, most recently seen "
+                    + "first by default. Each entry names the protocol the address was learned from and the "
+                    + "network context entries the address falls into. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "IP addresses found.",
+            content = @Content(schema = @Schema(implementation = AssetIpAddressesListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response ipAddresses(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                @Parameter(description = "Sorting column. Defaults to the time the address was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -422,11 +484,17 @@ public class AssetsResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/show/{asset_id}/hostnames/{hostname_id}/organization/{organization_id}/tenant/{tenant_id}")
-    public Response deleteHostname(@Context SecurityContext sc,
-                                   @PathParam("asset_id") UUID assetId,
-                                   @PathParam("hostname_id") UUID hostnameId,
-                                   @PathParam("organization_id") UUID organizationId,
-                                   @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "deleteAssetHostname", summary = "Delete a hostname of an asset",
+            description = "Removes one hostname from the asset and invalidates the asset caches on all online "
+                    + "nodes. The hostname comes back if a tap reports it again. Requires the "
+                    + "ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Hostname deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response deleteHostname(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                                   @Parameter(description = "UUID of the hostname entry to delete.") @PathParam("hostname_id") UUID hostnameId,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -447,11 +515,17 @@ public class AssetsResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/show/{asset_id}/ip_addresses/{address_id}/organization/{organization_id}/tenant/{tenant_id}")
-    public Response deleteIpAddress(@Context SecurityContext sc,
-                                    @PathParam("asset_id") UUID assetId,
-                                    @PathParam("address_id") UUID addressId,
-                                    @PathParam("organization_id") UUID organizationId,
-                                    @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "deleteAssetIpAddress", summary = "Delete an IP address of an asset",
+            description = "Removes one IP address from the asset and invalidates the asset caches on all online "
+                    + "nodes. The address comes back if a tap reports it again. Requires the "
+                    + "ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "IP address deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response deleteIpAddress(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                                    @Parameter(description = "UUID of the IP address entry to delete.") @PathParam("address_id") UUID addressId,
+                                    @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -472,9 +546,18 @@ public class AssetsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
-    public Response getConfiguration(@Context SecurityContext sc,
-                                     @PathParam("organization_id") UUID organizationId,
-                                     @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findAssetsConfiguration", summary = "Get the asset configuration of a tenant",
+            description = "Returns the asset settings of the tenant, currently the retention time of asset "
+                    + "statistics in days, which defaults to 365. Requires the ethernet_assets_manage feature "
+                    + "permission.",
+            externalDocs = @ExternalDocumentation(description = "Asset configuration in the Nzyme documentation",
+                    url = "https://go.nzyme.org/assets-config"))
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = AssetsConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -501,9 +584,20 @@ public class AssetsResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
-    public Response setConfiguration(@Context SecurityContext sc,
-                                     @PathParam("organization_id") UUID organizationId,
-                                     @PathParam("tenant_id") UUID tenantId,
+    @Operation(operationId = "updateAssetsConfiguration", summary = "Update the asset configuration of a tenant",
+            description = "Updates the asset settings of the tenant. The only accepted key is "
+                    + "assets_statistics_retention_time_days, the number of days asset statistics are kept. "
+                    + "Requires the ethernet_assets_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Asset configuration in the Nzyme documentation",
+                    url = "https://go.nzyme.org/assets-config"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The change contains a key that is not part of the asset configuration.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change is empty or a value violates the constraints of its configuration key.", content = @Content)
+    public Response setConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                     @RequestBody(description = "Map of configuration keys and their new values, wrapped in a change field.", required = true, content = @Content(mediaType = "application/json"))
                                      @Valid GenericConfigurationUpdateRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();

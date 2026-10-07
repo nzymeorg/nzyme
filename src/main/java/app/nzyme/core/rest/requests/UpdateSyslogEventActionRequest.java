@@ -3,10 +3,12 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for updating a syslog event action.")
 @AutoValue
 public abstract class UpdateSyslogEventActionRequest {
 
@@ -31,11 +33,17 @@ public abstract class UpdateSyslogEventActionRequest {
     public abstract int port();
 
     @JsonCreator
-    public static UpdateSyslogEventActionRequest create(@JsonProperty("name") String name,
+    public static UpdateSyslogEventActionRequest create(@Schema(description = "New name of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                        @JsonProperty("name") String name,
+                                                        @Schema(description = "New description of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("description") String description,
+                                                        @Schema(description = "Syslog protocol to use.", allowableValues = {"UDP_RFC5424"}, requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("protocol") String protocol,
+                                                        @Schema(description = "Hostname Nzyme reports as the source of the syslog messages.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("syslog_hostname") String syslogHostname,
+                                                        @Schema(description = "Hostname or IP address of the syslog receiver.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("host") String host,
+                                                        @Schema(description = "Port of the syslog receiver. Between 1 and 65535.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                         @JsonProperty("port") int port) {
         return builder()
                 .name(name)

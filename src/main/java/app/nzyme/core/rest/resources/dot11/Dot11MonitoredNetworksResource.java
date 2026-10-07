@@ -29,6 +29,15 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import info.debatty.java.stringsimilarity.JaroWinkler;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -46,6 +55,11 @@ import java.util.stream.Collectors;
 
 @Path("/api/dot11/monitoring")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Monitoring", description = "A monitored network describes the expected state of one of your own WiFi "
+        + "networks so that Nzyme can alert on any deviation. This group also covers SSID monitoring, probe request "
+        + "monitoring and the known clients of a monitored network.",
+        externalDocs = @ExternalDocumentation(description = "Network monitoring in the Nzyme documentation",
+                url = "https://go.nzyme.org/wifi-network-monitoring"))
 public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
 
     private static final Logger LOG = LogManager.getLogger(Dot11MonitoredNetworksResource.class);
@@ -56,9 +70,16 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids")
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findMonitoredNetworks", summary = "List monitored networks of a tenant",
+            description = "Returns a summary of every monitored network of a tenant, including whether any enabled "
+                    + "monitor of the network currently has an active alert. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored networks found.",
+            content = @Content(schema = @Schema(implementation = MonitoredSSIDListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc,  organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -160,7 +181,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}")
-    public Response findOne(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findMonitoredNetwork", summary = "Get monitored network details",
+            description = "Returns the full configuration of a monitored network: expected BSSIDs with fingerprints, "
+                    + "channels, security suites, restricted SSID substrings, which monitors are enabled and which "
+                    + "monitors currently have an active alert. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored network found.",
+            content = @Content(schema = @Schema(implementation = MonitoredSSIDDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> allAccessibleTapUUIDs = parseAndValidateTapIds(authenticatedUser, nzyme, "*");
 
@@ -350,7 +379,17 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids")
-    public Response createMonitoredSSID(@Context SecurityContext sc, @Valid CreateDot11MonitoredNetworkRequest req) {
+    @Operation(operationId = "createMonitoredNetwork", summary = "Create a monitored network",
+            description = "Creates a new monitored network for the given SSID in an organization and tenant. The network "
+                    + "starts without any expected BSSIDs, channels or security suites. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Monitored network created.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The calling user cannot create monitored networks in the requested "
+            + "organization or tenant.", content = @Content)
+    public Response createMonitoredSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @RequestBody(description = "SSID, organization UUID and tenant UUID of the new "
+                                                + "monitored network.", required = true, content = @Content(mediaType = "application/json"))
+                                        @Valid CreateDot11MonitoredNetworkRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!authenticatedUser.isSuperAdministrator()) {
@@ -380,7 +419,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}")
-    public Response delete(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteMonitoredNetwork", summary = "Delete a monitored network",
+            description = "Deletes a monitored network together with all of its expected BSSIDs, channels, security "
+                    + "suites and known clients. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored network deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response delete(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> result = nzyme.getDot11().findMonitoredSSID(uuid);
@@ -403,8 +448,16 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/bssids")
-    public Response createMonitoredBSSID(@Context SecurityContext sc,
-                                         @PathParam("uuid") UUID ssidUUID,
+    @Operation(operationId = "createMonitoredNetworkBssid", summary = "Add an expected BSSID to a monitored network",
+            description = "Adds a BSSID, the MAC address of an access point, that is expected to advertise the monitored "
+                    + "network. Nzyme alerts when any other BSSID advertises the SSID of this network. Add the BSSIDs "
+                    + "of all of your own access points. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "BSSID added.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The BSSID is not a valid MAC address or is already monitored for this network.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response createMonitoredBSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID,
+                                         @RequestBody(description = "BSSID to add.", required = true, content = @Content(mediaType = "application/json"))
                                          @Valid CreateDot11MonitoredBSSIDRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -441,9 +494,14 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/bssids/show/{bssid_uuid}")
-    public Response deleteMonitoredBSSID(@Context SecurityContext sc,
-                                         @PathParam("ssid_uuid") UUID ssidUUID,
-                                         @PathParam("bssid_uuid") UUID bssidUUID) {
+    @Operation(operationId = "deleteMonitoredNetworkBssid", summary = "Remove an expected BSSID from a monitored network",
+            description = "Removes the BSSID and all fingerprints monitored for it. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "BSSID removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or BSSID not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteMonitoredBSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID,
+                                         @Parameter(description = "Monitored BSSID UUID.") @PathParam("bssid_uuid") UUID bssidUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -472,7 +530,12 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/bssids")
-    public Response deleteAllMonitoredBSSIDs(@Context SecurityContext sc, @PathParam("ssid_uuid") UUID ssidUUID) {
+    @Operation(operationId = "deleteMonitoredNetworkBssids", summary = "Remove all expected BSSIDs from a monitored network",
+            description = "Removes every BSSID and all of their fingerprints from the monitored network. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "BSSIDs removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteAllMonitoredBSSIDs(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -494,9 +557,20 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/bssids/show/{bssid_uuid}/fingerprints")
-    public Response createMonitoredBSSIDFingerprint(@Context SecurityContext sc,
-                                                    @PathParam("ssid_uuid") UUID ssidUUID,
-                                                    @PathParam("bssid_uuid") UUID bssidUUID,
+    @Operation(operationId = "createMonitoredNetworkBssidFingerprint", summary = "Add an expected fingerprint to a BSSID",
+            description = "Adds a fingerprint that the BSSID is expected to produce. A fingerprint is a 64 character "
+                    + "hash that Nzyme calculates from the tagged parameters of the beacon and probe response frames "
+                    + "of an access point. List every fingerprint an expected BSSID produces, because Nzyme alerts on "
+                    + "any fingerprint that is not listed. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "WiFi fingerprinting in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-fingerprinting"))
+    @ApiResponse(responseCode = "201", description = "Fingerprint added.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The fingerprint is not 64 characters long or is already monitored for this BSSID.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or BSSID not found, or not accessible by the calling user.", content = @Content)
+    public Response createMonitoredBSSIDFingerprint(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID,
+                                                    @Parameter(description = "Monitored BSSID UUID.") @PathParam("bssid_uuid") UUID bssidUUID,
+                                                    @RequestBody(description = "Fingerprint to add.", required = true, content = @Content(mediaType = "application/json"))
                                                     @Valid CreateDot11MonitoredBSSIDFingerprintRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -539,10 +613,14 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/bssids/show/{bssid_uuid}/fingerprints/show/{fingerprint_uuid}")
-    public Response deleteMonitoredBSSIDFingerprint(@Context SecurityContext sc,
-                                                    @PathParam("ssid_uuid") UUID ssidUUID,
-                                                    @PathParam("bssid_uuid") UUID bssidUUID,
-                                                    @PathParam("fingerprint_uuid") UUID fingerprintUUID) {
+    @Operation(operationId = "deleteMonitoredNetworkBssidFingerprint", summary = "Remove an expected fingerprint from a BSSID",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Fingerprint removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or BSSID not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteMonitoredBSSIDFingerprint(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID,
+                                                    @Parameter(description = "Monitored BSSID UUID.") @PathParam("bssid_uuid") UUID bssidUUID,
+                                                    @Parameter(description = "Monitored fingerprint UUID.") @PathParam("fingerprint_uuid") UUID fingerprintUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -571,8 +649,16 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/channels")
-    public Response createMonitoredSSIDChannel(@Context SecurityContext sc,
-                                               @PathParam("uuid") UUID ssidUUID,
+    @Operation(operationId = "createMonitoredNetworkChannel", summary = "Add an expected channel to a monitored network",
+            description = "Adds a frequency, in MHz, on which the monitored network is expected to operate. Nzyme "
+                    + "alerts when the network is advertised on a channel that is not listed. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Channel added.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The frequency does not map to a known WiFi channel or is already monitored for this network.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response createMonitoredSSIDChannel(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID,
+                                               @RequestBody(description = "Frequency in MHz to add.", required = true, content = @Content(mediaType = "application/json"))
                                                @Valid CreateDot11MonitoredChannelRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -608,9 +694,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/channels/show/{channel_uuid}")
-    public Response deleteMonitoredSSIDChannel(@Context SecurityContext sc,
-                                               @PathParam("ssid_uuid") UUID ssidUUID,
-                                               @PathParam("channel_uuid") UUID channelUUID) {
+    @Operation(operationId = "deleteMonitoredNetworkChannel", summary = "Remove an expected channel from a monitored network",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Channel removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteMonitoredSSIDChannel(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID,
+                                               @Parameter(description = "Monitored channel UUID.") @PathParam("channel_uuid") UUID channelUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -633,8 +723,17 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/securitysuites")
-    public Response createMonitoredSSIDSecuritySuite(@Context SecurityContext sc,
-                                                     @PathParam("uuid") UUID ssidUUID,
+    @Operation(operationId = "createMonitoredNetworkSecuritySuite", summary = "Add an expected security suite to a monitored network",
+            description = "Adds a security suite identifier, for example WPA2-PSK-CCMP/CCMP or NONE, that the monitored "
+                    + "network is expected to use. Nzyme alerts when the network is advertised with a suite that is "
+                    + "not listed. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Security suite added.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The security suite is already monitored for this network.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user, or the "
+            + "security suite identifier has an invalid format.", content = @Content)
+    public Response createMonitoredSSIDSecuritySuite(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID,
+                                                     @RequestBody(description = "Security suite identifier to add.", required = true, content = @Content(mediaType = "application/json"))
                                                      @Valid CreateDot11MonitoredSecuritySuiteRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -671,9 +770,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{ssid_uuid}/securitysuites/show/{suite_uuid}")
-    public Response deleteMonitoredSSIDSecuritySuite(@Context SecurityContext sc,
-                                                     @PathParam("ssid_uuid") UUID ssidUUID,
-                                                     @PathParam("suite_uuid") UUID suiteUUID) {
+    @Operation(operationId = "deleteMonitoredNetworkSecuritySuite", summary = "Remove an expected security suite from a monitored network",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Security suite removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteMonitoredSSIDSecuritySuite(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Monitored network UUID.") @PathParam("ssid_uuid") UUID ssidUUID,
+                                                     @Parameter(description = "Monitored security suite UUID.") @PathParam("suite_uuid") UUID suiteUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -696,7 +799,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/enable")
-    public Response enableMonitoredNetwork(@Context SecurityContext sc, @PathParam("uuid") UUID ssidUUID) {
+    @Operation(operationId = "enableMonitoredNetwork", summary = "Enable a monitored network",
+            description = "Enables monitoring of the network. Only enabled networks are evaluated by the detection "
+                    + "engine. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored network enabled.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response enableMonitoredNetwork(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -719,7 +828,12 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/disable")
-    public Response disableMonitoredNetwork(@Context SecurityContext sc, @PathParam("uuid") UUID ssidUUID) {
+    @Operation(operationId = "disableMonitoredNetwork", summary = "Disable a monitored network",
+            description = "Disables monitoring of the network. The configuration is kept and can be enabled again later. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored network disabled.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response disableMonitoredNetwork(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -742,10 +856,19 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/alertenabledstatus/{alert}/set/{status}")
-    public Response setAlertEnabledStatus(@Context SecurityContext sc,
-                                          @PathParam("uuid") UUID ssidUUID,
-                                          @PathParam("alert") @NotEmpty String alert,
-                                          @PathParam("status") boolean status) {
+    @Operation(operationId = "updateMonitoredNetworkAlertStatus", summary = "Enable or disable a monitor of a monitored network",
+            description = "Switches a single monitor type of the network on or off. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitor status updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user, or the "
+            + "monitor type is unknown.", content = @Content)
+    public Response setAlertEnabledStatus(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID,
+                                          @Parameter(description = "Monitor type. One of UNEXPECTED_BSSID, UNEXPECTED_CHANNEL, "
+                                                  + "UNEXPECTED_SECURITY_SUITES, UNEXPECTED_FINGERPRINT, UNEXPECTED_SIGNAL_TRACKS, "
+                                                  + "DISCO_MONITOR, SIMILAR_SSIDS, RESTRICTED_SSID_SUBSTRINGS, CLIENT_MONITORING, "
+                                                  + "CLIENT_EVENTING. Case insensitive.") @PathParam("alert") @NotEmpty String alert,
+                                          @Parameter(description = "New status: true to enable, false to disable.") @PathParam("status") boolean status) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUUID);
@@ -775,7 +898,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/import/data")
-    public Response getImportData(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findMonitoredNetworkImportData", summary = "Get observed data of a monitored network for import",
+            description = "Returns the BSSIDs, fingerprints, channels and security suites that taps the calling user can "
+                    + "access observed for the SSID of the monitored network in the last 24 hours, each flagged with "
+                    + "whether it is already part of the monitored configuration. Use it to prefill an import. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Import data found.",
+            content = @Content(schema = @Schema(implementation = MonitoredNetworkImportDataResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response getImportData(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> allAccessibleTapUUIDs = parseAndValidateTapIds(authenticatedUser, nzyme, "*");
 
@@ -865,8 +996,16 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/import/data")
-    public Response writeImportData(@Context SecurityContext sc,
-                                    @PathParam("uuid") UUID uuid,
+    @Operation(operationId = "importMonitoredNetworkData", summary = "Import observed data into a monitored network",
+            description = "Adds the passed BSSIDs with their fingerprints, channels and security suites to the monitored "
+                    + "network. Entries that are already monitored are skipped, nothing is removed. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Data imported.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response writeImportData(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                    @RequestBody(description = "BSSIDs with fingerprints, channel frequencies and security "
+                                            + "suite identifiers to add.", required = true, content = @Content(mediaType = "application/json"))
                                     @Valid ImportMonitoredNetworkDataRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -940,15 +1079,24 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
             }
         }
 
-        return Response.ok(Response.Status.CREATED).build();
+        return Response.status(Response.Status.CREATED).build();
     }
 
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/similarssids/simulate")
-    public Response simulateSimilarSSIDs(@Context SecurityContext sc,
-                                         @PathParam("uuid") UUID uuid,
-                                         @QueryParam("threshold") int threshold) {
+    @Operation(operationId = "simulateMonitoredNetworkSimilarSsids", summary = "Simulate the similar SSID monitor",
+            description = "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by taps "
+                    + "the calling user can access and returns the similarity of each in percent, together with "
+                    + "whether it would trigger an alert at the given threshold. SSIDs that are themselves monitored "
+                    + "networks of the tenant never trigger an alert. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Similarities calculated.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = SSIDSimilarityResponse.class))))
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response simulateSimilarSSIDs(@Parameter(hidden = true) @Context SecurityContext sc,
+                                         @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                         @Parameter(description = "Similarity threshold in percent, 0 to 100.") @QueryParam("threshold") int threshold) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
@@ -983,8 +1131,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/similarssids")
-    public Response setSimilarSSIDConfiguration(@Context SecurityContext sc,
-                                                @PathParam("uuid") UUID uuid,
+    @Operation(operationId = "updateMonitoredNetworkSimilarSsidConfiguration", summary = "Update similar SSID monitor threshold",
+            description = "Sets the similarity threshold in percent above which an SSID is considered similar looking. "
+                    + "Nzyme alerts when another SSID in range is more similar to the SSID of this monitored network "
+                    + "than the threshold allows. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response setSimilarSSIDConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                                @RequestBody(description = "Threshold in percent, 0 to 100.", required = true, content = @Content(mediaType = "application/json"))
                                                 @Valid UpdateSimilarSSIDNetworkMonitorConfiguration req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -1006,8 +1161,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/restricted-ssid-substrings")
-    public Response addRestrictedSSIDSubstring(@Context SecurityContext sc,
-                                               @PathParam("uuid") UUID uuid,
+    @Operation(operationId = "createMonitoredNetworkRestrictedSsidSubstring", summary = "Add a restricted SSID substring",
+            description = "Adds a substring that other SSIDs must not contain. Nzyme alerts when an SSID that is not "
+                    + "the monitored network contains it. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Restricted SSID substring added.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response addRestrictedSSIDSubstring(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                               @RequestBody(description = "Substring to restrict.", required = true, content = @Content(mediaType = "application/json"))
                                                @Valid CreateDot11MonitoredNetworkRestrictedSSIDSubstringRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -1029,9 +1191,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/restricted-ssid-substrings/show/{substring_uuid}")
-    public Response deleteRestrictedSSIDSubstring(@Context SecurityContext sc,
-                                                  @PathParam("uuid") UUID uuid,
-                                                  @PathParam("substring_uuid") UUID substringUuid) {
+    @Operation(operationId = "deleteMonitoredNetworkRestrictedSsidSubstring", summary = "Remove a restricted SSID substring",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Restricted SSID substring removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteRestrictedSSIDSubstring(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                                  @Parameter(description = "Restricted SSID substring UUID.") @PathParam("substring_uuid") UUID substringUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
@@ -1052,8 +1218,17 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/clients")
-    public Response getClientMonitoringConfiguration(@Context SecurityContext sc,
-                                                     @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findMonitoredNetworkClientMonitoringConfiguration", summary = "Get client monitoring configuration",
+            description = "Returns whether client monitoring and client event generation are enabled for the monitored "
+                    + "network, in the generic configuration entry format used by the web interface. Both are disabled "
+                    + "by default. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Client monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-client-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = ClientMonitoringConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response getClientMonitoringConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
@@ -1103,8 +1278,19 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/clients")
-    public Response setClientMonitoringConfiguration(@Context SecurityContext sc,
-                                                     @PathParam("uuid") UUID uuid,
+    @Operation(operationId = "updateMonitoredNetworkClientMonitoringConfiguration", summary = "Update client monitoring configuration",
+            description = "Accepts the keys monitoring_is_enabled and eventing_is_enabled with boolean values in the "
+                    + "change map. Keys that are not passed stay unchanged. Nzyme only collects known clients while "
+                    + "monitoring is enabled and only creates alerts while event generation is enabled, so you can "
+                    + "use a training period to approve the clients in range first. "
+                    + "Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Client monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-client-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response setClientMonitoringConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                                     @RequestBody(description = "Map of configuration keys to new values.", required = true, content = @Content(mediaType = "application/json"))
                                                      @Valid UpdateConfigurationRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -1146,10 +1332,19 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients")
-    public Response findAllKnownClients(@Context SecurityContext sc,
-                                        @PathParam("uuid") UUID uuid,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findMonitoredNetworkKnownClients", summary = "List known clients of a monitored network",
+            description = "Returns the clients that were seen connected to an expected BSSID of the monitored network, "
+                    + "with their approval and ignore status. Clients that have not been seen for 30 days are deleted "
+                    + "automatically. The page size is limited to 250. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known clients found.",
+            content = @Content(schema = @Schema(implementation = KnownClientsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response findAllKnownClients(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -1204,9 +1399,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/show/{client_uuid}/approve")
-    public Response approveKnownClient(@Context SecurityContext sc,
-                                       @PathParam("uuid") UUID ssidUuid,
-                                       @PathParam("client_uuid") UUID clientUuid) {
+    @Operation(operationId = "approveMonitoredNetworkKnownClient", summary = "Approve a known client",
+            description = "Marks the client as approved. Approved clients do not trigger new unapproved client alerts "
+                    + "and their existing alerts resolve within a few minutes. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Client approved.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or client not found, or not accessible by the calling user.", content = @Content)
+    public Response approveKnownClient(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid,
+                                       @Parameter(description = "Known client UUID.") @PathParam("client_uuid") UUID clientUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);
@@ -1233,9 +1434,14 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/show/{client_uuid}/revoke")
-    public Response revokeKnownClient(@Context SecurityContext sc,
-                                      @PathParam("uuid") UUID ssidUuid,
-                                      @PathParam("client_uuid") UUID clientUuid) {
+    @Operation(operationId = "revokeMonitoredNetworkKnownClient", summary = "Revoke approval of a known client",
+            description = "Marks the client as not approved again. It triggers alerts again until it is approved, "
+                    + "ignored or deleted. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Client approval revoked.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or client not found, or not accessible by the calling user.", content = @Content)
+    public Response revokeKnownClient(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid,
+                                      @Parameter(description = "Known client UUID.") @PathParam("client_uuid") UUID clientUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);
@@ -1262,9 +1468,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/show/{client_uuid}/ignore")
-    public Response ignoreKnownClient(@Context SecurityContext sc,
-                                      @PathParam("uuid") UUID ssidUuid,
-                                      @PathParam("client_uuid") UUID clientUuid) {
+    @Operation(operationId = "ignoreMonitoredNetworkKnownClient", summary = "Ignore a known client",
+            description = "Marks the client as ignored. It stays in the list of known clients and stops triggering "
+                    + "alerts, but it is not marked as approved. Existing alerts resolve within a few minutes. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Client ignored.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or client not found, or not accessible by the calling user.", content = @Content)
+    public Response ignoreKnownClient(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid,
+                                      @Parameter(description = "Known client UUID.") @PathParam("client_uuid") UUID clientUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);
@@ -1291,9 +1503,14 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/show/{client_uuid}/unignore")
-    public Response unignoreKnownClient(@Context SecurityContext sc,
-                                        @PathParam("uuid") UUID ssidUuid,
-                                        @PathParam("client_uuid") UUID clientUuid) {
+    @Operation(operationId = "unignoreMonitoredNetworkKnownClient", summary = "Stop ignoring a known client",
+            description = "Removes the ignored flag from the client. It triggers alerts again unless it is approved. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Client no longer ignored.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or client not found, or not accessible by the calling user.", content = @Content)
+    public Response unignoreKnownClient(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid,
+                                        @Parameter(description = "Known client UUID.") @PathParam("client_uuid") UUID clientUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);
@@ -1320,9 +1537,15 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/show/{client_uuid}")
-    public Response deleteKnownClient(@Context SecurityContext sc,
-                                      @PathParam("uuid") UUID ssidUuid,
-                                      @PathParam("client_uuid") UUID clientUuid) {
+    @Operation(operationId = "deleteMonitoredNetworkKnownClient", summary = "Delete a known client",
+            description = "Deletes the client record and resolves its alerts within a few minutes. The client "
+                    + "reappears as a new, unapproved client the next time it connects to the network. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Client deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network or client not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteKnownClient(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid,
+                                      @Parameter(description = "Known client UUID.") @PathParam("client_uuid") UUID clientUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);
@@ -1349,7 +1572,12 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/clients/")
-    public Response deleteAllKnownClients(@Context SecurityContext sc, @PathParam("uuid") UUID ssidUuid) {
+    @Operation(operationId = "deleteMonitoredNetworkKnownClients", summary = "Delete all known clients of a monitored network",
+            description = "Deletes every known client record of the network, including approved and ignored clients. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known clients deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteAllKnownClients(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(ssidUuid);

@@ -3,6 +3,7 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -10,6 +11,7 @@ import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
 
+@Schema(description = "Body for updating a monitor.")
 @AutoValue
 public abstract class UpdateMonitorRequest {
 
@@ -35,12 +37,19 @@ public abstract class UpdateMonitorRequest {
     public abstract List<String> taps();
 
     @JsonCreator
-    public static UpdateMonitorRequest create(@JsonProperty("name") String name,
+    public static UpdateMonitorRequest create(@Schema(description = "New name of the monitor.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                              @JsonProperty("name") String name,
+                                              @Schema(description = "New description of the monitor.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("description") String description,
+                                              @Schema(description = "Number of matching results that triggers the monitor. Must be 0 or higher.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("trigger_condition") Integer triggerCondition,
+                                              @Schema(description = "How often the monitor runs, in minutes. Must be 1 or higher.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("interval") Integer interval,
+                                              @Schema(description = "How far back the monitor looks on each run, in minutes. Must be 1 or higher.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("lookback") Integer lookback,
+                                              @Schema(description = "JSON encoded filter definition as produced by the web interface filter builder.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("filters") String filters,
+                                              @Schema(description = "Tap UUIDs the monitor runs against.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("taps") List<String> taps) {
         return builder()
                 .name(name)

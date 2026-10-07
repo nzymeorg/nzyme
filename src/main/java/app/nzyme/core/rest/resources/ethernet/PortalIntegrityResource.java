@@ -15,6 +15,12 @@ import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -34,6 +40,9 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/portalintegrity")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Portal Integrity", description = "Portal integrity reports record what a tap received when it "
+        + "probed a control URL, including every redirect hop and a verdict with the reasons behind it. Use them to "
+        + "detect captive portals, redirects and tampered responses on a network.")
 public class PortalIntegrityResource extends TapDataHandlingResource {
 
     @Inject
@@ -41,16 +50,25 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
 
     @GET
     @Path("/reports")
-    public Response allReports(@Context SecurityContext sc,
-                               @QueryParam("organization_id") UUID organizationId,
-                               @QueryParam("tenant_id") UUID tenantId,
-                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                               @QueryParam("filters") String filtersParameter,
-                               @QueryParam("order_column") @Nullable String orderColumnParam,
-                               @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                               @QueryParam("limit") int limit,
-                               @QueryParam("offset") int offset,
-                               @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findPortalIntegrityReports", summary = "List portal integrity reports",
+            description = "Returns all portal integrity reports from the time range, newest probe first by default. "
+                    + "Each report carries the control URL, the probing interface with its assigned address, "
+                    + "gateway, DHCP server and DNS servers, and the verdict. The individual redirect hops are not "
+                    + "included here, request a single report for those. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Reports found.",
+            content = @Content(schema = @Schema(implementation = PortalIntegrityReportsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response allReports(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                               @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                               @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                               @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                               @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -100,11 +118,17 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
 
     @GET
     @Path("/reports/show/{uuid}")
-    public Response oneReport(@Context SecurityContext sc,
-                              @PathParam(("uuid")) UUID uuid,
-                              @QueryParam("organization_id") UUID organizationId,
-                              @QueryParam("tenant_id") UUID tenantId,
-                              @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findPortalIntegrityReport", summary = "Get a portal integrity report",
+            description = "Returns a single portal integrity report with every redirect hop the tap followed, "
+                    + "including the resolved address, the TLS details and the response body hash of each hop.")
+    @ApiResponse(responseCode = "200", description = "Report found.",
+            content = @Content(schema = @Schema(implementation = PortalIntegrityReportDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Report not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response oneReport(@Parameter(hidden = true) @Context SecurityContext sc,
+                              @Parameter(description = "Report UUID.") @PathParam(("uuid")) UUID uuid,
+                              @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                              @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {

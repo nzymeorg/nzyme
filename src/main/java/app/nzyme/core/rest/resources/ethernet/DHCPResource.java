@@ -24,6 +24,12 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -43,6 +49,9 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/dhcp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "DHCP", description = "DHCP transactions that taps recorded on the Ethernet network, including "
+        + "client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. Nzyme "
+        + "also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.")
 public class DHCPResource extends TapDataHandlingResource {
 
     @Inject
@@ -50,16 +59,25 @@ public class DHCPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/transactions")
-    public Response transactions(@Context SecurityContext sc,
-                                 @QueryParam("organization_id") UUID organizationId,
-                                 @QueryParam("tenant_id") UUID tenantId,
-                                 @QueryParam("time_range") @Valid String timeRangeParameter,
-                                 @QueryParam("filters") String filtersParameter,
-                                 @QueryParam("order_column") @Nullable String orderColumnParam,
-                                 @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                 @QueryParam("limit") int limit,
-                                 @QueryParam("offset") int offset,
-                                 @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findDhcpTransactions", summary = "List DHCP transactions",
+            description = "Returns all DHCP transactions in the time range, newest first by default. Each "
+                    + "transaction bundles the packets of one DHCP exchange and carries the client and server MAC "
+                    + "addresses, offered and requested IP addresses, DHCP options, fingerprints and a timeline of "
+                    + "all steps. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Transactions found.",
+            content = @Content(schema = @Schema(implementation = DHCPTransactionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response transactions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                 @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                 @Parameter(description = "Sorting column. Defaults to the time the transaction was initiated.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                 @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -91,10 +109,16 @@ public class DHCPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/transactions/statistics")
-    public Response statistics(@Context SecurityContext sc,
-                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                               @QueryParam("filters") String filtersParameter,
-                               @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findDhcpTransactionStatistics", summary = "Get DHCP transaction statistics",
+            description = "Returns total, successful and failed transaction counts per time bucket. The response is "
+                    + "an object that maps each bucket timestamp to its counts. The bucket size is chosen "
+                    + "automatically from the time range.")
+    @ApiResponse(responseCode = "200", description = "Statistics found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    public Response statistics(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                               @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -114,12 +138,19 @@ public class DHCPResource extends TapDataHandlingResource {
 
     @GET
     @Path("/transactions/show/{transaction_id}")
-    public Response transaction(@Context SecurityContext sc,
-                                @QueryParam("organization_id") UUID organizationId,
-                                @QueryParam("tenant_id") UUID tenantId,
-                                @PathParam("transaction_id") long transactionId,
-                                @QueryParam("transaction_time") String transactionTimeP,
-                                @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findDhcpTransaction", summary = "Get a DHCP transaction",
+            description = "DHCP transaction IDs are not unique over time, so the transaction time is required to "
+                    + "identify a single transaction. Pass the time as an ISO 8601 timestamp.")
+    @ApiResponse(responseCode = "200", description = "Transaction found.",
+            content = @Content(schema = @Schema(implementation = DHCPTransactionDetailsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The transaction time is not a valid timestamp.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Transaction not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response transaction(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "DHCP transaction ID.") @PathParam("transaction_id") long transactionId,
+                                @Parameter(description = "Time of the transaction as an ISO 8601 timestamp.") @QueryParam("transaction_time") String transactionTimeP,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {

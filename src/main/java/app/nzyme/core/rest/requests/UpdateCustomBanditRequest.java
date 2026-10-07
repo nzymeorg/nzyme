@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for updating a custom bandit of a tenant.")
 @AutoValue
 public abstract class UpdateCustomBanditRequest {
 
@@ -15,7 +17,9 @@ public abstract class UpdateCustomBanditRequest {
     public abstract String description();
 
     @JsonCreator
-    public static UpdateCustomBanditRequest create(@JsonProperty("name") @NotEmpty String name,
+    public static UpdateCustomBanditRequest create(@Schema(description = "New name of the bandit.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                   @JsonProperty("name") @NotEmpty String name,
+                                                   @Schema(description = "New description of the bandit.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                    @JsonProperty("description") @NotEmpty String description) {
         return builder()
                 .name(name)

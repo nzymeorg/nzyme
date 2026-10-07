@@ -18,6 +18,14 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -40,6 +48,12 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/monitors")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Monitors", description = "Monitors turn a saved search filter into a persistent alert condition. "
+        + "Nzyme runs each monitor in its configured interval and raises a MONITOR_TRIGGERED detection event when "
+        + "the number of results in the lookback window is larger than the trigger condition. Monitors exist for "
+        + "several subsystems, for example WiFi and Bluetooth.",
+        externalDocs = @ExternalDocumentation(description = "Monitors in the Nzyme documentation",
+                url = "https://go.nzyme.org/monitors"))
 public class MonitorsResource extends TapDataHandlingResource {
 
     private static final Logger LOG = LogManager.getLogger(MonitorsResource.class);
@@ -49,8 +63,15 @@ public class MonitorsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{id}")
-    public Response findOne(@Context SecurityContext sc,
-                            @PathParam("id") UUID uuid) {
+    @Operation(operationId = "findMonitor", summary = "Get a monitor",
+            description = "Returns the configuration and the current state of the monitor. The tap list is reduced "
+                    + "to the taps the calling user can access and the response flags partial data when taps were "
+                    + "removed this way.")
+    @ApiResponse(responseCode = "200", description = "Monitor found.",
+            content = @Content(schema = @Schema(implementation = MonitorDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitor not found or not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Monitor UUID.") @PathParam("id") UUID uuid) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
         Optional<MonitorEntry> monitor = nzyme.getMonitors().find(uuid);
 
@@ -98,10 +119,18 @@ public class MonitorsResource extends TapDataHandlingResource {
     @GET
     @Path("/show/{id}/detections/timeline")
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
-    public Response findDetectionsTimelineOfMonitor(@Context SecurityContext sc,
-                                                    @PathParam("id") UUID uuid,
-                                                    @QueryParam("limit") int limit,
-                                                    @QueryParam("offset") int offset) {
+    @Operation(operationId = "findMonitorAlertTimeline", summary = "List alert timeline of a monitor",
+            description = "Returns the timeline of the MONITOR_TRIGGERED alert of this monitor, most recent period "
+                    + "first. The timeline is empty if the monitor never triggered. Requires the "
+                    + "alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Timeline found, or the monitor never triggered.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertTimelineListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitor not found or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "500", description = "The monitor triggered more than one alert, which should never happen.", content = @Content)
+    public Response findDetectionsTimelineOfMonitor(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Monitor UUID.") @PathParam("id") UUID uuid,
+                                                    @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                    @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
         Optional<MonitorEntry> monitor = nzyme.getMonitors().find(uuid);
 
@@ -121,7 +150,7 @@ public class MonitorsResource extends TapDataHandlingResource {
 
         // Due to deduplication, we should always see 0 or 1 alerts.
         if (alerts.isEmpty()) {
-            return Response.ok(Collections.emptyList()).build();
+            return Response.ok(DetectionAlertTimelineListResponse.create(0, Collections.emptyList())).build();
         }
 
         if (alerts.size() != 1) {
@@ -152,12 +181,20 @@ public class MonitorsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/type/{monitor_type}")
-    public Response findAll(@Context SecurityContext sc,
-                            @PathParam("monitor_type") MonitorType monitorType,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset) {
+    @Operation(operationId = "findMonitors", summary = "List monitors of a type",
+            description = "Returns all monitors of the requested type that belong to the tenant, ordered by name. "
+                    + "The tap list of each monitor is reduced to the taps the calling user can access and partial "
+                    + "data is flagged accordingly. The page size cannot be larger than 200.")
+    @ApiResponse(responseCode = "200", description = "Monitors found.",
+            content = @Content(schema = @Schema(implementation = MonitorListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size is larger than 200 or the page offset is negative.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Type of monitor to list.") @PathParam("monitor_type") MonitorType monitorType,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
 
         if (limit > 200 || offset < 0) {
@@ -217,9 +254,17 @@ public class MonitorsResource extends TapDataHandlingResource {
 
     @POST
     @Path("/type/{monitor_type}")
-    public Response create(@Context SecurityContext sc,
-                           @Valid CreateMonitorRequest req,
-                           @PathParam("monitor_type") MonitorType monitorType) {
+    @Operation(operationId = "createMonitor", summary = "Create a monitor",
+            description = "Creates an enabled monitor for the organization and tenant in the request body. Interval "
+                    + "and lookback are in minutes, and the monitor triggers when the result count is larger than "
+                    + "the trigger condition. Omit the tap list to monitor all taps of the tenant. Requires the "
+                    + "manage permission of the subsystem the monitor type belongs to, for example "
+                    + "dot11_monitoring_manage or bluetooth_monitoring_manage.")
+    @ApiResponse(responseCode = "201", description = "Monitor created.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "A referenced tap is not accessible, the tenant is not accessible, or the calling user cannot manage this monitor type.", content = @Content)
+    public Response create(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @RequestBody(description = "Name, filters, interval, lookback, trigger condition, taps and the owning tenant of the new monitor.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateMonitorRequest req,
+                           @Parameter(description = "Type of monitor to create.") @PathParam("monitor_type") MonitorType monitorType) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
 
         List<UUID> tapUuids;
@@ -266,9 +311,18 @@ public class MonitorsResource extends TapDataHandlingResource {
 
     @PUT
     @Path("/show/{id}")
-    public Response update(@Context SecurityContext sc,
-                           @PathParam("id") UUID uuid,
-                           UpdateMonitorRequest req) {
+    @Operation(operationId = "updateMonitor", summary = "Update a monitor",
+            description = "Updates the monitor in two independent parts: the meta information is only written when "
+                    + "name, description, trigger condition, interval and lookback are all present, and the taps "
+                    + "and filters are only written when filters are present. Interval and lookback are in "
+                    + "minutes. Requires the manage permission of the subsystem the monitor type belongs to.")
+    @ApiResponse(responseCode = "200", description = "Monitor updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Trigger condition, interval or lookback are out of range.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "A referenced tap is not accessible or the calling user cannot manage this monitor type.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitor not found or not accessible by the calling user.", content = @Content)
+    public Response update(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Monitor UUID.") @PathParam("id") UUID uuid,
+                           @RequestBody(description = "The monitor fields to change. All fields are optional.", required = true, content = @Content(mediaType = "application/json")) UpdateMonitorRequest req) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
         Optional<MonitorEntry> monitor = nzyme.getMonitors().find(uuid);
 
@@ -327,7 +381,13 @@ public class MonitorsResource extends TapDataHandlingResource {
 
     @DELETE
     @Path("/show/{id}")
-    public Response delete(@Context SecurityContext sc, @PathParam("id") UUID uuid) {
+    @Operation(operationId = "deleteMonitor", summary = "Delete a monitor",
+            description = "Requires the manage permission of the subsystem the monitor type belongs to.")
+    @ApiResponse(responseCode = "200", description = "Monitor deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The calling user cannot manage this monitor type.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitor not found or not accessible by the calling user.", content = @Content)
+    public Response delete(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Monitor UUID.") @PathParam("id") UUID uuid) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
         Optional<MonitorEntry> monitor = nzyme.getMonitors().find(uuid);
 

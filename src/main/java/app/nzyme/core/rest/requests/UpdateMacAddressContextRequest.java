@@ -3,10 +3,12 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 
+@Schema(description = "Body for updating MAC address context.")
 @AutoValue
 public abstract class UpdateMacAddressContextRequest {
 
@@ -21,8 +23,11 @@ public abstract class UpdateMacAddressContextRequest {
     public abstract String notes();
 
     @JsonCreator
-    public static UpdateMacAddressContextRequest create(@JsonProperty("name") String name,
+    public static UpdateMacAddressContextRequest create(@Schema(description = "Short name of the asset. Up to 12 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                                        @JsonProperty("name") String name,
+                                                        @Schema(description = "Description of the asset. Up to 32 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                         @JsonProperty("description") String description,
+                                                        @Schema(description = "Free form notes about the asset.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                         @JsonProperty("notes") String notes) {
         return builder()
                 .name(name)

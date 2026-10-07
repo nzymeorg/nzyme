@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 
+@Schema(description = "Body for adding an expected channel to a monitored WiFi network.")
 @AutoValue
 public abstract class CreateDot11MonitoredChannelRequest {
 
@@ -12,7 +14,8 @@ public abstract class CreateDot11MonitoredChannelRequest {
     public abstract long frequency();
 
     @JsonCreator
-    public static CreateDot11MonitoredChannelRequest create(@JsonProperty("frequency") long frequency) {
+    public static CreateDot11MonitoredChannelRequest create(@Schema(description = "Channel frequency in MHz.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                            @JsonProperty("frequency") long frequency) {
         return builder()
                 .frequency(frequency)
                 .build();

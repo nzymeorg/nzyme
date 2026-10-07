@@ -10,6 +10,14 @@ import app.nzyme.core.rest.responses.dot11.monitoring.probereq.MonitoredProbeReq
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -27,6 +35,11 @@ import java.util.UUID;
 
 @Path("/api/dot11/monitoring/proberequests")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Monitoring", description = "A monitored network describes the expected state of one of your own WiFi "
+        + "networks so that Nzyme can alert on any deviation. This group also covers SSID monitoring, probe request "
+        + "monitoring and the known clients of a monitored network.",
+        externalDocs = @ExternalDocumentation(description = "Network monitoring in the Nzyme documentation",
+                url = "https://go.nzyme.org/wifi-network-monitoring"))
 public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(Dot11MonitoredProbeRequestResource.class);
@@ -36,11 +49,19 @@ public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResourc
 
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @QueryParam("organization_uuid") @NotNull UUID organizationId,
-                            @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
+    @Operation(operationId = "findMonitoredProbeRequests", summary = "List monitored probe requests of a tenant",
+            description = "Returns the SSIDs that Nzyme watches for in the probe requests of a tenant. A probe "
+                    + "request is a frame a WiFi device sends to look for a network it knows. The page size is "
+                    + "limited to 250. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored probe requests found.",
+            content = @Content(schema = @Schema(implementation = MonitoredProbeRequestListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_uuid") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -72,10 +93,15 @@ public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResourc
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/show/{uuid}")
-    public Response findOne(@Context SecurityContext sc,
-                            @PathParam("uuid") UUID uuid,
-                            @QueryParam("organization_uuid") @NotNull UUID organizationId,
-                            @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
+    @Operation(operationId = "findMonitoredProbeRequest", summary = "Get monitored probe request details",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored probe request found.",
+            content = @Content(schema = @Schema(implementation = MonitoredProbeRequestDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Monitored probe request not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Monitored probe request UUID.") @PathParam("uuid") UUID uuid,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_uuid") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -102,7 +128,17 @@ public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResourc
 
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
-    public Response create(@Context SecurityContext sc,
+    @Operation(operationId = "createMonitoredProbeRequest", summary = "Create a monitored probe request",
+            description = "Adds an SSID to watch for in the probe requests of the organization and tenant passed in "
+                    + "the body. Any string is accepted. Nzyme alerts as soon as a probe request looking for this "
+                    + "SSID is recorded, and the alert resolves automatically after several minutes without such a "
+                    + "frame. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "Probe request monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-probereq-monitoring"))
+    @ApiResponse(responseCode = "201", description = "Monitored probe request created.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response create(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @RequestBody(description = "Organization UUID, tenant UUID, SSID and optional notes.", required = true, content = @Content(mediaType = "application/json"))
                            @Valid CreateMonitoredProbeRequestRequest req) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -116,9 +152,16 @@ public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResourc
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/show/{uuid}")
-    public Response update(@Context SecurityContext sc,
+    @Operation(operationId = "updateMonitoredProbeRequest", summary = "Update a monitored probe request",
+            description = "Replaces SSID and notes of the monitored probe request. The organization and tenant in the "
+                    + "body must match the existing entry. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored probe request updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored probe request not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response update(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @RequestBody(description = "Organization UUID, tenant UUID, new SSID and optional notes.", required = true, content = @Content(mediaType = "application/json"))
                            @Valid UpdateMonitoredProbeRequestRequest req,
-                           @PathParam("uuid") UUID uuid) {
+                           @Parameter(description = "Monitored probe request UUID.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, req.organizationId(), req.tenantId())) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -138,7 +181,11 @@ public class Dot11MonitoredProbeRequestResource extends UserAuthenticatedResourc
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/show/{uuid}")
-    public Response delete(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteMonitoredProbeRequest", summary = "Delete a monitored probe request",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Monitored probe request deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored probe request not found or not accessible by the calling user.", content = @Content)
+    public Response delete(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Monitored probe request UUID.") @PathParam("uuid") UUID uuid) {
         Optional<MonitoredProbeRequestEntry> ssid = nzyme.getDot11()
                 .findMonitoredProbeRequest(uuid);
 

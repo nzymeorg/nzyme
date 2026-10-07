@@ -15,6 +15,15 @@ import app.nzyme.core.rest.responses.dot11.monitoring.CustomBanditListResponse;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -34,6 +43,12 @@ import java.util.UUID;
 
 @Path("/api/dot11/bandits")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Bandits", description = "A bandit is a malicious WiFi device that Nzyme alerts on when it shows up "
+        + "in range. Bandits are identified by the fingerprints of the frames they send. Nzyme ships built in bandits "
+        + "for common attack platforms like the WiFi Pineapple or the Flipper Zero, and you can define your own "
+        + "custom bandits per tenant.",
+        externalDocs = @ExternalDocumentation(description = "WiFi bandits in the Nzyme documentation",
+                url = "https://go.nzyme.org/wifi-bandits"))
 public class BanditsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(BanditsResource.class);
@@ -44,6 +59,13 @@ public class BanditsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/builtin")
+    @Operation(operationId = "findBuiltinBandits", summary = "List built in bandits",
+            description = "Returns all bandits that ship with Nzyme, including their fingerprints. Built in "
+                    + "bandits are the same for every tenant and cannot be changed. The fingerprint list is empty for "
+                    + "bandits that are not identified by fingerprints. Requires the dot11_monitoring_manage feature "
+                    + "permission.")
+    @ApiResponse(responseCode = "200", description = "Bandits found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = BuiltinBanditDetailsResponse.class))))
     public Response findAllBuiltIn() {
         List<BuiltinBanditDetailsResponse> bandits = Lists.newArrayList();
 
@@ -62,7 +84,12 @@ public class BanditsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/builtin/show/{id}")
-    public Response findOneBuiltIn(@PathParam("id") @NotEmpty String id) {
+    @Operation(operationId = "findBuiltinBandit", summary = "Get a built in bandit",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Bandit found.",
+            content = @Content(schema = @Schema(implementation = BuiltinBanditDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "No built in bandit with this identifier exists.", content = @Content)
+    public Response findOneBuiltIn(@Parameter(description = "Built in bandit identifier.") @PathParam("id") @NotEmpty String id) {
         Dot11BanditDescription bandit = null;
         for (Dot11BanditDescription b : Dot11Bandits.BUILT_IN) {
             if (b.id().equals(id)) {
@@ -86,11 +113,18 @@ public class BanditsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom")
-    public Response findAllCustom(@Context SecurityContext sc,
-                                  @QueryParam("limit") int limit,
-                                  @QueryParam("offset") int offset,
-                                  @QueryParam("organization_uuid") @NotNull UUID organizationId,
-                                  @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
+    @Operation(operationId = "findCustomBandits", summary = "List custom bandits of a tenant",
+            description = "Returns the custom bandits of a tenant with their fingerprints. The page size cannot exceed "
+                    + "250. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Bandits found.",
+            content = @Content(schema = @Schema(implementation = CustomBanditListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The requested page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findAllCustom(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                  @Parameter(description = "Organization UUID.") @QueryParam("organization_uuid") @NotNull UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @QueryParam("tenant_uuid") @NotNull UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (limit > 250) {
@@ -125,8 +159,13 @@ public class BanditsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom/show/{id}")
-    public Response findCustom(@Context SecurityContext sc,
-                               @PathParam("id") @NotNull UUID id) {
+    @Operation(operationId = "findCustomBandit", summary = "Get a custom bandit",
+            description = "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Bandit found.",
+            content = @Content(schema = @Schema(implementation = CustomBanditDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Bandit not found or not accessible by the calling user.", content = @Content)
+    public Response findCustom(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Custom bandit UUID.") @PathParam("id") @NotNull UUID id) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<CustomBanditDescription> bandit = nzyme.getDot11().findCustomBandit(id);
@@ -151,7 +190,15 @@ public class BanditsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom")
-    public Response createCustom(@Context SecurityContext sc, @Valid CreateCustomBanditRequest req) {
+    @Operation(operationId = "createCustomBandit", summary = "Create a custom bandit",
+            description = "Creates a custom bandit for a tenant. Add fingerprints in a separate call. Custom "
+                    + "bandits are evaluated exactly like built in bandits. Requires the dot11_monitoring_manage "
+                    + "feature permission.")
+    @ApiResponse(responseCode = "201", description = "Bandit created.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response createCustom(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @RequestBody(description = "Organization UUID, tenant UUID, name and description of the new bandit.", required = true, content = @Content(mediaType = "application/json"))
+                                 @Valid CreateCustomBanditRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!hasPermissions(authenticatedUser, req.organizationId(), req.tenantId())) {
@@ -166,8 +213,14 @@ public class BanditsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom/show/{id}")
-    public Response editCustom(@Context SecurityContext sc,
-                               @PathParam("id") @NotNull UUID id,
+    @Operation(operationId = "updateCustomBandit", summary = "Update a custom bandit",
+            description = "Changes name and description of a custom bandit. Fingerprints are not touched. Requires the "
+                    + "dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Bandit updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Bandit not found or not accessible by the calling user.", content = @Content)
+    public Response editCustom(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Custom bandit UUID.") @PathParam("id") @NotNull UUID id,
+                               @RequestBody(description = "New name and description of the bandit.", required = true, content = @Content(mediaType = "application/json"))
                                @Valid UpdateCustomBanditRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -187,7 +240,13 @@ public class BanditsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom/show/{id}")
-    public Response deleteCustom(@Context SecurityContext sc, @PathParam("id") @NotNull UUID id) {
+    @Operation(operationId = "deleteCustomBandit", summary = "Delete a custom bandit",
+            description = "Deletes the bandit and all of its fingerprints. Requires the dot11_monitoring_manage "
+                    + "feature permission.")
+    @ApiResponse(responseCode = "200", description = "Bandit deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Bandit not found or not accessible by the calling user.", content = @Content)
+    public Response deleteCustom(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Custom bandit UUID.") @PathParam("id") @NotNull UUID id) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<CustomBanditDescription> bandit = nzyme.getDot11().findCustomBandit(id);
@@ -205,8 +264,18 @@ public class BanditsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom/show/{id}/fingerprints")
-    public Response addFingerprint(@Context SecurityContext sc,
-                                   @PathParam("id") @NotNull UUID id,
+    @Operation(operationId = "createCustomBanditFingerprint", summary = "Add a fingerprint to a custom bandit",
+            description = "A fingerprint is a hash that Nzyme calculates from the tagged parameters of the frames "
+                    + "a device sends. It must be exactly 64 characters long and must not already be attached to this "
+                    + "bandit. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "WiFi fingerprinting in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-fingerprinting"))
+    @ApiResponse(responseCode = "201", description = "Fingerprint added.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The fingerprint is not 64 characters long or is already attached to this bandit.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Bandit not found or not accessible by the calling user.", content = @Content)
+    public Response addFingerprint(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Custom bandit UUID.") @PathParam("id") @NotNull UUID id,
+                                   @RequestBody(description = "The 64 character fingerprint to add.", required = true, content = @Content(mediaType = "application/json"))
                                    @Valid CreateBanditFingerprintRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -237,9 +306,14 @@ public class BanditsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/custom/show/{id}/fingerprints/show/{fingerprint}")
-    public Response removeFingerprint(@Context SecurityContext sc,
-                                      @PathParam("id") @NotNull UUID id,
-                                      @PathParam("fingerprint") @NotEmpty String fingerprint) {
+    @Operation(operationId = "deleteCustomBanditFingerprint", summary = "Remove a fingerprint from a custom bandit",
+            description = "Succeeds even if the bandit does not carry this fingerprint. Requires the "
+                    + "dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Fingerprint removed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Bandit not found or not accessible by the calling user.", content = @Content)
+    public Response removeFingerprint(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Custom bandit UUID.") @PathParam("id") @NotNull UUID id,
+                                      @Parameter(description = "The fingerprint to remove.") @PathParam("fingerprint") @NotEmpty String fingerprint) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<CustomBanditDescription> bandit = nzyme.getDot11().findCustomBandit(id);

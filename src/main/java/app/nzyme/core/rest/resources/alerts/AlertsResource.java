@@ -23,6 +23,15 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -45,6 +54,12 @@ import static app.nzyme.core.rest.RestTools.buildAlertDetailsResponse;
 
 @Path("/api/alerts")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Alerts", description = "Detection alerts are raised by the detection engines of Nzyme. Repeated "
+        + "observations of the same condition update one alert instead of creating a new one, and an alert that was "
+        + "last seen within the past five minutes counts as active. This group of endpoints lists, resolves and "
+        + "deletes alerts and manages which event actions are subscribed to which detection type.",
+        externalDocs = @ExternalDocumentation(description = "Alerting in the Nzyme documentation",
+                url = "https://go.nzyme.org/detection-alerts"))
 public class AlertsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(AlertsResource.class);
@@ -54,12 +69,22 @@ public class AlertsResource extends UserAuthenticatedResource {
 
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId,
-                            @QueryParam("subsystem") @Nullable String subsystemParam,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAlerts", summary = "List alerts of a tenant",
+            description = "Returns all alerts of a tenant, most recently seen first. Resolved alerts are included "
+                    + "and the response also carries the total number of alerts and the number of active alerts. "
+                    + "Pass a subsystem to limit the result to the alerts of one subsystem. The page size cannot be "
+                    + "larger than 250. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Alerts found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The subsystem is unknown.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The page size is larger than 250.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                            @Parameter(description = "Name of a subsystem to filter by. Omit for alerts of all subsystems.") @QueryParam("subsystem") @Nullable String subsystemParam,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -113,7 +138,14 @@ public class AlertsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
     @Path("/show/{uuid}")
-    public Response findOne(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findAlert", summary = "Get an alert",
+            description = "Returns the alert with all attributes the detection method recorded. Only alerts of "
+                    + "the tenant of the calling user are visible. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Alert found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Alert not found or not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
@@ -133,10 +165,17 @@ public class AlertsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
     @Path("/show/{uuid}/timeline")
-    public Response findTimeline(@Context SecurityContext sc,
-                                 @PathParam("uuid") UUID uuid,
-                                 @QueryParam("limit") int limit,
-                                 @QueryParam("offset") int offset) {
+    @Operation(operationId = "findAlertTimeline", summary = "List timeline of an alert",
+            description = "Returns the periods in which this alert was seen, most recent period first, with the "
+                    + "duration of each period. A new timeline entry is added whenever the alert is re-triggered "
+                    + "after a pause. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Timeline found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertTimelineListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Alert not found or not accessible by the calling user.", content = @Content)
+    public Response findTimeline(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid,
+                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
@@ -167,7 +206,14 @@ public class AlertsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
     @Path("/show/{uuid}")
-    public Response delete(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteAlert", summary = "Delete an alert",
+            description = "Deletes the alert and its timeline from the database. If the underlying condition still "
+                    + "exists, the next detection run creates a new alert, which triggers a new event and all "
+                    + "subscribed event actions. Requires the alerts_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Alert deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Alert not found or not accessible by the calling user.", content = @Content)
+    public Response delete(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
@@ -185,7 +231,14 @@ public class AlertsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
     @Path("/show/{uuid}/resolve")
-    public Response markAsResolved(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "resolveAlert", summary = "Mark an alert as resolved",
+            description = "A resolved alert stays in the list but immediately stops counting as active. If the "
+                    + "underlying condition still exists, the next detection run re-triggers the alert. Requires "
+                    + "the alerts_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Alert marked as resolved.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Alert not found or not accessible by the calling user.", content = @Content)
+    public Response markAsResolved(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
@@ -203,7 +256,14 @@ public class AlertsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
     @Path("/many/resolve")
-    public Response markListAsResolved(@Context SecurityContext sc, UUIDListRequest uuids) {
+    @Operation(operationId = "resolveAlerts", summary = "Mark multiple alerts as resolved",
+            description = "Resolves every alert in the list. Processing stops at the first alert that does not "
+                    + "exist or is not accessible, so earlier alerts in the list may already be resolved when this "
+                    + "happens. Requires the alerts_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "All alerts marked as resolved.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "One of the alerts was not found or is not accessible by the calling user.", content = @Content)
+    public Response markListAsResolved(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @RequestBody(description = "The UUIDs of the alerts to resolve.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest uuids) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         for (UUID uuid : uuids.uuids()) {
@@ -223,7 +283,14 @@ public class AlertsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
     @Path("/many/delete")
-    public Response deleteList(@Context SecurityContext sc, UUIDListRequest uuids) {
+    @Operation(operationId = "deleteAlerts", summary = "Delete multiple alerts",
+            description = "Deletes every alert in the list. Processing stops at the first alert that does not "
+                    + "exist or is not accessible, so earlier alerts in the list may already be deleted when this "
+                    + "happens. Requires the alerts_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "All alerts deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "One of the alerts was not found or is not accessible by the calling user.", content = @Content)
+    public Response deleteList(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @RequestBody(description = "The UUIDs of the alerts to delete.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest uuids) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         for (UUID uuid : uuids.uuids()) {
@@ -243,11 +310,20 @@ public class AlertsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/types")
-    public Response findAllDetectionTypes(@Context SecurityContext sc,
-                                          @QueryParam("limit") int limit,
-                                          @QueryParam("offset") int offset,
-                                          @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId,
-                                          @QueryParam("filter_subsystem") @Nullable String filterSubsystem) {
+    @Operation(operationId = "findAlertTypes", summary = "List detection types",
+            description = "Returns all detection types Nzyme can raise alerts for, together with the event action "
+                    + "subscriptions of the organization for each type. The wildcard type is left out of the list "
+                    + "and has its own endpoints. Super administrators have to pass an organization, for all other "
+                    + "users the organization of the calling user is used. Requires organization administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Detection types found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertTypeListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "A super administrator did not pass an organization, or the subsystem is unknown.", content = @Content)
+    public Response findAllDetectionTypes(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                          @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                          @Parameter(description = "Organization UUID. Required for super administrators.") @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId,
+                                          @Parameter(description = "Name of a subsystem to filter by. Omit for all subsystems.") @QueryParam("filter_subsystem") @Nullable String filterSubsystem) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         UUID organizationId;
@@ -305,8 +381,19 @@ public class AlertsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/subscriptions/wildcard")
-    public Response findAllWildcardSubscription(@Context SecurityContext sc,
-                                                @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId) {
+    @Operation(operationId = "findAlertWildcardSubscriptions", summary = "List wildcard subscriptions",
+            description = "Returns the event actions that are subscribed to the wildcard detection type of an "
+                    + "organization, which runs them for every type of detection event. Super administrators have "
+                    + "to pass an organization, for all other users the organization of the calling user is used. "
+                    + "Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Subscriptions found.",
+            content = @Content(array = @ArraySchema(
+                    schema = @Schema(implementation = SubscriptionDetailsResponse.class))))
+    @ApiResponse(responseCode = "400", description = "A super administrator did not pass an organization.", content = @Content)
+    public Response findAllWildcardSubscription(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                @Parameter(description = "Organization UUID. Required for super administrators.") @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         UUID organizationId;
@@ -335,8 +422,21 @@ public class AlertsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/subscriptions/wildcard")
-    public Response subscribeWildcardAction(@Context SecurityContext sc,
-                                            @Valid DetectionEventSubscriptionRequest req) {
+    @Operation(operationId = "createAlertWildcardSubscription", summary = "Subscribe an action to all detection types",
+            description = "Subscribes an event action to the wildcard detection type, so the action runs for every "
+                    + "type of detection event of the organization. The same action can only be subscribed once. "
+                    + "Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Action subscribed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The action is already subscribed.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The calling user cannot administer the organization in the request, "
+            + "or the action is a system action or belongs to another organization. The latter case carries an error message.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Event action not found.", content = @Content)
+    public Response subscribeWildcardAction(@Parameter(hidden = true) @Context SecurityContext sc,
+                                            @RequestBody(description = "The event action and the organization to subscribe it for.", required = true, content = @Content(mediaType = "application/json")) @Valid DetectionEventSubscriptionRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!authenticatedUser.isSuperAdministrator()
@@ -351,6 +451,14 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         if (action.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        // Only actions of the same organization can be subscribed to detection events. System actions cannot.
+        if (action.get().organizationId() == null || !action.get().organizationId().equals(req.organizationId())) {
+            return Response
+                    .status(Response.Status.FORBIDDEN)
+                    .entity(ErrorResponse.create("Only event actions of the same organization can be subscribed to detection events."))
+                    .build();
         }
 
         // Check if this event already has this action ID subscribed to it.
@@ -372,8 +480,16 @@ public class AlertsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/subscriptions/wildcard/show/{subscriptionId}")
-    public Response unsubscribeWildcardAction(@Context SecurityContext sc,
-                                              @PathParam("subscriptionId") @NotNull UUID subscriptionId) {
+    @Operation(operationId = "deleteAlertWildcardSubscription", summary = "Delete a wildcard subscription",
+            description = "Removes the subscription of an event action to the wildcard detection type of the "
+                    + "organization. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Subscription deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subscribed action does not belong to an organization the calling user can administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Subscription or the event action behind it not found.", content = @Content)
+    public Response unsubscribeWildcardAction(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Subscription UUID.") @PathParam("subscriptionId") @NotNull UUID subscriptionId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());
@@ -409,9 +525,17 @@ public class AlertsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/types/show/{name}")
-    public Response findDetectionType(@Context SecurityContext sc,
-                                      @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId,
-                                      @PathParam("name") @NotEmpty String name) {
+    @Operation(operationId = "findAlertType", summary = "Get a detection type",
+            description = "Returns the detection type with the event action subscriptions of the organization for "
+                    + "it. Super administrators have to pass an organization, for all other users the organization "
+                    + "of the calling user is used. Requires organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Detection type found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertTypeDetailsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "A super administrator did not pass an organization.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Detection type not found.", content = @Content)
+    public Response findDetectionType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Organization UUID. Required for super administrators.") @QueryParam("organization_uuid") @NotNull UUID filterOrganizationId,
+                                      @Parameter(description = "Name of the detection type.") @PathParam("name") @NotEmpty String name) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         UUID organizationId;
@@ -458,9 +582,22 @@ public class AlertsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/types/show/{detectionTypeName}/subscriptions")
-    public Response subscribeActionToDetectionEvent(@Context SecurityContext sc,
-                                                    @PathParam("detectionTypeName") @NotEmpty String detectionTypeName,
-                                                    @Valid DetectionEventSubscriptionRequest req) {
+    @Operation(operationId = "createAlertTypeSubscription", summary = "Subscribe an action to a detection type",
+            description = "Subscribes an event action to this detection type, so the action runs whenever a "
+                    + "detection event of this type is raised for the organization. The same action can only be "
+                    + "subscribed once per type. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Action subscribed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The action is already subscribed to this detection type.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The calling user cannot administer the organization in the request, "
+            + "or the action is a system action or belongs to another organization. The latter case carries an error message.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Detection type or event action not found.", content = @Content)
+    public Response subscribeActionToDetectionEvent(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Name of the detection type.") @PathParam("detectionTypeName") @NotEmpty String detectionTypeName,
+                                                    @RequestBody(description = "The event action and the organization to subscribe it for.", required = true, content = @Content(mediaType = "application/json")) @Valid DetectionEventSubscriptionRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!authenticatedUser.isSuperAdministrator()
@@ -484,6 +621,14 @@ public class AlertsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        // Only actions of the same organization can be subscribed to detection events. System actions cannot.
+        if (action.get().organizationId() == null || !action.get().organizationId().equals(req.organizationId())) {
+            return Response
+                    .status(Response.Status.FORBIDDEN)
+                    .entity(ErrorResponse.create("Only event actions of the same organization can be subscribed to detection events."))
+                    .build();
+        }
+
         // Check if this event already has this action ID subscribed to it.
         for (SubscriptionEntry sub : eventEngine
                 .findAllActionsOfSubscription(req.organizationId(), detectionType.name())) {
@@ -504,8 +649,16 @@ public class AlertsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ORGADMINISTRATOR)
     @Path("/detections/types/show/{detectionTypeName}/subscriptions/show/{subscriptionId}")
-    public Response unsubscribeActionFromDetectionEvent(@Context SecurityContext sc,
-                                                        @PathParam("subscriptionId") @NotNull UUID subscriptionId) {
+    @Operation(operationId = "deleteAlertTypeSubscription", summary = "Delete a subscription of a detection type",
+            description = "Removes the subscription of an event action to this detection type. Requires "
+                    + "organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Subscriptions and actions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/detection-alerts-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Subscription deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subscribed action does not belong to an organization the calling user can administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Subscription or the event action behind it not found.", content = @Content)
+    public Response unsubscribeActionFromDetectionEvent(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                        @Parameter(description = "Subscription UUID.") @PathParam("subscriptionId") @NotNull UUID subscriptionId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());

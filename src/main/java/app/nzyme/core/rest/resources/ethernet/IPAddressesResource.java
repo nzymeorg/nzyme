@@ -16,6 +16,12 @@ import app.nzyme.core.rest.responses.shared.GeoInformationResponse;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.Context;
@@ -33,6 +39,8 @@ import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
 @Path("/api/ethernet/ips")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "IP Addresses", description = "Everything Nzyme knows about a single IP address seen on the "
+        + "Ethernet network, including the assets that used it, network context and geo information.")
 public class IPAddressesResource extends TapDataHandlingResource {
 
     @Inject
@@ -40,12 +48,20 @@ public class IPAddressesResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{address}")
-    public Response one(@Context SecurityContext sc,
-                        @PathParam("address") InetAddress address,
-                        @QueryParam("organization_id") UUID organizationId,
-                        @QueryParam("tenant_id") UUID tenantId,
-                        @QueryParam("limit") int limit,
-                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findIpAddress", summary = "Get details of an IP address",
+            description = "Returns all assets of the tenant that were seen using this IP address, the network "
+                    + "context entries the address falls into and geo information from the GeoIP databases. The "
+                    + "asset list is paginated. Geo information is null if no GeoIP database is configured or the "
+                    + "address is not in it.")
+    @ApiResponse(responseCode = "200", description = "IP address details found.",
+            content = @Content(schema = @Schema(implementation = IPAddressDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response one(@Parameter(hidden = true) @Context SecurityContext sc,
+                        @Parameter(description = "IP address to look up.") @PathParam("address") InetAddress address,
+                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                        @Parameter(description = "Page size of the asset list.") @QueryParam("limit") int limit,
+                        @Parameter(description = "Page offset of the asset list.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

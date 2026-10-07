@@ -25,6 +25,13 @@ import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -46,6 +53,9 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/dot11/clients")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Clients", description = "WiFi clients that taps recorded on the air. A client is connected if it was "
+        + "seen exchanging frames with an access point, and disconnected if it was only seen probing or sending "
+        + "frames that are not tied to a BSSID.")
 public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @Inject
@@ -53,14 +63,21 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/connected")
-    public Response connectedClients(@Context SecurityContext sc,
-                                     @QueryParam("time_range") @Valid String timeRangeParameter,
-                                     @QueryParam("filters") String filtersParameter,
-                                     @QueryParam("taps") String taps,
-                                     @QueryParam("order_column") @Nullable String orderColumnParam,
-                                     @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                     @QueryParam("limit") int limit,
-                                     @QueryParam("offset") int offset) {
+    @Operation(operationId = "findDot11ConnectedClients", summary = "List connected clients",
+            description = "Returns all clients that the selected taps saw connected to an access point in the time "
+                    + "range, including the BSSID they were connected to and their probe requests. Sorts by last seen "
+                    + "descending unless you pass a sorting column and direction.")
+    @ApiResponse(responseCode = "200", description = "Clients found.",
+            content = @Content(schema = @Schema(implementation = ConnectedClientListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    public Response connectedClients(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                     @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                     @Parameter(description = "Sorting column. Omit to sort by last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                     @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                     @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                     @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -134,15 +151,22 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/disconnected")
-    public Response disconnectedClients(@Context SecurityContext sc,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("skip_randomized") boolean skipRandomized,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findDot11DisconnectedClients", summary = "List disconnected clients",
+            description = "Returns all clients that the selected taps recorded in the time range without seeing them "
+                    + "connected to an access point. Clients that were connected at any point in the time range are "
+                    + "left out. Sorts by last seen descending unless you pass a sorting column and direction.")
+    @ApiResponse(responseCode = "200", description = "Clients found.",
+            content = @Content(schema = @Schema(implementation = DisconnectedClientListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    public Response disconnectedClients(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Set to true to leave out clients with a randomized MAC address.") @QueryParam("skip_randomized") boolean skipRandomized,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Omit to sort by last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -199,10 +223,15 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/connected/histogram")
-    public Response connectedHistogram(@Context SecurityContext sc,
-                                       @QueryParam("time_range") @Valid String timeRangeParameter,
-                                       @QueryParam("filters") String filtersParameter,
-                                       @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11ConnectedClientsHistogram", summary = "Get connected client histogram",
+            description = "Returns the number of distinct connected clients per time bucket. The bucket size is "
+                    + "derived from the time range. Buckets without data are missing from the result.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ClientHistogramResponse.class)))
+    public Response connectedHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -223,11 +252,17 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/disconnected/histogram")
-    public Response disconnectedHistogram(@Context SecurityContext sc,
-                                          @QueryParam("filters") String filtersParameter,
-                                          @QueryParam("skip_randomized") boolean skipRandomized,
-                                          @QueryParam("time_range") @Valid String timeRangeParameter,
-                                          @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11DisconnectedClientsHistogram", summary = "Get disconnected client histogram",
+            description = "Returns the number of distinct disconnected clients per time bucket. Clients that were "
+                    + "connected at any point in the time range are left out. Buckets without data are missing from "
+                    + "the result.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ClientHistogramResponse.class)))
+    public Response disconnectedHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                          @Parameter(description = "Set to true to leave out clients with a randomized MAC address.") @QueryParam("skip_randomized") boolean skipRandomized,
+                                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                          @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -251,9 +286,16 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{clientMac}")
-    public Response client(@Context SecurityContext sc,
-                           @PathParam("clientMac") @NotEmpty String clientMac,
-                           @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11Client", summary = "Get details of a WiFi client",
+            description = "Merges the connected and disconnected view of one client, including its BSSID history, "
+                    + "probe requests and the IP addresses and hostnames from transparent context. The signal "
+                    + "strength per tap covers the last 15 minutes.")
+    @ApiResponse(responseCode = "200", description = "Client found.",
+            content = @Content(schema = @Schema(implementation = ClientDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this client.", content = @Content)
+    public Response client(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
 
@@ -325,10 +367,19 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{clientMac}/histogram/signal/connected")
-    public Response connectedSignalStrengthHistogram(@Context SecurityContext sc,
-                                                     @PathParam("clientMac") @NotEmpty String clientMac,
-                                                     @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                     @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11ClientConnectedSignalHistogram",
+            summary = "Get connected signal strength histogram of a client",
+            description = "Returns the average signal strength of the client while it was connected to an access "
+                    + "point, per time bucket. Exactly one tap must be selected because signal strength is only "
+                    + "comparable within a single tap.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = ClientSignalStrengthResponse.class))))
+    @ApiResponse(responseCode = "400", description = "Not exactly one tap was selected.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this client.", content = @Content)
+    public Response connectedSignalStrengthHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
+                                                     @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                     @Parameter(description = "UUID of exactly one tap to include.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -357,10 +408,19 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{clientMac}/histogram/signal/disconnected")
-    public Response disconnectedSignalStrengthHistogram(@Context SecurityContext sc,
-                                                        @PathParam("clientMac") @NotEmpty String clientMac,
-                                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                                        @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11ClientDisconnectedSignalHistogram",
+            summary = "Get disconnected signal strength histogram of a client",
+            description = "Returns the average signal strength of the client while it was not connected to an access "
+                    + "point, per time bucket. Exactly one tap must be selected because signal strength is only "
+                    + "comparable within a single tap.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = ClientSignalStrengthResponse.class))))
+    @ApiResponse(responseCode = "400", description = "Not exactly one tap was selected.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this client.", content = @Content)
+    public Response disconnectedSignalStrengthHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                        @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
+                                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                        @Parameter(description = "UUID of exactly one tap to include.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
 
@@ -393,10 +453,17 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
 
     @GET
     @Path("/show/{clientMac}/histogram/frames")
-    public Response clientFrameCountHistogram(@Context SecurityContext sc,
-                                              @PathParam("clientMac") @NotEmpty String clientMac,
-                                              @QueryParam("time_range") @Valid String timeRangeParameter,
-                                              @QueryParam("taps") String taps) {
+    @Operation(operationId = "findDot11ClientFrameHistogram", summary = "Get frame count histogram of a client",
+            description = "Returns an object keyed by bucket timestamp. Each value holds the total frame count of the "
+                    + "client in that bucket, split into connected frames, disconnected frames and disconnection "
+                    + "frames. Buckets without data are missing from the result.")
+    @ApiResponse(responseCode = "200", description = "Histogram found. The response is an object keyed by bucket timestamp.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this client.", content = @Content)
+    public Response clientFrameCountHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                              @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
+                                              @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);

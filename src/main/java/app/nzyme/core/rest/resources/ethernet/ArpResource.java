@@ -24,6 +24,12 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -48,6 +54,9 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/arp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "ARP", description = "ARP requests and replies that taps recorded on the Ethernet network, with "
+        + "statistics and histograms of the most active requesters and responders. Nzyme also uses ARP traffic to "
+        + "enrich the asset inventory.")
 public class ArpResource extends TapDataHandlingResource {
 
     @Inject
@@ -55,16 +64,24 @@ public class ArpResource extends TapDataHandlingResource {
 
     @GET
     @Path("/packets")
-    public Response packets(@Context SecurityContext sc,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                            @QueryParam("filters") String filtersParameter,
-                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findArpPackets", summary = "List ARP packets",
+            description = "Returns all ARP packets in the time range, newest first by default. Each packet includes "
+                    + "the Ethernet and ARP addresses enriched with asset, OUI and context information, plus a plain "
+                    + "language explanation of what the packet does. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Packets found.",
+            content = @Content(schema = @Schema(implementation = ArpPacketsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response packets(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Sorting column. Defaults to the packet timestamp.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -98,10 +115,17 @@ public class ArpResource extends TapDataHandlingResource {
 
     @GET
     @Path("/statistics")
-    public Response statistics(@Context SecurityContext sc,
-                               @QueryParam("time_range") @Valid String timeRangeParameter,
-                               @QueryParam("filters") String filtersParameter,
-                               @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findArpStatistics", summary = "Get ARP statistics",
+            description = "Returns packet counts per time bucket, broken down into requests, replies, gratuitous "
+                    + "requests and gratuitous replies, together with the request to reply ratio. The response is an "
+                    + "object that maps each bucket timestamp to its values. The bucket size is chosen automatically "
+                    + "from the time range.")
+    @ApiResponse(responseCode = "200", description = "Statistics found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    public Response statistics(@Parameter(hidden = true) @Context SecurityContext sc,
+                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                               @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -126,16 +150,23 @@ public class ArpResource extends TapDataHandlingResource {
 
     @GET
     @Path("/histograms/requesters/pairs")
-    public Response requesterPairs(@Context SecurityContext sc,
-                                   @QueryParam("organization_id") UUID organizationId,
-                                   @QueryParam("tenant_id") UUID tenantId,
-                                   @QueryParam("time_range") @Valid String timeRangeParameter,
-                                   @QueryParam("filters") String filtersParameter,
-                                   @QueryParam("limit") int limit,
-                                   @QueryParam("offset") int offset,
-                                   @QueryParam("order_column") @Nullable String orderColumnParam,
-                                   @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                   @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findArpRequesterPairs", summary = "List top ARP requester pairs",
+            description = "Returns sender and target MAC address pairs of ARP requests with the number of requests "
+                    + "each pair exchanged, most active pair first by default. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Pairs found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response requesterPairs(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                   @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                   @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                   @Parameter(description = "Sorting column. Defaults to the request count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                   @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                   @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -169,16 +200,23 @@ public class ArpResource extends TapDataHandlingResource {
 
     @GET
     @Path("/histograms/responders/pairs")
-    public Response responderPairs(@Context SecurityContext sc,
-                                   @QueryParam("organization_id") UUID organizationId,
-                                   @QueryParam("tenant_id") UUID tenantId,
-                                   @QueryParam("time_range") @Valid String timeRangeParameter,
-                                   @QueryParam("filters") String filtersParameter,
-                                   @QueryParam("limit") int limit,
-                                   @QueryParam("offset") int offset,
-                                   @QueryParam("order_column") @Nullable String orderColumnParam,
-                                   @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                   @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findArpResponderPairs", summary = "List top ARP responder pairs",
+            description = "Returns sender and target MAC address pairs of ARP replies with the number of replies "
+                    + "each pair exchanged, most active pair first by default. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Pairs found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response responderPairs(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                   @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                   @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                   @Parameter(description = "Sorting column. Defaults to the reply count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                   @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                   @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);

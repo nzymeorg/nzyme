@@ -7,6 +7,12 @@ import app.nzyme.plugin.distributed.messaging.StoredMessage;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -19,6 +25,8 @@ import java.util.List;
 @Path("/api/system/cluster/messagebus")
 @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Cluster", description = "A cluster consists of one or more Nzyme nodes that share a database. These "
+        + "endpoints expose the nodes, the message bus and the tasks queue that connect them.")
 public class MessageBusResource {
 
     private static final Logger LOG = LogManager.getLogger(MessageBusResource.class);
@@ -28,7 +36,14 @@ public class MessageBusResource {
 
     @GET
     @Path("messages")
-    public Response findMessages(@QueryParam("limit") int limit, @QueryParam("offset") int offset) {
+    @Operation(operationId = "findMessageBusMessages", summary = "List message bus messages",
+            description = "Nodes of a cluster exchange messages over the message bus. Returns the stored messages, "
+                    + "newest first, together with their delivery status. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Messages found.",
+            content = @Content(schema = @Schema(implementation = MessageBusMessageListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "The requested page size is larger than the maximum of 250.", content = @Content)
+    public Response findMessages(@Parameter(description = "Page size. Must not be larger than 250.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -57,7 +72,11 @@ public class MessageBusResource {
 
     @PUT
     @Path("/messages/show/{id}/acknowledgefailure")
-    public Response acknowledgeFailure(@PathParam("id") long id) {
+    @Operation(operationId = "acknowledgeMessageBusMessageFailure", summary = "Acknowledge a failed message",
+            description = "Marks the failure of a single message as acknowledged so that it no longer shows up as a "
+                    + "problem. The message itself is not retried. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Failure acknowledged.", content = @Content)
+    public Response acknowledgeFailure(@Parameter(description = "Message ID.") @PathParam("id") long id) {
         nzyme.getMessageBus().acknowledgeMessageFailure(id);
 
         return Response.ok().build();
@@ -65,6 +84,10 @@ public class MessageBusResource {
 
     @PUT
     @Path("/messages/all/acknowledgefailure")
+    @Operation(operationId = "acknowledgeAllMessageBusMessageFailures", summary = "Acknowledge all failed messages",
+            description = "Marks the failures of all failed messages as acknowledged. The messages themselves are not "
+                    + "retried. Requires super administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Failures acknowledged.", content = @Content)
     public Response acknowledgeAllFailures() {
         nzyme.getMessageBus().acknowledgeAllMessageFailures();
 

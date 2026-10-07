@@ -3,12 +3,14 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+@Schema(description = "Body for updating network context of a tenant.")
 @AutoValue
 public abstract class UpdateNetworkContextRequest {
 
@@ -31,10 +33,15 @@ public abstract class UpdateNetworkContextRequest {
     public abstract UUID tenantId();
 
     @JsonCreator
-    public static UpdateNetworkContextRequest create(@JsonProperty("name") String name,
+    public static UpdateNetworkContextRequest create(@Schema(description = "Short name of the network. Up to 12 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                                     @JsonProperty("name") String name,
+                                                     @Schema(description = "Description of the network. Up to 32 characters.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                      @JsonProperty("description") String description,
+                                                     @Schema(description = "Free form notes about the network.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                      @JsonProperty("notes") String notes,
+                                                     @Schema(description = "Organization UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                      @JsonProperty("organization_id") UUID organizationId,
+                                                     @Schema(description = "Tenant UUID.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                      @JsonProperty("tenant_id") UUID tenantId) {
         return builder()
                 .name(name)

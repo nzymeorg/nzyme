@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for adding a fingerprint to a custom bandit.")
 @AutoValue
 public abstract class CreateBanditFingerprintRequest {
 
@@ -12,7 +14,7 @@ public abstract class CreateBanditFingerprintRequest {
     public abstract String fingerprint();
 
     @JsonCreator
-    public static CreateBanditFingerprintRequest create(@NotEmpty @JsonProperty("fingerprint") String fingerprint) {
+    public static CreateBanditFingerprintRequest create(@NotEmpty @Schema(description = "WiFi fingerprint of the bandit.", requiredMode = Schema.RequiredMode.REQUIRED) @JsonProperty("fingerprint") String fingerprint) {
         return builder()
                 .fingerprint(fingerprint)
                 .build();

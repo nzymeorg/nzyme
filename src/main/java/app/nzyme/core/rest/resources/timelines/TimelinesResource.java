@@ -23,6 +23,13 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.*;
@@ -46,6 +53,11 @@ import java.util.stream.Collectors;
 @Path("/api/timelines")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Timelines", description = "A timeline shows how the parameters of a WiFi access point or network "
+        + "changed over time, addressed by BSSID or by SSID. A background task computes the timeline events from the "
+        + "changes it sees between periods, which makes timelines a tool for investigation rather than for alerting.",
+        externalDocs = @ExternalDocumentation(description = "WiFi timelines in the Nzyme documentation",
+                url = "https://go.nzyme.org/wifi-timelines"))
 public class TimelinesResource extends UserAuthenticatedResource {
 
     @Inject
@@ -60,16 +72,25 @@ public class TimelinesResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/show/type/{addressType}/address/{address}")
-    public Response findOne(@Context SecurityContext sc,
-                            @PathParam("addressType") TimelineAddressType addressType,
-                            @PathParam("address") String address,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId,
-                            @QueryParam("time_range") String timeRangeParameter,
-                            @QueryParam("excluded_event_types") String excludedEventTypesP,
-                            @QueryParam("time_zone") String timeZone,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTimeline", summary = "Get the timeline of an address",
+            description = "Returns the events recorded for this address in the requested time range, newest first, "
+                    + "together with an activity histogram and the event retention time of the tenant. All taps of "
+                    + "the tenant are considered, no matter which taps the user selected elsewhere. For BSSID "
+                    + "addresses the response also lists advertised SSIDs, fingerprints and the taps that recorded "
+                    + "the address.")
+    @ApiResponse(responseCode = "200", description = "Timeline found.",
+            content = @Content(schema = @Schema(implementation = TimelineResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Type of the address: DOT11_BSSID or DOT11_SSID.") @PathParam("addressType") TimelineAddressType addressType,
+                            @Parameter(description = "The address itself: a BSSID MAC address or an SSID name.") @PathParam("address") String address,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                            @Parameter(description = "JSON encoded list of event type names to exclude from the timeline.") @QueryParam("excluded_event_types") String excludedEventTypesP,
+                            @Parameter(description = "Time zone the activity histogram buckets are aligned to. Falls back to UTC.") @QueryParam("time_zone") String timeZone,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {

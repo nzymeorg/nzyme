@@ -3,6 +3,7 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
@@ -10,6 +11,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.UUID;
 
+@Schema(description = "Body for creating an email event action.")
 @AutoValue
 public abstract class CreateEmailEventActionRequest {
 
@@ -29,10 +31,15 @@ public abstract class CreateEmailEventActionRequest {
     public abstract UUID organizationId();
 
     @JsonCreator
-    public static CreateEmailEventActionRequest create(@JsonProperty("name") String name,
+    public static CreateEmailEventActionRequest create(@Schema(description = "Name of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                       @JsonProperty("name") String name,
+                                                       @Schema(description = "Description of the event action.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("description") String description,
+                                                       @Schema(description = "Prefix added to the subject of every email this action sends.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("subject_prefix") String subjectPrefix,
+                                                       @Schema(description = "Email addresses that receive the email.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                        @JsonProperty("receivers") List<String> receivers,
+                                                       @Schema(description = "Organization UUID. Omit for an action that is available to all organizations.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                        @JsonProperty("organization_id") UUID organizationId) {
         return builder()
                 .name(name)

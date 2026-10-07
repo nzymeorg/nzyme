@@ -17,6 +17,14 @@ import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
@@ -34,6 +42,11 @@ import java.util.regex.PatternSyntaxException;
 
 @Path("/api/dot11/monitoring/networks")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Monitoring", description = "A monitored network describes the expected state of one of your own WiFi "
+        + "networks so that Nzyme can alert on any deviation. This group also covers SSID monitoring, probe request "
+        + "monitoring and the known clients of a monitored network.",
+        externalDocs = @ExternalDocumentation(description = "Network monitoring in the Nzyme documentation",
+                url = "https://go.nzyme.org/wifi-network-monitoring"))
 public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(Dot11MonitoredSSIDsResource.class);
@@ -44,14 +57,26 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}")
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @QueryParam("regex") @Nullable String regex,
-                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                            @PathParam("organization_id") @NotNull UUID organizationId,
-                            @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findMonitoredSsids", summary = "List known networks of a tenant",
+            description = "Returns all networks that SSID monitoring recorded for a tenant, called known networks, "
+                    + "with their approval and ignore status. Pass a regular expression to only return matching SSIDs. "
+                    + "Sorted by SSID ascending unless both sorting parameters are passed. Networks that have not "
+                    + "been seen for 30 days are deleted automatically. The page size is limited to 250. "
+                    + "Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-ssid-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Known networks found.",
+            content = @Content(schema = @Schema(implementation = KnownNetworksListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Requested page size is larger than 250, the sorting parameters are invalid, or the regular expression does not compile.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Optional regular expression. Only SSIDs matching it are returned.") @QueryParam("regex") @Nullable String regex,
+                            @Parameter(description = "Sorting column. One of SSID, STATUS, LAST_SEEN. Case insensitive.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting direction: ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -76,9 +101,9 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
         long total;
         if (regex != null && !regex.isBlank()) {
             // Regex was supplied. Only search for matching.
-            Pattern pattern = Pattern.compile(regex);
+            Pattern pattern;
             try {
-                Pattern.compile(regex);
+                pattern = Pattern.compile(regex);
             } catch (PatternSyntaxException e) {
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
@@ -111,10 +136,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/approve")
-    public Response approve(@Context SecurityContext sc,
-                            @PathParam("uuid") UUID uuid,
-                            @PathParam("organization_id") @NotNull UUID organizationId,
-                            @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "approveMonitoredSsid", summary = "Approve a known network",
+            description = "Marks the known network as approved. Approved networks do not trigger new alerts and their "
+                    + "existing alerts resolve within a few minutes. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known network approved.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Known network not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response approve(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Known network UUID.") @PathParam("uuid") UUID uuid,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -132,10 +163,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/revoke")
-    public Response revoke(@Context SecurityContext sc,
-                           @PathParam("uuid") UUID uuid,
-                           @PathParam("organization_id") @NotNull UUID organizationId,
-                           @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "revokeMonitoredSsid", summary = "Revoke approval of a known network",
+            description = "Marks the known network as not approved again. It triggers alerts again until it is "
+                    + "approved, ignored or deleted. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Approval revoked.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Known network not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response revoke(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Known network UUID.") @PathParam("uuid") UUID uuid,
+                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -153,10 +190,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/ignore")
-    public Response ignore(@Context SecurityContext sc,
-                            @PathParam("uuid") UUID uuid,
-                            @PathParam("organization_id") @NotNull UUID organizationId,
-                            @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "ignoreMonitoredSsid", summary = "Ignore a known network",
+            description = "Marks the known network as ignored. It stays in the list and stops triggering alerts, but "
+                    + "it is not marked as approved. Existing alerts resolve within a few minutes. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known network ignored.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Known network not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response ignore(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Known network UUID.") @PathParam("uuid") UUID uuid,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -174,10 +217,15 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/unignore")
-    public Response unignore(@Context SecurityContext sc,
-                             @PathParam("uuid") UUID uuid,
-                             @PathParam("organization_id") @NotNull UUID organizationId,
-                             @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "unignoreMonitoredSsid", summary = "Stop ignoring a known network",
+            description = "Removes the ignored flag. The network triggers alerts again unless it is approved. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known network no longer ignored.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Known network not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response unignore(@Parameter(hidden = true) @Context SecurityContext sc,
+                             @Parameter(description = "Known network UUID.") @PathParam("uuid") UUID uuid,
+                             @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                             @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -195,10 +243,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}")
-    public Response deleteSingle(@Context SecurityContext sc,
-                                 @PathParam("uuid") UUID uuid,
-                                 @PathParam("organization_id") @NotNull UUID organizationId,
-                                 @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "deleteMonitoredSsid", summary = "Delete a known network",
+            description = "Deletes the known network record and resolves its alerts within a few minutes. The network "
+                    + "reappears as a new, unapproved network the next time it is observed. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known network deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Known network not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response deleteSingle(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Known network UUID.") @PathParam("uuid") UUID uuid,
+                                 @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -216,9 +270,14 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}")
-    public Response deleteAllOfTenant(@Context SecurityContext sc,
-                                      @PathParam("organization_id") @NotNull UUID organizationId,
-                                      @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "deleteMonitoredSsids", summary = "Delete all known networks of a tenant",
+            description = "Deletes every known network record of the tenant, including approved and ignored networks. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known networks deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteAllOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                      @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -231,10 +290,19 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/approve")
-    public Response approveAllOfTenant(@Context SecurityContext sc,
+    @Operation(operationId = "approveMonitoredSsids", summary = "Approve all known networks of a tenant",
+            description = "Approves every known network of the tenant. If a regular expression is passed in the body, "
+                    + "only networks with a matching SSID are approved. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Known networks approved.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The regular expression does not compile.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response approveAllOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @RequestBody(description = "Optional regular expression that limits approval to "
+                                               + "matching SSIDs. Omit the body or the regex to approve all SSIDs.", required = false, content = @Content(mediaType = "application/json"))
                                        @Nullable ApproveByRegexRequest req,
-                                       @PathParam("organization_id") @NotNull UUID organizationId,
-                                       @PathParam("tenant_id") @NotNull UUID tenantId) {
+                                       @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -260,9 +328,19 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
-    public Response configuration(@Context SecurityContext sc,
-                                  @PathParam("organization_id") @NotNull UUID organizationId,
-                                  @PathParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findSsidMonitoringConfiguration", summary = "Get SSID monitoring configuration of a tenant",
+            description = "Returns whether SSID monitoring and event generation are enabled, plus the dwell time in "
+                    + "minutes that an SSID has to be active within the last 24 hours before Nzyme adds it to the "
+                    + "known networks. The dwell time defaults to 5 minutes. Values use the generic configuration "
+                    + "entry format of the web interface. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-ssid-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = SSIDMonitoringConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response configuration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -319,10 +397,22 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
-    public Response updateConfiguration(@Context SecurityContext sc,
+    @Operation(operationId = "updateSsidMonitoringConfiguration", summary = "Update SSID monitoring configuration of a tenant",
+            description = "Accepts the keys is_enabled, eventing_is_enabled and dwell_time_minutes in the change map. "
+                    + "Nzyme only collects known networks while is_enabled is true and only creates alerts while "
+                    + "eventing_is_enabled is true. Each value is validated against the constraints of its "
+                    + "configuration entry. Requires the dot11_monitoring_manage feature permission.",
+            externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-ssid-monitoring"))
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change map is empty or a value violates the constraints of its "
+            + "configuration entry.", content = @Content)
+    public Response updateConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @RequestBody(description = "Map of configuration keys to new values.", required = true, content = @Content(mediaType = "application/json"))
                                         UpdateConfigurationRequest req,
-                                        @PathParam("organization_id") @NotNull UUID organizationId,
-                                        @PathParam("tenant_id") @NotNull UUID tenantId) {
+                                        @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

@@ -3,9 +3,11 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotBlank;
 
+@Schema(description = "Body for creating a custom UAV type of a tenant.")
 @AutoValue
 public abstract class CreateUavCustomTypeRequest {
 
@@ -23,11 +25,17 @@ public abstract class CreateUavCustomTypeRequest {
     public abstract String model();
 
     @JsonCreator
-    public static CreateUavCustomTypeRequest create(@JsonProperty("match_type") String matchType,
+    public static CreateUavCustomTypeRequest create(@Schema(description = "How the match value is compared to the serial number of a UAV.", allowableValues = {"EXACT", "PREFIX"}, requiredMode = Schema.RequiredMode.REQUIRED)
+                                                    @JsonProperty("match_type") String matchType,
+                                                    @Schema(description = "UAV serial number or serial number prefix to match.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                     @JsonProperty("match_value") String matchValue,
+                                                    @Schema(description = "Classification applied to matching UAVs. Omit to leave them unknown.", allowableValues = {"NEUTRAL", "FRIENDLY", "HOSTILE"}, requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                     @JsonProperty("default_classification") String defaultClassification,
+                                                    @Schema(description = "Type of the UAV.", allowableValues = {"GENERIC_UNKNOWN", "AGRICULTURE", "CARGO", "HOBBY_TOY", "INDUSTRIAL_INSPECTION", "MAPPING_SURVEYING", "PHOTO_VIDEO", "PUBLIC_SAFETY", "RID_MODULE"}, requiredMode = Schema.RequiredMode.REQUIRED)
                                                     @JsonProperty("type") String type,
+                                                    @Schema(description = "Name or description of the matched UAV.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                     @JsonProperty("name") String name,
+                                                    @Schema(description = "Model of the UAV, for example \"DJI Mavic 3 Pro\".", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                     @JsonProperty("model") String model) {
         return builder()
                 .matchType(matchType)

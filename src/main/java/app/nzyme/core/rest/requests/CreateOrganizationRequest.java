@@ -3,8 +3,10 @@ package app.nzyme.core.rest.requests;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 
+@Schema(description = "Body for creating an organization.")
 @AutoValue
 public abstract class CreateOrganizationRequest {
 
@@ -15,7 +17,9 @@ public abstract class CreateOrganizationRequest {
     public abstract String description();
 
     @JsonCreator
-    public static CreateOrganizationRequest create(@JsonProperty("name") String name,
+    public static CreateOrganizationRequest create(@Schema(description = "Name of the organization.", requiredMode = Schema.RequiredMode.REQUIRED)
+                                                   @JsonProperty("name") String name,
+                                                   @Schema(description = "Description of the organization.", requiredMode = Schema.RequiredMode.REQUIRED)
                                                    @JsonProperty("description") String description) {
         return builder()
                 .name(name)

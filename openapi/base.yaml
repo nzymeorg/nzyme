@@ -4,16 +4,105 @@ openapi: 3.0.1
 info:
   title: Nzyme REST API
   description: |
-    REST API of Nzyme.
+    This is the REST API of Nzyme. The Nzyme web interface uses the same API, so
+    everything you can do in the web interface you can also do from a script, a CLI or any other client.
+    The interactive version of this documentation lives at https://api.docs.nzyme.org.
 
-    Authenticate with an API key created on your user profile page, sent as a bearer token:
-    `Authorization: Bearer nzk_...`. API keys carry the permissions of the user that created them.
-    Endpoints that manage credentials (passwords, MFA, API keys, sessions) require an interactive
-    session and reject API keys.
+    ## Authentication
+
+    Create an API key on your user profile page in the web interface and send it as a bearer token with
+    every request:
+
+    ```
+    Authorization: Bearer nzk_...
+    ```
+
+    An API key carries the permissions of the user that created it, including the organization and tenant
+    scope, the organization administrator or super administrator level, feature permissions and tap
+    scope. Permissions are evaluated on every request, so changes to the user take effect immediately.
+    Keys can expire, and a key that has expired or was deleted is rejected with `401`.
+
+    Endpoints that manage credentials, such as passwords, multi-factor authentication, API keys and
+    sessions, require an interactive session and reject API keys. The web interface session ID is also a
+    bearer token, so the same requests work from a browser session.
+
+    ## Permissions
+
+    Each endpoint states the permission it requires. The levels are, from lowest to highest:
+
+    * **Any user.** Every authenticated user. Data is still limited to what the user may see.
+    * **Organization administrator.** Manages one organization and all of its tenants.
+    * **Super administrator.** Manages the whole Nzyme installation.
+
+    Some endpoints additionally require a feature permission, for example `alerts_manage`. Organization
+    administrators and super administrators hold all feature permissions implicitly.
+
+    ## Scoping
+
+    Most data endpoints take `organization_id` and `tenant_id` query parameters, because all captured data
+    belongs to a tenant. A request for a tenant the user cannot access returns `404`, not `403`, so that
+    the existence of other tenants is not revealed.
+
+    Endpoints that return captured data also take a `taps` parameter: a comma separated list of tap UUIDs,
+    or `*` for all taps the user can access. Users can be limited to a subset of the taps of their tenant.
+
+    ## Time ranges
+
+    Endpoints that query captured data take a `time_range` query parameter. It is a URL encoded JSON
+    object with one of three shapes:
+
+    ```
+    {"type": "relative", "minutes": 60}
+    {"type": "absolute", "from": "2026-10-01T00:00:00Z", "to": "2026-10-02T00:00:00Z"}
+    {"type": "named", "name": "today"}
+    ```
+
+    Named ranges are `today`, `yesterday`, `week_to_date`, `month_to_date` and `all_time`. Timestamps are
+    ISO 8601. All timestamps in responses are ISO 8601 in UTC.
+
+    ## Filters
+
+    List endpoints that support filtering take a `filters` query parameter. It is a URL encoded JSON
+    object keyed by field name. Each field maps to a list of conditions that must all be true:
+
+    ```
+    {"ip_address": [{"field": "ip_address", "operator": "IN_CIDR", "value": "10.0.0.0/8"}]}
+    ```
+
+    Operators are `EQUALS`, `NOT_EQUALS`, `EQUALS_NUMERIC`, `NOT_EQUALS_NUMERIC`, `REGEX_MATCH`,
+    `NOT_REGEX_MATCH`, `STARTS_WITH`, `ENDS_WITH`, `CONTAINS`, `NOT_CONTAINS`, `LENGTH_EQUALS`,
+    `LENGTH_GREATER_THAN`, `LENGTH_SMALLER_THAN`, `GREATER_THAN`, `SMALLER_THAN`, `IN_CIDR`, `NOT_IN_CIDR`,
+    `IS_PRIVATE`, `IS_NOT_PRIVATE`, `IS_EMPTY`, `IS_NOT_EMPTY`, `IS_NULL` and `BOOLEAN`. The fields a given
+    endpoint accepts are the columns offered by the filter builder of the web interface for the same page.
+
+    ## Pagination and sorting
+
+    List endpoints take `limit` and `offset` query parameters and return the total count next to the page
+    of results, so you can page through everything. Where sorting is supported, `order_column` names a
+    column of the result and `order_direction` is `ASC` or `DESC`.
+
+    ## Errors
+
+    Nzyme uses HTTP status codes. `401` means the request was not authenticated or the user may not
+    perform the action, `404` means the resource does not exist or is outside the scope of the user,
+    `400` means the request could not be parsed or failed validation, and `422` means a quota is exhausted
+    or a configuration constraint was violated. Error responses carry no body unless the endpoint
+    documents one. Where a body is documented, it is a JSON object with a single `message` field that
+    explains the problem.
+
+    ## Versioning
+
+    The spec you are reading matches a specific Nzyme release. Every node also serves the spec of its own
+    version at `/api/docs/openapi.json`, so a client can discover exactly what the node it talks to
+    supports. The API follows the Nzyme release cycle. Breaking changes are called out in the release
+    notes.
   version: "1"
   license:
     name: Server Side Public License (SSPL)
     url: https://www.mongodb.com/licensing/server-side-public-license
+externalDocs:
+  description: Interactive API documentation
+  url: https://api.docs.nzyme.org
 servers:
   - url: "{scheme}://{host}:{port}"
     description: Your Nzyme node
@@ -33,3 +122,33 @@ components:
       description: Nzyme API key (or interactive session ID) as bearer token.
 security:
   - apiKey: []
+
+# Tags that only appear as per-operation overrides (no resource class carries them) get their descriptions here.
+tags:
+  - name: Tenants
+    description: Tenants belong to an organization and own all captured data, taps and users. Managed by organization administrators.
+  - name: Users
+    description: Tenant users, organization administrators and super administrators, their permissions and sessions.
+
+# Sidebar grouping for API browsers that support it (Scalar, Redoc).
+x-tagGroups:
+  - name: Getting Started
+    tags: [Ping, Authentication, Initial Setup, User Profile]
+  - name: Organizations and Users
+    tags: [Organizations, Tenants, Users]
+  - name: Taps
+    tags: [Taps]
+  - name: Alerting
+    tags: [Alerts, Monitors, Timelines, Events, Event Actions]
+  - name: WiFi
+    tags: [Networks, Clients, Monitoring, Bandits, Disconnection Monitoring, Trilateration]
+  - name: Ethernet
+    tags: [Assets, L4, IP Addresses, DNS, DHCP, ARP, NAT, SSH, SOCKS, RTSP, WebRTC, Time, Portal Integrity]
+  - name: Bluetooth
+    tags: [Bluetooth]
+  - name: UAV
+    tags: [UAV]
+  - name: Context and Locations
+    tags: [Context, Locations]
+  - name: System
+    tags: [System, Cluster, Crypto, Database, Health, Integrations, Nzyme Connect, Metrics Exporters, Plugins, Registry]

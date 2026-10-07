@@ -32,6 +32,13 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -50,6 +57,10 @@ import java.util.UUID;
 @Path("/api/uav")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "UAV", description = "Unmanned aerial vehicles that your taps detected by decoding the Remote ID "
+        + "broadcasts of the UAV. These endpoints return detected UAVs with their flight vectors and timelines, and "
+        + "manage classifications, custom UAV types and the monitoring configuration. Nzyme is not a Counter UAS "
+        + "platform and only sees UAVs that broadcast Remote ID.")
 public class UavResource extends TapDataHandlingResource {
 
     @Inject
@@ -57,13 +68,21 @@ public class UavResource extends TapDataHandlingResource {
 
     @GET
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}")
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                            @QueryParam("limit") int limit,
-                            @QueryParam("offset") int offset,
-                            @PathParam("organization_id") UUID organizationId,
-                            @PathParam("tenant_id") UUID tenantId,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findUavs", summary = "List UAVs of a tenant",
+            description = "Returns all UAVs that the selected taps detected in the time range, including their "
+                    + "designation, last known position, classification and the distance in feet to each tap. The "
+                    + "response also carries a suggested map center, which is the geographic center of all UAV "
+                    + "positions.")
+    @ApiResponse(responseCode = "200", description = "UAVs found.",
+            content = @Content(schema = @Schema(implementation = UavListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -101,11 +120,19 @@ public class UavResource extends TapDataHandlingResource {
 
     @GET
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/show/{identifier}")
-    public Response findOne(@Context SecurityContext sc,
-                            @PathParam("identifier") String uavIdentifier,
-                            @PathParam("organization_id") UUID organizationId,
-                            @PathParam("tenant_id") UUID tenantId,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findUav", summary = "Get a UAV",
+            description = "Returns the last known state of the UAV, the matching custom or Nzyme Connect type and "
+                    + "the distance in feet to each of the selected taps. The designation is three words derived "
+                    + "from the UAV identifier and stays the same for the same UAV.")
+    @ApiResponse(responseCode = "200", description = "UAV found.",
+            content = @Content(schema = @Schema(implementation = UavDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "UAV not found, or not seen by any of the selected taps.", content = @Content)
+    public Response findOne(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
+                            @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -127,14 +154,21 @@ public class UavResource extends TapDataHandlingResource {
 
     @GET
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/show/{identifier}/timelines")
-    public Response findTimelines(@Context SecurityContext sc,
-                                  @PathParam("identifier") String uavIdentifier,
-                                  @PathParam("organization_id") UUID organizationId,
-                                  @PathParam("tenant_id") UUID tenantId,
-                                  @QueryParam("taps") String tapIds,
-                                  @QueryParam("time_range") @Valid String timeRangeParameter,
-                                  @QueryParam("limit") int limit,
-                                  @QueryParam("offset") int offset) {
+    @Operation(operationId = "findUavTimelines", summary = "List timelines of a UAV",
+            description = "A timeline is one continuous period in which the UAV was observed. For each timeline "
+                    + "the response includes the duration, whether it is still active, and the shortest and longest "
+                    + "distance in feet between the UAV and any of the selected taps.")
+    @ApiResponse(responseCode = "200", description = "Timelines found.",
+            content = @Content(schema = @Schema(implementation = UavTimelineListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findTimelines(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
+                                  @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                  @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds,
+                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -200,12 +234,21 @@ public class UavResource extends TapDataHandlingResource {
 
     @GET
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/show/{identifier}/timelines/show/{timeline_id}")
-    public Response getTimelineVectors(@Context SecurityContext sc,
-                                       @PathParam("identifier") String uavIdentifier,
-                                       @PathParam("timeline_id") UUID timelineId,
-                                       @PathParam("organization_id") UUID organizationId,
-                                       @PathParam("tenant_id") UUID tenantId,
-                                       @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findUavTimelineVectors", summary = "List flight vectors of a UAV timeline",
+            description = "Returns every position the UAV reported during this timeline, with speed, altitude and "
+                    + "accuracy values. Altitude is reported as pressure altitude and geodetic altitude, plus a "
+                    + "height with the reference it was measured against. Vectors without a latitude or longitude "
+                    + "are left out.")
+    @ApiResponse(responseCode = "200", description = "Vectors found.",
+            content = @Content(schema = @Schema(implementation = UavVectorListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Timeline not found.", content = @Content)
+    public Response getTimelineVectors(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
+                                       @Parameter(description = "Timeline UUID.") @PathParam("timeline_id") UUID timelineId,
+                                       @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -253,11 +296,19 @@ public class UavResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/show/{identifier}/classify/{classification}")
-    public Response classifyUav(@Context SecurityContext sc,
-                                @PathParam("organization_id") UUID organizationId,
-                                @PathParam("tenant_id") UUID tenantId,
-                                @PathParam("identifier") String uavIdentifier,
-                                @PathParam("classification") String c) {
+    @Operation(operationId = "updateUavClassification", summary = "Classify a UAV",
+            description = "Sets the manual classification of the UAV to FRIENDLY, NEUTRAL, HOSTILE or UNKNOWN. The "
+                    + "default classification of a matching UAV type, your own or one from Nzyme Connect, always "
+                    + "takes precedence over the manual classification. Requires the uav_monitoring_manage feature "
+                    + "permission.")
+    @ApiResponse(responseCode = "200", description = "Classification updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The classification is unknown.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response classifyUav(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
+                                @Parameter(description = "Classification to set. One of FRIENDLY, NEUTRAL, HOSTILE or UNKNOWN.") @PathParam("classification") String c) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -278,11 +329,18 @@ public class UavResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY)
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/custom")
-    public Response findAllCustomTypes(@Context SecurityContext sc,
-                                       @PathParam("organization_id") UUID organizationId,
-                                       @PathParam("tenant_id") UUID tenantId,
-                                       @QueryParam("limit") int limit,
-                                       @QueryParam("offset") int offset) {
+    @Operation(operationId = "findUavTypes", summary = "List custom UAV types of a tenant",
+            description = "A UAV type matches a detected UAV by its serial number and enriches it with a make, a "
+                    + "model, a name and a default classification. Your own types are matched before the types "
+                    + "Nzyme Connect provides, so they take priority.")
+    @ApiResponse(responseCode = "200", description = "Custom UAV types found.",
+            content = @Content(schema = @Schema(implementation = UavCustomTypeListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAllCustomTypes(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                       @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                       @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -312,8 +370,14 @@ public class UavResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY)
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/connect")
-    public Response findAllConnectTypes(@QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findUavConnectTypes", summary = "List UAV types from Nzyme Connect",
+            description = "Returns the UAV models that Nzyme Connect knows about. Responds with an empty list if "
+                    + "this node is not connected to Nzyme Connect or no models are available. The organization "
+                    + "and tenant in the path are ignored and only exist to keep the API paths consistent.")
+    @ApiResponse(responseCode = "200", description = "UAV types found, or Nzyme Connect is not available.",
+            content = @Content(schema = @Schema(implementation = UavConnectTypeListResponse.class)))
+    public Response findAllConnectTypes(@Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         Optional<Integer> count = nzyme.getUav().countAllConnectUavModels();
 
         if (count.isEmpty()) {
@@ -343,10 +407,14 @@ public class UavResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY)
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/custom/show/{uuid}")
-    public Response findCustomType(@Context SecurityContext sc,
-                                   @PathParam("uuid") UUID uuid,
-                                   @PathParam("organization_id") UUID organizationId,
-                                   @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findUavType", summary = "Get a custom UAV type")
+    @ApiResponse(responseCode = "200", description = "Custom UAV type found.",
+            content = @Content(schema = @Schema(implementation = UavCustomTypeDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Custom UAV type not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findCustomType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Custom UAV type UUID.") @PathParam("uuid") UUID uuid,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -377,10 +445,18 @@ public class UavResource extends TapDataHandlingResource {
     @POST
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/custom")
-    public Response createCustomType(@Context SecurityContext sc,
-                                     @PathParam("organization_id") UUID organizationId,
-                                     @PathParam("tenant_id") UUID tenantId,
-                                     @Valid CreateUavCustomTypeRequest req) {
+    @Operation(operationId = "createUavType", summary = "Create a custom UAV type",
+            description = "Creates a custom UAV type for the tenant. The match value is always compared against the "
+                    + "serial number of a detected UAV, and the match type decides whether that is an EXACT or a "
+                    + "PREFIX comparison. Use this to describe your own fleet, for example with a default "
+                    + "classification of FRIENDLY. Requires the uav_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "Custom UAV type created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The match type or the default classification is unknown.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response createCustomType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                     @RequestBody(description = "Match type, match value, name, type, model and default classification of the new UAV type.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUavCustomTypeRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -416,11 +492,18 @@ public class UavResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/custom/show/{uuid}")
-    public Response updateCustomType(@Context SecurityContext sc,
-                                     @PathParam("uuid") UUID uuid,
-                                     @PathParam("organization_id") UUID organizationId,
-                                     @PathParam("tenant_id") UUID tenantId,
-                                     @Valid UpdateUavCustomTypeRequest req) {
+    @Operation(operationId = "updateUavType", summary = "Update a custom UAV type",
+            description = "Replaces all fields of the custom UAV type. The match type is EXACT or PREFIX and the "
+                    + "match value is compared against the serial number of a detected UAV. Requires the "
+                    + "uav_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Custom UAV type updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The match type or the default classification is unknown.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Custom UAV type not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response updateCustomType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Custom UAV type UUID.") @PathParam("uuid") UUID uuid,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                     @RequestBody(description = "The new match type, match value, name, type, model and default classification.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUavCustomTypeRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -462,10 +545,16 @@ public class UavResource extends TapDataHandlingResource {
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/types/custom/show/{uuid}")
-    public Response deleteCustomType(@Context SecurityContext sc,
-                                     @PathParam("organization_id") UUID organizationId,
-                                     @PathParam("tenant_id") UUID tenantId,
-                                     @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "deleteUavType", summary = "Delete a custom UAV type",
+            description = "Detected UAVs that matched this type fall back to a matching Nzyme Connect type, or to "
+                    + "their manual classification if there is none. Requires the uav_monitoring_manage feature "
+                    + "permission.")
+    @ApiResponse(responseCode = "200", description = "Custom UAV type deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Custom UAV type not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response deleteCustomType(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                     @Parameter(description = "Custom UAV type UUID.") @PathParam("uuid") UUID uuid) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -484,9 +573,16 @@ public class UavResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/monitoring")
-    public Response getMonitoringConfiguration(@Context SecurityContext sc,
-                                               @PathParam("organization_id") UUID organizationId,
-                                               @PathParam("tenant_id") UUID tenantId) {
+    @Operation(operationId = "findUavMonitoringConfiguration", summary = "Get UAV monitoring configuration",
+            description = "Returns which of the four UAV classifications raise a detection alert for this tenant. "
+                    + "Every setting that was never configured is returned as false. Requires the "
+                    + "uav_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = UavMonitoringSettingsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getMonitoringConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                               @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -518,10 +614,16 @@ public class UavResource extends TapDataHandlingResource {
     @PUT
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "uav_monitoring_manage" })
     @Path("/uavs/organization/{organization_id}/tenant/{tenant_id}/monitoring")
-    public Response setMonitoringConfiguration(@Context SecurityContext sc,
-                                               @PathParam("organization_id") UUID organizationId,
-                                               @PathParam("tenant_id") UUID tenantId,
-                                               UavMonitoringConfigurationRequest req) {
+    @Operation(operationId = "updateUavMonitoringConfiguration", summary = "Update UAV monitoring configuration",
+            description = "Sets which UAV classifications raise a detection alert for this tenant, so you can for "
+                    + "example alert on every UAV except known friendly ones. All four settings are written on "
+                    + "every call. Requires the uav_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response setMonitoringConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                               @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                               @RequestBody(description = "The classifications that should raise an alert.", required = true, content = @Content(mediaType = "application/json")) UavMonitoringConfigurationRequest req) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }

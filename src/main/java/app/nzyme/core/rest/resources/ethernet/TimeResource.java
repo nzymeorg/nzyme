@@ -29,6 +29,12 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -49,6 +55,8 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/time")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "Time", description = "Time synchronization traffic that Nzyme taps observed on the network. "
+        + "This currently covers NTP transactions, including the exchanged timestamps and the resulting clock offset.")
 public class TimeResource extends TapDataHandlingResource {
 
     private static final Logger LOG = LogManager.getLogger(TimeResource.class);
@@ -58,16 +66,23 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/transactions")
-    public Response ntpTransactions(@Context SecurityContext sc,
-                                    @QueryParam("organization_id") UUID organizationId,
-                                    @QueryParam("tenant_id") UUID tenantId,
-                                    @QueryParam("time_range") @Valid String timeRangeParameter,
-                                    @QueryParam("filters") String filtersParameter,
-                                    @QueryParam("order_column") @Nullable String orderColumnParam,
-                                    @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                    @QueryParam("limit") int limit,
-                                    @QueryParam("offset") int offset,
-                                    @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findNtpTransactions", summary = "List NTP transactions",
+            description = "Returns all NTP transactions observed in the time range, newest initiated first by "
+                    + "default. A transaction is marked incomplete when Nzyme only saw the request or the response.")
+    @ApiResponse(responseCode = "200", description = "Transactions found.",
+            content = @Content(schema = @Schema(implementation = NTPTransactionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response ntpTransactions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                    @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                    @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                    @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                    @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                    @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                    @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                    @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -100,11 +115,17 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/transactions/show/{transaction_id}")
-    public Response ntpTransaction(@Context SecurityContext sc,
-                                   @PathParam("transaction_id") String transactionId,
-                                   @QueryParam("organization_id") UUID organizationId,
-                                   @QueryParam("tenant_id") UUID tenantId,
-                                   @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findNtpTransaction", summary = "Get an NTP transaction",
+            description = "Returns a single NTP transaction by its transaction key, including all exchanged "
+                    + "timestamps and the calculated delay and offset.")
+    @ApiResponse(responseCode = "200", description = "Transaction found.",
+            content = @Content(schema = @Schema(implementation = NTPTransactionDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Transaction not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response ntpTransaction(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Transaction key of the NTP transaction.") @PathParam("transaction_id") String transactionId,
+                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                   @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -122,10 +143,16 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/transactions/histogram")
-    public Response ntpTransactionsHistogram(@Context SecurityContext sc,
-                                             @QueryParam("time_range") @Valid String timeRangeParameter,
-                                             @QueryParam("filters") String filtersParameter,
-                                             @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findNtpTransactionsHistogram", summary = "Get histogram of NTP transactions",
+            description = "Returns the number of NTP transactions in each bucket of the time range. The response is "
+                    + "an object that maps the bucket timestamp to the transaction count. The bucket size is chosen "
+                    + "automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = Object.class)))
+    public Response ntpTransactionsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                             @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                             @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -143,14 +170,22 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/clients/requestresponseratio/histogram")
-    public Response clientRequestResponseRatioHistogram(@Context SecurityContext sc,
-                                                        @QueryParam("organization_id") UUID organizationId,
-                                                        @QueryParam("tenant_id") UUID tenantId,
-                                                        @QueryParam("time_range") String timeRangeParameter,
-                                                        @QueryParam("filters") String filtersParameter,
-                                                        @QueryParam("limit") int limit,
-                                                        @QueryParam("offset") int offset,
-                                                        @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findNtpClientRequestResponseRatios",
+            summary = "List NTP client request to response ratios",
+            description = "Returns each NTP client with the ratio of requests to responses and the total number of "
+                    + "requests in the time range. A ratio far from one points to a client that is not getting "
+                    + "answers from its time server.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response clientRequestResponseRatioHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -193,14 +228,21 @@ public class TimeResource extends TapDataHandlingResource {
 
     @GET
     @Path("/ntp/servers/top/histogram")
-    public Response topServersHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset,
-                                        @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findNtpTopServers", summary = "List top NTP servers",
+            description = "Returns the NTP servers that answered the most transactions in the time range, together "
+                    + "with the transaction count. The MAC address the traffic was sent to is only included for "
+                    + "servers on the local network.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topServersHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);

@@ -19,6 +19,7 @@ import app.nzyme.core.taps.Bus;
 import app.nzyme.core.taps.Capture;
 import app.nzyme.core.taps.Channel;
 import app.nzyme.core.taps.Tap;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -153,7 +154,8 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Operation(operationId = "findTaps", summary = "List taps of a tenant",
-            description = "Returns full details of all taps of a tenant, including configuration and capture state.")
+            description = "Returns full details of all taps of a tenant, including configuration and capture state. "
+                    + "Requires organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Taps found.",
             content = @Content(schema = @Schema(implementation = TapListResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -195,7 +197,9 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}")
-    @Operation(operationId = "findTapDetails", summary = "Get tap details")
+    @Operation(operationId = "findTapDetails", summary = "Get tap details",
+            description = "Returns the full details of a tap, including its buses and channels, active captures, "
+                    + "resource usage and assigned location. Requires organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Tap found.",
             content = @Content(schema = @Schema(implementation = TapDetailsResponse.class)))
     @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
@@ -235,7 +239,9 @@ public class TapsResource extends TapDataHandlingResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics")
     @Operation(operationId = "findTapMetrics", summary = "Get current metrics of a tap",
-            description = "Returns the most recent value of every gauge and timer metric the tap reported.")
+            description = "Returns the most recent value of every gauge and timer metric the tap reported. Gauges for "
+                    + "captures and channels are left out because they are part of the tap details. Requires "
+                    + "organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Metrics found.",
             content = @Content(schema = @Schema(implementation = TapMetricsResponse.class)))
     @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
@@ -289,7 +295,9 @@ public class TapsResource extends TapDataHandlingResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics/gauges/{metricName}/histogram")
     @Operation(operationId = "findTapGaugeHistogram", summary = "Get 24 hour histogram of a tap gauge metric",
-            description = "Returns an empty object if the tap has not reported this metric.")
+            description = "Returns one bucket per minute for the last 24 hours, with the average, minimum and maximum "
+                    + "of the metric in each bucket. Returns an empty object if the tap has not reported this metric. "
+                    + "Requires organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Histogram found.",
             content = @Content(schema = @Schema(implementation = TapMetricsHistogramResponse.class)))
     @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
@@ -331,7 +339,9 @@ public class TapsResource extends TapDataHandlingResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics/timers/{metricName}/histogram")
     @Operation(operationId = "findTapTimerHistogram", summary = "Get 24 hour histogram of a tap timer metric",
-            description = "Returns an empty object if the tap has not reported this metric.")
+            description = "Returns one bucket per minute for the last 24 hours, with the average, minimum and maximum "
+                    + "of the metric in each bucket. Returns an empty object if the tap has not reported this metric. "
+                    + "Requires organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Histogram found.",
             content = @Content(schema = @Schema(implementation = TapMetricsHistogramResponse.class)))
     @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
@@ -373,7 +383,11 @@ public class TapsResource extends TapDataHandlingResource {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/engagement/logs")
     @Operation(operationId = "findTapEngagementLogs", summary = "List engagement logs of a tap",
-            description = "Engagement logs record when a tap connected, disconnected or changed state.")
+            description = "Engagement logs are messages the tap reports about its engagement interfaces, for example "
+                    + "when an interface starts engaging a target or loses it. Newest first. Requires organization "
+                    + "administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Engagement interfaces in the Nzyme documentation",
+                    url = "https://go.nzyme.org/engagement-interfaces"))
     @ApiResponse(responseCode = "200", description = "Logs found.",
             content = @Content(schema = @Schema(implementation = TapEngagementLogsListResponse.class)))
     @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)

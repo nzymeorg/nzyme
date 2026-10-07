@@ -24,6 +24,13 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import io.swagger.v3.oas.annotations.ExternalDocumentation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -44,6 +51,11 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Path("/api/ethernet/ssh")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
+@Tag(name = "SSH", description = "SSH sessions that Nzyme taps observed on the network, including the client "
+        + "and server software versions exchanged during the initial unencrypted handshake. Each session is tracked "
+        + "over its lifetime and keyed by its underlying TCP session.",
+        externalDocs = @ExternalDocumentation(description = "SSH in the Nzyme documentation",
+                url = "https://go.nzyme.org/ethernet-ssh"))
 public class SSHResource extends TapDataHandlingResource {
 
     @Inject
@@ -51,16 +63,23 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions")
-    public Response sessions(@Context SecurityContext sc,
-                             @QueryParam("organization_id") UUID organizationId,
-                             @QueryParam("tenant_id") UUID tenantId,
-                             @QueryParam("time_range") @Valid String timeRangeParameter,
-                             @QueryParam("filters") String filtersParameter,
-                             @QueryParam("order_column") @Nullable String orderColumnParam,
-                             @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                             @QueryParam("limit") int limit,
-                             @QueryParam("offset") int offset,
-                             @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findSshSessions", summary = "List SSH sessions",
+            description = "Returns all SSH sessions observed in the time range, newest established first by default. "
+                    + "Each session carries the client and server version banners and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = SSHSessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response sessions(@Parameter(hidden = true) @Context SecurityContext sc,
+                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                             @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                             @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                             @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                             @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -94,11 +113,16 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/show/{session_key}")
-    public Response session(@Context SecurityContext sc,
-                            @PathParam("session_key") String sessionKey,
-                            @QueryParam("organization_id") UUID organizationId,
-                            @QueryParam("tenant_id") UUID tenantId,
-                            @QueryParam("taps") String tapIds) {
+    @Operation(operationId = "findSshSession", summary = "Get an SSH session",
+            description = "Returns a single SSH session by the session key of the underlying TCP session.")
+    @ApiResponse(responseCode = "200", description = "Session found.",
+            content = @Content(schema = @Schema(implementation = SSHSessionDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Session not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response session(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Session key of the underlying TCP session.") @PathParam("session_key") String sessionKey,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -116,10 +140,15 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/active/histogram")
-    public Response activeSessionsHistogram(@Context SecurityContext sc,
-                                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                                            @QueryParam("filters") String filtersParameter,
-                                            @QueryParam("taps") String taps) {
+    @Operation(operationId = "findSshActiveSessionsHistogram", summary = "Get histogram of active SSH sessions",
+            description = "Returns the number of SSH sessions that were active in each bucket of the time range. "
+                    + "The bucket size is chosen automatically based on the length of the time range.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    public Response activeSessionsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -136,16 +165,23 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/clients/top/histogram")
-    public Response topClientsHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSshTopClients", summary = "List top SSH clients",
+            description = "Returns the client addresses with the most SSH sessions in the time range, together with "
+                    + "the session count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topClientsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -186,16 +222,23 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/servers/top/histogram")
-    public Response topServersHistogram(@Context SecurityContext sc,
-                                        @QueryParam("organization_id") UUID organizationId,
-                                        @QueryParam("tenant_id") UUID tenantId,
-                                        @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @QueryParam("filters") String filtersParameter,
-                                        @QueryParam("taps") String taps,
-                                        @QueryParam("order_column") @Nullable String orderColumnParam,
-                                        @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                        @QueryParam("limit") int limit,
-                                        @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSshTopServers", summary = "List top SSH servers",
+            description = "Returns the server addresses and ports with the most SSH sessions in the time range, "
+                    + "together with the session count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topServersHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                        @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                        @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -236,16 +279,23 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/clients/types/top/histogram")
-    public Response topClientTypesHistogram(@Context SecurityContext sc,
-                                            @QueryParam("organization_id") UUID organizationId,
-                                            @QueryParam("tenant_id") UUID tenantId,
-                                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                                            @QueryParam("filters") String filtersParameter,
-                                            @QueryParam("taps") String taps,
-                                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                            @QueryParam("limit") int limit,
-                                            @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSshTopClientTypes", summary = "List top SSH client software",
+            description = "Returns the client software versions that appeared in the most SSH handshakes in the time "
+                    + "range, together with the session count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topClientTypesHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
@@ -286,16 +336,23 @@ public class SSHResource extends TapDataHandlingResource {
 
     @GET
     @Path("/sessions/servers/types/top/histogram")
-    public Response topServerTypesHistogram(@Context SecurityContext sc,
-                                            @QueryParam("organization_id") UUID organizationId,
-                                            @QueryParam("tenant_id") UUID tenantId,
-                                            @QueryParam("time_range") @Valid String timeRangeParameter,
-                                            @QueryParam("filters") String filtersParameter,
-                                            @QueryParam("taps") String taps,
-                                            @QueryParam("order_column") @Nullable String orderColumnParam,
-                                            @QueryParam("order_direction") @Nullable String orderDirectionParam,
-                                            @QueryParam("limit") int limit,
-                                            @QueryParam("offset") int offset) {
+    @Operation(operationId = "findSshTopServerTypes", summary = "List top SSH server software",
+            description = "Returns the server software versions that appeared in the most SSH handshakes in the time "
+                    + "range, together with the session count and the number of tunneled bytes.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topServerTypesHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         List<UUID> tapUUIDs = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Filters filters = parseFiltersQueryParameter(filtersParameter);
