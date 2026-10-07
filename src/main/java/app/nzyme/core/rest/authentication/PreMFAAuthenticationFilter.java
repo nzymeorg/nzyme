@@ -1,6 +1,7 @@
 package app.nzyme.core.rest.authentication;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.security.authentication.ApiKeys;
 import app.nzyme.core.security.authentication.db.UserEntry;
 import app.nzyme.core.security.sessions.db.SessionEntry;
 import com.google.common.net.HttpHeaders;
@@ -64,6 +65,12 @@ public class PreMFAAuthenticationFilter implements ContainerRequestFilter {
             }
 
             String sessionId = authorizationHeader.substring(AUTHENTICATION_SCHEME.length()).trim();
+
+            // API keys can never be used for pre-MFA (session setup) resources.
+            if (ApiKeys.isApiKey(sessionId)) {
+                abortWithUnauthorized(requestContext);
+                return;
+            }
 
             // Check if session exists.
             Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(sessionId);

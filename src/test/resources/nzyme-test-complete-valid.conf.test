@@ -29,6 +29,18 @@ interfaces: {
   tls_key_path: none
 }
 
+performance: {
+  report_processor_pool_size: 3
+}
+
+protocols: {
+  tcp: {
+    session_timeout_seconds: 1800
+  }
+}
+
+misc: {}
+
 graylog_uplinks: [
   "10.243.255.10:33001",
   "127.0.0.1:9001"

@@ -9,10 +9,17 @@ import java.util.UUID;
 public class AuthenticatedUser implements Principal {
 
     private final UUID userId;
-    private final String sessionId;
     private final String email;
 
+    // Set when authenticated via interactive session.
+    @Nullable
+    private final String sessionId;
+    @Nullable
     private final DateTime sessionCreatedAt;
+
+    // Set when authenticated via API key.
+    @Nullable
+    private final UUID apiKeyId;
 
     @Nullable
     private final UUID organizationId;
@@ -34,10 +41,25 @@ public class AuthenticatedUser implements Principal {
                              final boolean isOrganizationAdministrator,
                              boolean isSuperAdministrator,
                              boolean accessAllTenantTaps) {
+        this(userId, sessionId, sessionCreatedAt, null, email, organizationId, tenantId,
+                isOrganizationAdministrator, isSuperAdministrator, accessAllTenantTaps);
+    }
+
+    public AuthenticatedUser(UUID userId,
+                             @Nullable String sessionId,
+                             @Nullable DateTime sessionCreatedAt,
+                             @Nullable UUID apiKeyId,
+                             String email,
+                             @Nullable UUID organizationId,
+                             @Nullable UUID tenantId,
+                             final boolean isOrganizationAdministrator,
+                             boolean isSuperAdministrator,
+                             boolean accessAllTenantTaps) {
         this.userId = userId;
         this.sessionId = sessionId;
-        this.email = email;
         this.sessionCreatedAt = sessionCreatedAt;
+        this.apiKeyId = apiKeyId;
+        this.email = email;
         this.organizationId = organizationId;
         this.tenantId = tenantId;
         this.isOrganizationAdministrator = isOrganizationAdministrator;
@@ -49,14 +71,25 @@ public class AuthenticatedUser implements Principal {
         return userId;
     }
 
+    @Nullable
     public String getSessionId() {
         return sessionId;
+    }
+
+    @Nullable
+    public UUID getApiKeyId() {
+        return apiKeyId;
+    }
+
+    public boolean isApiKeyAuthenticated() {
+        return apiKeyId != null;
     }
 
     public String getEmail() {
         return email;
     }
 
+    @Nullable
     public DateTime getSessionCreatedAt() {
         return sessionCreatedAt;
     }

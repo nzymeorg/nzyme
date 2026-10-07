@@ -1391,6 +1391,24 @@ public class AuthenticationService {
         );
     }
 
+    public Optional<ApiKeyEntry> findValidApiKeyByHash(String keyHash) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM auth_users_api_keys WHERE key = :key " +
+                                "AND (expires_at IS NULL OR expires_at > NOW())")
+                        .bind("key", keyHash)
+                        .mapTo(ApiKeyEntry.class)
+                        .findOne()
+        );
+    }
+
+    public void updateApiKeyLastActivity(UUID keyId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE auth_users_api_keys SET last_activity = NOW() WHERE uuid = :key_id")
+                        .bind("key_id", keyId)
+                        .execute()
+        );
+    }
+
     private void runSessionCleaning() {
         // We are extremely defensive with exception catching here to make sure it always executes the deletion query.
 

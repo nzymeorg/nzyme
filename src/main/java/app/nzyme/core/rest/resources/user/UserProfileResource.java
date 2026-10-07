@@ -11,6 +11,8 @@ import app.nzyme.core.rest.responses.authentication.apikeys.ApiKeyCreatedRespons
 import app.nzyme.core.rest.responses.authentication.apikeys.ApiKeyDetailsResponse;
 import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.rest.responses.userprofile.UserProfileDetailsResponse;
+import app.nzyme.core.rest.authentication.SessionOnly;
+import app.nzyme.core.security.authentication.ApiKeys;
 import app.nzyme.core.security.authentication.PasswordHasher;
 import app.nzyme.core.security.authentication.db.ApiKeyEntry;
 import app.nzyme.core.security.authentication.db.UserEntry;
@@ -18,8 +20,6 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
-import com.google.common.hash.Hashing;
-import com.google.common.io.BaseEncoding;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -32,8 +32,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +66,7 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @PUT
     @Path("/password")
+    @SessionOnly
     public Response changeOwnPassword(@Context SecurityContext sc, UpdateUserOwnPasswordRequest r) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -117,6 +116,7 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/mfa/recoverycodes")
+    @SessionOnly
     public Response findOwnMfaRecoveryCodes(@Context SecurityContext sc) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -133,6 +133,7 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @PUT
     @Path("/mfa/reset")
+    @SessionOnly
     public Response resetOwnMfa(@Context SecurityContext sc) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -164,6 +165,7 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @GET
     @Path("/apikeys")
+    @SessionOnly
     public Response listApiKeys(@Context SecurityContext sc) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
@@ -185,18 +187,18 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @POST
     @Path("/apikeys")
+    @SessionOnly
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "api_keys_manage_own" })
     public Response createApiKey(@Context SecurityContext sc, @Valid CreateApiKeyRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         DateTime expiresAt = req.expiryDays() != null ?  DateTime.now().plusDays(req.expiryDays()) : null;
 
-        byte[] raw = new byte[32];
-        new SecureRandom().nextBytes(raw);
-        String plaintextKey = "nzk_" + BaseEncoding.base64Url().omitPadding().encode(raw);
-        String keyHash = Hashing.sha256().hashString(plaintextKey, StandardCharsets.UTF_8).toString();
+        String plaintextKey = ApiKeys.generate();
 
-        nzyme.getAuthenticationService().createApiKey(authenticatedUser.getUserId(), req.name(), keyHash, expiresAt);
+        nzyme.getAuthenticationService().createApiKey(
+                authenticatedUser.getUserId(), req.name(), ApiKeys.hash(plaintextKey), expiresAt
+        );
 
         // System event.
         nzyme.getEventEngine().processEvent(SystemEvent.create(
@@ -212,6 +214,7 @@ public class UserProfileResource extends UserAuthenticatedResource {
 
     @DELETE
     @Path("/apikeys/show/{uuid}")
+    @SessionOnly
     public Response deleteApiKey(@Context SecurityContext sc, @PathParam("uuid") UUID keyId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 

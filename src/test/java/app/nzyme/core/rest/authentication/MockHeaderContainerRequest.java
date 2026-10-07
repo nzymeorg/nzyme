@@ -4,6 +4,7 @@ import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.*;
 
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.util.*;
 import java.util.function.Predicate;
@@ -39,7 +40,12 @@ public class MockHeaderContainerRequest implements ContainerRequestContext {
 
     @Override
     public UriInfo getUriInfo() {
-        return null;
+        // Minimal UriInfo: only getPath() is used by the filters.
+        return (UriInfo) Proxy.newProxyInstance(
+                UriInfo.class.getClassLoader(),
+                new Class[]{UriInfo.class},
+                (proxy, method, args) -> method.getName().equals("getPath") ? "api/test" : null
+        );
     }
 
     @Override

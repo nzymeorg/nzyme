@@ -18,6 +18,8 @@
 package app.nzyme.core.rest.authentication;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.security.authentication.ApiKeys;
+import app.nzyme.core.security.authentication.db.ApiKeyEntry;
 import app.nzyme.core.security.authentication.db.UserEntry;
 import app.nzyme.core.security.sessions.db.SessionEntry;
 import app.nzyme.plugin.Subsystem;
@@ -75,6 +77,9 @@ public class RESTAuthenticationFilter implements ContainerRequestFilter {
         RESTSecured methodAnnotation = resourceMethod.getAnnotation(RESTSecured.class);
         RESTSecured classAnnotation = (RESTSecured) resourceClass.getAnnotation(RESTSecured.class);
 
+        boolean sessionOnly = resourceMethod.isAnnotationPresent(SessionOnly.class)
+                || resourceClass.isAnnotationPresent(SessionOnly.class);
+
         PermissionLevel resourcePermissionLevel;
         String[] features = null;
         if (methodAnnotation == null && classAnnotation == null) {
@@ -118,27 +123,67 @@ public class RESTAuthenticationFilter implements ContainerRequestFilter {
                 return;
             }
 
-            String sessionId = authorizationHeader.substring(AUTHENTICATION_SCHEME.length()).trim();
+            String bearerToken = authorizationHeader.substring(AUTHENTICATION_SCHEME.length()).trim();
 
-            // Check if session exists.
-            Optional<SessionEntry> session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(sessionId);
-            if (session.isEmpty()) {
-                abortWithUnauthorized(requestContext);
-                return;
-            }
+            /*
+             * The bearer token is either an interactive session ID or an API key. API keys carry a prefix
+             * so we can route without a second database lookup.
+             */
+            Optional<SessionEntry> session = Optional.empty();
+            Optional<ApiKeyEntry> apiKey = Optional.empty();
+            Optional<UserEntry> user;
 
-            Optional<UserEntry> user = nzyme.getAuthenticationService().findUserById(session.get().userId());
+            if (ApiKeys.isApiKey(bearerToken)) {
+                // API key.
 
-            if (user.isEmpty()) {
-                LOG.error("Session referenced user that doesn't exist. Aborting.");
-                abortWithUnauthorized(requestContext);
-                return;
-            }
+                if (sessionOnly) {
+                    LOG.debug("Blocking API key access to session-only resource [/{}].",
+                            requestContext.getUriInfo().getPath());
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
 
-            // Check if MFA has been passed if user does not have MFA disabled.
-            if (!user.get().hasMfaDisabled() && !session.get().mfaValid()) {
-                abortWithUnauthorized(requestContext);
-                return;
+                apiKey = nzyme.getAuthenticationService().findValidApiKeyByHash(ApiKeys.hash(bearerToken));
+                if (apiKey.isEmpty()) {
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
+
+                user = nzyme.getAuthenticationService().findUserById(apiKey.get().userId());
+
+                if (user.isEmpty()) {
+                    LOG.error("API key referenced user that doesn't exist. Aborting.");
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
+
+                /*
+                 * No MFA check for API keys: Creating a key requires a session that passed MFA, and key
+                 * management resources are session-only.
+                 */
+            } else {
+                // Session.
+
+                // Check if session exists.
+                session = nzyme.getAuthenticationService().findSessionWithOrWithoutPassedMFABySessionId(bearerToken);
+                if (session.isEmpty()) {
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
+
+                user = nzyme.getAuthenticationService().findUserById(session.get().userId());
+
+                if (user.isEmpty()) {
+                    LOG.error("Session referenced user that doesn't exist. Aborting.");
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
+
+                // Check if MFA has been passed if user does not have MFA disabled.
+                if (!user.get().hasMfaDisabled() && !session.get().mfaValid()) {
+                    abortWithUnauthorized(requestContext);
+                    return;
+                }
             }
 
             String requestPath = requestContext.getUriInfo().getPath();
@@ -215,25 +260,36 @@ public class RESTAuthenticationFilter implements ContainerRequestFilter {
             }
 
             // Authenticated. Set last activity information.
-            nzyme.getAuthenticationService().updateLastUserActivity(
-                    user.get().uuid(),
-                    remoteIp,
-                    nzyme.getGeoIpService().lookup(InetAddress.getByName(remoteIp))
-                            .orElse(null)
-            );
+            if (apiKey.isPresent()) {
+                /*
+                 * Only track activity on the key itself. Updating the user's last activity would keep their
+                 * interactive sessions from timing out while a script is using an API key.
+                 */
+                nzyme.getAuthenticationService().updateApiKeyLastActivity(apiKey.get().uuid());
+            } else {
+                nzyme.getAuthenticationService().updateLastUserActivity(
+                        user.get().uuid(),
+                        remoteIp,
+                        nzyme.getGeoIpService().lookup(InetAddress.getByName(remoteIp))
+                                .orElse(null)
+                );
+            }
 
             // Set new security context for later use in resources.
             final SecurityContext currentSecurityContext = requestContext.getSecurityContext();
+            final Optional<SessionEntry> finalSession = session;
+            final Optional<ApiKeyEntry> finalApiKey = apiKey;
+            final UserEntry u = user.get();
             requestContext.setSecurityContext(new SecurityContext() {
 
                 @Override
                 public Principal getUserPrincipal() {
-                    UserEntry u = user.get();
                     return new AuthenticatedUser(
                             u.uuid(),
-                            session.get().sessionId(),
+                            finalSession.map(SessionEntry::sessionId).orElse(null),
+                            finalSession.map(SessionEntry::createdAt).orElse(null),
+                            finalApiKey.map(ApiKeyEntry::uuid).orElse(null),
                             u.email(),
-                            session.get().createdAt(),
                             u.organizationId(),
                             u.tenantId(),
                             u.isOrganizationAdmin(),
@@ -259,7 +315,7 @@ public class RESTAuthenticationFilter implements ContainerRequestFilter {
 
             });
         } catch (Exception e) {
-            LOG.warn("Session ID validation failed.", e);
+            LOG.warn("Authentication failed.", e);
             abortWithUnauthorized(requestContext);
             return;
         }

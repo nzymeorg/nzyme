@@ -101,5 +101,18 @@ public class PreMFAAuthenticationFilterTest extends RESTAuthenticationFilterTest
         assertTrue(ctx.aborted);
     }
 
+    @Test
+    public void testFilterRejectsApiKey() throws IOException {
+        NzymeNode nzyme = new MockNzyme();
+        PreMFAAuthenticationFilter f = new PreMFAAuthenticationFilter(nzyme);
+
+        UserEntry user = createUser("lennart@example.org", "456456456456");
+        String key = createApiKey(user.uuid(), null);
+
+        MockHeaderContainerRequest ctx = new MockHeaderContainerRequest("Bearer " + key);
+
+        f.filter(ctx);
+        assertTrue(ctx.aborted);
+    }
 
 }

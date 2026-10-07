@@ -13,6 +13,7 @@ import app.nzyme.core.floorplans.db.TenantLocationFloorEntry;
 import app.nzyme.core.quota.QuotaType;
 import app.nzyme.core.rest.UserAuthenticatedResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
+import app.nzyme.core.rest.authentication.SessionOnly;
 import app.nzyme.core.rest.requests.*;
 import app.nzyme.core.rest.responses.authentication.SessionDetailsResponse;
 import app.nzyme.core.rest.responses.authentication.SessionsListResponse;
@@ -460,6 +461,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators")
+    @SessionOnly
     public Response createOrganizationAdministrator(@Context SecurityContext sc,
                                                     @PathParam("organizationId") UUID organizationId,
                                                     @Valid CreateUserRequest req) {
@@ -552,6 +554,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}/password")
+    @SessionOnly
     public Response editOrganizationAdministratorPassword(@Context SecurityContext sc,
                                                           @PathParam("organizationId") UUID organizationId,
                                                           @PathParam("id") UUID userId,
@@ -629,6 +632,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}/mfa/reset")
+    @SessionOnly
     public Response resetOrganizationAdministratorMFA(@Context SecurityContext sc,
                                                       @PathParam("organizationId") UUID organizationId,
                                                       @PathParam("id") UUID userId) {
@@ -1076,6 +1080,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users")
+    @SessionOnly
     public Response createUserOfTenant(@Context SecurityContext sc,
                                        @PathParam("organizationId") UUID organizationId,
                                        @PathParam("tenantId") UUID tenantId,
@@ -1289,6 +1294,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/password")
+    @SessionOnly
     public Response editUserOfTenantPassword(@Context SecurityContext sc,
                                              @PathParam("organizationId") UUID organizationId,
                                              @PathParam("tenantId") UUID tenantId,
@@ -1340,6 +1346,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/mfa/reset")
+    @SessionOnly
     public Response resetMFAOfUserOfTenant(@Context SecurityContext sc,
                                            @PathParam("organizationId") UUID organizationId,
                                            @PathParam("tenantId") UUID tenantId,
@@ -2728,6 +2735,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins")
+    @SessionOnly
     public Response createSuperAdministrator(@Valid CreateUserRequest req) {
         if (!validateCreateUserRequest(req)) {
             LOG.info("Invalid parameters in create user request.");
@@ -2807,6 +2815,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{userId}/password")
+    @SessionOnly
     public Response editSuperAdministratorPassword(@Context SecurityContext sc,
                                                    @PathParam("userId") UUID userId,
                                                    UpdatePasswordRequest req) {
@@ -2881,6 +2890,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @POST
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{id}/mfa/reset")
+    @SessionOnly
     public Response resetSuperAdministratorMFA(@Context SecurityContext sc, @PathParam("id") UUID userId) {
         AuthenticatedUser sessionUser = getAuthenticatedUser(sc);
 

@@ -1,13 +1,17 @@
 package app.nzyme.core.rest.authentication;
 
 import app.nzyme.core.MockNzyme;
+import app.nzyme.core.security.authentication.ApiKeys;
 import app.nzyme.core.security.authentication.AuthenticationService;
 import app.nzyme.core.security.authentication.PasswordHasher;
 import app.nzyme.core.security.authentication.db.OrganizationEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
 import app.nzyme.core.security.authentication.db.UserEntry;
 import app.nzyme.core.security.sessions.SessionId;
+import org.joda.time.DateTime;
 import org.testng.annotations.BeforeMethod;
+
+import javax.annotation.Nullable;
 
 import java.util.UUID;
 
@@ -17,6 +21,7 @@ public class RESTAuthenticationFilterTestBase {
     public void clean() {
         MockNzyme nzyme = new MockNzyme();
 
+        nzyme.getDatabase().useHandle(handle -> handle.createUpdate("DELETE FROM auth_users_api_keys;").execute());
         nzyme.getDatabase().useHandle(handle -> handle.createUpdate("DELETE FROM auth_sessions;").execute());
         nzyme.getDatabase().useHandle(handle -> handle.createUpdate("DELETE FROM auth_users;").execute());
         nzyme.getDatabase().useHandle(handle -> handle.createUpdate("DELETE FROM auth_tenants;").execute());
@@ -59,6 +64,15 @@ public class RESTAuthenticationFilterTestBase {
         }
 
         return sessionId;
+    }
+
+    protected String createApiKey(UUID userId, @Nullable DateTime expiresAt) {
+        MockNzyme nzyme = new MockNzyme();
+
+        String plaintextKey = ApiKeys.generate();
+        nzyme.getAuthenticationService().createApiKey(userId, "test key", ApiKeys.hash(plaintextKey), expiresAt);
+
+        return plaintextKey;
     }
 
 }

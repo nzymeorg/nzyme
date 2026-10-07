@@ -27,6 +27,7 @@ import app.nzyme.core.monitoring.health.db.IndicatorStatus;
 import app.nzyme.core.rest.UserAuthenticatedResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.authentication.PreMFASecured;
+import app.nzyme.core.rest.authentication.SessionOnly;
 import app.nzyme.core.rest.requests.MFARecoveryCodeRequest;
 import app.nzyme.core.rest.requests.MFAVerificationRequest;
 import app.nzyme.core.rest.responses.authentication.MFAInitResponse;
@@ -652,6 +653,7 @@ public class AuthenticationResource extends UserAuthenticatedResource {
 
     @DELETE
     @RESTSecured(PermissionLevel.ANY)
+    @SessionOnly
     @Path("/session")
     public Response deleteSessionOfOwnUser(@Context SecurityContext sc) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
