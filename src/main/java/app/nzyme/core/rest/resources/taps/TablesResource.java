@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.taps;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.rest.authentication.AuthenticatedTap;
 import app.nzyme.core.rest.authentication.TapSecured;
@@ -31,6 +32,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
+@Hidden // Not part of the user-facing REST API.
 @Path("/api/taps/tables")
 @TapSecured
 @Produces(MediaType.APPLICATION_JSON)

@@ -19,6 +19,12 @@ import app.nzyme.core.taps.Bus;
 import app.nzyme.core.taps.Capture;
 import app.nzyme.core.taps.Channel;
 import app.nzyme.core.taps.Tap;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTime;
 
@@ -36,6 +42,7 @@ import java.util.stream.Collectors;
 
 @Path("/api/taps")
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Taps", description = "Taps are the sensors that capture network data and report it to Nzyme.")
 public class TapsResource extends TapDataHandlingResource {
 
     @Inject
@@ -44,9 +51,15 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ANY)
     @Path("/highlevel")
-    public Response findAllWithHighLevelInformation(@Context SecurityContext sc,
-                                                    @QueryParam("organization_id") @NotNull UUID organizationId,
-                                                    @QueryParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findTapsHighLevel", summary = "List taps with high-level status",
+            description = "Returns name, location and active status of all taps of a tenant that the calling user can access. "
+                    + "Available to any user. The full tap details require organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Taps found.",
+            content = @Content(schema = @Schema(implementation = TapHighLevelInformationListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAllWithHighLevelInformation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                                    @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -92,10 +105,14 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ANY)
     @Path("/show/{uuid}/highlevel")
-    public Response findOneWithHighLevelInformation(@Context SecurityContext sc,
-                                                    @PathParam("uuid") UUID uuid,
-                                                    @QueryParam("organization_id") @NotNull UUID organizationId,
-                                                    @QueryParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findTapHighLevel", summary = "Get high-level status of a tap")
+    @ApiResponse(responseCode = "200", description = "Tap found.",
+            content = @Content(schema = @Schema(implementation = TapHighLevelInformationDetailsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response findOneWithHighLevelInformation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                    @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid,
+                                                    @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                                    @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)
@@ -135,9 +152,14 @@ public class TapsResource extends TapDataHandlingResource {
 
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
-    public Response findAll(@Context SecurityContext sc,
-                            @QueryParam("organization_id") @NotNull UUID organizationId,
-                            @QueryParam("tenant_id") @NotNull UUID tenantId) {
+    @Operation(operationId = "findTaps", summary = "List taps of a tenant",
+            description = "Returns full details of all taps of a tenant, including configuration and capture state.")
+    @ApiResponse(responseCode = "200", description = "Taps found.",
+            content = @Content(schema = @Schema(implementation = TapListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
+                            @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -173,7 +195,12 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}")
-    public Response findTap(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findTapDetails", summary = "Get tap details")
+    @ApiResponse(responseCode = "200", description = "Tap found.",
+            content = @Content(schema = @Schema(implementation = TapDetailsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response findTap(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser).contains(uuid)) {
@@ -207,7 +234,13 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics")
-    public Response tapMetrics(@Context SecurityContext sc, @PathParam("uuid") UUID uuid) {
+    @Operation(operationId = "findTapMetrics", summary = "Get current metrics of a tap",
+            description = "Returns the most recent value of every gauge and timer metric the tap reported.")
+    @ApiResponse(responseCode = "200", description = "Metrics found.",
+            content = @Content(schema = @Schema(implementation = TapMetricsResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response tapMetrics(@Parameter(hidden = true) @Context SecurityContext sc, @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser).contains(uuid)) {
@@ -255,9 +288,15 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics/gauges/{metricName}/histogram")
-    public Response tapMetricsGauge(@Context SecurityContext sc,
-                                    @PathParam("uuid") UUID uuid,
-                                    @PathParam("metricName") String metricName) {
+    @Operation(operationId = "findTapGaugeHistogram", summary = "Get 24 hour histogram of a tap gauge metric",
+            description = "Returns an empty object if the tap has not reported this metric.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TapMetricsHistogramResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response tapMetricsGauge(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid,
+                                    @Parameter(description = "Metric name as reported by the tap.") @PathParam("metricName") String metricName) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser).contains(uuid)) {
@@ -291,9 +330,15 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/metrics/timers/{metricName}/histogram")
-    public Response tapMetricsTimer(@Context SecurityContext sc,
-                                    @PathParam("uuid") UUID uuid,
-                                    @PathParam("metricName") String metricName) {
+    @Operation(operationId = "findTapTimerHistogram", summary = "Get 24 hour histogram of a tap timer metric",
+            description = "Returns an empty object if the tap has not reported this metric.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TapMetricsHistogramResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response tapMetricsTimer(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid,
+                                    @Parameter(description = "Metric name as reported by the tap.") @PathParam("metricName") String metricName) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser).contains(uuid)) {
@@ -327,10 +372,16 @@ public class TapsResource extends TapDataHandlingResource {
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{uuid}/engagement/logs")
-    public Response tapMetricsTimer(@Context SecurityContext sc,
-                                    @PathParam("uuid") UUID uuid,
-                                    @QueryParam("limit") int limit,
-                                    @QueryParam("offset") int offset) {
+    @Operation(operationId = "findTapEngagementLogs", summary = "List engagement logs of a tap",
+            description = "Engagement logs record when a tap connected, disconnected or changed state.")
+    @ApiResponse(responseCode = "200", description = "Logs found.",
+            content = @Content(schema = @Schema(implementation = TapEngagementLogsListResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Tap exists but belongs to an organization or tenant the calling user cannot administer.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Tap not found or not accessible by the calling user.", content = @Content)
+    public Response tapMetricsTimer(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Tap UUID.") @PathParam("uuid") UUID uuid,
+                                    @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                    @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser).contains(uuid)) {

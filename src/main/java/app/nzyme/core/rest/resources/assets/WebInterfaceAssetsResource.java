@@ -17,6 +17,7 @@
 
 package app.nzyme.core.rest.resources.assets;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -47,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
+@Hidden // Not part of the user-facing REST API.
 @Path("/")
 public class WebInterfaceAssetsResource {
 

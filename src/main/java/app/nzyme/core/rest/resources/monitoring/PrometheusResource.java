@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.monitoring;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import app.nzyme.plugin.RegistryCryptoException;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
@@ -29,6 +30,7 @@ import java.util.Optional;
 
 
 @Produces(MediaType.APPLICATION_JSON)
+@Hidden // Not part of the user-facing REST API.
 @Path("/api/system/monitoring/prometheus")
 public class PrometheusResource {
 

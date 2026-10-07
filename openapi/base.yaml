@@ -1,0 +1,35 @@
+# Base document merged into the generated OpenAPI spec by swagger-maven-plugin.
+# Paths and schemas are generated from the JAX-RS resources and only hand-maintained metadata lives here.
+openapi: 3.0.1
+info:
+  title: Nzyme REST API
+  description: |
+    REST API of Nzyme.
+
+    Authenticate with an API key created on your user profile page, sent as a bearer token:
+    `Authorization: Bearer nzk_...`. API keys carry the permissions of the user that created them.
+    Endpoints that manage credentials (passwords, MFA, API keys, sessions) require an interactive
+    session and reject API keys.
+  version: "1"
+  license:
+    name: Server Side Public License (SSPL)
+    url: https://www.mongodb.com/licensing/server-side-public-license
+servers:
+  - url: "{scheme}://{host}:{port}"
+    description: Your Nzyme node
+    variables:
+      scheme:
+        default: https
+        enum: [https, http]
+      host:
+        default: localhost
+      port:
+        default: "22900"
+components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: Nzyme API key (or interactive session ID) as bearer token.
+security:
+  - apiKey: []

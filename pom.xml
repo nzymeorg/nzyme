@@ -34,6 +34,7 @@
         <autovalue.version>1.11.1</autovalue.version>
         <metrics.version>4.2.7</metrics.version>
         <jersey.version>4.0.2</jersey.version>
+        <swagger.version>2.2.31</swagger.version>
         <typesafeconfig.version>1.4.3</typesafeconfig.version>
         <jdbi.version>3.39.1</jdbi.version>
         <liquibase.version>4.29.2</liquibase.version>
@@ -386,6 +387,11 @@
             <artifactId>timeshape</artifactId>
             <version>${timeshape.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.swagger.core.v3</groupId>
+            <artifactId>swagger-annotations-jakarta</artifactId>
+            <version>${swagger.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -451,6 +457,30 @@
                 </configuration>
             </plugin>
 
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>clean-generated-annotation-sources</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>clean</goal>
+                        </goals>
+                        <configuration combine.self="override">
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <directory>${project.build.directory}/generated-sources/annotations</directory>
+                                    <includes>
+                                        <include>**/*</include>
+                                    </includes>
+                                </fileset>
+                            </filesets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -763,6 +793,43 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>io.swagger.core.v3</groupId>
+                <artifactId>swagger-maven-plugin-jakarta</artifactId>
+                <version>${swagger.version}</version>
+                <executions>
+                    <execution>
+                        <id>openapi-packaged</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>resolve</goal>
+                        </goals>
+                        <configuration>
+                            <outputPath>${project.build.outputDirectory}/openapi</outputPath>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>openapi-committed</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>resolve</goal>
+                        </goals>
+                        <configuration>
+                            <outputPath>${project.basedir}/openapi</outputPath>
+                        </configuration>
+                    </execution>
+                </executions>
+                <configuration>
+                    <outputFileName>openapi</outputFileName>
+                    <outputFormat>JSON</outputFormat>
+                    <prettyPrint>true</prettyPrint>
+                    <sortOutput>true</sortOutput>
+                    <openapiFilePath>${project.basedir}/openapi/base.yaml</openapiFilePath>
+                    <resourcePackages>
+                        <package>app.nzyme.core.rest.resources</package>
+                    </resourcePackages>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 

@@ -37,6 +37,7 @@ import app.nzyme.core.rest.resources.system.integrations.SmtpIntegrationResource
 import app.nzyme.core.rest.resources.taps.StatusResource;
 import app.nzyme.core.rest.resources.taps.TablesResource;
 import app.nzyme.core.rest.resources.taps.TapsResource;
+import app.nzyme.core.rest.resources.docs.ApiDocsResource;
 import app.nzyme.core.rest.resources.timelines.TimelinesResource;
 import app.nzyme.core.rest.resources.uav.UavResource;
 import app.nzyme.core.rest.resources.user.UserProfileResource;
@@ -142,6 +143,7 @@ public class NzymeHttpServer {
         resourceConfig.register(StatusResource.class);
         resourceConfig.register(TablesResource.class);
         resourceConfig.register(TapsResource.class);
+        resourceConfig.register(ApiDocsResource.class);
         resourceConfig.register(DNSResource.class);
         resourceConfig.register(PluginResource.class);
         resourceConfig.register(PrometheusResource.class);

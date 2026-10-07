@@ -17,6 +17,7 @@
 
 package app.nzyme.core.rest.resources.taps;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.rest.authentication.AuthenticatedTap;
 import app.nzyme.core.rest.authentication.TapSecured;
@@ -38,6 +39,7 @@ import org.glassfish.grizzly.http.server.Request;
 
 import java.util.UUID;
 
+@Hidden // Not part of the user-facing REST API.
 @Path("/api/taps")
 @TapSecured
 @Produces(MediaType.APPLICATION_JSON)
