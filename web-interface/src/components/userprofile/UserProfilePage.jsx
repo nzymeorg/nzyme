@@ -153,6 +153,10 @@ function UserProfilePage(props) {
 
                       <p>
                         API keys let scripts and other clients access the Nzyme REST API with your permissions.
+                        Explore all available endpoints in the{' '}
+                        <a href="https://api.docs.nzyme.org/" target="_blank" rel="noreferrer">
+                          interactive API browser
+                        </a>.
                       </p>
 
                       <h4>Create API Key</h4>
