@@ -5,14 +5,18 @@ mod arguments;
 mod apps;
 mod tools;
 mod peripherals;
+mod api;
+mod profiles;
 
 use clap::Parser;
 use crate::apps::firmware::{flash_firmware_app, verify_firmware_app};
 use crate::apps::devices::list_devices_app;
 use crate::apps::release::verify_release_app;
 use crate::apps::sona::{generate_sona_configuration_app, sona_test_app};
+use crate::apps::api::{gui, list_nodes_app, list_taps_app, tap_metrics_app};
+use crate::apps::api::profiles::{add_profile_app, list_profiles_app, remove_profile_app};
 
-use crate::arguments::{CliArguments, Command, DevicesSubcommand, FirmwareSubcommand, ReleaseSubcommand, SonaSubcommand};
+use crate::arguments::{ApiSubcommand, CliArguments, Command, DevicesSubcommand, FirmwareSubcommand, InfraSubcommand, NodesSubcommand, ProfilesSubcommand, ReleaseSubcommand, SonaSubcommand, TapsSubcommand};
 use crate::exit_codes::EX_OK;
 
 fn main() {
@@ -53,6 +57,52 @@ fn main() {
             SonaSubcommand::Test => {
                 // $ nzyme-util sona test
                 sona_test_app::run();
+            }
+        },
+
+        Some(Command::Api(api)) => {
+            let connection = &api.connection;
+
+            match api.command {
+                ApiSubcommand::Profiles(profiles) => match profiles.command {
+                    ProfilesSubcommand::Add { name, api_key_stdin } => {
+                        // $ nzyme-util api profiles add
+                        add_profile_app::run(connection, name, api_key_stdin);
+                    }
+                    ProfilesSubcommand::List => {
+                        // $ nzyme-util api profiles list
+                        list_profiles_app::run();
+                    }
+                    ProfilesSubcommand::Remove { name } => {
+                        // $ nzyme-util api profiles remove
+                        remove_profile_app::run(name);
+                    }
+                },
+
+                ApiSubcommand::Gui => {
+                    // $ nzyme-util api gui
+                    gui::run(connection);
+                }
+
+                ApiSubcommand::Infra(infra) => match infra.command {
+                    InfraSubcommand::Nodes(nodes) => match nodes.command {
+                        NodesSubcommand::List => {
+                            // $ nzyme-util api infra nodes list
+                            list_nodes_app::run(connection);
+                        }
+                    },
+
+                    InfraSubcommand::Taps(taps) => match taps.command {
+                        TapsSubcommand::List { organization_id, tenant_id } => {
+                            // $ nzyme-util api infra taps list
+                            list_taps_app::run(connection, organization_id, tenant_id);
+                        }
+                        TapsSubcommand::Metrics { uuid } => {
+                            // $ nzyme-util api infra taps metrics
+                            tap_metrics_app::run(connection, uuid);
+                        }
+                    },
+                },
             }
         },
 
