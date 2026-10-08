@@ -3,7 +3,7 @@ use std::time::Duration as StdDuration;
 
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::{DateTime, Utc};
-use log::{info, warn};
+use log::{debug, warn};
 use url::Url;
 
 use smoltcp::wire::IpAddress;
@@ -67,13 +67,8 @@ pub struct ProbeResult {
 
 impl ProbeResult {
     pub fn log(&self) {
-        info!(
-            "portal_integrity: {} — {} hop(s)",
-            self.control_url,
-            self.hops.len()
-        );
-        info!(
-            "  context: iface={} mac={} ip={} gw={} dhcp={} dns=[{}]",
+        debug!("URL: [{}], <{}> hop(s)",self.control_url,self.hops.len());
+        debug!("  context: iface={} mac={} ip={} gw={} dhcp={} dns=[{}]",
             self.context.interface,
             self.context.mac,
             self.context.assigned_cidr,
@@ -81,9 +76,9 @@ impl ProbeResult {
             self.context.dhcp_server.as_deref().unwrap_or("?"),
             self.context.dns_servers.join(", "),
         );
+
         for (i, hop) in self.hops.iter().enumerate() {
-            info!(
-                "  hop[{}] {} -> {} status={} raw={}B {}{}",
+            debug!("  hop[{}] {} -> {} status={} raw={}B {}{}",
                 i,
                 hop.url,
                 hop.resolved_ip,
@@ -95,9 +90,9 @@ impl ProbeResult {
                     .map(|t| format!(" => {}", t))
                     .unwrap_or_default(),
             );
+
             if let Some(t) = &hop.tls {
-                info!(
-                    "         tls: leaf_sha256={} chain_len={} version={} cipher={:?}",
+                debug!("         tls: leaf_sha256={} chain_len={} version={} cipher={:?}",
                     t.leaf_sha256,
                     t.chain_der.len(),
                     t.protocol_version.as_deref().unwrap_or("?"),
@@ -158,10 +153,7 @@ fn fetch_chain(stack: &mut Stack, start_url: &str, max_redirects: u32, hops: &mu
         match next {
             Some(loc) => {
                 if i == max_redirects {
-                    info!(
-                        "  max_redirects ({}) reached; not following '{}'",
-                        max_redirects, loc
-                    );
+                    debug!("  max_redirects ({}) reached; not following '{}'",max_redirects, loc);
                     break;
                 }
                 current = current
@@ -169,10 +161,7 @@ fn fetch_chain(stack: &mut Stack, start_url: &str, max_redirects: u32, hops: &mu
                     .with_context(|| format!("joining redirect location '{}'", loc))?;
             }
             None => {
-                info!(
-                    "  redirect status {} with no followable target; chain stops here",
-                    status
-                );
+                debug!("  redirect status <{}> with no followable target; chain stops here", status);
                 break;
             }
         }
@@ -360,7 +349,6 @@ fn read_http_message<R: Read>(stream: &mut R) -> Result<(Vec<u8>, Completeness)>
             }
         }
     } else {
-        // No framing info: legacy close-delimited. A clean EOF IS the frame.
         loop {
             if buf.len() > MAX_RESPONSE {
                 break Completeness::TruncatedByCap;

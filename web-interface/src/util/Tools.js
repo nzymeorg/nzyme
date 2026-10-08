@@ -376,6 +376,8 @@ export function humanReadableDatabaseCategoryName(category) {
       return "Ethernet: DNS"
     case "ETHERNET_L4":
       return "Ethernet: Layer 4"
+    case "PORTAL_INTEGRITY":
+      return "Portal Integrity Checks"
     case "TIMELINE_EVENTS_DOT11":
       return "Timeline Events (802.11/WiFi)"
   }

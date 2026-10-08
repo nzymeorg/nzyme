@@ -201,13 +201,12 @@ export default function PortalIntegrityReportDetailsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Presented Portal" />
 
-              <dl>
-                <dt>URL</dt>
-                <dd>{lastHopUrl()}</dd>
-              </dl>
+              <h4>URL</h4>
+              {lastHopUrl()}
+
+              <hr />
 
               <h4>Content</h4>
-
               {lastHopRaw()}
             </div>
           </div>

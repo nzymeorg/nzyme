@@ -26,4 +26,14 @@ public class EthernetRegistryKeys {
             false
     );
 
+    public static final RegistryKey PORTAL_INTEGRITY_RETENTION_TIME_DAYS = RegistryKey.create(
+            "ethernet_portal_integrity_retention_time_days",
+            Optional.of(new ArrayList<>() {{
+                add(ConfigurationEntryConstraint.createNumberRangeConstraint(1, Integer.MAX_VALUE));
+            }}),
+            Optional.of("360"),
+            false
+    );
+
+
 }

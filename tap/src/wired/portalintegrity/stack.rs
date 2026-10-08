@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::time::Duration as StdDuration;
 
 use anyhow::{anyhow, bail, Context, Result};
-use log::{debug, info, warn};
+use log::{debug, warn};
 
 use pcap::{Active, Capture};
 
@@ -161,10 +161,8 @@ impl<'a> Stack<'a> {
             std::thread::sleep(POLL_SLEEP);
         };
 
-        info!(
-            "DHCP lease: addr={} router={:?} dns={:?}",
-            lease.address, lease.router, lease.dns_servers
-        );
+        debug!("DHCP lease: addr={} router={:?} dns={:?}",
+            lease.address, lease.router, lease.dns_servers);
 
         // Apply the lease to the interface.
         self.iface.update_ip_addrs(|addrs| {

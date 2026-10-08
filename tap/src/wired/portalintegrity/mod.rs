@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration as StdDuration;
 
 use anyhow::Result;
-use log::{error, info};
+use log::{debug, error};
 
 use crate::wired::mac;
 use stack::Stack;
@@ -25,8 +25,7 @@ pub fn run(cfg: PortalIntegrityConfiguration,
     tls::install_crypto_provider();
 
     let interval = StdDuration::from_secs(cfg.interval_minutes * 60);
-    info!(
-        "portal_integrity starting on '{}', {} control URL(s), every {} min",
+    debug!("Portal integrity check starting on [{}], <{}> control URL(s), every <{}> min",
         cfg.interface,
         cfg.control_urls.len(),
         cfg.interval_minutes
@@ -36,7 +35,7 @@ pub fn run(cfg: PortalIntegrityConfiguration,
         if let Err(e) = run_cycle(&cfg, probe_name.clone(), &metrics, &leaderlink) {
             error!("portal_integrity cycle failed: {:#}", e);
         }
-        info!("portal_integrity: cycle complete, sleeping {:?}", interval);
+        debug!("Cycle complete, sleeping <{:?}>.", interval);
 
         std::thread::sleep(interval);
     }
@@ -47,7 +46,7 @@ fn run_cycle(cfg: &PortalIntegrityConfiguration,
              metrics: &Arc<Mutex<Metrics>>,
              leaderlink: &Arc<Mutex<Leaderlink>>) -> Result<()> {
     let mac = mac::parse(&cfg.mac)?;
-    info!("portal_integrity: probe cycle using MAC {}", mac);
+    debug!("Probe cycle using MAC [{}]", mac);
 
     let mut stack = Stack::new(&cfg.interface, mac)?;
     let _lease = stack.run_dhcp(DHCP_TIMEOUT)?;

@@ -9034,5 +9034,18 @@
         <dropColumn tableName="portal_integrity_reports" columnName="verdict" />
         <dropColumn tableName="portal_integrity_reports" columnName="verdict_reasons" />
     </changeSet>
+    
+    <changeSet id="add_portal_integrity_dhcp_leases_report_index" author="lennartkoopmann">
+        <createIndex tableName="portal_integrity_dhcp_leases" indexName="portal_integrity_dhcp_leases_lookup">
+            <column name="report_uuid" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_portal_integrity_reports_retention_index" author="lennartkoopmann">
+        <createIndex tableName="portal_integrity_reports" indexName="portal_integrity_reports_retention">
+            <column name="tap_uuid" />
+            <column name="probed_at" />
+        </createIndex>
+    </changeSet>
 
 </databaseChangeLog>
