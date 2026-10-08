@@ -14,8 +14,6 @@ import numeral from "numeral";
 import PortalIntegrityVerdict from "./PortalIntegrityVerdict";
 import {truncate} from "../../../util/Tools";
 import L4Address from "../shared/L4Address";
-import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
-import {STUN_CONNECTIONS_FILTER_FIELDS} from "../nat/traversal/stun_connections/STUNConnectionsFilterFields";
 
 const portalIntegrityService = new PortalIntegrityService();
 
@@ -96,8 +94,8 @@ export default function PortalIntegrityReportDetailsPage() {
             <tr key={i}>
               <td>{numeral(h.hop_index).format("0,0")}</td>
               <td title={h.url}>{truncate(h.url, 50, false)}</td>
-              <td className="machine-data">{h.status}</td>
-              <td><L4Address address={h.resolved_address} hidePort={true} /></td>
+              <td><span className="machine-data">{h.status}</span></td>
+              <td><L4Address address={h.resolved_address} hidePort withAssetName /></td>
               <td title={h.followed_to ? h.followed_to : null}>{h.followed_to ? truncate(h.followed_to, 50, false) : <span className="text-muted">n/a</span>}</td>
               <td>{h.completeness}</td>
               <td>{h.tls ? <i className="text-success fa fa-solid fa-check-square" title="Valid TLS" /> : <i className="text-danger fa fa-solid fa-warning" title="No TLS" />}</td>
