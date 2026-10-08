@@ -1,4 +1,5 @@
 import React, {useContext, useState} from "react";
+import {createPortal} from "react-dom";
 import GlobalTenantSelectorForm from "./GlobalTenantSelectorForm";
 
 import Store from "../../../util/Store";
@@ -30,7 +31,9 @@ export default function GlobalTenantSelectorDialog() {
 
   // IMPORTANT: The forced selector that shows when no org/tenant selection has been made has its own callbacks.
 
-  return (
+  // Rendered into <body> via portal: the sticky navbar creates a stacking context that would otherwise trap
+  // the modal underneath the Bootstrap backdrop.
+  return createPortal(
     <div className="modal" id="global-tenant-selector">
       <div className="modal-dialog">
         <div className="modal-content">
@@ -55,7 +58,8 @@ export default function GlobalTenantSelectorDialog() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 
 }
