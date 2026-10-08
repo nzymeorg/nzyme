@@ -12,7 +12,6 @@ import moment from "moment";
 import {truncate} from "../../../util/Tools";
 import Paginator from "../../misc/Paginator";
 import ApiRoutes from "../../../util/ApiRoutes";
-import PortalIntegrityVerdict from "./PortalIntegrityVerdict";
 
 const portalIntegrityService = new PortalIntegrityService();
 
@@ -44,17 +43,6 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
                           setOrderDirection={setOrderDirection} />
   }
 
-  const macFilter = (address, fieldName) => {
-    if (!address) {
-      return null;
-    }
-
-    return <FilterValueIcon setFilters={setFilters}
-                            fields={PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS}
-                            field={fieldName}
-                            value={address.address} />
-  }
-
   if (!data) {
     return <GenericWidgetLoadingSpinner height={150} />
   }
@@ -76,7 +64,6 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
           <th>Final URL {columnSorting("last_hop_url")}</th>
           <th>Hop Count {columnSorting("hop_count")}</th>
           <th>Probed At {columnSorting("probed_at")}</th>
-          <th>Verdict</th>
         </tr>
         </thead>
         <tbody>
@@ -97,7 +84,6 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
               </td>
               <td>{numeral(r.hop_count).format("0,0")}</td>
               <td title={moment(r.probed_at).format()}>{moment(r.probed_at).fromNow()}</td>
-              <td><PortalIntegrityVerdict verdict={r.verdict} setFilters={setFilters} /></td>
             </tr>
           )
         })}

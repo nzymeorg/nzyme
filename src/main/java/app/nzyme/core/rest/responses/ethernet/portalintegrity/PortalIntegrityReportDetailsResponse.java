@@ -35,17 +35,12 @@ public abstract class PortalIntegrityReportDetailsResponse {
     public abstract String lastHopUrl();
     @Nullable @JsonProperty("error")
     public abstract String error();
-    @JsonProperty("verdict")
-    public abstract String verdict();
-    @JsonProperty("verdict_reasons")
-    public abstract List<String> verdictReasons();
     @JsonProperty("probed_at")
     public abstract DateTime probedAt();
-
     @Nullable @JsonProperty("hops")
     public abstract List<PortalIntegrityReportHopDetailsResponse> hops();
 
-    public static PortalIntegrityReportDetailsResponse create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String lastHopUrl, String error, String verdict, List<String> verdictReasons, DateTime probedAt, List<PortalIntegrityReportHopDetailsResponse> hops) {
+    public static PortalIntegrityReportDetailsResponse create(UUID uuid, String controlUrl, String probeInterface, String probeMac, String probeName, String assignedAddress, String gatewayAddress, String dhcpServerAddress, List<String> dnsServers, int hopCount, String lastHopUrl, String error, DateTime probedAt, List<PortalIntegrityReportHopDetailsResponse> hops) {
         return builder()
                 .uuid(uuid)
                 .controlUrl(controlUrl)
@@ -59,8 +54,6 @@ public abstract class PortalIntegrityReportDetailsResponse {
                 .hopCount(hopCount)
                 .lastHopUrl(lastHopUrl)
                 .error(error)
-                .verdict(verdict)
-                .verdictReasons(verdictReasons)
                 .probedAt(probedAt)
                 .hops(hops)
                 .build();
@@ -95,10 +88,6 @@ public abstract class PortalIntegrityReportDetailsResponse {
         public abstract Builder lastHopUrl(String lastHopUrl);
 
         public abstract Builder error(String error);
-
-        public abstract Builder verdict(String verdict);
-
-        public abstract Builder verdictReasons(List<String> verdictReasons);
 
         public abstract Builder probedAt(DateTime probedAt);
 

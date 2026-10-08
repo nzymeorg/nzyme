@@ -22,41 +22,6 @@ import java.util.*;
 
 public class PortalIntegrityTable implements DataTable {
 
-    public enum PortalVerdict {
-        OK, // Matched expectations.
-        MISSING, // Expected a portal, none observed.
-        MISMATCH, // Portal observed but shape is wrong.
-        INCONCLUSIVE, // Probe error / truncated / chain didn't terminate. Can't judge.
-        NONE // No monitoring configured.
-    }
-
-    public final class PortalExpectation {
-        public final boolean expectRedirect; // Redirect-style portal
-        public final Integer expectedInitialStatus; // Control URL's first response (null means don't check)
-        public final List<String> requiredBodyMarkers; // All must be present in final body
-        public final List<String> forbiddenBodyMarkers; // None may be present
-
-        public PortalExpectation(boolean expectRedirect,
-                                 Integer expectedInitialStatus,
-                                 List<String> requiredBodyMarkers,
-                                 List<String> forbiddenBodyMarkers) {
-            this.expectRedirect = expectRedirect;
-            this.expectedInitialStatus = expectedInitialStatus;
-            this.requiredBodyMarkers = requiredBodyMarkers != null ? requiredBodyMarkers : List.of();
-            this.forbiddenBodyMarkers = forbiddenBodyMarkers != null ? forbiddenBodyMarkers : List.of();
-        }
-    }
-
-    public final class PortalEvaluation {
-        public final PortalVerdict verdict;
-        public final List<String> reasons;
-
-        PortalEvaluation(PortalVerdict verdict, List<String> reasons) {
-            this.verdict = verdict;
-            this.reasons = reasons;
-        }
-    }
-
     private final TablesService tablesService;
     private final Timer totalReportTimer;
     private final ObjectMapper om;
@@ -81,16 +46,11 @@ public class PortalIntegrityTable implements DataTable {
             UUID reportUuid = UUID.randomUUID();
             PortalIntegrityCheckContext ctx = report.context();
 
-            // Evaluate.
-            PortalEvaluation evaluationResult = evaluate(report, new PortalExpectation(
-                    false, 200, null, null
-            ));
-
             tablesService.getNzyme().getDatabase().useTransaction(handle -> {
                 handle.createUpdate("INSERT INTO portal_integrity_reports(uuid, tap_uuid, control_url, " +
-                                "probe_name, error, probe_interface, probe_mac, verdict, verdict_reasons, " +
+                                "probe_name, error, probe_interface, probe_mac, " +
                                 "probed_at, created_at) VALUES(:uuid, :tap_uuid, :control_url, :probe_name, " +
-                                ":error, :probe_interface, :probe_mac, :verdict, :verdict_reasons, :probed_at, NOW())")
+                                ":error, :probe_interface, :probe_mac, :probed_at, NOW())")
                         .bind("uuid", reportUuid)
                         .bind("tap_uuid", tapUuid)
                         .bind("control_url", report.controlUrl())
@@ -98,8 +58,6 @@ public class PortalIntegrityTable implements DataTable {
                         .bind("error", report.error())
                         .bind("probe_interface", ctx.networkInterface())
                         .bind("probe_mac", ctx.mac())
-                        .bind("verdict", evaluationResult.verdict)
-                        .bindBySqlType("verdict_reasons", evaluationResult.reasons.toArray(new String[0]), Types.ARRAY)
                         .bind("probed_at", report.probedAt())
                         .execute();
 
@@ -223,95 +181,6 @@ public class PortalIntegrityTable implements DataTable {
             sb.append(Character.forDigit(b & 0xF, 16));
         }
         return sb.toString();
-    }
-
-    public PortalEvaluation evaluate(PortalIntegrityUrlReport report, PortalExpectation exp) {
-        List<String> reasons = new ArrayList<>();
-
-        // Probe-level failure — nothing to assert against.
-        if (report.error() != null) {
-            return new PortalEvaluation(PortalVerdict.INCONCLUSIVE,
-                    List.of("probe error: " + report.error()));
-        }
-        if (report.hops().isEmpty()) {
-            return new PortalEvaluation(PortalVerdict.INCONCLUSIVE, List.of("no hops recorded"));
-        }
-
-        boolean redirected = report.hops().stream().anyMatch(h -> h.followedTo() != null);
-
-        // Condition 1: expected a redirect-style portal, saw no redirect.
-        if (exp.expectRedirect && !redirected) {
-            reasons.add("expected a portal redirect but none was observed");
-            return new PortalEvaluation(PortalVerdict.MISSING, reasons);
-        }
-
-        // Condition 2: verify the observed portal matches the expected shape.
-
-        // Initial response code = the control URL's own (first) response.
-        if (exp.expectedInitialStatus != null) {
-            int initialStatus = report.hops().get(0).status();
-            if (initialStatus != exp.expectedInitialStatus) {
-                reasons.add("initial status " + initialStatus
-                        + " != expected " + exp.expectedInitialStatus);
-            }
-        }
-
-        // Final body = the terminal (non-redirect) hop.
-        PortalIntegrityHopReport finalHop = report.hops().get(report.hops().size() - 1);
-
-        // If the chain still redirects at the end, max_redirects was exhausted — we never
-        // reached the landing page, so a body check would be meaningless.
-        if (finalHop.followedTo() != null) {
-            reasons.add("redirect chain did not terminate; landing page not reached");
-            return new PortalEvaluation(PortalVerdict.INCONCLUSIVE, reasons);
-        }
-
-        boolean bodyChecks = !exp.requiredBodyMarkers.isEmpty() || !exp.forbiddenBodyMarkers.isEmpty();
-        if (bodyChecks) {
-            // Body markers are only trustworthy on a fully-read message.
-            if (!"Complete".equalsIgnoreCase(finalHop.completeness())) {
-                reasons.add("final hop body incomplete (" + finalHop.completeness()
-                        + "); cannot verify body");
-                return new PortalEvaluation(PortalVerdict.INCONCLUSIVE, reasons);
-            }
-            String body = extractBody(finalHop.raw());
-            for (String marker : exp.requiredBodyMarkers) {
-                if (!body.contains(marker)) {
-                    reasons.add("missing required body marker: " + marker);
-                }
-            }
-            for (String marker : exp.forbiddenBodyMarkers) {
-                if (body.contains(marker)) {
-                    reasons.add("contains forbidden body marker: " + marker);
-                }
-            }
-        }
-
-        return reasons.isEmpty()
-                ? new PortalEvaluation(PortalVerdict.OK, reasons)
-                : new PortalEvaluation(PortalVerdict.MISMATCH, reasons);
-    }
-
-    private static String extractBody(String rawBase64) {
-        byte[] raw = Base64.getDecoder().decode(rawBase64);
-        int crlf = indexOf(raw, new byte[]{'\r', '\n', '\r', '\n'});
-        int lf = indexOf(raw, new byte[]{'\n', '\n'});
-        int a = crlf >= 0 ? crlf + 4 : -1;
-        int b = lf >= 0 ? lf + 2 : -1;
-        int end = (a >= 0 && b >= 0) ? Math.min(a, b) : Math.max(a, b);
-        if (end < 0) return "";
-        return new String(raw, end, raw.length - end, java.nio.charset.StandardCharsets.UTF_8);
-    }
-
-    private static int indexOf(byte[] haystack, byte[] needle) {
-        outer:
-        for (int i = 0; i <= haystack.length - needle.length; i++) {
-            for (int j = 0; j < needle.length; j++) {
-                if (haystack[i + j] != needle[j]) continue outer;
-            }
-            return i;
-        }
-        return -1;
     }
 
     public static InetAddress stringtoInetAddress(String address) {

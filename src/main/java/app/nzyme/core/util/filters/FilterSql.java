@@ -290,13 +290,13 @@ public class FilterSql {
     public static String ipAddressMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case EQUALS:
-                return fieldName + " = :" + bindId + "::inet";
+                return "host(" + fieldName + ") = host(:" + bindId + "::inet)";
             case NOT_EQUALS:
-                return fieldName + " <> :" + bindId + "::inet";
+                return "host(" + fieldName + ") <> host(:" + bindId + "::inet)";
             case REGEX_MATCH:
-                return fieldName + "::text ~ :" + bindId;
+                return "host(" + fieldName + ") ~ :" + bindId;
             case NOT_REGEX_MATCH:
-                return fieldName + "::text !~ :" + bindId;
+                return "host(" + fieldName + ") !~ :" + bindId;
             case IN_CIDR:
                 return fieldName + " <<= :" + bindId + "::cidr";
             case NOT_IN_CIDR:
@@ -384,6 +384,40 @@ public class FilterSql {
                 throw new RuntimeException("Invalid operator [" + operator + "] for multi-value " +
                         "IP address field [" + fieldName + "].");
         }
+    }
+
+    public static String anyArrayIpAddressMatch(String bindId, String fieldName, FilterOperator operator) {
+        String ip = "x.ip::inet";
+
+        switch (operator) {
+            case EQUALS:
+            case REGEX_MATCH:
+            case IN_CIDR:
+            case IS_PRIVATE:
+            case IS_NOT_PRIVATE:
+                return anyElementMatches(fieldName, ipAddressMatch(bindId, ip, operator));
+            case NOT_EQUALS:
+                return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.EQUALS));
+            case NOT_REGEX_MATCH:
+                return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.REGEX_MATCH));
+            case NOT_IN_CIDR:
+                return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.IN_CIDR));
+            case IS_EMPTY:
+                return "COALESCE(cardinality(" + fieldName + "), 0) = 0";
+            case IS_NOT_EMPTY:
+                return "COALESCE(cardinality(" + fieldName + "), 0) > 0";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for IP address " +
+                        "array field [" + fieldName + "].");
+        }
+    }
+
+    private static String anyElementMatches(String arrayField, String condition) {
+        return "EXISTS (SELECT 1 FROM unnest(" + arrayField + ") AS x(ip) WHERE " + condition + ")";
+    }
+
+    private static String noElementMatches(String arrayField, String condition) {
+        return "NOT " + anyElementMatches(arrayField, condition);
     }
 
     private static String anyRowMatches(String condition) {

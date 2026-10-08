@@ -241,7 +241,7 @@ export default function IPAddressDetailsPage() {
                 <CardTitleWithControls title="Associated Assets" />
 
                 <p className="text-muted">
-                  The following assets were observed using this IP address as their source address.
+                  The following assets were observed using this IP address as their source address in the previous 7 days.
                 </p>
 
                 {assetsTable()}

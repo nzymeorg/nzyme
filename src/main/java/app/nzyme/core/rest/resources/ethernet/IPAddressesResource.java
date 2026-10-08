@@ -28,6 +28,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.joda.time.DateTime;
 
 import java.net.InetAddress;
 import java.util.List;
@@ -49,10 +50,10 @@ public class IPAddressesResource extends TapDataHandlingResource {
     @GET
     @Path("/show/{address}")
     @Operation(operationId = "findIpAddress", summary = "Get details of an IP address",
-            description = "Returns all assets of the tenant that were seen using this IP address, the network "
-                    + "context entries the address falls into and geo information from the GeoIP databases. The "
-                    + "asset list is paginated. Geo information is null if no GeoIP database is configured or the "
-                    + "address is not in it.")
+            description = "Returns all assets of the tenant that were seen using this IP address in the previous " +
+                    "7 days, the network context entries the address falls into and geo information from the GeoIP " +
+                    "databases. The asset list is paginated. Geo information is null if no GeoIP database is " +
+                    "configured or the address is not in it.")
     @ApiResponse(responseCode = "200", description = "IP address details found.",
             content = @Content(schema = @Schema(implementation = IPAddressDetailsResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -70,7 +71,7 @@ public class IPAddressesResource extends TapDataHandlingResource {
         List<AssetDetailsResponse> assets = Lists.newArrayList();
         long totalAssets = nzyme.getAssetsManager().countAssetsOfIpAddress(address, organizationId, tenantId);
         for (AssetEntry asset : nzyme.getAssetsManager()
-                .findAssetsByIpAddress(address, organizationId, tenantId, limit, offset)) {
+                .findAssetsByIpAddress(address, organizationId, tenantId, new DateTime().minusDays(7), limit, offset)) {
             Optional<MacAddressContextEntry> context = nzyme.getContextService()
                     .findMacAddressContext(asset.mac(), organizationId, tenantId);
 

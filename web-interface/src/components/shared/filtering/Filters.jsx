@@ -250,7 +250,7 @@ export const OPERATORS = {
   },
   IN_CIDR: {
     name: "in_cidr",
-    sign: "IN CIDR:",
+    sign: "IN CIDR",
     placeholder: "172.16.0.0/24",
     no_value: false,
     validators: [validateCIDRValid],
@@ -258,7 +258,7 @@ export const OPERATORS = {
   },
   NOT_IN_CIDR: {
     name: "not_in_cidr",
-    sign: "NOT IN CIDR:",
+    sign: "NOT IN CIDR",
     placeholder: "172.16.0.0/24",
     no_value: false,
     validators: [validateCIDRValid],

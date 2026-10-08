@@ -50,18 +50,22 @@ public class PortalIntegrity {
         if (taps.isEmpty()) {
             return 0;
         }
+
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new PortalIntegrityReportFilters());
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM (" +
-                                "SELECT r.*, " +
-                                "(SELECT COUNT(*) FROM portal_integrity_hops h " +
-                                "WHERE h.report_uuid = r.uuid) AS hop_count, " +
+                                "SELECT r.uuid, r.control_url, r.probe_interface, r.probe_mac, r.probe_name, " +
+                                "r.probed_at, r.error, host(d.assigned_address)::inet AS assigned_address, " +
+                                "d.gateway_address, d.dhcp_server_address, d.dns_servers::text[] AS dns_servers, " +
+                                "(SELECT COUNT(*) FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid) " +
+                                "AS hop_count, " +
                                 "(SELECT h.url FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid " +
                                 "ORDER BY h.hop_index DESC LIMIT 1) AS last_hop_url " +
                                 "FROM portal_integrity_reports AS r " +
+                                "LEFT JOIN portal_integrity_dhcp_leases AS d ON r.uuid = d.report_uuid " +
                                 "WHERE r.probed_at >= :tr_from AND r.probed_at <= :tr_to " +
-                                "AND r.tap_uuid IN (<taps>)" +
-                                ") AS r WHERE 1=1" + filterFragment.whereSql())
+                                "AND r.tap_uuid IN (<taps>) " +
+                                ") AS r WHERE 1=1 " + filterFragment.whereSql())
                         .bindList("taps", taps)
                         .bindMap(filterFragment.bindings())
                         .bind("tr_from", timeRange.from())
@@ -86,8 +90,11 @@ public class PortalIntegrity {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM (" +
                                 "SELECT r.uuid, r.control_url, r.probe_interface, r.probe_mac, r.probe_name, " +
-                                "r.probed_at, r.verdict, r.verdict_reasons, r.error, d.assigned_address, " +
-                                "d.gateway_address, d.dhcp_server_address, d.dns_servers::text[] AS dns_servers, " +
+                                "r.probed_at, r.error, host(d.assigned_address)::inet AS assigned_address, " +
+                                "d.gateway_address, d.dhcp_server_address, " +
+                                "CASE WHEN d.dns_servers IS NULL THEN NULL ELSE " +
+                                "ARRAY(SELECT host(s.ip) FROM unnest(d.dns_servers) WITH ORDINALITY AS s(ip, n) ORDER BY s.n) " +
+                                "END AS dns_servers, " +
                                 "(SELECT COUNT(*) FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid) " +
                                 "AS hop_count, " +
                                 "(SELECT h.url FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid " +
@@ -118,8 +125,11 @@ public class PortalIntegrity {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT r.uuid, r.control_url, r.probe_interface, r.probe_mac, r.probe_name, " +
-                                "r.probed_at, r.verdict, r.verdict_reasons, r.error, d.assigned_address, " +
-                                "d.gateway_address, d.dhcp_server_address, d.dns_servers::text[] AS dns_servers, " +
+                                "r.probed_at, r.error, host(d.assigned_address)::inet AS assigned_address, " +
+                                "d.gateway_address, d.dhcp_server_address, " +
+                                "CASE WHEN d.dns_servers IS NULL THEN NULL ELSE " +
+                                "ARRAY(SELECT host(s.ip) FROM unnest(d.dns_servers) WITH ORDINALITY AS s(ip, n) ORDER BY s.n) " +
+                                "END AS dns_servers, " +
                                 "(SELECT COUNT(*) FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid) " +
                                 "AS hop_count, " +
                                 "(SELECT h.url FROM portal_integrity_hops h WHERE h.report_uuid = r.uuid " +

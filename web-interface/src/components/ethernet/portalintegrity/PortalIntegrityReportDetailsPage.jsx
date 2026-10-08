@@ -11,7 +11,6 @@ import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import moment from "moment";
 import numeral from "numeral";
-import PortalIntegrityVerdict from "./PortalIntegrityVerdict";
 import {truncate} from "../../../util/Tools";
 import L4Address from "../shared/L4Address";
 
@@ -153,8 +152,6 @@ export default function PortalIntegrityReportDetailsPage() {
                 <dd title={moment(report.probed_at).fromNow()}>
                   {moment(report.probed_at).format()}
                 </dd>
-                <dt>Verdict</dt>
-                <dd><PortalIntegrityVerdict verdict={report.verdict} /></dd>
               </dl>
             </div>
           </div>

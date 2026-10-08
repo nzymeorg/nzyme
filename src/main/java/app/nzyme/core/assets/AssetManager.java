@@ -267,15 +267,18 @@ public class AssetManager {
     public List<AssetEntry> findAssetsByIpAddress(InetAddress ip,
                                                   UUID organizationId,
                                                   UUID tenantId,
+                                                  DateTime ipActivityCutoff,
                                                   int limit,
                                                   int offset) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
-                                "WHERE a.id IN (SELECT asset_id FROM assets_ip_addresses WHERE address = :ip) " +
+                                "WHERE a.id IN (SELECT asset_id FROM assets_ip_addresses WHERE address = :ip " +
+                                "  AND last_seen > :ip_activity_cutoff) " +
                                 "AND a.organization_id = :organization_id " +
                                 "AND a.tenant_id = :tenant_id " +
                                 "GROUP BY a.id ORDER BY a.last_seen DESC LIMIT :limit OFFSET :offset")
                         .bind("ip", ip)
+                        .bind("ip_activity_cutoff", ipActivityCutoff)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("limit", limit)

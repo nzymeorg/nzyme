@@ -26,8 +26,6 @@ public class PortalIntegrityReportEntryMapper implements RowMapper<PortalIntegri
                 rs.getInt("hop_count"),
                 rs.getString("last_hop_url"),
                 rs.getString("error"),
-                rs.getString("verdict"),
-                Lists.newArrayList((String[]) rs.getArray("verdict_reasons").getArray()),
                 new DateTime(rs.getTimestamp("probed_at"))
         );
     }

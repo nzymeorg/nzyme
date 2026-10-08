@@ -105,8 +105,6 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
                     report.hopCount(),
                     report.lastHopUrl(),
                     report.error(),
-                    report.verdict(),
-                    report.verdictReasons(),
                     report.probedAt(),
                     null
             ));
@@ -173,8 +171,6 @@ public class PortalIntegrityResource extends TapDataHandlingResource {
                 report.get().hopCount(),
                 report.get().lastHopUrl(),
                 report.get().error(),
-                report.get().verdict(),
-                report.get().verdictReasons(),
                 report.get().probedAt(),
                 hops
         );

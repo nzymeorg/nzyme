@@ -35,6 +35,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import java.net.InetAddress;
@@ -100,8 +101,9 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
     @Path("/show/{address}")
     @Operation(operationId = "findNetworkContextByAddress", summary = "Get network context of an IP address",
             description = "Returns every network context entry whose network contains this IP address, most specific "
-                    + "prefix first, together with all assets that were seen using the address. Overlapping networks "
-                    + "are expected and all of them match. Both lists are empty when nothing matches.")
+                    + "prefix first, together with all assets that were seen using the address in the previous 7 "
+                    + "days. Overlapping networks are expected and all of them match. Both lists are empty when "
+                    + "nothing matches.")
     @ApiResponse(responseCode = "200", description = "Address looked up.",
             content = @Content(schema = @Schema(implementation = EnrichedIpAddressContextDetailsResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -115,7 +117,7 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
 
         List<AssetDetailsResponse> assets = Lists.newArrayList();
         for (AssetEntry asset : nzyme.getAssetsManager()
-                .findAssetsByIpAddress(address, organizationId, tenantId, Integer.MAX_VALUE, 0)) {
+                .findAssetsByIpAddress(address, organizationId, tenantId, new DateTime().minusDays(7), Integer.MAX_VALUE, 0)) {
             Optional<MacAddressContextEntry> context = nzyme.getContextService()
                     .findMacAddressContext(asset.mac(), organizationId, tenantId);
 

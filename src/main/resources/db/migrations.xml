@@ -9030,4 +9030,9 @@
                                  onDelete="CASCADE" />
     </changeSet>
 
+    <changeSet id="remove_verdict_from_portal_integrity_reports" author="lennartkoopmann">
+        <dropColumn tableName="portal_integrity_reports" columnName="verdict" />
+        <dropColumn tableName="portal_integrity_reports" columnName="verdict_reasons" />
+    </changeSet>
+
 </databaseChangeLog>

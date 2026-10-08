@@ -111,6 +111,8 @@ public class RestHelpers {
                     macContextEntryToResponse(context)
             );
         } else {
+            // Try to pull asset from IP address when we don't have a MAC.
+
             macResponse = null;
         }
 
