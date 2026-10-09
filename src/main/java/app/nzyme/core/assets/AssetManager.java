@@ -16,6 +16,7 @@ import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Maps;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jdbi.v3.core.Handle;
 import org.joda.time.DateTime;
 
 import java.net.InetAddress;
@@ -312,60 +313,72 @@ public class AssetManager {
         );
     }
 
-    public void attachTransparentContextHostname(String macAddress,
+    /*
+     * Cheap lookup for callers that only need the asset ID and not the aggregated hostnames/IP addresses
+     * that findAssetByMac() builds.
+     */
+    public Optional<Long> findAssetIdByMac(Handle handle, String mac, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT id FROM assets WHERE mac = :mac AND organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("mac", mac)
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(Long.class)
+                .findOne();
+    }
+
+    public void attachTransparentContextHostname(Handle handle,
+                                                 String macAddress,
                                                  UUID organizationId,
                                                  UUID tenantId,
                                                  String hostname,
                                                  String source,
                                                  DateTime lastSeen) {
-        Optional<AssetEntry> asset = findAssetByMac(macAddress, organizationId, tenantId);
+        Optional<Long> assetId = findAssetIdByMac(handle, macAddress, organizationId, tenantId);
 
-        if (asset.isEmpty()) {
+        if (assetId.isEmpty()) {
             LOG.debug("MAC address [{}] of transparent context not found in assets. Skipping.", macAddress);
             return;
         }
 
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("INSERT INTO assets_hostnames(asset_id, uuid, hostname, source, first_seen, " +
-                                "last_seen) VALUES(:asset_id, :uuid, :hostname, :source, :first_seen, :last_seen) " +
-                                "ON CONFLICT (asset_id, hostname, source) DO UPDATE " +
-                                "SET last_seen = GREATEST(assets_hostnames.last_seen, EXCLUDED.last_seen)")
-                        .bind("asset_id", asset.get().id())
-                        .bind("uuid", UUID.randomUUID())
-                        .bind("hostname", hostname)
-                        .bind("source", source)
-                        .bind("first_seen", lastSeen) // Same for INSERT, ignored in UPDATE.
-                        .bind("last_seen", lastSeen)
-                        .execute()
-        );
+        handle.createUpdate("INSERT INTO assets_hostnames(asset_id, uuid, hostname, source, first_seen, " +
+                        "last_seen) VALUES(:asset_id, :uuid, :hostname, :source, :first_seen, :last_seen) " +
+                        "ON CONFLICT (asset_id, hostname, source) DO UPDATE " +
+                        "SET last_seen = GREATEST(assets_hostnames.last_seen, EXCLUDED.last_seen)")
+                .bind("asset_id", assetId.get())
+                .bind("uuid", UUID.randomUUID())
+                .bind("hostname", hostname)
+                .bind("source", source)
+                .bind("first_seen", lastSeen)
+                .bind("last_seen", lastSeen)
+                .execute();
     }
 
-    public void attachTransparentContextIpAddress(String macAddress,
+    public void attachTransparentContextIpAddress(Handle handle,
+                                                  String macAddress,
                                                   UUID organizationId,
                                                   UUID tenantId,
                                                   InetAddress address,
                                                   String source,
                                                   DateTime lastSeen) {
-        Optional<AssetEntry> asset = findAssetByMac(macAddress, organizationId, tenantId);
+        Optional<Long> assetId = findAssetIdByMac(handle, macAddress, organizationId, tenantId);
 
-        if (asset.isEmpty()) {
+        if (assetId.isEmpty()) {
             LOG.debug("MAC address [{}] of transparent context not found in assets. Skipping.", macAddress);
             return;
         }
 
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("INSERT INTO assets_ip_addresses(asset_id, uuid, address, source, first_seen, " +
-                                "last_seen) VALUES(:asset_id, :uuid, :address, :source, :first_seen, :last_seen) " +
-                                "ON CONFLICT (asset_id, address, source) DO UPDATE " +
-                                "SET last_seen = GREATEST(assets_ip_addresses.last_seen, EXCLUDED.last_seen)")
-                        .bind("asset_id", asset.get().id())
-                        .bind("uuid", UUID.randomUUID())
-                        .bind("address", address)
-                        .bind("source", source)
-                        .bind("first_seen", lastSeen) // Same for INSERT, ignored in UPDATE.
-                        .bind("last_seen", lastSeen)
-                        .execute()
-        );
+        handle.createUpdate("INSERT INTO assets_ip_addresses(asset_id, uuid, address, source, first_seen, " +
+                        "last_seen) VALUES(:asset_id, :uuid, :address, :source, :first_seen, :last_seen) " +
+                        "ON CONFLICT (asset_id, address, source) DO UPDATE " +
+                        "SET last_seen = GREATEST(assets_ip_addresses.last_seen, EXCLUDED.last_seen)")
+                .bind("asset_id", assetId.get())
+                .bind("uuid", UUID.randomUUID())
+                .bind("address", address)
+                .bind("source", source)
+                .bind("first_seen", lastSeen)
+                .bind("last_seen", lastSeen)
+                .execute();
     }
 
     public long countHostnamesOfAsset(long assetId, TimeRange timeRange) {

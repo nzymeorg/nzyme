@@ -35,6 +35,7 @@ public class ConfigurationKeys {
     public static final String SLOW_QUERY_LOG_THRESHOLD = "slow_query_log_threshold";
     public static final String PERFORMANCE = "performance";
     public static final String REPORT_PROCESSOR_POOL_SIZE = "report_processor_pool_size";
+    public static final String DATABASE_POOL_SIZE = "database_pool_size";
     public static final String MISC = "misc";
     public static final String CUSTOM_TITLE = "custom_title";
     public static final String CUSTOM_FAVICON_URL = "custom_favicon_url";

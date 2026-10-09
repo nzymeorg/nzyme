@@ -17,6 +17,8 @@
 
 package app.nzyme.core.configuration.node;
 
+import app.nzyme.core.database.DatabaseImpl;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
@@ -178,7 +180,14 @@ public class NodeConfigurationLoader {
     }
 
     private PerformanceConfiguration parsePerformance() {
-        return PerformanceConfiguration.create(performance.getInt(ConfigurationKeys.REPORT_PROCESSOR_POOL_SIZE));
+        int databasePoolSize = performance.hasPath(ConfigurationKeys.DATABASE_POOL_SIZE)
+                ? performance.getInt(ConfigurationKeys.DATABASE_POOL_SIZE)
+                : DatabaseImpl.DEFAULT_POOL_SIZE;
+
+        return PerformanceConfiguration.create(
+                performance.getInt(ConfigurationKeys.REPORT_PROCESSOR_POOL_SIZE),
+                databasePoolSize
+        );
     }
 
     private MiscConfiguration parseMisc() {

@@ -96,20 +96,30 @@ public class ContextService {
                                         UUID organizationId,
                                         UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
-            handle.createQuery("INSERT INTO context_mac_addresses(mac_address, uuid, name, description, " +
-                            "notes, organization_id, tenant_id, created_at, updated_at) VALUES(:mac_address, " +
-                            ":uuid, :name, :description, :notes, :organization_id, :tenant_id, NOW(), NOW()) " +
-                            "RETURNING id")
-                    .bind("mac_address", macAddress.toUpperCase())
-                    .bind("uuid", UUID.randomUUID())
-                    .bind("name", name)
-                    .bind("description", description)
-                    .bind("notes", notes)
-                    .bind("organization_id", organizationId)
-                    .bind("tenant_id", tenantId)
-                    .mapTo(Long.class)
-                    .one()
+                createMacAddressContext(handle, macAddress, name, description, notes, organizationId, tenantId)
         );
+    }
+
+    public long createMacAddressContext(Handle handle,
+                                        String macAddress,
+                                        String name,
+                                        @Nullable String description,
+                                        @Nullable String notes,
+                                        UUID organizationId,
+                                        UUID tenantId) {
+        return handle.createQuery("INSERT INTO context_mac_addresses(mac_address, uuid, name, description, " +
+                        "notes, organization_id, tenant_id, created_at, updated_at) VALUES(:mac_address, " +
+                        ":uuid, :name, :description, :notes, :organization_id, :tenant_id, NOW(), NOW()) " +
+                        "RETURNING id")
+                .bind("mac_address", macAddress.toUpperCase())
+                .bind("uuid", UUID.randomUUID())
+                .bind("name", name)
+                .bind("description", description)
+                .bind("notes", notes)
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(Long.class)
+                .one();
     }
 
     public List<MacAddressContextEntry> findAllMacAddressContext(UUID organizationId,
@@ -153,42 +163,49 @@ public class ContextService {
             return Optional.empty();
         }
 
+        return nzyme.getDatabase().withHandle(handle ->
+                findMacAddressContextNoCache(handle, mac, organizationId, tenantId)
+        );
+    }
+
+    public Optional<MacAddressContextEntry> findMacAddressContextNoCache(Handle handle,
+                                                                         String mac,
+                                                                         @Nullable UUID organizationId,
+                                                                         @Nullable UUID tenantId) {
+        if (mac == null) {
+            return Optional.empty();
+        }
+
         try(Timer.Context ignored = macLookupTimer.time()) {
             if (organizationId != null && tenantId != null) {
                 // Tenant data.
-                return nzyme.getDatabase().withHandle(handle ->
-                        handle.createQuery("SELECT * FROM context_mac_addresses " +
-                                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                        "AND mac_address = :mac_address")
-                                .bind("organization_id", organizationId)
-                                .bind("tenant_id", tenantId)
-                                .bind("mac_address", mac)
-                                .mapTo(MacAddressContextEntry.class)
-                                .findOne()
-                );
+                return handle.createQuery("SELECT * FROM context_mac_addresses " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND mac_address = :mac_address")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("mac_address", mac)
+                        .mapTo(MacAddressContextEntry.class)
+                        .findOne();
             }
 
             if (organizationId != null) {
                 // Organization data.
-                return nzyme.getDatabase().withHandle(handle ->
-                        handle.createQuery("SELECT * FROM context_mac_addresses " +
-                                        "WHERE organization_id = :organization_id " +
-                                        "AND mac_address = :mac_address")
-                                .bind("organization_id", organizationId)
-                                .bind("mac_address", mac)
-                                .mapTo(MacAddressContextEntry.class)
-                                .findFirst()
-                );
+                return handle.createQuery("SELECT * FROM context_mac_addresses " +
+                                "WHERE organization_id = :organization_id " +
+                                "AND mac_address = :mac_address")
+                        .bind("organization_id", organizationId)
+                        .bind("mac_address", mac)
+                        .mapTo(MacAddressContextEntry.class)
+                        .findFirst();
             }
 
             // Any data.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT * FROM context_mac_addresses " +
-                                    "WHERE mac_address = :mac_address")
-                            .bind("mac_address", mac)
-                            .mapTo(MacAddressContextEntry.class)
-                            .findFirst()
-            );
+            return handle.createQuery("SELECT * FROM context_mac_addresses " +
+                            "WHERE mac_address = :mac_address")
+                    .bind("mac_address", mac)
+                    .mapTo(MacAddressContextEntry.class)
+                    .findFirst();
         }
     }
 
@@ -236,6 +253,11 @@ public class ContextService {
                         .bind("tenant_id", tenantId)
                         .execute()
         );
+    }
+    public void touchMacAddressContext(Handle handle, long id) {
+        handle.createUpdate("UPDATE context_mac_addresses SET updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .execute();
     }
 
     public void updateMacAddressContextName(String mac, UUID organizationId, UUID tenantId, String name) {

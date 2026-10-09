@@ -320,6 +320,7 @@ public class NzymeNodeImpl implements NzymeNode {
 
         // Database metrics.
         metrics.register(MetricNames.DATABASE_SIZE, (Gauge<Long>) database::getTotalSize);
+        database.registerMetrics(metrics);
 
         // Periodicals. (TODO: Replace with scheduler service)
         PeriodicalManager periodicalManager = new PeriodicalManager();
@@ -381,6 +382,9 @@ public class NzymeNodeImpl implements NzymeNode {
             LOG.info("Stopping REST API.");
             httpServer.shutdownNow();
         }
+
+        // Close database connection pool.
+        database.shutdown();
 
         LOG.info("Shutdown complete.");
     }

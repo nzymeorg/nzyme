@@ -39,6 +39,9 @@ interfaces: {
 performance: {
   # How many threads work on processing incoming tap reports.
   report_processor_pool_size: 3
+
+  # Maximum number of pooled PostgreSQL connections this node keeps open. Default: 20
+  #database_pool_size: 20
 }
 
 protocols: {

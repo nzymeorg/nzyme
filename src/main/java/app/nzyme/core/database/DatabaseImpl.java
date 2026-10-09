@@ -70,7 +70,10 @@ import app.nzyme.core.uav.db.UavVectorEntryMapper;
 import app.nzyme.plugin.Database;
 import app.nzyme.core.crypto.database.PGPKeyFingerprintMapper;
 import app.nzyme.core.taps.db.*;
+import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.Lists;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import liquibase.*;
 import liquibase.database.DatabaseFactory;
 import liquibase.database.jvm.JdbcConnection;
@@ -80,6 +83,7 @@ import liquibase.ui.LoggerUIService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.ConnectionException;
+import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.HandleCallback;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
@@ -98,8 +102,12 @@ public class DatabaseImpl implements Database {
 
     private static final Logger LOG = LogManager.getLogger(DatabaseImpl.class);
 
+    public static final int DEFAULT_POOL_SIZE = 20;
+    public static final String POOL_NAME = "nzyme-db";
+
     private final NodeConfiguration configuration;
 
+    private HikariDataSource dataSource;
     private Jdbi jdbi;
 
     public DatabaseImpl(NodeConfiguration configuration) {
@@ -107,8 +115,35 @@ public class DatabaseImpl implements Database {
     }
 
     public void initialize() throws LiquibaseException {
+        Jdbi probe = Jdbi.create("jdbc:" + configuration.databasePath());
+        while (true) {
+            try (Handle ignored = probe.open()) {
+                break;
+            } catch (ConnectionException e) {
+                LOG.warn("Could not connect to PostgreSQL. Retrying.", e);
+
+                try {
+                    Thread.sleep(5000);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+        }
+
+        HikariConfig poolConfig = new HikariConfig();
+        poolConfig.setJdbcUrl("jdbc:" + configuration.databasePath());
+        poolConfig.setPoolName(POOL_NAME);
+        poolConfig.setMaximumPoolSize(configuration.performance().databasePoolSize());
+        poolConfig.setConnectionTimeout(5_000);
+        poolConfig.setValidationTimeout(3_000);
+
+        LOG.info("Initializing database connection pool with <{}> maximum connections.",
+                configuration.performance().databasePoolSize());
+
+        this.dataSource = new HikariDataSource(poolConfig);
+
         // TODO use reflection here at some point.
-        this.jdbi = Jdbi.create("jdbc:" + configuration.databasePath())
+        this.jdbi = Jdbi.create(dataSource)
                 .installPlugin(new PostgresPlugin())
                 .installPlugin(new JodaTimePlugin())
                 .registerRowMapper(new TapMapper())
@@ -248,22 +283,7 @@ public class DatabaseImpl implements Database {
             });
         }
 
-        // Try to establish connection, retry if connection fails.
-        JdbcConnection connection;
-        while (true) {
-            try {
-                connection = new JdbcConnection(jdbi.open().getConnection());
-                break;
-            } catch (ConnectionException e) {
-                LOG.warn("Could not connect to PostgreSQL. Retrying.", e);
-
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        }
+        JdbcConnection connection = new JdbcConnection(jdbi.open().getConnection());
 
         Liquibase liquibase = null;
         try {
@@ -528,6 +548,18 @@ public class DatabaseImpl implements Database {
         );
 
         return new DateTime(now);
+    }
+
+    public void registerMetrics(MetricRegistry registry) {
+        dataSource.setMetricsTrackerFactory((poolName, poolStats) ->
+                new PoolMetricsTracker(poolName, poolStats, registry));
+    }
+
+    public void shutdown() {
+        if (dataSource != null && !dataSource.isClosed()) {
+            LOG.info("Closing database connection pool.");
+            dataSource.close();
+        }
     }
 
     public <R, X extends Exception> R withHandle(HandleCallback<R, X> callback) throws X {

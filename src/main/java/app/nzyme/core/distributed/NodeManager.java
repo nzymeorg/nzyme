@@ -11,6 +11,8 @@ import app.nzyme.core.monitoring.TimerEntryAverage;
 import app.nzyme.core.taps.db.metrics.BucketSize;
 import app.nzyme.core.util.MetricNames;
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Snapshot;
 import com.codahale.metrics.Timer;
@@ -323,6 +325,18 @@ public class NodeManager {
             writeGauge(MetricExternalName.CONTEXT_MAC_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_MAC_CACHE_SIZE));
             writeGauge(MetricExternalName.CONTEXT_NETWORK_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_NETWORK_CACHE_SIZE));
 
+            // Database connection pool. Active and pending are peaks of the last completed minute, see PoolMetricsTracker.
+            writeGauge(MetricExternalName.DATABASE_POOL_ACTIVE_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_PEAK_ACTIVE_CONNECTIONS));
+            writeGauge(MetricExternalName.DATABASE_POOL_IDLE_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_IDLE_CONNECTIONS));
+            writeGauge(MetricExternalName.DATABASE_POOL_PENDING_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_PEAK_PENDING_CONNECTIONS));
+            writeGauge(MetricExternalName.DATABASE_POOL_TOTAL_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_TOTAL_CONNECTIONS));
+            writeGauge(MetricExternalName.DATABASE_POOL_MAX_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_MAX_CONNECTIONS));
+            writeGauge(MetricExternalName.DATABASE_POOL_CONNECTION_TIMEOUTS.database_label, getLocalMetricsMeterCount(metrics, MetricNames.DATABASE_POOL_CONNECTION_TIMEOUT_RATE));
+            writeTimer(MetricExternalName.DATABASE_POOL_WAIT_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DATABASE_POOL_WAIT_TIMER));
+            writeMillisecondHistogramAsTimer(MetricExternalName.DATABASE_POOL_USAGE_TIMER.database_label,
+                    metrics.getHistograms().get(MetricNames.DATABASE_POOL_USAGE_HISTOGRAM));
+
             writeTimer(MetricExternalName.PGP_ENCRYPTION_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.PGP_ENCRYPTION_TIMING));
             writeTimer(MetricExternalName.PGP_DECRYPTION_TIMER.database_label,
@@ -387,15 +401,41 @@ public class NodeManager {
             return 0;
         }
 
-        if (value instanceof Long) {
-            return ((Long) value).doubleValue();
-        } else if (value instanceof Double) {
-            return (double) value;
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
         } else {
             LOG.error("Unknown value type [{}] in gauge [{}]",
                     value.getClass().getCanonicalName(), metricName);
             return 0;
         }
+    }
+
+    private double getLocalMetricsMeterCount(MetricRegistry metrics, String metricName) {
+        Meter meter = metrics.getMeters().get(metricName);
+
+        // May be called before the meter is registered.
+        return meter == null ? 0 : meter.getCount();
+    }
+
+    /*
+     * Timers are stored in microseconds. This writes a histogram that measures milliseconds (like the HikariCP
+     * connection usage histogram) in the same format, so it can be displayed like a timer.
+     */
+    private void writeMillisecondHistogramAsTimer(String metricName, @Nullable Histogram histogram) {
+        if (histogram == null) {
+            return;
+        }
+
+        Snapshot s = histogram.getSnapshot();
+        writeTimer(
+                metricName,
+                TimeUnit.MICROSECONDS.convert(s.getMax(), TimeUnit.MILLISECONDS),
+                TimeUnit.MICROSECONDS.convert(s.getMin(), TimeUnit.MILLISECONDS),
+                TimeUnit.MICROSECONDS.convert((long) s.getMean(), TimeUnit.MILLISECONDS),
+                TimeUnit.MICROSECONDS.convert((long) s.get99thPercentile(), TimeUnit.MILLISECONDS),
+                TimeUnit.MICROSECONDS.convert((long) s.getStdDev(), TimeUnit.MILLISECONDS),
+                histogram.getCount()
+        );
     }
 
     private void writeGauge(String metricName, double metricValue) {

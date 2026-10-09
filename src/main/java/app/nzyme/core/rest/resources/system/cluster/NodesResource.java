@@ -267,6 +267,22 @@ public class NodesResource {
             timers.put("report_processing_socks", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.REPORT_PROCESSING_SOCKS_TIMER.database_label, handle)));
 
+            // Database connection pool.
+            timers.put("database_pool_wait", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.DATABASE_POOL_WAIT_TIMER.database_label, handle)));
+            timers.put("database_pool_usage", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.DATABASE_POOL_USAGE_TIMER.database_label, handle)));
+            for (MetricExternalName m : List.of(MetricExternalName.DATABASE_POOL_ACTIVE_CONNECTIONS,
+                    MetricExternalName.DATABASE_POOL_IDLE_CONNECTIONS,
+                    MetricExternalName.DATABASE_POOL_PENDING_CONNECTIONS,
+                    MetricExternalName.DATABASE_POOL_TOTAL_CONNECTIONS,
+                    MetricExternalName.DATABASE_POOL_MAX_CONNECTIONS,
+                    MetricExternalName.DATABASE_POOL_CONNECTION_TIMEOUTS)) {
+                gauges.put(m.database_label, GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
+                        node.uuid(), m.database_label, handle
+                ).orElse(0D)));
+            }
+
             // Gauges.
             gauges.put("geoip_cache_size", GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
                     node.uuid(), MetricExternalName.GEOIP_CACHE_SIZE.database_label, handle

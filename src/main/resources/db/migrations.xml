@@ -9048,4 +9048,10 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_transparent_mac_context_lookup_index" author="lennartkoopmann">
+        <createIndex tableName="context_mac_addresses_transparent" indexName="context_mac_addresses_transparent_context_lookup">
+            <column name="context_id" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

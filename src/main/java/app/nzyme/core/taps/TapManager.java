@@ -448,54 +448,51 @@ public class TapManager {
             return;
         }
 
-        for (TapMacContextReport mac : report.macs()) {
-            Optional<MacAddressContextEntry> existingContext = nzyme.getContextService()
-                    .findMacAddressContextNoCache(mac.mac(), tap.get().organizationId(), tap.get().tenantId());
+        UUID organizationId = tap.get().organizationId();
+        UUID tenantId = tap.get().tenantId();
 
-            if (mac.hostnames().isEmpty() && mac.ipAddresses().isEmpty()) {
-                // Do not process empty context.
-                LOG.debug("Skipping empty context for [{}] from tap [{}].", mac.mac(), tapUuid);
-                continue;
-            }
+        nzyme.getDatabase().useHandle(handle -> {
+            for (TapMacContextReport mac : report.macs()) {
+                Optional<MacAddressContextEntry> existingContext = nzyme.getContextService()
+                        .findMacAddressContextNoCache(handle, mac.mac(), organizationId, tenantId);
 
-            if (mac.mac().equals("00:00:00:00:00:00")) {
-                // Do not process invalid MAC. (This can happen on loopback interface captures. Maybe rawip, too.)
-                LOG.debug("Skipping invalid MAC [{}] reported by tap [{}].", mac.mac(), tapUuid);
-                continue;
-            }
+                if (mac.hostnames().isEmpty() && mac.ipAddresses().isEmpty()) {
+                    // Do not process empty context.
+                    LOG.debug("Skipping empty context for [{}] from tap [{}].", mac.mac(), tapUuid);
+                    continue;
+                }
 
-            long contextId;
-            List<MacAddressTransparentContextEntry> transparentContext;
-            if (existingContext.isPresent()) {
-                // Update existing context.
-                contextId = existingContext.get().id();
+                if (mac.mac().equals("00:00:00:00:00:00")) {
+                    // Do not process invalid MAC. (This can happen on loopback interface captures. Maybe rawip, too.)
+                    LOG.debug("Skipping invalid MAC [{}] reported by tap [{}].", mac.mac(), tapUuid);
+                    continue;
+                }
 
-                nzyme.getContextService().updateMacAddressContext(
-                        existingContext.get().uuid(),
-                        tap.get().organizationId(),
-                        tap.get().tenantId(),
-                        existingContext.get().name(),
-                        existingContext.get().description(),
-                        existingContext.get().notes()
-                );
+                long contextId;
+                List<MacAddressTransparentContextEntry> transparentContext;
+                if (existingContext.isPresent()) {
+                    // Update existing context.
+                    contextId = existingContext.get().id();
 
-                transparentContext = nzyme.getContextService()
-                        .findTransparentMacAddressContext(existingContext.get().id());
-            } else {
-                // Write new context.
-                contextId = nzyme.getContextService().createMacAddressContext(
-                        mac.mac(),
-                        null,
-                        "Created via transparent context.",
-                        null,
-                        tap.get().organizationId(),
-                        tap.get().tenantId()
-                );
+                    nzyme.getContextService().touchMacAddressContext(handle, contextId);
 
-                transparentContext = Lists.newArrayList();
-            }
+                    transparentContext = nzyme.getContextService()
+                            .findTransparentMacAddressContext(handle, contextId);
+                } else {
+                    // Write new context.
+                    contextId = nzyme.getContextService().createMacAddressContext(
+                            handle,
+                            mac.mac(),
+                            null,
+                            "Created via transparent context.",
+                            null,
+                            organizationId,
+                            tenantId
+                    );
 
-            nzyme.getDatabase().useHandle(handle -> {
+                    transparentContext = Lists.newArrayList();
+                }
+
                 for (TapContextDataReport ip : mac.ipAddresses()) {
                     try {
                         InetAddress ipAddr = InetAddress.getByName(ip.value());
@@ -537,9 +534,10 @@ public class TapManager {
 
                         // Attach IP to asset.
                         nzyme.getAssetsManager().attachTransparentContextIpAddress(
+                                handle,
                                 mac.mac(),
-                                tap.get().organizationId(),
-                                tap.get().tenantId(),
+                                organizationId,
+                                tenantId,
                                 ipAddr,
                                 ip.source(),
                                 ip.lastSeen()
@@ -584,16 +582,17 @@ public class TapManager {
 
                     // Attach hostname to asset.
                     nzyme.getAssetsManager().attachTransparentContextHostname(
+                            handle,
                             mac.mac(),
-                            tap.get().organizationId(),
-                            tap.get().tenantId(),
+                            organizationId,
+                            tenantId,
                             hostname.value(),
                             hostname.source(),
                             hostname.lastSeen()
                     );
                 }
-            });
-        }
+            }
+        });
     }
 
     private void retentionCleanMetrics() {

@@ -15,6 +15,7 @@ import {toast} from "react-toastify";
 import NodeDeletedWarning from "./NodeDeletedWarning";
 import NodeTimers from "./NodeTimers";
 import NodeGauges from "./NodeGauges";
+import DatabasePoolCard from "./DatabasePoolCard";
 import usePageTitle from "../../../../../util/UsePageTitle";
 
 const clusterService = new ClusterService()
@@ -184,6 +185,12 @@ function NodeDetailsPage() {
                 <TapReportStatisticsChart nodeId={node.uuid} />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <DatabasePoolCard node={node} />
           </div>
         </div>
 
