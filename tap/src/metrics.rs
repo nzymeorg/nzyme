@@ -40,13 +40,13 @@ impl TotalWithAverage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TimerSnapshot {
     pub mean: f64,
     pub p99: f64
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ChannelUtilization {
     pub watermark: u128,
     pub errors: TotalWithAverage,
@@ -115,6 +115,8 @@ pub struct Metrics {
     gauges_long: HashMap<String, i128>,
     gauges_float: HashMap<String, f32>,
     timers: Mutex<HashMap<String, BTreeMap<DateTime<Utc>, i64>>>,
+    timer_snapshot_cache: HashMap<String, TimerSnapshot>,
+    timer_snapshot_generation: u64,
     log_monitor: Arc<LogMonitor>
 }
 
@@ -129,6 +131,8 @@ impl Metrics {
             gauges_long: HashMap::new(),
             gauges_float: HashMap::new(),
             timers: Mutex::new(HashMap::new()),
+            timer_snapshot_cache: HashMap::new(),
+            timer_snapshot_generation: 0,
             log_monitor
         }
     }
@@ -246,6 +250,29 @@ impl Metrics {
         }
     }
 
+    /// Snapshot of every channel, in a fixed order, for the telemetry feed.
+    pub fn channel_utilizations(&self) -> Vec<(&'static str, ChannelUtilization)> {
+        let c = &self.channels;
+        vec![
+            ("EthernetBroker", c.ethernet_broker.clone()),
+            ("Dot11Broker", c.dot11_broker.clone()),
+            ("Dot11FramesPipeline", c.dot11_frames_pipeline.clone()),
+            ("BluetoothDevicesPipeline", c.bluetooth_devices_pipeline.clone()),
+            ("ArpPipeline", c.arp_pipeline.clone()),
+            ("TcpPipeline", c.tcp_pipeline.clone()),
+            ("UdpPipeline", c.udp_pipeline.clone()),
+            ("DnsPipeline", c.dns_pipeline.clone()),
+            ("SocksPipeline", c.socks_pipeline.clone()),
+            ("SshPipeline", c.ssh_pipeline.clone()),
+            ("Dhcpv4Pipeline", c.dhcpv4_pipeline.clone()),
+            ("NtpPipeline", c.ntp_pipeline.clone()),
+            ("RtspPipeline", c.rtsp_pipeline.clone()),
+            ("StunPipeline", c.stun_pipeline.clone()),
+            ("WebRtcPipeline", c.webrtc_pipeline.clone()),
+            ("UavRemoteIdPipeline", c.uav_remote_id_pipeline.clone()),
+        ]
+    }
+
     pub fn increment_channel_errors(&mut self, channel: &str, x: u32) {
         self.select_channel(channel).errors.increment(x);
     }
@@ -346,7 +373,9 @@ impl Metrics {
         cloned
     }
 
-    pub fn get_timer_snapshots(&self) -> HashMap<String, TimerSnapshot> {
+    /// Computes mean and p99 of every timer over its sample window. This sorts every sample of every timer and
+    /// can take a while under load, so the result is also cached for `cached_timer_snapshots`.
+    pub fn get_timer_snapshots(&mut self) -> HashMap<String, TimerSnapshot> {
         let mut snapshots = HashMap::new();
 
         match self.timers.lock() {
@@ -371,7 +400,15 @@ impl Metrics {
             }
         }
 
+        self.timer_snapshot_cache = snapshots.clone();
+        self.timer_snapshot_generation += 1;
+
         snapshots
+    }
+
+    /// The last computed timer snapshots and their generation.
+    pub fn cached_timer_snapshots(&self) -> (u64, HashMap<String, TimerSnapshot>) {
+        (self.timer_snapshot_generation, self.timer_snapshot_cache.clone())
     }
 
     pub fn get_log_counts(&self) -> Result<LogCounts, Error> {

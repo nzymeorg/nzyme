@@ -7,6 +7,7 @@ mod tools;
 mod peripherals;
 mod api;
 mod profiles;
+mod tui;
 
 use clap::Parser;
 use crate::apps::firmware::{flash_firmware_app, verify_firmware_app};
@@ -15,8 +16,9 @@ use crate::apps::release::verify_release_app;
 use crate::apps::sona::{generate_sona_configuration_app, sona_test_app};
 use crate::apps::api::{gui, list_nodes_app, list_taps_app, tap_metrics_app};
 use crate::apps::api::profiles::{add_profile_app, list_profiles_app, remove_profile_app};
+use crate::apps::tap;
 
-use crate::arguments::{ApiSubcommand, CliArguments, Command, DevicesSubcommand, FirmwareSubcommand, InfraSubcommand, NodesSubcommand, ProfilesSubcommand, ReleaseSubcommand, SonaSubcommand, TapsSubcommand};
+use crate::arguments::{ApiSubcommand, CliArguments, Command, DevicesSubcommand, FirmwareSubcommand, InfraSubcommand, NodesSubcommand, ProfilesSubcommand, ReleaseSubcommand, SonaSubcommand, TapSubcommand, TapsSubcommand};
 use crate::exit_codes::EX_OK;
 
 fn main() {
@@ -103,6 +105,16 @@ fn main() {
                         }
                     },
                 },
+            }
+        },
+
+        Some(Command::Tap(tap_cmd)) => match tap_cmd.command {
+            TapSubcommand::Top { address, record, replay, speed } => {
+                // $ nzyme-util tap top
+                match replay {
+                    Some(file) => tap::run_replay(file, speed),
+                    None => tap::run_top(address, record),
+                }
             }
         },
 

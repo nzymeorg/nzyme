@@ -3,3 +3,4 @@ pub mod devices;
 pub mod release;
 pub mod sona;
 pub mod api;
+pub mod tap;

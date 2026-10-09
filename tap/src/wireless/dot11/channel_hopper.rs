@@ -1,4 +1,4 @@
-use std::{collections::HashMap, thread::{sleep, self}};
+use std::{collections::HashMap, sync::Arc, thread::{sleep, self}};
 
 use anyhow::{Error, bail};
 use crossbeam_channel::Sender;
@@ -13,19 +13,22 @@ use crate::wireless::dot11::sona::commands::{AddressedSonaCommand, SonaCommand};
 use crate::wireless::dot11::sona::sona::SonaVersion;
 use crate::wireless::dot11::sona::sona_tools::extract_serial_from_interface_name;
 use crate::wireless::dot11::sona::supported_frequencies::getSonaSupportedFrequencies;
+use crate::telemetry::{EventLog, TelemetryEvent};
 use super::nl::Nl;
 
 const HOP_DWELL_MS: u64 = 1000;
 
 pub struct ChannelHopper {
     pub device_assignments: HashMap<String, Vec<SupportedFrequency>>,
-    pub command_sender: Sender<AddressedSonaCommand>
+    pub command_sender: Sender<AddressedSonaCommand>,
+    events: Arc<EventLog>
 }
 
 impl ChannelHopper {
 
     pub fn new(devices: HashMap<String, WifiInterface>,
-               command_sender: Sender<AddressedSonaCommand>) -> Result<Self, Error> {
+               command_sender: Sender<AddressedSonaCommand>,
+               events: Arc<EventLog>) -> Result<Self, Error> {
         // Define adapters with their channels
         let mut adapters: HashMap<String, Vec<SupportedFrequency>> = HashMap::new();
 
@@ -190,7 +193,7 @@ impl ChannelHopper {
             device_assignments.insert(device_name, frequencies);
         }
 
-        Ok(ChannelHopper { device_assignments, command_sender })
+        Ok(ChannelHopper { device_assignments, command_sender, events })
     }
 
     pub fn spawn_loop(&self) {
@@ -205,6 +208,7 @@ impl ChannelHopper {
             }
 
             let sona_command_sender = self.command_sender.clone();
+            let events = self.events.clone();
 
             thread::spawn(move || {
                 let mut nl = match Nl::new() {
@@ -238,6 +242,9 @@ impl ChannelHopper {
                                     Ok(()) => {
                                         trace!("Sent command to set frequency of Sona [{}] \
                                             to <{}>", device, frequency);
+                                        events.push(TelemetryEvent::Hop {
+                                            device: device.clone(), frequency, width: width_label(width)
+                                        });
                                     },
                                     Err(e) => {
                                         error!("Could not send command to set frequency of \
@@ -246,7 +253,12 @@ impl ChannelHopper {
                                 }
                             } else {
                                 match nl.set_device_frequency(&device, frequency, width) {
-                                    Ok(()) => debug!("Device [{}] now tuned to frequency [{} Mhz / {:?}].", device, frequency, width),
+                                    Ok(()) => {
+                                        debug!("Device [{}] now tuned to frequency [{} Mhz / {:?}].", device, frequency, width);
+                                        events.push(TelemetryEvent::Hop {
+                                            device: device.clone(), frequency, width: width_label(width)
+                                        });
+                                    },
                                     Err(e) => error!("Could not tune [{}] to frequency [{} Mhz / {:?}]: {}", device, frequency, width, e)
                                 }
                             }
@@ -300,4 +312,15 @@ impl ChannelHopper {
         vec![]
     }
 
+}
+
+fn width_label(width: &SupportedChannelWidth) -> &'static str {
+    match width {
+        SupportedChannelWidth::Mhz20 => "20",
+        SupportedChannelWidth::Mhz40Minus => "40-",
+        SupportedChannelWidth::Mhz40Plus => "40+",
+        SupportedChannelWidth::Mhz80 => "80",
+        SupportedChannelWidth::Mhz160 => "160",
+        SupportedChannelWidth::Mhz320 => "320",
+    }
 }

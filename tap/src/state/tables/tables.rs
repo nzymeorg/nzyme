@@ -1,6 +1,7 @@
 use std::{sync::{Arc, Mutex}, thread};
 use log::error;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use crate::telemetry::{EventLog, TelemetryEvent};
 use crate::wireless::bluetooth::tables::bluetooth_table::BluetoothTable;
 use crate::configuration::Configuration;
 use crate::state::tables::dot11_table::Dot11Table;
@@ -39,7 +40,8 @@ pub struct Tables {
     pub uav: Arc<Mutex<UavTable>>,
     has_ethernet: bool,
     has_dot11: bool,
-    has_bluetooth: bool
+    has_bluetooth: bool,
+    events: Arc<EventLog>
 }
 
 impl Tables {
@@ -48,7 +50,8 @@ impl Tables {
                leaderlink: Arc<Mutex<Leaderlink>>,
                ethernet_bus: Arc<Bus>,
                engagement_control: Arc<EngagementControl>,
-               configuration: &Configuration) -> Self {
+               configuration: &Configuration,
+               events: Arc<EventLog>) -> Self {
         let has_ethernet_default = configuration.ethernet_interfaces.as_ref()
             .is_some_and(|map| map.values().any(|i| i.active));
         let has_ethernet_raw = configuration.rawip_interfaces.as_ref()
@@ -87,7 +90,8 @@ impl Tables {
             uav: Arc::new(Mutex::new(UavTable::new(leaderlink.clone(), metrics.clone(), engagement_control))),
             has_ethernet,
             has_dot11,
-            has_bluetooth
+            has_bluetooth,
+            events
         }
     }
 
@@ -95,114 +99,117 @@ impl Tables {
         loop {
             thread::sleep(Duration::from_secs(10));
 
+            let cycle_started = Instant::now();
+            let mut cycle: Vec<(String, u64)> = Vec::new();
+
             if self.has_dot11 {
-                match self.dot11.lock() {
+                timed(&mut cycle, "dot11", || match self.dot11.lock() {
                     Ok(dot11) => dot11.process_report(),
                     Err(e) => error!("Could not acquire 802.11 table lock for report processing: {}", e)
-                }
+                });
             }
 
             if self.has_bluetooth {
-                match self.bluetooth.lock() {
+                timed(&mut cycle, "bluetooth", || match self.bluetooth.lock() {
                     Ok(bluetooth) => {
                         bluetooth.calculate_metrics();
                         bluetooth.process_report();
                     },
                     Err(e) => error!("Could not acquire Bluetooth table lock for report processing: {}", e)
-                }
+                });
             }
 
             if self.has_ethernet {
-                match self.arp.lock() {
+                timed(&mut cycle, "arp", || match self.arp.lock() {
                     Ok(arp) => {
                         arp.calculate_metrics();
                         arp.process_report();
                     },
                     Err(e) => error!("Could not acquire ARP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.dhcp.lock() {
+                timed(&mut cycle, "dhcp", || match self.dhcp.lock() {
                     Ok(dhcp) => {
                         dhcp.calculate_metrics();
                         dhcp.process_report();
                     },
                     Err(e) => error!("Could not acquire DHCP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.tcp.lock() {
+                timed(&mut cycle, "tcp", || match self.tcp.lock() {
                     Ok(tcp) => {
                         tcp.calculate_metrics();
                         tcp.process_report();
                     },
                     Err(e) => error!("Could not acquire TCP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.udp.lock() {
+                timed(&mut cycle, "udp", || match self.udp.lock() {
                     Ok(udp) => {
                         udp.calculate_metrics();
                         udp.process_report();
                     },
                     Err(e) => error!("Could not acquire UDP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.dns.lock() {
+                timed(&mut cycle, "dns", || match self.dns.lock() {
                     Ok(dns) => {
                         dns.calculate_metrics();
                         dns.process_report();
                     },
                     Err(e) => error!("Could not acquire DNS table lock for report processing: {}", e)
-                }
+                });
 
-                match self.ssh.lock() {
+                timed(&mut cycle, "ssh", || match self.ssh.lock() {
                     Ok(ssh) => {
                         ssh.calculate_metrics();
                         ssh.process_report();
                     },
                     Err(e) => error!("Could not acquire SSH table lock for report processing: {}", e)
-                }
+                });
 
-                match self.socks.lock() {
+                timed(&mut cycle, "socks", || match self.socks.lock() {
                     Ok(socks) => {
                         socks.calculate_metrics();
                         socks.process_report();
                     },
                     Err(e) => error!("Could not acquire SOCKS table lock for report processing: {}", e)
-                }
+                });
 
-                match self.ntp.lock() {
+                timed(&mut cycle, "ntp", || match self.ntp.lock() {
                     Ok(ntp) => {
                         ntp.calculate_metrics();
                         ntp.process_report();
                     },
                     Err(e) => error!("Could not acquire NTP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.rtsp.lock() {
+                timed(&mut cycle, "rtsp", || match self.rtsp.lock() {
                     Ok(rtsp) => {
                         rtsp.calculate_metrics();
                         rtsp.process_report();
                     },
                     Err(e) => error!("Could not acquire RTSP table lock for report processing: {}", e)
-                }
+                });
 
-                match self.stun.lock() {
+                timed(&mut cycle, "stun", || match self.stun.lock() {
                     Ok(stun) => {
                         stun.calculate_metrics();
                         stun.process_report();
                     },
                     Err(e) => error!("Could not acquire STUN table lock for report processing: {}", e)
-                }
+                });
 
-                match self.webrtc.lock() {
+                timed(&mut cycle, "webrtc", || match self.webrtc.lock() {
                     Ok(webrtc) => {
                         webrtc.process_report();
                         webrtc.calculate_metrics();
                     },
                     Err(e) => error!("Could not acquire WebRTC table lock for report processing: {}", e)
-                }
+                });
             }
 
-            match self.uav.lock() {
+            timed(&mut cycle, "uav", || match self.uav.lock() {
                 Ok(uavs) => {
                     /*
                      * UAVs subsystem doesn't have own captures but uses 802.11. We have to
@@ -214,8 +221,20 @@ impl Tables {
                     }
                 },
                 Err(e) => error!("Could not acquire UAV table lock for report processing: {}", e)
-            }
+            });
+
+            self.events.push(TelemetryEvent::Cycle {
+                total_ms: cycle_started.elapsed().as_millis() as u64,
+                tables: cycle,
+            });
         }
     }
 
+}
+
+/// Runs one table's report step and records how long it took, for the telemetry feed.
+fn timed(cycle: &mut Vec<(String, u64)>, name: &str, step: impl FnOnce()) {
+    let started = Instant::now();
+    step();
+    cycle.push((name.to_string(), started.elapsed().as_millis() as u64));
 }

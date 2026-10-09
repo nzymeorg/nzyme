@@ -1,8 +1,8 @@
 use anyhow::bail;
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{debug, error};
 use reqwest::{blocking::Client, blocking::Response, header::{HeaderMap, AUTHORIZATION}, Error, Url};
-use std::{thread::self, time::Duration, sync::{Mutex, Arc}, collections::HashMap};
+use std::{thread::self, time::{Duration, Instant}, sync::{Mutex, Arc}, collections::HashMap};
 use systemstat::{System, Platform};
 use strum::IntoEnumIterator;
 
@@ -13,6 +13,7 @@ use crate::messagebus::channel_names::{BluetoothChannelName, Dot11ChannelName, G
 use crate::metrics::ChannelUtilization;
 use crate::rpi::rpi_model::detect_pi_model;
 use crate::rpi::rpi_temperature;
+use crate::telemetry::{EventLog, TelemetryEvent};
 use super::{payloads::{StatusReport, SystemMetricsReport, TotalWithAverage, ChannelReport, CaptureReport}};
 
 pub struct Leaderlink {
@@ -25,6 +26,7 @@ pub struct Leaderlink {
     bluetooth_bus: Arc<Bus>,
     generic_bus: Arc<Bus>,
     configuration: Configuration,
+    events: Arc<EventLog>,
 }
 
 impl Leaderlink {
@@ -33,7 +35,8 @@ impl Leaderlink {
                ethernet_bus: Arc<Bus>,
                dot11_bus: Arc<Bus>,
                bluetooth_bus: Arc<Bus>,
-               generic_bus: Arc<Bus>)
+               generic_bus: Arc<Bus>,
+               events: Arc<EventLog>)
         -> anyhow::Result<Self, anyhow::Error> {
 
         let uri = match Url::parse(&configuration.general.leader_uri) {
@@ -62,8 +65,30 @@ impl Leaderlink {
             dot11_bus,
             bluetooth_bus,
             generic_bus,
-            configuration
+            configuration,
+            events
         })
+    }
+
+    /// Records the outcome of a submission for the telemetry feed. A 403 means the subsystem is disabled on
+    /// the leader and counts as success, like the callers treat it.
+    fn record_submission(&self, path: &str, started: Instant, bytes: usize, result: &Result<Response, Error>) {
+        let (ok, status, error) = match result {
+            Ok(response) => {
+                let status = response.status();
+                (status.is_success() || status.as_u16() == 403, Some(status.as_u16()), None)
+            }
+            Err(e) => (false, e.status().map(|s| s.as_u16()), Some(Self::explain_http_error(e))),
+        };
+
+        self.events.push(TelemetryEvent::Report {
+            path: path.to_string(),
+            ok,
+            status,
+            rtt_ms: started.elapsed().as_millis() as u64,
+            bytes: bytes as u64,
+            error,
+        });
     }
 
     pub fn run(&mut self) {
@@ -128,13 +153,19 @@ impl Leaderlink {
         let mut uri = self.uri.clone();
         uri.set_path("/api/taps/hello");
 
-        match self.http_client
+        let body = serde_json::to_string(&report)?;
+        let body_len = body.len();
+        let started = Instant::now();
+        let result = self.http_client
             .post(uri)
             .header("Content-Type", "application/json")
-            .json(&report)
-            .send() {
-                Ok(_) => Ok(()),
-                Err(e) => bail!("HTTP POST failed: {}", Self::explain_http_error(&e))
+            .body(body)
+            .send();
+        self.record_submission("hello", started, body_len, &result);
+
+        match result {
+            Ok(_) => Ok(()),
+            Err(e) => bail!("HTTP POST failed: {}", Self::explain_http_error(&e))
         }
     }
 
@@ -142,11 +173,16 @@ impl Leaderlink {
         let mut uri = self.uri.clone();
         uri.set_path(format!("/api/taps/tables/{}", path).as_str());
 
-        match self.http_client
+        let report_len = report.len();
+        let started = Instant::now();
+        let result = self.http_client
             .post(uri)
             .header("Content-Type", "application/json")
-            .body(report.clone())
-            .send() {
+            .body(report)
+            .send();
+        self.record_submission(path, started, report_len, &result);
+
+        match result {
             Ok(r) => {
                 if !r.status().is_success() {
                     if r.status() == 403 {
@@ -304,10 +340,17 @@ impl Leaderlink {
         let mut uri = self.uri.clone();
         uri.set_path("/api/taps/status");
 
-        self.http_client
+        let body = serde_json::to_string(&status).unwrap_or_default();
+        let body_len = body.len();
+        let started = Instant::now();
+        let result = self.http_client
             .post(uri)
-            .json(&status)
-            .send()
+            .header("Content-Type", "application/json")
+            .body(body)
+            .send();
+        self.record_submission("status", started, body_len, &result);
+
+        result
     }
 
     /*
@@ -318,11 +361,16 @@ impl Leaderlink {
         let mut uri = self.uri.clone();
         uri.set_path("/api/taps/context");
 
-        match self.http_client
+        let context_len = context.len();
+        let started = Instant::now();
+        let result = self.http_client
             .post(uri)
             .header("Content-Type", "application/json")
-            .body(context.clone())
-            .send() {
+            .body(context)
+            .send();
+        self.record_submission("context", started, context_len, &result);
+
+        match result {
             Ok(r) => {
                 if !r.status().is_success() {
                     bail!("Could not send context. Received response code [HTTP {}].", r.status())

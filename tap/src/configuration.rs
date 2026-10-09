@@ -21,7 +21,25 @@ pub struct Configuration {
     pub performance: Performance,
     pub protocols: Protocols,
     pub misc: Misc,
+    pub telemetry: Option<Telemetry>,
 }
+
+/*
+ * Local real-time telemetry feed consumed by `nzyme-util tap top`. The feed is unauthenticated
+ * and includes log lines, so it is restricted to loopback addresses. Use SSH port forwarding to
+ * watch a remote tap.
+ */
+#[derive(Debug, Clone, Deserialize)]
+pub struct Telemetry {
+    pub enabled: bool,
+    pub listen: Option<String>,
+    pub tick_ms: Option<u64>
+}
+
+pub const TELEMETRY_DEFAULT_LISTEN: &str = "127.0.0.1:22910";
+pub const TELEMETRY_DEFAULT_TICK_MS: u64 = 100;
+pub const TELEMETRY_MIN_TICK_MS: u64 = 20;
+pub const TELEMETRY_MAX_TICK_MS: u64 = 5000;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct General {
@@ -274,6 +292,29 @@ pub fn load(path: String) -> Result<Configuration, Error> {
         if size <= 0 {
             bail!("Configuration variable `bluetooth_devices_pipeline_size` must be set to a \
                 value greater than 0.");
+        }
+    }
+
+    // Telemetry.
+    if let Some(telemetry) = &doc.telemetry {
+        let listen = telemetry.listen.as_deref().unwrap_or(TELEMETRY_DEFAULT_LISTEN);
+        match SocketAddr::from_str(listen) {
+            Ok(address) => {
+                if !address.ip().is_loopback() {
+                    bail!("Configuration variable `telemetry.listen` must be a loopback address \
+                        like [{}]. The telemetry feed is unauthenticated. Use SSH port forwarding \
+                        to reach it remotely.", TELEMETRY_DEFAULT_LISTEN);
+                }
+            },
+            Err(e) => bail!("Configuration variable `telemetry.listen` [{}] is not a valid \
+                socket address: {}", listen, e)
+        }
+
+        if let Some(tick_ms) = telemetry.tick_ms {
+            if !(TELEMETRY_MIN_TICK_MS..=TELEMETRY_MAX_TICK_MS).contains(&tick_ms) {
+                bail!("Configuration variable `telemetry.tick_ms` must be between {} and {}.",
+                    TELEMETRY_MIN_TICK_MS, TELEMETRY_MAX_TICK_MS);
+            }
         }
     }
 

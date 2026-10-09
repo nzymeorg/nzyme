@@ -19,6 +19,7 @@ mod rpi;
 mod peripherals;
 mod usb;
 mod android;
+mod telemetry;
 
 use std::{process::exit, sync::{Arc, Mutex}, thread::{self, sleep}, time, time::Duration};
 use std::collections::HashMap;
@@ -47,6 +48,7 @@ use crate::log_monitor::LogMonitor;
 use crate::peripherals::limina::limina::Limina;
 use crate::processor_controller::ProcessorController;
 use crate::state::state::State;
+use crate::telemetry::{EventLog, TelemetryServer};
 use crate::wired::portalintegrity;
 use crate::wireless::dot11::engagement::engagement_control::EngagementControl;
 use crate::wireless::dot11::sona;
@@ -177,6 +179,7 @@ fn main() {
         .unwrap_or("/var/log/nzyme-tap-panic.log".to_string()));
 
     let metrics = Arc::new(Mutex::new(metrics::Metrics::new(log_monitor)));
+    let telemetry_events = Arc::new(EventLog::new());
 
     // TODO: Unify into single Bus struct? We may be over-allocating channels here.
     let ethernet_bus = Arc::new(Bus::new(metrics.clone(), "ethernet_data".to_string(), configuration.clone()));
@@ -190,7 +193,8 @@ fn main() {
         ethernet_bus.clone(),
         dot11_bus.clone(),
         bluetooth_bus.clone(),
-        generic_bus.clone()
+        generic_bus.clone(),
+        telemetry_events.clone()
     ) {
         Ok(leaderlink) => Arc::new(Mutex::new(leaderlink)),
         Err(e) => {
@@ -218,7 +222,8 @@ fn main() {
         leaderlink.clone(),
         ethernet_bus.clone(),
         engagement_control,
-        &configuration
+        &configuration,
+        telemetry_events.clone()
     ));
     let state = Arc::new(State::new(metrics.clone()));
     state.initialize();
@@ -251,6 +256,22 @@ fn main() {
             listener.listen();
         });
     });
+
+    // Telemetry feed for `nzyme-util tap top`.
+    if configuration.telemetry.as_ref().map(|t| t.enabled).unwrap_or(false) {
+        let server = Arc::new(TelemetryServer::new(
+            configuration.clone(),
+            metrics.clone(),
+            log_buffer.clone(),
+            telemetry_events.clone(),
+            process_started_at
+        ));
+
+        if let Err(e) = server.start() {
+            error!("Fatal error: Could not start telemetry feed. {}", e);
+            exit(exit_code::EX_CONFIG);
+        }
+    }
 
     // Ethernet handler.
     let ethernet_handlerbus = ethernet_bus.clone();
@@ -448,7 +469,7 @@ fn main() {
     let covered_wifi_spectrum;
     let wifi_device_cycle_times;
     if let Some(wifi_interfaces) = configuration.clone().wifi_interfaces {
-        let hopper = match ChannelHopper::new(wifi_interfaces, sona_command_router_sender) {
+        let hopper = match ChannelHopper::new(wifi_interfaces, sona_command_router_sender, telemetry_events.clone()) {
             Ok(ch) => ch,
             Err(e) => {
                 error!("Could not initialize ChannelHopper: {}", e);

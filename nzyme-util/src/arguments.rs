@@ -18,35 +18,69 @@ pub struct CliArguments {
 #[derive(Args, Debug, Clone)]
 #[command(next_help_heading = "Nzyme REST API connection")]
 pub struct ConnectionArgs {
-    // Base URL of the Nzyme REST API, for example https://nzyme.example.org:22900. Overrides the profile.
+    /// Base URL of the Nzyme REST API, overrides the profile
     #[arg(long, global = true, env = "NZYME_SERVER", value_name = "URL")]
     pub server: Option<String>,
 
-    // Name of the profile to use from the profiles file. Defaults to "default".
+    /// Name of the connection profile
     #[arg(long, global = true, env = "NZYME_PROFILE", value_name = "NAME")]
     pub profile: Option<String>,
 
-    // Do not verify the TLS certificate of the server.
+    /// Do not verify the TLS certificate
     #[arg(long, global = true)]
     pub insecure: bool,
 
-    // PEM file with CA certificates to trust instead of the built-in root certificates.
+    /// PEM file with CA certificates to trust
     #[arg(long, global = true, value_name = "FILE")]
     pub ca_file: Option<String>,
 
-    // Print raw JSON API responses to stdout instead of human-readable output.
+    /// Print raw JSON responses
     #[arg(long, global = true)]
     pub json: bool,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Flash and verify firmware of Nzyme devices
     Firmware(FirmwareCommand),
+    /// List connected Nzyme devices
     Devices(DevicesCommand),
+    /// Verify the signature of Nzyme software releases
     Release(ReleaseCommand),
+    /// Configure and test Sona sensors
     Sona(SonaCommand),
-    // Talk to the Nzyme REST API
+    /// Talk to the Nzyme REST API
     Api(ApiCommand),
+    /// Watch Nzyme tap telemetry in real time
+    Tap(TapCommand),
+}
+
+#[derive(Args, Debug)]
+pub struct TapCommand {
+    #[command(subcommand)]
+    pub command: TapSubcommand,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum TapSubcommand {
+    /// Live dashboard of a running tap
+    Top {
+        /// Address of the tap telemetry feed
+        #[arg(long, default_value = "127.0.0.1:22910", value_name = "HOST:PORT", conflicts_with = "replay")]
+        address: String,
+
+        /// Record the session to this file
+        #[arg(long, value_name = "FILE", conflicts_with = "replay")]
+        record: Option<String>,
+
+        /// Play back a recorded session
+        #[arg(long, value_name = "FILE")]
+        replay: Option<String>,
+
+        /// Playback speed factor
+        #[arg(long, default_value_t = 1.0, value_name = "FACTOR", requires = "replay")]
+        speed: f64,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -60,11 +94,11 @@ pub struct ApiCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum ApiSubcommand {
-    // Manage connection profiles for the Nzyme REST API
+    /// Manage connection profiles for the Nzyme REST API
     Profiles(ProfilesCommand),
-    // Inspect Nzyme infrastructure: cluster nodes and taps
+    /// Inspect Nzyme infrastructure
     Infra(InfraCommand),
-    // Interactive terminal dashboard with live WiFi data. All options are set from a menu inside the dashboard.
+    /// Interactive terminal interface for Nzyme
     Gui,
 }
 
@@ -76,9 +110,9 @@ pub struct InfraCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum InfraSubcommand {
-    // Inspect Nzyme cluster nodes
+    /// Inspect Nzyme cluster nodes
     Nodes(NodesCommand),
-    // Inspect Nzyme taps
+    /// Inspect Nzyme taps
     Taps(TapsCommand),
 }
 
@@ -90,18 +124,24 @@ pub struct FirmwareCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum FirmwareSubcommand {
+    /// Flash firmware onto a connected device
     Flash {
+        /// Firmware file
         #[arg(long)]
         firmware_file: String,
 
+        /// Serial number of the device
         #[arg(long)]
         serial: String,
     },
 
+    /// Verify the signature of a firmware file
     Verify {
+        /// Firmware file
         #[arg(long)]
         firmware_file: String,
 
+        /// Nzyme public key file
         #[arg(long)]
         public_key_file: String,
     },
@@ -115,6 +155,7 @@ pub struct DevicesCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum DevicesSubcommand {
+    /// List connected devices
     List,
 }
 
@@ -126,13 +167,17 @@ pub struct ReleaseCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum ReleaseSubcommand {
+    /// Verify the signature of a release file
     Verify {
+        /// Release file
         #[arg(long)]
         release_file: String,
 
+        /// Signature file
         #[arg(long)]
         signature_file: String,
 
+        /// Nzyme public key file
         #[arg(long)]
         public_key_file: String,
     },
@@ -146,7 +191,9 @@ pub struct SonaCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum SonaSubcommand {
+    /// Generate a tap configuration snippet for connected Sona sensors
     GenerateConfig,
+    /// Interactive test of connected Sona sensors
     Test
 }
 
@@ -158,27 +205,23 @@ pub struct ProfilesCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum ProfilesSubcommand {
-    /*
-     * Store a connection profile. Uses the --server, --insecure and --ca-file options and prompts
-     * for the API key. The profiles file is created with permissions that only allow access by
-     * your user.
-     */
+    /// Store a connection profile
     Add {
-        // Name of the profile. Defaults to "default".
+        /// Name of the profile
         #[arg(long)]
         name: Option<String>,
 
-        // Read the API key from the first line of stdin instead of prompting for it.
+        /// Read the API key from stdin
         #[arg(long)]
         api_key_stdin: bool,
     },
 
-    // List all stored connection profiles. API keys are masked.
+    /// List stored connection profiles
     List,
 
-    // Delete a stored connection profile.
+    /// Delete a connection profile
     Remove {
-        // Name of the profile.
+        /// Name of the profile
         #[arg(long)]
         name: String,
     },
@@ -192,7 +235,7 @@ pub struct NodesCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum NodesSubcommand {
-    // List all cluster nodes with their status and metrics. Requires super administrator permissions.
+    /// List cluster nodes
     List,
 }
 
@@ -204,27 +247,20 @@ pub struct TapsCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum TapsSubcommand {
-    /*
-     * List taps with their status and metrics. Without --organization-id, all organizations and
-     * tenants are listed, which requires super administrator permissions. Organization
-     * administrators pass  --organization-id, other users pass --organization-id and --tenant-id.
-     */
+    /// List taps
     List {
-        // Only list taps of this organization.
+        /// Only taps of this organization
         #[arg(long, value_name = "UUID")]
         organization_id: Option<String>,
 
-        // Only list taps of this tenant. Requires --organization-id.
+        /// Only taps of this tenant
         #[arg(long, value_name = "UUID", requires = "organization_id")]
         tenant_id: Option<String>,
     },
 
-    /*
-     * Show the current gauge and timer metrics of a single tap. Requires organization
-     * administrator permissions.
-     */
+    /// Show metrics of a tap
     Metrics {
-        // UUID of the tap.
+        /// UUID of the tap
         #[arg(long, value_name = "UUID")]
         uuid: String,
     },
