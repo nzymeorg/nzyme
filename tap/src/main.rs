@@ -3,6 +3,7 @@ mod messagebus;
 mod link;
 mod configuration;
 mod exit_code;
+mod file_permissions;
 mod metrics;
 mod system_state;
 mod logging;
@@ -148,7 +149,20 @@ fn main() {
     info!("Starting nzyme tap version [{}].", env!("CARGO_PKG_VERSION"));
 
     // Load configuration.
-    let configuration: Configuration = match configuration::load(args.configuration_file.unwrap()) { // can unwrap here due to clap requirement
+    let configuration_file_path = args.configuration_file.unwrap(); // can unwrap here due to clap requirement
+
+    // Refuse to run with a configuration file (it holds the leader secret) that other users can read.
+    let permission_issues = file_permissions::check(&[&configuration_file_path]);
+    if !permission_issues.is_empty() {
+        for issue in &permission_issues {
+            error!("Fatal error: Insecure file permissions. {}", issue.describe());
+            error!("{}", issue.fix_note());
+        }
+        error!("Refusing to start with files that other users on this system can read.");
+        exit(exit_code::EX_NOPERM);
+    }
+
+    let configuration: Configuration = match configuration::load(configuration_file_path.clone()) {
         Ok(configuration) => {
             info!("Parsed and loaded configuration.");
             configuration
@@ -580,10 +594,29 @@ fn main() {
     });
 
     let leaderlink_runner = leaderlink.clone();
+    let runner_metrics = metrics.clone();
     thread::spawn(move || { // TODO capsule into struct
+        let mut previous_permission_issues: usize = 0;
+
         loop {
             // Takes a second. Sampled before taking the lock so table reports don't wait on it.
             let cpu_load = Leaderlink::sample_cpu_load();
+
+            /*
+             * Re-check file permissions. They were fine at startup, but may have been loosened since. Reported as a
+             * gauge in the status report so the node can raise a health indicator.
+             */
+            let permission_issues = file_permissions::check(&[&configuration_file_path]);
+            if permission_issues.len() != previous_permission_issues {
+                for issue in &permission_issues {
+                    warn!("Insecure file permissions. {} {}", issue.describe(), issue.fix_note());
+                }
+                previous_permission_issues = permission_issues.len();
+            }
+            match runner_metrics.lock() {
+                Ok(mut metrics) => metrics.set_gauge(file_permissions::GAUGE_NAME, permission_issues.len() as i128),
+                Err(e) => error!("Could not acquire metrics mutex to report file permission state: {}", e)
+            }
 
             match leaderlink_runner.lock() {
                 Ok(mut link) => link.run(cpu_load),

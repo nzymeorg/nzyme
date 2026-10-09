@@ -34,6 +34,8 @@ function HealthConsole(props) {
             <Indicator indicator={indicators.tasks_queue_task_failure} name="Task Failure" />
             <Indicator indicator={indicators.message_bus_message_failure} name="Message Failure" />
             <Indicator indicator={indicators.message_bus_message_stuck} name="Message Stuck" />
+            <Indicator indicator={indicators.tap_file_permissions} name="Tap File Perms" />
+            <Indicator indicator={indicators.node_file_permissions} name="Node File Perms" />
           </div>
 
           <div style={{clear: "both"}} />

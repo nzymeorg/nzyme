@@ -76,6 +76,7 @@ import app.nzyme.core.configuration.base.BaseConfiguration;
 import app.nzyme.core.configuration.node.NodeConfiguration;
 import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.database.DatabaseImpl;
+import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.periodicals.PeriodicalManager;
 import app.nzyme.core.periodicals.versioncheck.VersioncheckThread;
@@ -321,6 +322,10 @@ public class NzymeNodeImpl implements NzymeNode {
         // Database metrics.
         metrics.register(MetricNames.DATABASE_SIZE, (Gauge<Long>) database::getTotalSize);
         database.registerMetrics(metrics);
+
+        // Files holding secrets with insecure permissions. See NodeFilePermissions.
+        NodeFilePermissions filePermissions = new NodeFilePermissions(configuration);
+        metrics.register(MetricNames.FILE_PERMISSION_ISSUES, (Gauge<Integer>) () -> filePermissions.check().size());
 
         // Periodicals. (TODO: Replace with scheduler service)
         PeriodicalManager periodicalManager = new PeriodicalManager();

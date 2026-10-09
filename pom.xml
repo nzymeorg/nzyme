@@ -751,12 +751,24 @@
                                     <type>template</type>
                                     <paths>
                                         <path>/var/log/nzyme</path>
-                                        <path>/usr/share/nzyme/crypto</path>
                                         <path>/usr/share/nzyme/lib</path>
                                         <path>/usr/share/nzyme/plugins</path>
                                     </paths>
                                     <mapper>
                                         <type>perm</type>
+                                    </mapper>
+                                </data>
+                                <data>
+                                    <!-- Holds the cluster PGP private key. Owner only. -->
+                                    <type>template</type>
+                                    <paths>
+                                        <path>/usr/share/nzyme/crypto</path>
+                                    </paths>
+                                    <mapper>
+                                        <type>perm</type>
+                                        <dirmode>700</dirmode>
+                                        <user>root</user>
+                                        <group>root</group>
                                     </mapper>
                                 </data>
                             </dataSet>

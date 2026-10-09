@@ -36,6 +36,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Path;
 
 public class Main {
 
@@ -100,7 +101,7 @@ public class Main {
         // Check if nzyme is already running.
         if (!cliArguments.isNoPidCheckMode()) {
             try {
-                if (PidFile.isAlreadyRunning(baseConfiguration.name())) {
+                if (PidFile.isAlreadyRunning(Path.of(baseConfiguration.dataDirectory()), baseConfiguration.name())) {
                     LOG.error("Nzyme is already running. Exiting.");
                     System.exit(FAILURE);
                 }

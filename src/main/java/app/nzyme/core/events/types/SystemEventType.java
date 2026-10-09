@@ -191,6 +191,20 @@ public enum SystemEventType {
             "The state of the \"Tap Error\" system health indicator has changed from a previously different state."
     ),
 
+    HEALTH_INDICATOR_NODE_FILE_PERMISSIONS_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Node File Permissions\" Health Indicator was toggled",
+            "The state of the \"Node File Permissions\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_TAP_FILE_PERMISSIONS_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Tap File Permissions\" Health Indicator was toggled",
+            "The state of the \"Tap File Permissions\" system health indicator has changed from a previously different state."
+    ),
+
     HEALTH_INDICATOR_TASK_STUCK_TOGGLED(
             SystemEventCategory.HEALTH_INDICATOR,
             SystemEventScope.SYSTEM,

@@ -14,8 +14,8 @@ public class PidFile {
 
     private static final Logger LOG = LogManager.getLogger(PidFile.class);
 
-    public static boolean isAlreadyRunning(String nodeName) throws IOException {
-        Path pidFile = getPidFile(nodeName);
+    public static boolean isAlreadyRunning(Path dataDirectory, String nodeName) throws IOException {
+        Path pidFile = getPidFile(dataDirectory, nodeName);
 
         try {
             // Attempt atomic claim of the PID file.
@@ -44,11 +44,12 @@ public class PidFile {
         }
     }
 
-    private static Path getPidFile(String nodeName) {
-        if (!nodeName.matches("^[a-zA-Z0-9_-]{1,64}$")) {
-            throw new IllegalArgumentException("Invalid node name: " + nodeName);
-        }
-        return Path.of(System.getProperty("java.io.tmpdir"), nodeName + ".pid");
+    /*
+     * Lives in the data directory, not in the world-writable system temp directory, where any local user could
+     * place a file under the predictable name and prevent nzyme from starting.
+     */
+    private static Path getPidFile(Path dataDirectory, String nodeName) {
+        return dataDirectory.resolve(nodeName + ".pid");
     }
 
 }

@@ -33,7 +33,10 @@ public abstract class NodeConfiguration {
     public abstract PerformanceConfiguration performance();
     public abstract MiscConfiguration misc();
 
-    public static NodeConfiguration create(boolean versionchecksEnabled, Optional<String> versioncheckUri, String databasePath, URI restListenUri, URI httpExternalUri, Optional<Integer> httpMaxPostSize, String pluginDirectory, String cryptoDirectory, Optional<Integer> slowQueryLogThreshold, String ntpServer, Optional<ProtocolsConfiguration> protocols, Optional<String> connectApiUri, boolean connectSkip, PerformanceConfiguration performance, MiscConfiguration misc) {
+    // Absolute path of the loaded configuration file. Empty for configurations not loaded from a file.
+    public abstract Optional<String> configurationFile();
+
+    public static NodeConfiguration create(boolean versionchecksEnabled, Optional<String> versioncheckUri, String databasePath, URI restListenUri, URI httpExternalUri, Optional<Integer> httpMaxPostSize, String pluginDirectory, String cryptoDirectory, Optional<Integer> slowQueryLogThreshold, String ntpServer, Optional<ProtocolsConfiguration> protocols, Optional<String> connectApiUri, boolean connectSkip, PerformanceConfiguration performance, MiscConfiguration misc, Optional<String> configurationFile) {
         return builder()
                 .versionchecksEnabled(versionchecksEnabled)
                 .versioncheckUri(versioncheckUri)
@@ -50,6 +53,7 @@ public abstract class NodeConfiguration {
                 .connectSkip(connectSkip)
                 .performance(performance)
                 .misc(misc)
+                .configurationFile(configurationFile)
                 .build();
     }
 
@@ -88,6 +92,8 @@ public abstract class NodeConfiguration {
         public abstract Builder performance(PerformanceConfiguration performance);
 
         public abstract Builder misc(MiscConfiguration misc);
+
+        public abstract Builder configurationFile(Optional<String> configurationFile);
 
         public abstract NodeConfiguration build();
     }

@@ -45,11 +45,14 @@ public class NodeConfigurationLoader {
     @Nullable
     private final Config misc;
 
+    private final File configFile;
+
     public NodeConfigurationLoader(File configFile, boolean skipValidation) throws InvalidConfigurationException, IncompleteConfigurationException, FileNotFoundException {
         if (!Files.isReadable(configFile.toPath())) {
             throw new FileNotFoundException("File at [" + configFile.getPath() + "] does not exist or is not readable. Check path and permissions.");
         }
 
+        this.configFile = configFile;
         this.root = ConfigFactory.parseFile(configFile).resolve();
 
         try {
@@ -83,7 +86,8 @@ public class NodeConfigurationLoader {
                 parseConnectUri(),
                 parseConnectSkip(),
                 parsePerformance(),
-                parseMisc()
+                parseMisc(),
+                Optional.of(configFile.getAbsolutePath())
         );
     }
 

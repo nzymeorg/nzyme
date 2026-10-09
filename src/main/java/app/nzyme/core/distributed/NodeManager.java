@@ -2,6 +2,7 @@ package app.nzyme.core.distributed;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.pgp.PGPKeys;
+import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.core.distributed.database.NodeEntry;
 import app.nzyme.core.distributed.database.metrics.GaugeHistogramBucket;
 import app.nzyme.core.logging.CountingAppender;
@@ -60,6 +61,9 @@ public class NodeManager {
 
     private final AtomicLong tapReportSize;
 
+    private final NodeFilePermissions filePermissions;
+    private int previousFilePermissionIssues = 0;
+
     private final LoadingCache<UUID, String> nodeNameCache;
 
     public NodeManager(NzymeNode nzyme) {
@@ -68,6 +72,7 @@ public class NodeManager {
         this.nodeInformation = new NodeInformation();
 
         this.tapReportSize = new AtomicLong(0);
+        this.filePermissions = new NodeFilePermissions(nzyme.getConfiguration());
         this.nodeNameCache = CacheBuilder.newBuilder().
                 expireAfterAccess(10, TimeUnit.SECONDS)
                 .build(new CacheLoader<>() {
@@ -324,6 +329,18 @@ public class NodeManager {
             writeGauge(MetricExternalName.GEOIP_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.GEOIP_CACHE_SIZE));
             writeGauge(MetricExternalName.CONTEXT_MAC_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_MAC_CACHE_SIZE));
             writeGauge(MetricExternalName.CONTEXT_NETWORK_CACHE_SIZE.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.CONTEXT_NETWORK_CACHE_SIZE));
+
+            // Files holding secrets that other users could read. Nodes refuse to start like this, but permissions can change at runtime.
+            List<NodeFilePermissions.Problem> filePermissionProblems = filePermissions.check();
+            if (filePermissionProblems.size() != previousFilePermissionIssues) {
+                if (!filePermissionProblems.isEmpty()) {
+                    LOG.warn(NodeFilePermissions.buildMessage(filePermissionProblems));
+                } else {
+                    LOG.info("File permission problems resolved.");
+                }
+                previousFilePermissionIssues = filePermissionProblems.size();
+            }
+            writeGauge(MetricExternalName.FILE_PERMISSION_ISSUES.database_label, filePermissionProblems.size());
 
             // Database connection pool. Active and pending are peaks of the last completed minute, see PoolMetricsTracker.
             writeGauge(MetricExternalName.DATABASE_POOL_ACTIVE_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_PEAK_ACTIVE_CONNECTIONS));

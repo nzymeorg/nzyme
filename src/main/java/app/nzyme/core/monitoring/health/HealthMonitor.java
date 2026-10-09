@@ -51,6 +51,8 @@ public class HealthMonitor {
                 .add(new TapDropIndicator(nzyme.getTapManager()))
                 .add(new TapBufferIndicator(nzyme.getTapManager()))
                 .add(new TapErrorIndicator(nzyme.getTapManager()))
+                .add(new TapFilePermissionsIndicator(nzyme.getTapManager()))
+                .add(new NodeFilePermissionsIndicator(nzyme))
                 .add(new TLSExpirationIndicator(nzyme.getCrypto(), nzyme.getNodeManager()))
                 .add(new TasksQueueTaskFailureIndicator(nzyme.getTasksQueue()))
                 .add(new TasksQueueTaskStuckIndicator(nzyme.getTasksQueue()))

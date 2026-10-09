@@ -17,7 +17,8 @@ import app.nzyme.core.util.MetricNames;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
-import com.google.common.io.Files;
+import app.nzyme.core.security.NodeFilePermissions;
+import app.nzyme.core.util.FilePermissions;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -182,8 +183,8 @@ public class Crypto {
 
                 try {
                     PGPKeys keys = generatePGPKeys();
-                    Files.write(keys.privateKey(), privateKeyLocation);
-                    Files.write(keys.publicKey(), publicKeyLocation);
+                    FilePermissions.writeOwnerOnly(privateKeyLocation.toPath(), keys.privateKey());
+                    java.nio.file.Files.write(publicKeyLocation.toPath(), keys.publicKey());
                 } catch (NoSuchAlgorithmException | NoSuchProviderException | PGPException e) {
                     throw new CryptoInitializationException("Unexpected crypto provider exception when trying " +
                             "to create key.", e);
@@ -192,6 +193,9 @@ public class Crypto {
                 }
             }
         }
+
+        // Refuse to run with key material that other users on this system can read.
+        verifyFilePermissions();
 
         // Load Keys. Build fingerprint.
         String keySignature;
@@ -688,6 +692,23 @@ public class Crypto {
             }
         } catch(Exception e) {
             throw new RuntimeException("Could not build TLS key store.", e);
+        }
+    }
+
+    /*
+     * Refuse to run with key material or configuration that other users on this system can read. The same check
+     * runs once per minute while the node is running and feeds the "Node File Permissions" health indicator.
+     */
+    private void verifyFilePermissions() throws CryptoInitializationException {
+        if (!FilePermissions.isSupported()) {
+            LOG.warn("File system does not support POSIX permissions. Cannot verify file permissions.");
+            return;
+        }
+
+        List<NodeFilePermissions.Problem> problems = new NodeFilePermissions(nzyme.getConfiguration()).check();
+
+        if (!problems.isEmpty()) {
+            throw new CryptoInitializationException(NodeFilePermissions.buildMessage(problems) + "\nRefusing to start.");
         }
     }
 

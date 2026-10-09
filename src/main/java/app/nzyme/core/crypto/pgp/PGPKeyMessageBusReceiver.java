@@ -6,7 +6,8 @@ import app.nzyme.plugin.distributed.messaging.MessageProcessingResult;
 import app.nzyme.plugin.distributed.messaging.ReceivedMessage;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.io.BaseEncoding;
-import com.google.common.io.Files;
+import app.nzyme.core.util.FilePermissions;
+import java.nio.file.Files;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -59,8 +60,8 @@ public class PGPKeyMessageBusReceiver implements MessageHandler {
             File publicKeyLocation = Paths.get(cryptoDirectoryConfig.toString(),
                     Crypto.PGP_PUBLIC_KEY_FILE_NAME).toFile();
 
-            Files.write(privateKey, privateKeyLocation);
-            Files.write(publicKey, publicKeyLocation);
+            FilePermissions.writeOwnerOnly(privateKeyLocation.toPath(), privateKey);
+            Files.write(publicKeyLocation.toPath(), publicKey);
 
             LOG.info("Decrypted keys written to disk.");
 

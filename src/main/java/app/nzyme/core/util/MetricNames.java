@@ -22,6 +22,7 @@ import app.nzyme.core.context.ContextService;
 import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.database.DatabaseImpl;
 import app.nzyme.core.database.PoolMetricsTracker;
+import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitors.MonitorExecutionTaskHandler;
 import app.nzyme.core.ouis.OuiService;
@@ -43,6 +44,7 @@ public class MetricNames {
     public static final String BTSIG_CID_LOOKUP_TIMING = name(BluetoothSigService.class, "company-id-lookup-timing");
     public static final String BTSIG_SUUID_LOOKUP_TIMING = name(BluetoothSigService.class, "service-uuid-lookup-timing");
     public static final String DATABASE_SIZE = name(DatabaseImpl.class, "size");
+    public static final String FILE_PERMISSION_ISSUES = name(NodeFilePermissions.class, "issues");
     public static final String DATABASE_POOL_IDLE_CONNECTIONS = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.IDLE_CONNECTIONS);
     public static final String DATABASE_POOL_TOTAL_CONNECTIONS = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.TOTAL_CONNECTIONS);
     public static final String DATABASE_POOL_MAX_CONNECTIONS = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.MAX_CONNECTIONS);
