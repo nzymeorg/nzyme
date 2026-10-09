@@ -16,6 +16,11 @@ use crate::rpi::rpi_temperature;
 use crate::telemetry::{EventLog, TelemetryEvent};
 use super::{payloads::{StatusReport, SystemMetricsReport, TotalWithAverage, ChannelReport, CaptureReport}};
 
+pub struct CpuLoadSample {
+    pub aggregate: f32,
+    pub cores: HashMap<u8, f32>,
+}
+
 pub struct Leaderlink {
     http_client: Client,
     uri: Url,
@@ -91,9 +96,9 @@ impl Leaderlink {
         });
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, cpu_load: CpuLoadSample) {
         // Status report.
-        match self.send_status() {
+        match self.send_status(cpu_load) {
             Ok(r) => {
                 if !r.status().is_success() {
                     error!("Could not send status. Received response code [HTTP {}].", r.status());
@@ -202,7 +207,7 @@ impl Leaderlink {
         }
     }
 
-    fn send_status(&mut self) -> Result<Response, Error> {
+    fn send_status(&mut self, cpu_load: CpuLoadSample) -> Result<Response, Error> {
         let mut processed_bytes_total =0;
         let mut processed_bytes_avg = 0;
         let mut ethernet_channels: Vec<ChannelReport> = Vec::new();
@@ -296,7 +301,7 @@ impl Leaderlink {
             }
         };
 
-        let system_metrics = self.build_system_metrics();
+        let system_metrics = self.build_system_metrics(cpu_load);
 
         let configuration = ConfigurationReport::try_from(self.configuration.clone())
             .unwrap();
@@ -382,52 +387,38 @@ impl Leaderlink {
         }
     }
 
-    fn build_system_metrics(&self) -> SystemMetricsReport {
-        let cpu_load: f32;
-        match self.system.cpu_load_aggregate() {
-            Ok(cpu) => {
-                // Have to sleep for a brief moment to allow gathering of data.
-                thread::sleep(Duration::from_secs(1));
-                match cpu.done() {
-                    Ok(cpu) => {
-                        cpu_load = (cpu.user+cpu.nice+cpu.system+cpu.interrupt)*100.0; 
-                    },
-                    Err(e) => {
-                        error!("Could not determine CPU load average. {}", e);
-                        cpu_load = 0.0;
-                    }
-                }
-            },
+    pub fn sample_cpu_load() -> CpuLoadSample {
+        let system = System::new();
+
+        let aggregate = system.cpu_load_aggregate();
+        let cores = system.cpu_load();
+
+        // Both measurements share one window.
+        thread::sleep(Duration::from_secs(1));
+
+        let aggregate = match aggregate.and_then(|m| m.done()) {
+            Ok(cpu) => (cpu.user+cpu.nice+cpu.system+cpu.interrupt)*100.0,
             Err(e) => {
                 error!("Could not determine CPU load average. {}", e);
-                cpu_load = 0.0;
+                0.0
             }
-        }
+        };
 
-        let mut cpu_cores_load: HashMap<u8, f32> = HashMap::new();
-        match self.system.cpu_load() {
-            Ok(cpu) => {
-                // Have to sleep for a brief moment to allow gathering of data.
-                thread::sleep(Duration::from_secs(1));
-
-                match cpu.done() {
-                    Ok(cores) => {
-                        for (i, core) in cores.iter().enumerate() {
-                            cpu_cores_load.insert(
-                                i as u8,
-                                (core.user+core.nice+core.system+core.interrupt)*100.0
-                            );
-                        }
-                    },
-                    Err(e) => {
-                        error!("Could not determine CPU core loads. {}", e);
-                    }
+        let mut per_core: HashMap<u8, f32> = HashMap::new();
+        match cores.and_then(|m| m.done()) {
+            Ok(cores) => {
+                for (i, core) in cores.iter().enumerate() {
+                    per_core.insert(i as u8, (core.user+core.nice+core.system+core.interrupt)*100.0);
                 }
             },
-            Err(e) => {
-                error!("Could not determine CPU core loads. {}", e);
-            }
+            Err(e) => error!("Could not determine CPU core loads. {}", e)
         }
+
+        CpuLoadSample { aggregate, cores: per_core }
+    }
+
+    fn build_system_metrics(&self, cpu_load: CpuLoadSample) -> SystemMetricsReport {
+        let CpuLoadSample { aggregate: cpu_load, cores: cpu_cores_load } = cpu_load;
 
         let memory_total: u64;
         let memory_free: u64;

@@ -582,8 +582,11 @@ fn main() {
     let leaderlink_runner = leaderlink.clone();
     thread::spawn(move || { // TODO capsule into struct
         loop {
+            // Takes a second. Sampled before taking the lock so table reports don't wait on it.
+            let cpu_load = Leaderlink::sample_cpu_load();
+
             match leaderlink_runner.lock() {
-                Ok(mut link) => link.run(),
+                Ok(mut link) => link.run(cpu_load),
                 Err(e) => error!("Could not acquire Leaderlink mutex to run background jobs: {}", e)
             }
 
