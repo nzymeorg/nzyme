@@ -1,12 +1,12 @@
 package app.nzyme.core.rest.resources.system.connect;
 
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.connect.ConnectRegistryKeys;
 import app.nzyme.core.rest.requests.ConnectConfigurationUpdateRequest;
 import app.nzyme.core.rest.responses.connect.ConnectConfigurationResponse;
 import app.nzyme.core.rest.responses.connect.ConnectStatusResponse;
 import app.nzyme.plugin.RegistryCryptoException;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.configuration.EncryptedConfigurationEntryResponse;
@@ -173,34 +173,24 @@ public class ConnectResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            boolean encrypted;
-            switch (c.getKey()) {
-                case "connect_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(ConnectRegistryKeys.CONNECT_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = false;
-                    break;
-                case "connect_api_key":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(ConnectRegistryKeys.CONNECT_API_KEY, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = true;
-                    break;
-                default:
-                    LOG.info("Unknown configuration parameter [{}].", c.getKey());
-                    return Response.status(422).build();
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(ConnectRegistryKeys.CONNECT_ENABLED)
+                .allowingEncrypted(ConnectRegistryKeys.CONNECT_API_KEY)
+                .validate(ur.change());
 
-            if (encrypted) {
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            if (c.encrypted()) {
                 try {
-                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.getKey(), c.getValue().toString());
+                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.key(), c.value());
                 } catch (RegistryCryptoException e) {
                     return Response.serverError().build();
                 }
             } else {
-                nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+                nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
             }
         }
 

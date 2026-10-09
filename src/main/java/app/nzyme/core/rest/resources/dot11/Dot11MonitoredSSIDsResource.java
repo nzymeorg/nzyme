@@ -11,7 +11,7 @@ import app.nzyme.core.rest.requests.UpdateConfigurationRequest;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.KnownNetworkDetailsResponse;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.KnownNetworksListResponse;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.SSIDMonitoringConfigurationResponse;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
@@ -398,16 +398,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "updateSsidMonitoringConfiguration", summary = "Update SSID monitoring configuration of a tenant",
-            description = "Accepts the keys is_enabled, eventing_is_enabled and dwell_time_minutes in the change map. "
-                    + "Nzyme only collects known networks while is_enabled is true and only creates alerts while "
-                    + "eventing_is_enabled is true. Each value is validated against the constraints of its "
-                    + "configuration entry. Requires the dot11_monitoring_manage feature permission.",
+            description = "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled and "
+                    + "dot11_ssid_monitoring_dwell_time_minutes in the change map, as reported by the configuration "
+                    + "endpoint. Nzyme only collects known networks while monitoring is enabled and only creates alerts "
+                    + "while eventing is enabled. Requires the dot11_monitoring_manage feature permission.",
             externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
                     url = "https://go.nzyme.org/wifi-ssid-monitoring"))
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
-    @ApiResponse(responseCode = "422", description = "The change map is empty or a value violates the constraints of its "
-            + "configuration entry.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change map is empty, contains an unknown configuration key, "
+            + "or a value violates the constraints of its configuration entry.", content = @Content)
     public Response updateConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
                                         @RequestBody(description = "Map of configuration keys to new values.", required = true, content = @Content(mediaType = "application/json"))
                                         UpdateConfigurationRequest req,
@@ -422,26 +422,18 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : req.change().entrySet()) {
-            switch (c.getKey()) {
-                case "is_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(KnownSSIDsRegistryKeys.IS_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "eventing_is_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(KnownSSIDsRegistryKeys.EVENTING_IS_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "dwell_time_minutes":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(KnownSSIDsRegistryKeys.IS_ENABLED,
+                        KnownSSIDsRegistryKeys.EVENTING_IS_ENABLED,
+                        KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES)
+                .validate(req.change());
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString(), organizationId, tenantId);
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
         }
 
         return Response.ok().build();

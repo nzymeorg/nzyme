@@ -17,6 +17,9 @@
 
 package app.nzyme.core.rest.resources.system;
 
+import java.util.Optional;
+import java.util.List;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.branding.BrandingRegistryKeys;
 import app.nzyme.core.distributed.NodeRegistryKeys;
@@ -333,26 +336,19 @@ public class SystemResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : req.change().entrySet()) {
-            switch (c.getKey()) {
-                case "subsystem_ethernet_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.ETHERNET_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "subsystem_dot11_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.DOT11_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "subsystem_bluetooth_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.BLUETOOTH_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(SubsystemRegistryKeys.ETHERNET_ENABLED,
+                        SubsystemRegistryKeys.DOT11_ENABLED,
+                        SubsystemRegistryKeys.BLUETOOTH_ENABLED,
+                        SubsystemRegistryKeys.UAV_ENABLED)
+                .validate(req.change());
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
         }
 
         return Response.ok().build();

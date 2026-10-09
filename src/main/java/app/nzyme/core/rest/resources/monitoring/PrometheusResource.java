@@ -1,8 +1,9 @@
 package app.nzyme.core.rest.resources.monitoring;
 
+import java.util.List;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import io.swagger.v3.oas.annotations.Hidden;
 import app.nzyme.plugin.RegistryCryptoException;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.configuration.EncryptedConfigurationEntryResponse;
@@ -119,40 +120,25 @@ public class PrometheusResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            boolean encrypted = false;
-            switch (c.getKey()) {
-                case "prometheus_rest_report_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(PrometheusRegistryKeys.REST_REPORT_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = false;
-                    break;
-                case "prometheus_rest_report_username":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(PrometheusRegistryKeys.REST_REPORT_USERNAME, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = false;
-                    break;
-                case "prometheus_rest_report_password":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(PrometheusRegistryKeys.REST_REPORT_PASSWORD, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = true;
-                    break;
-                default:
-                    LOG.info("Unknown configuration parameter [{}].", c.getKey());
-                    return Response.status(422).build();
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(PrometheusRegistryKeys.REST_REPORT_ENABLED,
+                        PrometheusRegistryKeys.REST_REPORT_USERNAME)
+                .allowingEncrypted(PrometheusRegistryKeys.REST_REPORT_PASSWORD)
+                .validate(ur.change());
 
-            if (encrypted) {
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            if (c.encrypted()) {
                 try {
-                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.getKey(), c.getValue().toString());
+                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.key(), c.value());
                 } catch (RegistryCryptoException e) {
                     return Response.serverError().build();
                 }
             } else {
-                nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+                nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
             }
         }
 

@@ -1,11 +1,13 @@
 package app.nzyme.core.rest.resources.system.integrations;
 
+import java.util.Optional;
+import java.util.List;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.integrations.smtp.SMTPConfigurationRegistryKeys;
 import app.nzyme.core.rest.requests.SmtpIntegrationConfigurationUpdateRequest;
 import app.nzyme.core.rest.responses.system.configuration.SmtpConfigurationResponse;
 import app.nzyme.plugin.RegistryCryptoException;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.configuration.EncryptedConfigurationEntryResponse;
@@ -174,55 +176,29 @@ public class SmtpIntegrationResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            boolean encrypted = false;
-            switch (c.getKey()) {
-                case "smtp_transport_strategy":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.TRANSPORT_STRATEGY, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "smtp_host":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.HOST, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "smtp_port":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.PORT, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "smtp_username":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.USERNAME, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "smtp_password":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.PASSWORD, c)) {
-                        return Response.status(422).build();
-                    }
-                    encrypted = true;
-                    break;
-                case "smtp_from_address":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.FROM_ADDRESS, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "smtp_web_interface_url":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SMTPConfigurationRegistryKeys.WEB_INTERFACE_URL, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(SMTPConfigurationRegistryKeys.TRANSPORT_STRATEGY,
+                        SMTPConfigurationRegistryKeys.HOST,
+                        SMTPConfigurationRegistryKeys.PORT,
+                        SMTPConfigurationRegistryKeys.USERNAME,
+                        SMTPConfigurationRegistryKeys.FROM_ADDRESS,
+                        SMTPConfigurationRegistryKeys.WEB_INTERFACE_URL)
+                .allowingEncrypted(SMTPConfigurationRegistryKeys.PASSWORD)
+                .validate(ur.change());
 
-            if (encrypted) {
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            if (c.encrypted()) {
                 try {
-                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.getKey(), c.getValue().toString());
+                    nzyme.getDatabaseCoreRegistry().setEncryptedValue(c.key(), c.value());
                 } catch (RegistryCryptoException e) {
                     return Response.serverError().build();
                 }
             } else {
-                nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+                nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
             }
         }
 

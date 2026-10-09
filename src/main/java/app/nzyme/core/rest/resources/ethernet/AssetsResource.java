@@ -23,7 +23,7 @@ import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
 import app.nzyme.plugin.distributed.messaging.MessageType;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
@@ -606,20 +606,16 @@ public class AssetsResource extends TapDataHandlingResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : req.change().entrySet()) {
-            //noinspection SwitchStatementWithTooFewBranches
-            switch (c.getKey()) {
-                case "assets_statistics_retention_time_days":
-                    if (!ConfigurationEntryConstraintValidator
-                            .checkConstraints(AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                default:
-                    return Response.status(Response.Status.BAD_REQUEST).build();
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS)
+                .validate(req.change());
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString(), organizationId, tenantId);
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
         }
 
         return Response.ok().build();

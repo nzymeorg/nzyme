@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.system;
 
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.crypto.CryptoRegistryKeys;
 import app.nzyme.core.crypto.PGPKeyFingerprint;
@@ -13,7 +14,6 @@ import app.nzyme.core.rest.responses.crypto.*;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
 import app.nzyme.plugin.distributed.messaging.Message;
 import app.nzyme.plugin.distributed.messaging.MessageType;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
@@ -681,18 +681,16 @@ public class CryptoResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            switch (c.getKey()) {
-                case "pgp_key_sync_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(CryptoRegistryKeys.PGP_KEY_SYNC_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-                    nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
-                    break;
-                default:
-                    LOG.info("Unknown configuration parameter [{}].", c.getKey());
-                    return Response.status(422).build();
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(CryptoRegistryKeys.PGP_KEY_SYNC_ENABLED)
+                .validate(ur.change());
+
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
         }
 
         return Response.ok().build();

@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.system.cluster;
 
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.tls.TLSKeyAndCertificate;
 import app.nzyme.core.distributed.Node;
@@ -13,7 +14,6 @@ import app.nzyme.core.rest.responses.metrics.TimerResponse;
 import app.nzyme.core.rest.responses.nodes.*;
 import app.nzyme.core.taps.db.metrics.BucketSize;
 import app.nzyme.core.util.MetricNames;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
@@ -226,19 +226,16 @@ public class NodesResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            switch (c.getKey()) {
-                case "ephemeral_nodes_regex":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(NodeRegistryKeys.EPHEMERAL_NODES_REGEX, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                default:
-                    LOG.info("Unknown configuration parameter [{}].", c.getKey());
-                    return Response.status(422).build();
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(NodeRegistryKeys.EPHEMERAL_NODES_REGEX)
+                .validate(ur.change());
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
         }
 
         return Response.ok().build();

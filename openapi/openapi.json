@@ -3658,7 +3658,7 @@
         "tags" : [ "Monitoring" ]
       },
       "put" : {
-        "description" : "Accepts the keys is_enabled, eventing_is_enabled and dwell_time_minutes in the change map. Nzyme only collects known networks while is_enabled is true and only creates alerts while eventing_is_enabled is true. Each value is validated against the constraints of its configuration entry. Requires the dot11_monitoring_manage feature permission.",
+        "description" : "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled and dot11_ssid_monitoring_dwell_time_minutes in the change map, as reported by the configuration endpoint. Nzyme only collects known networks while monitoring is enabled and only creates alerts while eventing is enabled. Requires the dot11_monitoring_manage feature permission.",
         "externalDocs" : {
           "description" : "SSID monitoring in the Nzyme documentation",
           "url" : "https://go.nzyme.org/wifi-ssid-monitoring"
@@ -3711,7 +3711,7 @@
             "content" : {
               "application/json" : { }
             },
-            "description" : "The change map is empty or a value violates the constraints of its configuration entry."
+            "description" : "The change map is empty, contains an unknown configuration key, or a value violates the constraints of its configuration entry."
           }
         },
         "summary" : "Update SSID monitoring configuration of a tenant",

@@ -37,7 +37,7 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.Subsystem;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
 import app.nzyme.plugin.distributed.messaging.MessageType;
-import app.nzyme.plugin.rest.configuration.ConfigurationEntryConstraintValidator;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
@@ -301,51 +301,24 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        for (Map.Entry<String, Object> c : req.change().entrySet()) {
-            switch (c.getKey()) {
-                case "subsystem_ethernet_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.ETHERNET_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(SubsystemRegistryKeys.ETHERNET_ENABLED,
+                        SubsystemRegistryKeys.DOT11_ENABLED,
+                        SubsystemRegistryKeys.BLUETOOTH_ENABLED,
+                        SubsystemRegistryKeys.UAV_ENABLED)
+                .validate(req.change());
 
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, null, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
 
-                    break;
-                case "subsystem_dot11_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.DOT11_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.DOT11, null, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
-                case "subsystem_bluetooth_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.BLUETOOTH_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.BLUETOOTH, null, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
-                case "subsystem_uav_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.UAV_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.UAV, null, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            // A subsystem can only be configured here if it is enabled at the level above.
+            if (!nzyme.getSubsystems().isEnabled(subsystemOfRegistryKey(c.key()), null, null)) {
+                return Response.status(Response.Status.FORBIDDEN).build();
             }
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString(), org.get().uuid());
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), org.get().uuid());
         }
 
         return Response.ok().build();
@@ -1157,51 +1130,24 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(422).build();
         }
 
-        for (Map.Entry<String, Object> c : req.change().entrySet()) {
-            switch (c.getKey()) {
-                case "subsystem_ethernet_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.ETHERNET_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(SubsystemRegistryKeys.ETHERNET_ENABLED,
+                        SubsystemRegistryKeys.DOT11_ENABLED,
+                        SubsystemRegistryKeys.BLUETOOTH_ENABLED,
+                        SubsystemRegistryKeys.UAV_ENABLED)
+                .validate(req.change());
 
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, organizationId, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
 
-                    break;
-                case "subsystem_dot11_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.DOT11_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.DOT11, organizationId, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
-                case "subsystem_bluetooth_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.BLUETOOTH_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.BLUETOOTH, organizationId, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
-                case "subsystem_uav_enabled":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(SubsystemRegistryKeys.UAV_ENABLED, c)) {
-                        return Response.status(422).build();
-                    }
-
-                    if (!nzyme.getSubsystems().isEnabled(Subsystem.UAV, organizationId, null)) {
-                        return Response.status(Response.Status.FORBIDDEN).build();
-                    }
-
-                    break;
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            // A subsystem can only be configured here if it is enabled at the level above.
+            if (!nzyme.getSubsystems().isEnabled(subsystemOfRegistryKey(c.key()), organizationId, null)) {
+                return Response.status(Response.Status.FORBIDDEN).build();
             }
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString(), organizationId, tenantId);
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
         }
 
         return Response.ok().build();
@@ -3176,26 +3122,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
     @ApiResponse(responseCode = "422", description = "A configuration value failed validation.", content = @Content)
     public Response setGlobalSuperAdministratorConfiguration(@RequestBody(description = "Map of authentication configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @Valid SuperadminSettingsUpdateRequest ur) {
-        for (Map.Entry<String, Object> c : ur.change().entrySet()) {
-            switch (c.getKey()) {
-                case "session_timeout_minutes":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(AuthenticationRegistryKeys.SESSION_TIMEOUT_MINUTES, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "session_inactivity_timeout_minutes":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(AuthenticationRegistryKeys.SESSION_INACTIVITY_TIMEOUT_MINUTES, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-                case "mfa_timeout_minutes":
-                    if (!ConfigurationEntryConstraintValidator.checkConstraints(AuthenticationRegistryKeys.MFA_TIMEOUT_MINUTES, c)) {
-                        return Response.status(422).build();
-                    }
-                    break;
-            }
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(AuthenticationRegistryKeys.SESSION_TIMEOUT_MINUTES,
+                        AuthenticationRegistryKeys.SESSION_INACTIVITY_TIMEOUT_MINUTES,
+                        AuthenticationRegistryKeys.MFA_TIMEOUT_MINUTES)
+                .validate(ur.change());
 
-            nzyme.getDatabaseCoreRegistry().setValue(c.getKey(), c.getValue().toString());
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value());
         }
 
          return Response.ok().build();
@@ -3677,6 +3615,18 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         return true;
     }
 
+    private static Subsystem subsystemOfRegistryKey(String key) {
+        if (key.equals(SubsystemRegistryKeys.ETHERNET_ENABLED.key())) {
+            return Subsystem.ETHERNET;
+        } else if (key.equals(SubsystemRegistryKeys.DOT11_ENABLED.key())) {
+            return Subsystem.DOT11;
+        } else if (key.equals(SubsystemRegistryKeys.BLUETOOTH_ENABLED.key())) {
+            return Subsystem.BLUETOOTH;
+        } else if (key.equals(SubsystemRegistryKeys.UAV_ENABLED.key())) {
+            return Subsystem.UAV;
+        }
 
+        throw new IllegalArgumentException("Not a subsystem registry key: " + key);
+    }
 
 }
