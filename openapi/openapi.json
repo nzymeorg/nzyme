@@ -1979,7 +1979,7 @@
     },
     "/api/context/networks/show/{address}" : {
       "get" : {
-        "description" : "Returns every network context entry whose network contains this IP address, most specific prefix first, together with all assets that were seen using the address. Overlapping networks are expected and all of them match. Both lists are empty when nothing matches.",
+        "description" : "Returns every network context entry whose network contains this IP address, most specific prefix first, together with all assets that were seen using the address in the previous 7 days. Overlapping networks are expected and all of them match. Both lists are empty when nothing matches.",
         "operationId" : "findNetworkContextByAddress",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -7959,7 +7959,7 @@
     },
     "/api/ethernet/ips/show/{address}" : {
       "get" : {
-        "description" : "Returns all assets of the tenant that were seen using this IP address, the network context entries the address falls into and geo information from the GeoIP databases. The asset list is paginated. Geo information is null if no GeoIP database is configured or the address is not in it.",
+        "description" : "Returns all assets of the tenant that were seen using this IP address in the previous 7 days, the network context entries the address falls into and geo information from the GeoIP databases. The asset list is paginated. Geo information is null if no GeoIP database is configured or the address is not in it.",
         "operationId" : "findIpAddress",
         "parameters" : [ {
           "description" : "IP address to look up.",
@@ -25030,15 +25030,6 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
-          },
-          "verdict" : {
-            "type" : "string"
-          },
-          "verdict_reasons" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
           }
         }
       },
