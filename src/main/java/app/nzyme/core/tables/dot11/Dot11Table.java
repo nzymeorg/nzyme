@@ -608,12 +608,17 @@ public class Dot11Table implements DataTable {
     private void writeDiscoReport(Handle handle, Tap tap, DateTime timestamp, Dot11.DiscoType discoType, Dot11DiscoTransmitterReport report) {
         long activityId = handle.createQuery(
                 "INSERT INTO dot11_disco_activity(tap_uuid, disco_type, bssid, sent_frames, " +
-                        "created_at) VALUES(:tap_uuid, :disco_type, :bssid, :sent_frames, :created_at) " +
+                        "signal_strength_average, signal_strength_min, signal_strength_max, created_at) " +
+                        "VALUES(:tap_uuid, :disco_type, :bssid, :sent_frames, " +
+                        ":signal_strength_average, :signal_strength_min, :signal_strength_max, :created_at) " +
                         "RETURNING id")
                 .bind("tap_uuid", tap.uuid())
                 .bind("disco_type", discoType.getNumber())
                 .bind("bssid", report.bssid())
                 .bind("sent_frames", report.sentFrames())
+                .bind("signal_strength_average", report.signalStrengthAverage())
+                .bind("signal_strength_min", report.signalStrengthMin())
+                .bind("signal_strength_max", report.signalStrengthMax())
                 .bind("created_at", timestamp)
                 .mapTo(Long.class)
                 .one();

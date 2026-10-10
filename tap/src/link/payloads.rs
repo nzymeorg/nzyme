@@ -341,7 +341,10 @@ pub struct Dot11DiscoReport {
 pub struct DiscoTransmitterReport {
     pub bssid: String,
     pub sent_frames: u128,
-    pub receivers: HashMap<String, u128>
+    pub receivers: HashMap<String, u128>,
+    pub signal_strength_average: f64,
+    pub signal_strength_min: i32,
+    pub signal_strength_max: i32
 }
 
 #[derive(Serialize)]
