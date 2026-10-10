@@ -356,11 +356,16 @@ impl Dot11Table {
         let signal_strength: i8 = frame.header.antenna_signal.unwrap_or(0);
 
         let (sta, tx_frames, tx_bytes, rx_frames, rx_bytes) = match frame.ds.direction {
+            // Entering = ToDS=0/FromDS=1 (AP -> client): the client is addr1 (destination).
             Dot11DataFrameDirection::Entering => {
                 (frame.ds.destination, 0, 0, 1, frame.length)
             },
+            // Leaving = ToDS=1/FromDS=0 (client -> AP): the client is addr2 (source), NOT
+            // addr3 (destination). For internet-bound traffic addr3 is the default gateway,
+            // so crediting the destination would attribute every client's outbound frames
+            // to the router's LAN MAC, creating a fake "client" with huge TX counts.
             Dot11DataFrameDirection::Leaving => {
-                (frame.ds.destination, 1, frame.length, 0, 0)
+                (frame.ds.source, 1, frame.length, 0, 0)
             },
             Dot11DataFrameDirection::NotLeavingOrAdHoc |
             Dot11DataFrameDirection::WDS => return
