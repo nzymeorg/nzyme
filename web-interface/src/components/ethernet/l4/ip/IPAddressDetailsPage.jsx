@@ -17,6 +17,7 @@ import moment from "moment/moment";
 import Flag from "../../../misc/Flag";
 import LatLonMap from "../../../shared/LatLonMap";
 import * as L from "leaflet";
+import WithPermission from "../../../misc/WithPermission";
 
 const ipAddressesService = new IPAddressesService();
 
@@ -245,7 +246,6 @@ export default function IPAddressDetailsPage() {
                 </p>
 
                 {assetsTable()}
-
               </div>
             </div>
           </div>
@@ -262,6 +262,13 @@ export default function IPAddressDetailsPage() {
                 </p>
 
                 {networkContextTable()}
+
+                <WithPermission permission="network_context_manage">
+                  <a href={ApiRoutes.CONTEXT.NETWORKS.CREATE + "?cidr=" + encodeURIComponent(address.address)}
+                     className="btn btn-secondary">
+                    Add Context
+                  </a>
+                </WithPermission>
               </div>
             </div>
           </div>
