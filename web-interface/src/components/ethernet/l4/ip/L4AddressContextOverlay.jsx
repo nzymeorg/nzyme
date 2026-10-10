@@ -120,7 +120,7 @@ export default function L4AddressContextOverlay({address}) {
 
   const description = () => {
     if (!ctx || ctx.context.length === 0) {
-      return false;
+      return <span className="text-muted">No Description</span>;
     }
 
     for (const c of ctx.context) {
