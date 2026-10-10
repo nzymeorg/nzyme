@@ -15,35 +15,29 @@ pub fn parse(frame: &Arc<Dot11Frame>) -> Result<Dot11ProbeRequestFrame, Error> {
     let mut ssid: Option<String> = None;
 
     let mut cursor: usize = 24;
-    if frame.payload.len() > cursor+2 {
-        loop {
-            let number = &frame.payload[cursor];
-            cursor += 1;
-            let length = frame.payload[cursor] as usize;
-            cursor += 1;
+    while cursor + 2 <= frame.payload.len() {
+        // Bounds-checked IE walk: a truncated frame must bail out, never index OOB.
+        let number = frame.payload[cursor];
+        let length = frame.payload[cursor + 1] as usize;
+        cursor += 2;
 
-            if length == 0 {
-                // Wildcard SSID.
-                break;
-            }
+        if length == 0 {
+            // Wildcard SSID.
+            break;
+        }
 
-            if frame.payload.len() < cursor+length {
-                trace!("Invalid tag length reported. Not calculating any more tagged parameters for this frame.");
-                break;
-            }
+        if cursor + length > frame.payload.len() {
+            trace!("Invalid tag length reported. Not calculating any more tagged parameters for this frame.");
+            break;
+        }
 
-            let data = &frame.payload[cursor..cursor+length];
-            cursor += length;
+        let data = &frame.payload[cursor..cursor+length];
+        cursor += length;
 
-            if *number == 0 {
-                let ssid_s = String::from_utf8_lossy(data).to_string();
-                if !ssid_s.trim().is_empty() {
-                    ssid = Some(ssid_s);
-                }
-            }
-
-            if cursor >= frame.payload.len() {
-                break;
+        if number == 0 {
+            let ssid_s = String::from_utf8_lossy(data).to_string();
+            if !ssid_s.trim().is_empty() {
+                ssid = Some(ssid_s);
             }
         }
     }
