@@ -4,6 +4,7 @@ use strum_macros::{EnumIter, Display};
 pub enum WiredChannelName {
     EthernetBroker,
     ArpPipeline,
+    IcmpPipeline,
     TcpPipeline,
     UdpPipeline,
     DnsPipeline,

@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import moment from "moment";
 import numeral from "numeral";
 import {toast} from "react-toastify";
@@ -79,7 +79,7 @@ export default function ReconExclusionDetailsPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Exclusion not found. <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX}>Back to Exclusions</a>
+        Exclusion not found. <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX}>Back to Exclusions</Link>
       </div>
     )
   }
@@ -109,9 +109,9 @@ export default function ReconExclusionDetailsPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Recon</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX}>Exclusions</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Recon</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX}>Exclusions</Link></li>
               <li className="breadcrumb-item active" aria-current="page">{exclusion.name}</li>
             </ol>
           </nav>
@@ -124,9 +124,9 @@ export default function ReconExclusionDetailsPage() {
         </div>
 
         <div className="col-6 text-end">
-          <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX} className="btn btn-secondary me-1">Back</a>
+          <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.INDEX} className="btn btn-secondary me-1">Back</Link>
           {canEdit ?
-            <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.EDIT(exclusion.uuid)} className="btn btn-primary">Edit</a>
+            <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.EDIT(exclusion.uuid)} className="btn btn-primary">Edit</Link>
             : null}
         </div>
       </div>

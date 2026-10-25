@@ -50,6 +50,7 @@ public class TablesService {
                 .put("bluetooth", new BluetoothTable(this))
                 .put("uav", new UAVTable(this))
                 .put("arp", new ARPTable(this))
+                .put("icmp", new ICMPTable(this))
                 .put("dhcp", new DHCPTable(this))
                 .put("tcp", new TCPTable(this))
                 .put("udp", new UDPTable(this))
@@ -94,6 +95,10 @@ public class TablesService {
 
     public BluetoothTable bluetooth() {
         return (BluetoothTable) tables.get("bluetooth");
+    }
+
+    public ICMPTable icmp() {
+        return (ICMPTable) tables.get("icmp");
     }
 
     public ARPTable arp() {

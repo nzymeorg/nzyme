@@ -1,7 +1,9 @@
-import React from 'react'
+import React from "react";
+import {useLocation} from "react-router-dom";
 
 function SidebarSubmenu (props) {
 
+  const location = useLocation();
   const show = props.show;
 
   if (!show) {
@@ -10,7 +12,7 @@ function SidebarSubmenu (props) {
 
   let className = 'nav-link'
   let expanded = ''
-  if ((window.location.pathname === '/' && props.subhref === '/') || (props.subhref !== '/' && window.location.pathname.startsWith(props.subhref))) {
+  if ((location.pathname === '/' && props.subhref === '/') || (props.subhref !== '/' && location.pathname.startsWith(props.subhref))) {
     className += ' nav-link-active'
     expanded = 'show'
   }

@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Navigate, useLocation, useParams} from "react-router-dom";
+import {Link, Navigate, useLocation, useParams} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import {toast} from "react-toastify";
@@ -122,7 +122,7 @@ export default function BeaconDetailsPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Beacon not found. <a href={ApiRoutes.ETHERNET.BEACONS.INDEX}>Back to Beacons</a>
+        Beacon not found. <Link to={ApiRoutes.ETHERNET.BEACONS.INDEX}>Back to Beacons</Link>
       </div>
     )
   }
@@ -137,8 +137,8 @@ export default function BeaconDetailsPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</Link></li>
               <li className="breadcrumb-item active" aria-current="page">{beacon.name}</li>
             </ol>
           </nav>
@@ -157,14 +157,14 @@ export default function BeaconDetailsPage() {
         <div className="col-4 text-end">
           {canEdit ?
             <React.Fragment>
-              <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.CREATE + "?beacon=" + beacon.uuid}
+              <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.CREATE + "?beacon=" + beacon.uuid}
                  className="btn btn-secondary me-1"
                  title="Create an exclusion so this destination never shows up as a beacon again">
                 Exclude
-              </a>
+              </Link>
               <a href="#" className="btn btn-danger me-1" onClick={onDelete}>Delete Beacon</a>
             </React.Fragment> : null}
-          <a href={ApiRoutes.ETHERNET.BEACONS.INDEX} className="btn btn-primary">Back to Beacons</a>
+          <Link to={ApiRoutes.ETHERNET.BEACONS.INDEX} className="btn btn-primary">Back to Beacons</Link>
         </div>
       </div>
 
@@ -178,7 +178,7 @@ export default function BeaconDetailsPage() {
                 return (
                   <React.Fragment key={ex.uuid}>
                     {i > 0 ? ", " : ""}
-                    <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(ex.uuid)} className="alert-link">&quot;{ex.name}&quot;</a>
+                    <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(ex.uuid)} className="alert-link">&quot;{ex.name}&quot;</Link>
                   </React.Fragment>
                 )
               })}. It no longer receives check-ins and does not raise alerts. Delete it or keep it for reference.

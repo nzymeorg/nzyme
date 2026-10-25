@@ -9788,4 +9788,287 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="create_icmp_tables" author="lennartkoopmann">
+        <createTable tableName="icmp_packets">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="varchar(17)" />
+            <column name="destination_mac" type="varchar(17)" />
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="icmp_type" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="icmp_code" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="packet_count" type="bigint" defaultValueNumeric="1">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_min" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_max" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ip_ttl" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ip_tos" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ip_df" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="redirect_gateway" type="inet" />
+            <column name="quoted_protocol" type="integer" />
+            <column name="quoted_source_address" type="inet" />
+            <column name="quoted_destination_address" type="inet" />
+            <column name="quoted_source_port" type="integer" />
+            <column name="quoted_destination_port" type="integer" />
+            <column name="quoted_ttl" type="integer" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="icmp_packets" indexName="icmp_packets_tap_last_seen">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="icmp_packets" indexName="icmp_packets_source_last_seen">
+            <column name="source_address" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="icmp_packets" indexName="icmp_packets_type_code_last_seen">
+            <column name="icmp_type" />
+            <column name="icmp_code" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="icmp_packets" indexName="icmp_packets_quoted_destination">
+            <column name="quoted_destination_address" />
+            <column name="quoted_destination_port" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="create_icmp_detection_tables" author="lennartkoopmann">
+        <createTable tableName="icmp_redirects">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="sender_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="sender_mac" type="varchar(17)" />
+            <column name="gateway_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_mac" type="varchar(17)" />
+            <column name="redirected_destinations" type="jsonb" />
+            <column name="packet_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="icmp_redirects" indexName="icmp_redirects_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="icmp_redirects" indexName="icmp_redirects_identity" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="sender_address" />
+            <column name="gateway_address" />
+            <column name="target_address" />
+        </createIndex>
+
+        <createTable tableName="icmp_traceroutes">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="varchar(17)" />
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocol" type="integer" />
+            <column name="routers" type="jsonb" />
+            <column name="packet_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_reached" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="icmp_traceroutes" indexName="icmp_traceroutes_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="icmp_traceroutes" indexName="icmp_traceroutes_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="create_icmp_exclusions_table" author="lennartkoopmann">
+        <createTable tableName="icmp_exclusions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+            <column name="detection_types" type="text" />
+            <column name="source_cidr" type="text" />
+            <column name="source_mac" type="text" />
+            <column name="gateway_cidr" type="text" />
+            <column name="match_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_matched_at" type="timestamp with time zone" />
+            <column name="created_by_user_id" type="uuid" />
+            <column name="created_by_name" type="text" />
+            <column name="created_by_email" type="text" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="icmp_exclusions" indexName="icmp_exclusions_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="icmp_exclusions" indexName="icmp_exclusions_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="create_icmp_tunnels_table" author="lennartkoopmann">
+        <createTable tableName="icmp_tunnels">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="varchar(17)" />
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_mac" type="varchar(17)" />
+            <column name="max_payload_bytes" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="packet_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="icmp_tunnels" indexName="icmp_tunnels_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="icmp_tunnels" indexName="icmp_tunnels_identity" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="source_address" />
+            <column name="destination_address" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

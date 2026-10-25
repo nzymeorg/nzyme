@@ -65,10 +65,23 @@ function TwoColumnHistogram(props) {
       return null;
     }
 
+    let selectedValue;
+    if (element.metadataField) {
+      // The filter value lives in the metadata, e.g. a numeric type shown as a human readable name.
+      selectedValue = value.metadata ? value.metadata[element.metadataField] : null;
+    } else if (Array.isArray(value.value)) {
+      selectedValue = value.value[0];
+    } else if (value.value && element.valueSubField) {
+      // A structured value, like an L4Address, carries the filterable field in a sub field.
+      selectedValue = value.value[element.valueSubField];
+    } else {
+      selectedValue = value.value;
+    }
+
     return <FilterValueIcon setFilters={element.setFilters}
                             fields={element.fields}
                             field={element.field}
-                            value={value.value} />
+                            value={selectedValue} />
   }
 
   const orderElement = (column) => {

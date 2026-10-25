@@ -62,6 +62,8 @@ import {
   ALLOWED_RECON_TARGET_OUTCOME_VALUES,
   RECON_TARGET_OUTCOME_SELECT_OPTIONS
 } from "./validators/ReconTargetOutcomeValidator";
+import {ALLOWED_ICMP_TYPE_VALUES, ICMP_TYPE_SELECT_OPTIONS} from "./validators/IcmpTypeValidator";
+import {ALLOWED_TRACEROUTE_PROTOCOL_VALUES, TRACEROUTE_PROTOCOL_SELECT_OPTIONS} from "./validators/TracerouteProtocolValidator";
 
 export const FILTER_TYPE = {
   STRING: {
@@ -223,6 +225,20 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_RECON_TARGET_OUTCOME_VALUES, value)
     ],
     placeholder: "OPEN"
+  },
+  ICMP_TYPE: {
+    name: "icmp_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_ICMP_TYPE_VALUES, value)
+    ],
+    placeholder: "8"
+  },
+  TRACEROUTE_PROTOCOL: {
+    name: "traceroute_protocol",
+    validators: [
+      (value) => validateEnum(ALLOWED_TRACEROUTE_PROTOCOL_VALUES, value)
+    ],
+    placeholder: "6"
   }
 }
 
@@ -595,6 +611,42 @@ export const OPERATORS = {
     options: RECON_TARGET_OUTCOME_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
+  ICMP_TYPE_EQUALS: {
+    name: "icmp_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ICMP_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  ICMP_TYPE_NOT_EQUALS: {
+    name: "icmp_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ICMP_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  PROTOCOL_EQUALS: {
+    name: "protocol_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: TRACEROUTE_PROTOCOL_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  PROTOCOL_NOT_EQUALS: {
+    name: "protocol_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: TRACEROUTE_PROTOCOL_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
   TLS_VERSION_EQUALS: {
     name: "tls_version_equals",
     sign: "==",
@@ -938,6 +990,18 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.RECON_TARGET_OUTCOME_EQUALS,
             OPERATORS.RECON_TARGET_OUTCOME_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.ICMP_TYPE:
+          setAllowedOperators([
+            OPERATORS.ICMP_TYPE_EQUALS,
+            OPERATORS.ICMP_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.TRACEROUTE_PROTOCOL:
+          setAllowedOperators([
+            OPERATORS.PROTOCOL_EQUALS,
+            OPERATORS.PROTOCOL_NOT_EQUALS
           ])
           break;
       }

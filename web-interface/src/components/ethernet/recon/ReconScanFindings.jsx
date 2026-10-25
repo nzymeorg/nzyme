@@ -66,7 +66,7 @@ export default function ReconScanFindings({scan, summary}) {
 
   const hosts = summary.answered_hosts || [];
   const total = summary.answered_hosts_total || 0;
-  const isArp = scan.type === "ARP_SWEEP";
+  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "OS_FINGERPRINTING";
 
   if (hosts.length === 0) {
     return (

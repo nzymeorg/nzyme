@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Paginator from "../../misc/Paginator";
 import numeral from "numeral";
@@ -69,7 +70,7 @@ export default function BeaconsTable({beacons, page, setPage, perPage, orderColu
                 {filterIcon("classification", b.classification)}
               </td>
               <td>
-                <a href={ApiRoutes.ETHERNET.BEACONS.DETAILS(b.uuid)}>{b.name}</a>{' '}
+                <Link to={ApiRoutes.ETHERNET.BEACONS.DETAILS(b.uuid)}>{b.name}</Link>{' '}
                 {filterIcon("name", b.name)}
                 {b.matching_exclusions && b.matching_exclusions.length > 0 ?
                   <span className="text-muted ms-1"

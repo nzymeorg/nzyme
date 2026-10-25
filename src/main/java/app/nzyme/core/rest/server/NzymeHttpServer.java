@@ -183,6 +183,7 @@ public class NzymeHttpServer {
         resourceConfig.register(BeaconExclusionsResource.class);
         resourceConfig.register(ReconScansResource.class);
         resourceConfig.register(ReconExclusionsResource.class);
+        resourceConfig.register(IcmpResource.class);
         resourceConfig.register(L4Resource.class);
         resourceConfig.register(ArpResource.class);
         resourceConfig.register(TimeResource.class);

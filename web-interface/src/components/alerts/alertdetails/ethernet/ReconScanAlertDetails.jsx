@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import ReconScanType from "../../../ethernet/recon/ReconScanType";
@@ -17,9 +18,9 @@ export default function ReconScanAlertDetails({alert}) {
               <dl>
                 <dt>Scan</dt>
                 <dd>
-                  <a href={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(a.scan_uuid)}>
+                  <Link to={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(a.scan_uuid)}>
                     <ReconScanType type={a.scan_type} /> from {a.source}
-                  </a>
+                  </Link>
                 </dd>
                 <dt>Scanning Device</dt>
                 <dd>
@@ -38,8 +39,12 @@ export default function ReconScanAlertDetails({alert}) {
                 </dd>
 
                 <p className="mb-0 mt-3">
-                  A device started probing your network. Review which targets answered, identify the device and
-                  decide whether the scan was expected. Exclude the device if it probes the network on purpose.
+                  {alert.detection_type === "RECON_FINGERPRINTING_NEW" ?
+                    "A device sent probes that only operating system detection tools send. This usually follows a " +
+                    "port scan and means someone is identifying what the target runs. Identify the device and decide " +
+                    "whether this was expected."
+                    : "A device started probing your network. Review which targets answered, identify the device and " +
+                    "decide whether the scan was expected. Exclude the device if it probes the network on purpose."}
                 </p>
               </dl>
             </div>

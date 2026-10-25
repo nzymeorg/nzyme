@@ -5,6 +5,7 @@ use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::protocols::parsers::tcp::tcp_parser;
 use crate::protocols::parsers::udp_parser;
+use crate::protocols::parsers::icmp_parser;
 use crate::to_pipeline;
 use crate::wired::packets::IPv4Packet;
 use crate::wired::types;
@@ -13,6 +14,21 @@ pub fn route_ipv4_packet(packet: IPv4Packet, bus: &Arc<Bus>) {
     match types::ProtocolType::try_from(packet.protocol) {
         Ok(protocol_type) => {
             match protocol_type {
+                types::ProtocolType::Icmp => {
+                    match icmp_parser::parse(packet) {
+                        Ok(icmp) => {
+                            let icmp = Arc::new(icmp);
+                            let size = icmp.size;
+                            to_pipeline!(
+                                WiredChannelName::IcmpPipeline,
+                                bus.icmp_pipeline.sender,
+                                icmp,
+                                size
+                            );
+                        },
+                        Err(e) => debug!("Could not parse ICMP packet: {}", e)
+                    }
+                },
                 types::ProtocolType::Tcp  => {
                     let tcp = Arc::new(tcp_parser::parse(packet).unwrap()); // TODO unwrap
                     let size = tcp.size;

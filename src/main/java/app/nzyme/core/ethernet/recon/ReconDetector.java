@@ -159,6 +159,14 @@ public class ReconDetector {
                 if (config.sourceArpEnabled()) {
                     readSource(handle, "ARP", candidates, () -> readArpCandidates(handle, taps, since, until, config));
                 }
+
+                if (config.sourceIcmpEnabled()) {
+                    readSource(handle, "ICMP", candidates, () -> readIcmpCandidates(handle, taps, since, until, config));
+                }
+
+                if (config.fingerprintingEnabled()) {
+                    readSource(handle, "FINGERPRINTING", candidates, () -> readFingerprintingCandidates(handle, taps, since, until, config));
+                }
             }
 
             LOG.debug("Analyzing [{}] recon candidates of tenant [{}/{}].",
@@ -186,7 +194,6 @@ public class ReconDetector {
                                    DateTime since,
                                    UUID organizationId,
                                    UUID tenantId) {
-        // Scans that were still going on at the start of the window continue instead of starting over.
         Map<String, ReconScanEntry> activeScans = Maps.newHashMap();
         for (ReconScanEntry scan : recon.findActiveScansOfTenant(handle, organizationId, tenantId, since)) {
             activeScans.put(scanIdentity(scan.type(), scan.sourceAddress(), scan.sourceMac(), scan.targetAddress()), scan);
@@ -200,7 +207,7 @@ public class ReconDetector {
 
         for (Candidate candidate : candidates) {
             try {
-                if (candidate.failureShare() < minimumFailureShare) {
+                if (!candidate.type.isFingerprinting() && candidate.failureShare() < minimumFailureShare) {
                     continue;
                 }
 
@@ -268,7 +275,8 @@ public class ReconDetector {
                         progressedAt
                 );
 
-                if (newScan && config.alertOnNewScan()) {
+                boolean alert = candidate.type.isFingerprinting() ? config.alertOnNewFingerprinting() : config.alertOnNewScan();
+                if (newScan && alert) {
                     recon.findScanById(handle, scan.id())
                             .ifPresent(refreshed -> raiseNewScanAlert(refreshed, organizationId, tenantId));
                 }
@@ -316,24 +324,42 @@ public class ReconDetector {
     }
 
     private void buildProbesTable(Handle handle, List<UUID> taps, DateTime since, DateTime until, ReconConfiguration config) {
-        String sourceCondition = config.includeExternalSources() ? "" : "AND source_address_is_site_local = true ";
+        String sourceCondition = config.includeExternalSources() ? "" : "AND s.source_address_is_site_local = true ";
 
-        String targetCondition = config.includeExternalTargets() ? "" : "AND destination_address_is_site_local = true ";
+        String targetCondition = config.includeExternalTargets() ? "" : "AND s.destination_address_is_site_local = true ";
+
+        // ICMP port-unreachable replies quote the UDP probe that drew them, turning "unanswered" into "refused".
+        handle.execute("DROP TABLE IF EXISTS recon_udp_unreachable");
+        handle.createUpdate("CREATE TEMPORARY TABLE recon_udp_unreachable ON COMMIT DROP AS " +
+                        "SELECT DISTINCT quoted_source_address AS source_address, " +
+                        "quoted_destination_address AS destination_address, quoted_destination_port AS destination_port " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type = 3 AND icmp_code = 3 " +
+                        "AND quoted_protocol = 17 AND quoted_destination_port IS NOT NULL " +
+                        "AND last_seen >= :since AND last_seen <= :until")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .execute();
+        handle.execute("CREATE INDEX ON recon_udp_unreachable (source_address, destination_address, destination_port)");
 
         handle.execute("DROP TABLE IF EXISTS recon_probes");
         handle.createUpdate("CREATE TEMPORARY TABLE recon_probes ON COMMIT DROP AS " +
-                        "SELECT l4_type, host(source_address) AS source_address, source_mac, " +
-                        "host(destination_address) AS destination_address, destination_port, " +
-                        "MAX(CASE WHEN state = 'REFUSED' THEN 1 WHEN bytes_rx_count > 0 THEN 2 ELSE 0 END) AS outcome, " +
-                        "COUNT(*) AS session_count, MIN(start_time) AS first_seen, " +
-                        "MAX(most_recent_segment_time) AS last_seen, " +
-                        "string_agg(DISTINCT tap_uuid::text, ',') AS taps " +
-                        "FROM l4_sessions WHERE tap_uuid IN (<taps>) AND start_time >= :since AND start_time <= :until " +
-                        "AND destination_address_is_multicast = false AND source_address_is_multicast = false " +
+                        "SELECT s.l4_type, host(s.source_address) AS source_address, s.source_mac, " +
+                        "host(s.destination_address) AS destination_address, s.destination_port, " +
+                        "MAX(CASE WHEN s.state = 'REFUSED' THEN 1 WHEN s.bytes_rx_count > 0 THEN 2 " +
+                        "WHEN u.destination_port IS NOT NULL THEN 1 ELSE 0 END) AS outcome, " +
+                        "COUNT(*) AS session_count, MIN(s.start_time) AS first_seen, " +
+                        "MAX(s.most_recent_segment_time) AS last_seen, " +
+                        "string_agg(DISTINCT s.tap_uuid::text, ',') AS taps " +
+                        "FROM l4_sessions s LEFT JOIN recon_udp_unreachable u ON s.l4_type = 'UDP' " +
+                        "AND u.source_address = s.source_address AND u.destination_address = s.destination_address " +
+                        "AND u.destination_port = s.destination_port " +
+                        "WHERE s.tap_uuid IN (<taps>) AND s.start_time >= :since AND s.start_time <= :until " +
+                        "AND s.destination_address_is_multicast = false AND s.source_address_is_multicast = false " +
                         sourceCondition + targetCondition +
-                        "AND (l4_type <> 'UDP' OR (destination_port < :udp_dynamic_port_start " +
-                        "AND NOT jsonb_exists_any(COALESCE(tags, '[]'::jsonb), string_to_array(:excluded_udp_tags, ',')))) " +
-                        "GROUP BY l4_type, source_address, source_mac, destination_address, destination_port")
+                        "AND (s.l4_type <> 'UDP' OR (s.destination_port < :udp_dynamic_port_start " +
+                        "AND NOT jsonb_exists_any(COALESCE(s.tags, '[]'::jsonb), string_to_array(:excluded_udp_tags, ',')))) " +
+                        "GROUP BY s.l4_type, s.source_address, s.source_mac, s.destination_address, s.destination_port")
                 .bindList("taps", taps)
                 .bind("since", since)
                 .bind("until", until)
@@ -366,7 +392,6 @@ public class ReconDetector {
         ReconScanType sweepType = "UDP".equals(l4Type) ? ReconScanType.UDP_HOST_SWEEP : ReconScanType.TCP_HOST_SWEEP;
         ReconScanType portScanType = "UDP".equals(l4Type) ? ReconScanType.UDP_PORT_SCAN : ReconScanType.TCP_PORT_SCAN;
 
-        // Host sweeps: all probes of a source on its sweep ports.
         handle.createQuery("SELECT p.source_address, p.source_mac, " +
                         "COUNT(DISTINCT p.destination_address) AS host_count, " +
                         "COUNT(DISTINCT p.destination_port) AS port_count, COUNT(*) AS probe_count, " +
@@ -567,6 +592,239 @@ public class ReconDetector {
         return enrichment;
     }
 
+    // Replies are matched by the reversed address pair, which is what the scanner learned.
+    private static final String ICMP_REQUEST_TYPES = "8, 13, 17";
+    private static final String ICMP_REPLY_TYPES = "0, 14, 18";
+
+    private List<Candidate> readIcmpCandidates(Handle handle,
+                                               List<UUID> taps,
+                                               DateTime since,
+                                               DateTime until,
+                                               ReconConfiguration config) {
+        List<Candidate> result = Lists.newArrayList();
+
+        handle.createQuery("WITH requests AS (SELECT source_address, source_mac, destination_address, " +
+                        "SUM(packet_count) AS packets, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen, " +
+                        "string_agg(DISTINCT tap_uuid::text, ',') AS taps, MIN(bytes_min) AS bytes_min, " +
+                        "MAX(bytes_max) AS bytes_max, mode() WITHIN GROUP (ORDER BY ip_ttl) AS ip_ttl, " +
+                        "array_agg(DISTINCT icmp_type) AS types " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
+                        "AND last_seen >= :since AND last_seen <= :until " + siteLocalCondition("source_address", config.includeExternalSources()) +
+                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        "GROUP BY source_address, source_mac, destination_address), " +
+                        "replies AS (SELECT DISTINCT source_address AS replier, destination_address AS requester " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REPLY_TYPES + ") " +
+                        "AND last_seen >= :since AND last_seen <= :until) " +
+                        "SELECT host(r.source_address) AS source_address, r.source_mac, " +
+                        "COUNT(*) AS host_count, COUNT(p.replier) AS replied_count, SUM(r.packets) AS request_count, " +
+                        "MIN(r.first_seen) AS first_seen, MAX(r.last_seen) AS last_seen, " +
+                        "string_agg(r.taps, ',') AS taps, MIN(r.bytes_min) AS bytes_min, MAX(r.bytes_max) AS bytes_max, " +
+                        "mode() WITHIN GROUP (ORDER BY r.ip_ttl) AS ip_ttl " +
+                        "FROM requests r LEFT JOIN replies p ON p.replier = r.destination_address " +
+                        "AND p.requester = r.source_address " +
+                        "GROUP BY r.source_address, r.source_mac HAVING COUNT(*) >= :minimum_hosts")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("minimum_hosts", config.hostSweepMinimumHosts())
+                .mapToMap()
+                .forEach(row -> {
+                    try {
+                        String sourceAddress = (String) row.get("source_address");
+                        String sourceMac = (String) row.get("source_mac");
+                        int hosts = ((Number) row.get("host_count")).intValue();
+                        long replied = ((Number) row.get("replied_count")).longValue();
+
+                        Map<String, Object> enrichment = Maps.newHashMap();
+                        enrichment.put("l4_type", "ICMP");
+                        enrichment.put("request_count", ((Number) row.get("request_count")).longValue());
+                        putIfNotNull(enrichment, "ip_ttl", row.get("ip_ttl"));
+                        putIfNotNull(enrichment, "payload_bytes_min", row.get("bytes_min"));
+                        putIfNotNull(enrichment, "payload_bytes_max", row.get("bytes_max"));
+
+                        result.add(new Candidate(
+                                ReconScanType.ICMP_SWEEP,
+                                sourceAddress,
+                                sourceMac,
+                                null,
+                                hosts,
+                                0,
+                                hosts,
+                                replied,
+                                0,
+                                hosts - replied,
+                                new DateTime(row.get("first_seen")),
+                                new DateTime(row.get("last_seen")),
+                                parseTaps((String) row.get("taps")),
+                                enrichment,
+                                limit -> loadIcmpTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit)
+                        ));
+                    } catch (Exception e) {
+                        LOG.error("Could not read ping sweep candidate.", e);
+                    }
+                });
+
+        return result;
+    }
+
+    private List<Recon.TargetRecord> loadIcmpTargets(Handle handle,
+                                                     List<UUID> taps,
+                                                     String sourceAddress,
+                                                     @Nullable String sourceMac,
+                                                     DateTime since,
+                                                     DateTime until,
+                                                     ReconConfiguration config,
+                                                     int limit) {
+        return handle.createQuery("WITH requests AS (SELECT destination_address, SUM(packet_count) AS packets, " +
+                        "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen FROM icmp_packets " +
+                        "WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
+                        "AND source_address = :source_address::inet AND source_mac IS NOT DISTINCT FROM :source_mac " +
+                        "AND last_seen >= :since AND last_seen <= :until " +
+                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        "GROUP BY destination_address), " +
+                        "replies AS (SELECT DISTINCT source_address AS replier FROM icmp_packets " +
+                        "WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REPLY_TYPES + ") " +
+                        "AND destination_address = :source_address::inet AND last_seen >= :since AND last_seen <= :until) " +
+                        "SELECT host(r.destination_address) AS address, r.packets, r.first_seen, r.last_seen, " +
+                        "(p.replier IS NOT NULL) AS replied FROM requests r LEFT JOIN replies p ON p.replier = r.destination_address " +
+                        "ORDER BY replied DESC, r.last_seen DESC LIMIT :limit")
+                .bindList("taps", taps)
+                .bind("source_address", sourceAddress)
+                .bind("source_mac", sourceMac)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("limit", limit)
+                .map((rs, ctx) -> new Recon.TargetRecord(
+                        rs.getString("address"),
+                        null,
+                        rs.getBoolean("replied") ? ReconTargetOutcome.OPEN : ReconTargetOutcome.UNANSWERED,
+                        rs.getLong("packets"),
+                        new DateTime(rs.getTimestamp("first_seen")),
+                        new DateTime(rs.getTimestamp("last_seen"))
+                ))
+                .list();
+    }
+
+    // Nmap OS-detection signatures. The first three are nmap-specific; timestamp and address mask are weak
+    // (some discovery tools use them) and only count alongside a strong signature.
+    static final String SIGNATURE_ECHO_NONZERO_CODE = "ECHO_NONZERO_CODE";
+    static final String SIGNATURE_ECHO_TOS_4 = "ECHO_TOS_4";
+    static final String SIGNATURE_INFORMATION_REQUEST = "INFORMATION_REQUEST";
+    static final String SIGNATURE_TIMESTAMP_REQUEST = "TIMESTAMP_REQUEST";
+    static final String SIGNATURE_ADDRESS_MASK_REQUEST = "ADDRESS_MASK_REQUEST";
+
+    private List<Candidate> readFingerprintingCandidates(Handle handle,
+                                                         List<UUID> taps,
+                                                         DateTime since,
+                                                         DateTime until,
+                                                         ReconConfiguration config) {
+        List<Candidate> result = Lists.newArrayList();
+
+        handle.createQuery("WITH probes AS (SELECT source_address, source_mac, destination_address, " +
+                        "CASE WHEN icmp_type = 8 AND icmp_code <> 0 THEN '" + SIGNATURE_ECHO_NONZERO_CODE + "' " +
+                        "WHEN icmp_type = 8 AND ip_tos = 4 THEN '" + SIGNATURE_ECHO_TOS_4 + "' " +
+                        "WHEN icmp_type = 15 THEN '" + SIGNATURE_INFORMATION_REQUEST + "' " +
+                        "WHEN icmp_type = 13 THEN '" + SIGNATURE_TIMESTAMP_REQUEST + "' " +
+                        "WHEN icmp_type = 17 THEN '" + SIGNATURE_ADDRESS_MASK_REQUEST + "' END AS signature, " +
+                        "packet_count, first_seen, last_seen, tap_uuid, ip_ttl, bytes_max " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND last_seen >= :since AND last_seen <= :until " +
+                        "AND ((icmp_type = 8 AND (icmp_code <> 0 OR ip_tos = 4)) OR icmp_type IN (13, 15, 17)) " +
+                        siteLocalCondition("source_address", config.includeExternalSources()) +
+                        siteLocalCondition("destination_address", config.includeExternalTargets()) + "), " +
+                        "replies AS (SELECT DISTINCT source_address AS replier, destination_address AS requester " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (0, 14, 16, 18) " +
+                        "AND last_seen >= :since AND last_seen <= :until) " +
+                        "SELECT host(p.source_address) AS source_address, p.source_mac, " +
+                        "host(p.destination_address) AS target_address, " +
+                        "array_agg(DISTINCT p.signature) AS signatures, SUM(p.packet_count) AS probe_count, " +
+                        "MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen, " +
+                        "string_agg(DISTINCT p.tap_uuid::text, ',') AS taps, " +
+                        "mode() WITHIN GROUP (ORDER BY p.ip_ttl) AS ip_ttl, MAX(p.bytes_max) AS bytes_max, " +
+                        "bool_or(r.replier IS NOT NULL) AS replied " +
+                        "FROM probes p LEFT JOIN replies r ON r.replier = p.destination_address AND r.requester = p.source_address " +
+                        "GROUP BY p.source_address, p.source_mac, p.destination_address " +
+                        "HAVING bool_or(p.signature IN ('" + SIGNATURE_ECHO_NONZERO_CODE + "', '" + SIGNATURE_ECHO_TOS_4 + "', '" +
+                        SIGNATURE_INFORMATION_REQUEST + "'))")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .mapToMap()
+                .forEach(row -> {
+                    try {
+                        String sourceAddress = (String) row.get("source_address");
+                        String sourceMac = (String) row.get("source_mac");
+                        String targetAddress = (String) row.get("target_address");
+                        boolean replied = Boolean.TRUE.equals(row.get("replied"));
+                        long probeCount = ((Number) row.get("probe_count")).longValue();
+                        List<String> signatures = stringArray(row.get("signatures"));
+
+                        Map<String, Object> enrichment = Maps.newHashMap();
+                        enrichment.put("l4_type", "ICMP");
+                        enrichment.put("signatures", signatures);
+                        putIfNotNull(enrichment, "ip_ttl", row.get("ip_ttl"));
+                        putIfNotNull(enrichment, "payload_bytes_max", row.get("bytes_max"));
+
+                        DateTime firstSeen = new DateTime(row.get("first_seen"));
+                        DateTime lastSeen = new DateTime(row.get("last_seen"));
+                        Set<UUID> tapUuids = parseTaps((String) row.get("taps"));
+
+                        result.add(new Candidate(
+                                ReconScanType.OS_FINGERPRINTING,
+                                sourceAddress,
+                                sourceMac,
+                                targetAddress,
+                                1,
+                                0,
+                                probeCount,
+                                replied ? 1 : 0,
+                                0,
+                                replied ? 0 : 1,
+                                firstSeen,
+                                lastSeen,
+                                tapUuids,
+                                enrichment,
+                                limit -> List.of(new Recon.TargetRecord(
+                                        targetAddress,
+                                        null,
+                                        replied ? ReconTargetOutcome.OPEN : ReconTargetOutcome.UNANSWERED,
+                                        probeCount,
+                                        firstSeen,
+                                        lastSeen
+                                ))
+                        ));
+                    } catch (Exception e) {
+                        LOG.error("Could not read OS fingerprinting candidate.", e);
+                    }
+                });
+
+        return result;
+    }
+
+    /** The ICMP table has no site-local flag, so the private ranges are matched directly. */
+    private static String siteLocalCondition(String column, boolean includeExternal) {
+        if (includeExternal) {
+            return "";
+        }
+
+        return "AND (" + column + " << '10.0.0.0/8'::inet OR " + column + " << '172.16.0.0/12'::inet " +
+                "OR " + column + " << '192.168.0.0/16'::inet) ";
+    }
+
+    private static List<String> stringArray(Object value) throws java.sql.SQLException {
+        List<String> result = Lists.newArrayList();
+        if (value == null) {
+            return result;
+        }
+
+        for (Object o : (Object[]) ((java.sql.Array) value).getArray()) {
+            if (o != null) {
+                result.add(o.toString());
+            }
+        }
+
+        return result;
+    }
+
     private List<Candidate> readArpCandidates(Handle handle,
                                               List<UUID> taps,
                                               DateTime since,
@@ -676,7 +934,7 @@ public class ReconDetector {
                 tenantId,
                 null,
                 null,
-                DetectionType.RECON_SCAN_NEW,
+                type.isFingerprinting() ? DetectionType.RECON_FINGERPRINTING_NEW : DetectionType.RECON_SCAN_NEW,
                 Subsystem.ETHERNET,
                 type.getHumanReadable() + " from [" + sourceDescription(scan) + "] against ["
                         + targetDescription(scan) + "] detected.",

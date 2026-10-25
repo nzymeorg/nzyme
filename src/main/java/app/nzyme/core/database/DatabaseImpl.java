@@ -68,6 +68,11 @@ import app.nzyme.core.ethernet.beacons.db.BeaconExclusionEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconScanEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconScanTargetEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconExclusionEntryMapper;
+import app.nzyme.core.ethernet.icmp.db.IcmpPacketEntryMapper;
+import app.nzyme.core.ethernet.icmp.db.IcmpRedirectEntryMapper;
+import app.nzyme.core.ethernet.icmp.db.IcmpTracerouteEntryMapper;
+import app.nzyme.core.ethernet.icmp.db.IcmpTunnelEntryMapper;
+import app.nzyme.core.ethernet.icmp.db.IcmpExclusionEntryMapper;
 import app.nzyme.core.registry.RegistryEntryMapper;
 import app.nzyme.core.security.authentication.db.*;
 import app.nzyme.core.security.sessions.db.SessionEntryMapper;
@@ -282,6 +287,11 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new ReconScanEntryMapper())
                 .registerRowMapper(new ReconScanTargetEntryMapper())
                 .registerRowMapper(new ReconExclusionEntryMapper())
+                .registerRowMapper(new IcmpPacketEntryMapper())
+                .registerRowMapper(new IcmpRedirectEntryMapper())
+                .registerRowMapper(new IcmpTracerouteEntryMapper())
+                .registerRowMapper(new IcmpTunnelEntryMapper())
+                .registerRowMapper(new IcmpExclusionEntryMapper())
                 .registerRowMapper(new TimelineEventEntryMapper())
                 .registerRowMapper(new RTSPStreamEntryMapper())
                 .registerRowMapper(new NATTraversalDiscoveryEntryMapper())
@@ -462,6 +472,11 @@ public class DatabaseImpl implements Database {
                         "arp_packets",
                         "SELECT COUNT(*) FROM arp_packets WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM arp_packets WHERE timestamp < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
+                        "icmp_packets",
+                        "SELECT COUNT(*) FROM icmp_packets WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM icmp_packets WHERE last_seen < :since AND tap_uuid IN (<taps>)"
                 ));
                 tables.add(new DataTableInformation(
                         "dhcp_transactions",

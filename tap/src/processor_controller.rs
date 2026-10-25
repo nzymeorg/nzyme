@@ -7,6 +7,7 @@ use crate::context::context_engine::ContextEngine;
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::protocols::processors::arp_processor::ARPProcessor;
+use crate::protocols::processors::icmp_processor::IcmpProcessor;
 use crate::protocols::processors::dhcpv4_processor::Dhcpv4Processor;
 use crate::protocols::processors::dns_processor::DnsProcessor;
 use crate::protocols::processors::dot11::dot11_frame_processor::Dot11FrameProcessor;
@@ -165,6 +166,7 @@ impl ProcessorController {
             let mut uav_processor = UavRemoteIdProcessor::new(self.tables.uav.clone());
 
             let mut arp_processor = ARPProcessor::new(self.tables.clone(), self.state.clone(), self.context.clone());
+            let mut icmp_processor = IcmpProcessor::new(self.tables.icmp.clone());
             let mut dhcp4_processor = Dhcpv4Processor::new(self.state.clone(), self.tables.dhcp.clone(), self.context.clone());
             let mut dns_processor = DnsProcessor::new(
                 self.system_state.clone(),
@@ -210,6 +212,16 @@ impl ProcessorController {
                                 Ok(packet) => arp_processor.process(packet),
                                 Err(e) => {
                                     error!("ARP receiver disconnected: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+
+                        recv(ethernet_bus.icmp_pipeline.receiver) -> msg => {
+                            match msg {
+                                Ok(packet) => icmp_processor.process(packet),
+                                Err(e) => {
+                                    error!("ICMP receiver disconnected: {}", e);
                                     break;
                                 }
                             }

@@ -14,6 +14,11 @@ public enum DetectionType {
     BEACON_ACTIVITY_MALICIOUS("Activity on beacon classified as malicious", Subsystem.ETHERNET),
 
     RECON_SCAN_NEW("Network scan detected", Subsystem.ETHERNET),
+    RECON_FINGERPRINTING_NEW("OS fingerprinting detected", Subsystem.ETHERNET),
+
+    ICMP_REDIRECT("ICMP redirect detected", Subsystem.ETHERNET),
+    ICMP_TRACEROUTE("Traceroute detected", Subsystem.ETHERNET),
+    ICMP_TUNNEL("ICMP tunnel detected", Subsystem.ETHERNET),
 
     // Monitors.
     MONITOR_TRIGGERED_ETHERNET("Ethernet Monitor triggered", Subsystem.ETHERNET),

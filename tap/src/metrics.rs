@@ -66,6 +66,7 @@ pub struct Channels {
 
     ethernet_pipeline: ChannelUtilization,
     arp_pipeline: ChannelUtilization,
+    icmp_pipeline: ChannelUtilization,
     tcp_pipeline: ChannelUtilization,
     udp_pipeline: ChannelUtilization,
     dns_pipeline: ChannelUtilization,
@@ -236,6 +237,7 @@ impl Metrics {
             "BluetoothDevicesPipeline" => &mut self.channels.bluetooth_devices_pipeline,
             "EthernetPipeline" => &mut self.channels.ethernet_pipeline,
             "ArpPipeline" => &mut self.channels.arp_pipeline,
+            "IcmpPipeline" => &mut self.channels.icmp_pipeline,
             "TcpPipeline" => &mut self.channels.tcp_pipeline,
             "UdpPipeline" => &mut self.channels.udp_pipeline,
             "DnsPipeline" => &mut self.channels.dns_pipeline,
@@ -261,6 +263,7 @@ impl Metrics {
             ("Dot11FramesPipeline", c.dot11_frames_pipeline.clone()),
             ("BluetoothDevicesPipeline", c.bluetooth_devices_pipeline.clone()),
             ("ArpPipeline", c.arp_pipeline.clone()),
+            ("IcmpPipeline", c.icmp_pipeline.clone()),
             ("TcpPipeline", c.tcp_pipeline.clone()),
             ("UdpPipeline", c.udp_pipeline.clone()),
             ("DnsPipeline", c.dns_pipeline.clone()),

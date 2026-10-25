@@ -23,7 +23,7 @@ export default function ReconConfiguration({organizationId, tenantId, section}) 
   const entries = config[section];
 
   return (
-    <table className="table table-sm table-hover table-striped mb-0">
+    <table className="table table-sm table-hover table-striped mt-3 mb-0">
       <thead>
       <tr>
         <th>Configuration</th>

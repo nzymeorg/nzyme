@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -40,7 +40,7 @@ export default function EditBeaconExclusionPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Exclusion not found. <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Back to Exclusions</a>
+        Exclusion not found. <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Back to Exclusions</Link>
       </div>
     )
   }
@@ -51,11 +51,11 @@ export default function EditBeaconExclusionPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Exclusions</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Exclusions</Link></li>
               {exclusion ?
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(exclusion.uuid)}>{exclusion.name}</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(exclusion.uuid)}>{exclusion.name}</Link></li>
                 : null}
               <li className="breadcrumb-item active" aria-current="page">Edit</li>
             </ol>
@@ -69,7 +69,7 @@ export default function EditBeaconExclusionPage() {
         </div>
 
         <div className="col-4 text-end">
-          <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(uuid)} className="btn btn-primary">Back</a>
+          <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(uuid)} className="btn btn-primary">Back</Link>
         </div>
       </div>
 

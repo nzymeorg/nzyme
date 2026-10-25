@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import moment from "moment";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import Paginator from "../../../misc/Paginator";
@@ -52,7 +53,7 @@ export default function BeaconExclusionsTable({exclusions, page, setPage, perPag
           return (
             <tr key={exclusion.uuid}>
               <td>
-                <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(exclusion.uuid)}>{exclusion.name}</a>{' '}
+                <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(exclusion.uuid)}>{exclusion.name}</Link>{' '}
                 {filterIcon("name", exclusion.name)}
               </td>
               <td><BeaconExclusionCriteria exclusion={exclusion} /></td>

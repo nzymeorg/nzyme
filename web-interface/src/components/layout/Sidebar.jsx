@@ -1,5 +1,6 @@
 import React, {useContext} from 'react'
 import ApiRoutes from '../../util/ApiRoutes'
+import {Link} from "react-router-dom";
 import NavigationLink from './NavigationLink'
 import SidebarSubmenu from './SidebarSubmenu'
 import UserProfileBlock from "./UserProfileBlock";
@@ -18,9 +19,9 @@ function Sidebar(props) {
   return (
       <div id="nav-side">
         <p className="brand">
-          <a href={ApiRoutes.DASHBOARD}>
+          <Link to={ApiRoutes.DASHBOARD}>
            {branding.sidebar_title_text === "nzyme" ? <AssetImage filename="navlogo.png" filenameHover="navlogo_hover.png" /> : branding.sidebar_title_text}
-          </a></p>
+          </Link></p>
         <p className="brand-subtitle">{branding.sidebar_subtitle_text ? branding.sidebar_subtitle_text : null}</p>
 
         <div className="mt-4 mb-4">
@@ -64,6 +65,11 @@ function Sidebar(props) {
                 href={ApiRoutes.ETHERNET.L4.OVERVIEW}
                 title="TCP/UDP"
                 icon={<i className="sidebar-icon fa-solid fa-road"/>}/>
+            <NavigationLink
+                href={ApiRoutes.ETHERNET.ICMP.OVERVIEW}
+                pathMatch="/ethernet/icmp"
+                title="ICMP"
+                icon={<i className="sidebar-icon fa-solid fa-satellite-dish"/>}/>
             <NavigationLink
                 href={ApiRoutes.ETHERNET.DNS.INDEX}
                 title="DNS"

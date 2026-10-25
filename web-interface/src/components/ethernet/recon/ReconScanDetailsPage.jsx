@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Navigate, useLocation, useParams} from "react-router-dom";
+import {Link, Navigate, useLocation, useParams} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import {toast} from "react-toastify";
@@ -98,7 +98,7 @@ export default function ReconScanDetailsPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Scan not found. <a href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Back to Scans</a>
+        Scan not found. <Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Back to Scans</Link>
       </div>
     )
   }
@@ -121,9 +121,9 @@ export default function ReconScanDetailsPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Recon</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Scans</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Recon</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Scans</Link></li>
               <li className="breadcrumb-item active" aria-current="page">
                 {scan.type_human_readable} from {scan.source}
               </li>
@@ -142,14 +142,14 @@ export default function ReconScanDetailsPage() {
         <div className="col-4 text-end">
           {canEdit ?
             <React.Fragment>
-              <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.CREATE + "?scan=" + scan.uuid}
+              <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.CREATE + "?scan=" + scan.uuid}
                  className="btn btn-secondary me-1"
                  title="Create an exclusion so this device never shows up as a scanner again">
                 Exclude
-              </a>
+              </Link>
               <a href="#" className="btn btn-danger me-1" onClick={onDelete}>Delete Scan</a>
             </React.Fragment> : null}
-          <a href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX} className="btn btn-primary">Back to Scans</a>
+          <Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX} className="btn btn-primary">Back to Scans</Link>
         </div>
       </div>
 
@@ -163,7 +163,7 @@ export default function ReconScanDetailsPage() {
                 return (
                   <React.Fragment key={ex.uuid}>
                     {i > 0 ? ", " : ""}
-                    <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.DETAILS(ex.uuid)} className="alert-link">&quot;{ex.name}&quot;</a>
+                    <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.DETAILS(ex.uuid)} className="alert-link">&quot;{ex.name}&quot;</Link>
                   </React.Fragment>
                 )
               })}. It is no longer updated and does not raise alerts. Delete it or keep it for reference.
@@ -229,7 +229,7 @@ export default function ReconScanDetailsPage() {
                     <L4Address address={scan.target_address_data} hidePort={true} withAssetName />
                     : <span>{numeral(scan.host_count).format("0,0")} hosts</span>}
                 </dd>
-                {scan.type !== "ARP_SWEEP" ?
+                {scan.type !== "ARP_SWEEP" && scan.type !== "ICMP_SWEEP" && scan.type !== "OS_FINGERPRINTING" ?
                   <React.Fragment>
                     <dt>Distinct Ports</dt>
                     <dd>{numeral(scan.port_count).format("0,0")}</dd>
@@ -243,10 +243,13 @@ export default function ReconScanDetailsPage() {
                 </dd>
                 <dt>Answered</dt>
                 <dd className="text-success">{numeral(scan.open_count).format("0,0")}{share(scan.open_count)}</dd>
-                {scan.type.startsWith("TCP") ?
+                {scan.type.startsWith("TCP") || scan.closed_count > 0 ?
                   <React.Fragment>
                     <dt>Refused</dt>
-                    <dd className="text-warning">{numeral(scan.closed_count).format("0,0")}{share(scan.closed_count)}</dd>
+                    <dd className="text-warning">
+                      {numeral(scan.closed_count).format("0,0")}{share(scan.closed_count)}
+                      {scan.type.startsWith("UDP") ? <span className="text-muted"> (confirmed by ICMP port unreachable)</span> : null}
+                    </dd>
                   </React.Fragment> : null}
                 <dt>Unanswered</dt>
                 <dd>{numeral(scan.unanswered_count).format("0,0")}{share(scan.unanswered_count)}</dd>
@@ -257,7 +260,7 @@ export default function ReconScanDetailsPage() {
                       {scan.taps.map((t) => {
                         return (
                           <li key={t.uuid}>
-                            <a href={ApiRoutes.SYSTEM.TAPS.DETAILS(t.uuid)}>{t.name ? t.name : t.uuid}</a>
+                            <Link to={ApiRoutes.SYSTEM.TAPS.DETAILS(t.uuid)}>{t.name ? t.name : t.uuid}</Link>
                           </li>
                         )
                       })}
@@ -324,8 +327,7 @@ export default function ReconScanDetailsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Every host and port the device probed and how the target reacted. Targets that answered are what
-                the scanner learned about your network.
+                Every host and port the device probed and how the target reacted.
               </p>
 
               <div className="mb-4">

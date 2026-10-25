@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import LoadingSpinner from "../../misc/LoadingSpinner";
@@ -69,16 +70,16 @@ export default function BeaconDestinationConnectionsTable({connections}) {
               <td>{numeral(c.bytes_tx).format("0.0b")}</td>
               <td title={moment(c.first_seen).format()}>{moment(c.first_seen).fromNow()}</td>
               <td title={moment(c.last_seen).format()}>{moment(c.last_seen).fromNow()}</td>
-              <td><a href={sessionsLink(c.l4_type, c.destination_port)}>Sessions</a></td>
+              <td><Link to={sessionsLink(c.l4_type, c.destination_port)}>Sessions</Link></td>
             </tr>
           )
         })}
         </tbody>
       </table>
 
-      <a href={sessionsLink()} className="btn btn-sm btn-outline-secondary">
+      <Link to={sessionsLink()} className="btn btn-sm btn-outline-secondary">
         All sessions to {connections.destination_address}
-      </a>
+      </Link>
     </React.Fragment>
   )
 

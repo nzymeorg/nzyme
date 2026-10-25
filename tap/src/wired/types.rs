@@ -48,6 +48,7 @@ pub fn find_arp_opcode(val: u16) -> ArpOpCode {
 
 #[derive(Debug)]
 pub enum ProtocolType {
+    Icmp,
     Tcp,
     Udp,
 }
@@ -57,6 +58,7 @@ impl TryFrom<u8> for ProtocolType {
 
     fn try_from(val: u8) -> Result<Self, Self::Error> {
         match val {
+            1 => Ok(ProtocolType::Icmp),
             6 => Ok(ProtocolType::Tcp),
             17 => Ok(ProtocolType::Udp),
             _ => Err(NotImplementedError)

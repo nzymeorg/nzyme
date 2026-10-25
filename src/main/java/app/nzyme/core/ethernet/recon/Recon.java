@@ -73,7 +73,6 @@ public class Recon {
 
     public record TargetCounts(long total, long open, long closed, long unanswered, long hosts, long ports) { }
 
-    /** Result of storing targets: how many were new, and when the newest of them was first probed. */
     public record TargetUpsertResult(int inserted, @Nullable DateTime latestNewTargetFirstSeen) { }
 
     private final NzymeNode nzyme;
@@ -98,6 +97,8 @@ public class Recon {
                 booleanValue(ReconRegistryKeys.SOURCE_TCP_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.SOURCE_UDP_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.SOURCE_ARP_ENABLED, organizationId, tenantId),
+                booleanValue(ReconRegistryKeys.SOURCE_ICMP_ENABLED, organizationId, tenantId),
+                booleanValue(ReconRegistryKeys.FINGERPRINTING_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.INCLUDE_EXTERNAL_SOURCES, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.INCLUDE_EXTERNAL_TARGETS, organizationId, tenantId),
                 intValue(ReconRegistryKeys.DETECTION_WINDOW_MINUTES, organizationId, tenantId),
@@ -106,7 +107,8 @@ public class Recon {
                 intValue(ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS, organizationId, tenantId),
                 intValue(ReconRegistryKeys.MINIMUM_FAILURE_PERCENT, organizationId, tenantId),
                 intValue(ReconRegistryKeys.SCAN_RETENTION_TIME_DAYS, organizationId, tenantId),
-                booleanValue(ReconRegistryKeys.ALERT_ON_NEW_SCAN, organizationId, tenantId)
+                booleanValue(ReconRegistryKeys.ALERT_ON_NEW_SCAN, organizationId, tenantId),
+                booleanValue(ReconRegistryKeys.ALERT_ON_NEW_FINGERPRINTING, organizationId, tenantId)
         );
     }
 
@@ -145,14 +147,15 @@ public class Recon {
         return query;
     }
 
-    public long countScans(Filters filters, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+    public long countScans(Filters filters, ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconScanFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
                 bindTaps(handle.createQuery("SELECT COUNT(*) FROM recon_scans WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id " + tapsCondition(taps, null) + filterFragment.whereSql()), taps)
+                                "AND tenant_id = :tenant_id AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql()), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .mapTo(Long.class)
                         .one()
@@ -160,6 +163,7 @@ public class Recon {
     }
 
     public List<ReconScanEntry> findAllScans(Filters filters,
+                                             ReconScanCategory category,
                                              @Nullable List<UUID> taps,
                                              OrderColumn orderColumn,
                                              OrderDirection orderDirection,
@@ -171,11 +175,12 @@ public class Recon {
 
         return nzyme.getDatabase().withHandle(handle ->
                 bindTaps(handle.createQuery("SELECT * FROM recon_scans WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id " + tapsCondition(taps, null) + filterFragment.whereSql() +
+                                "AND tenant_id = :tenant_id AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql() +
                                 "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
                                 "LIMIT :limit OFFSET :offset"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .bind("limit", limit)
                         .bind("offset", offset)
@@ -186,18 +191,19 @@ public class Recon {
         );
     }
 
-    public Map<String, Long> countScansByType(@Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+    public Map<String, Long> countScansByType(ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
         Map<String, Long> result = new HashMap<>();
-        for (ReconScanType t : ReconScanType.values()) {
-            result.put(t.name(), 0L);
+        for (String t : category.types()) {
+            result.put(t, 0L);
         }
 
         nzyme.getDatabase().useHandle(handle ->
                 bindTaps(handle.createQuery("SELECT type, COUNT(*) AS count FROM recon_scans " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                tapsCondition(taps, null) + "GROUP BY type"), taps)
+                                "AND type IN (<types>) " + tapsCondition(taps, null) + "GROUP BY type"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bindList("types", category.types())
                         .mapToMap()
                         .forEach(row -> result.put((String) row.get("type"), (Long) row.get("count")))
         );
@@ -364,6 +370,7 @@ public class Recon {
     }
 
     public List<GenericIntegerHistogramEntry> activeScansHistogram(Filters filters,
+                                                                   ReconScanCategory category,
                                                                    @Nullable List<UUID> taps,
                                                                    UUID organizationId,
                                                                    UUID tenantId,
@@ -379,10 +386,11 @@ public class Recon {
                                 ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
                                 "LEFT JOIN recon_scans s ON s.organization_id = :organization_id " +
                                 "AND s.tenant_id = :tenant_id AND s.first_seen < b.bucket + :step::interval " +
-                                "AND s.last_seen >= b.bucket " + tapsCondition(taps, "s") + filterFragment.whereSql() +
+                                "AND s.last_seen >= b.bucket AND s.type IN (<types>) " + tapsCondition(taps, "s") + filterFragment.whereSql() +
                                 "GROUP BY b.bucket ORDER BY b.bucket DESC"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .bind("date_trunc", bucketing.type().getDateTruncName())
                         .bind("step", step)

@@ -18,6 +18,7 @@ import MonitorTriggeredAlertDetails from "./generic/MonitorTriggeredAlertDetails
 import EnvironmentalSevereAlertDetails from "./generic/EnvironmentalSevereAlertDetails";
 import BeaconAlertDetails from "./ethernet/BeaconAlertDetails";
 import ReconScanAlertDetails from "./ethernet/ReconScanAlertDetails";
+import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
 
@@ -69,7 +70,11 @@ function AlertDetails(props) {
     case "BEACON_ACTIVITY_MALICIOUS":
       return <BeaconAlertDetails alert={alert} />
     case "RECON_SCAN_NEW":
+    case "RECON_FINGERPRINTING_NEW":
       return <ReconScanAlertDetails alert={alert} />
+    case "ICMP_REDIRECT":
+    case "ICMP_TRACEROUTE":
+      return <IcmpAlertDetails alert={alert} />
     default:
       return <GenericAlertDetails alert={alert} />
   }

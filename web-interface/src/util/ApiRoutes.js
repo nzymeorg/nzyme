@@ -245,7 +245,34 @@ const ApiRoutes = {
         EDIT: uuid => `/ethernet/beacons/exclusions/show/${uuid}/edit`
       }
     },
+    ICMP: {
+      OVERVIEW: '/ethernet/icmp',
+      REDIRECTS: {
+        INDEX: '/ethernet/icmp/redirects',
+        DETAILS: uuid => `/ethernet/icmp/redirects/show/${uuid}`
+      },
+      TRACEROUTES: {
+        INDEX: '/ethernet/icmp/traceroutes',
+        DETAILS: uuid => `/ethernet/icmp/traceroutes/show/${uuid}`
+      },
+      UNREACHABLES: '/ethernet/icmp/unreachables',
+      UNREACHABLE_HOSTS: '/ethernet/icmp/unreachable-hosts',
+      TUNNELS: {
+        INDEX: '/ethernet/icmp/tunnels',
+        DETAILS: uuid => `/ethernet/icmp/tunnels/show/${uuid}`
+      },
+      EXCLUSIONS: {
+        INDEX: '/ethernet/icmp/exclusions',
+        CREATE: '/ethernet/icmp/exclusions/create',
+        DETAILS: uuid => `/ethernet/icmp/exclusions/show/${uuid}`,
+        EDIT: uuid => `/ethernet/icmp/exclusions/show/${uuid}/edit`
+      },
+      SETTINGS: '/ethernet/icmp/settings'
+    },
     RECON: {
+      FINGERPRINTING: {
+        INDEX: '/ethernet/recon/fingerprinting'
+      },
       SCANS: {
         INDEX: '/ethernet/recon/scans',
         DETAILS: uuid => `/ethernet/recon/scans/show/${uuid}`,

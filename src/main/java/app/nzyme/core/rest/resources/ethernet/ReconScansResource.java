@@ -93,6 +93,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
                             @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.") @QueryParam("taps") @Nullable String tapIds,
+                            @Parameter(description = "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.") @QueryParam("category") @Nullable String categoryParam,
                             @Parameter(description = "Sorting column. Defaults to the time the scan was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
@@ -103,6 +104,13 @@ public class ReconScansResource extends TapDataHandlingResource {
 
         Filters filters = parseFiltersQueryParameter(filtersParameter);
         List<UUID> taps = parseTapsFilter(sc, tapIds);
+
+        ReconScanCategory category;
+        try {
+            category = parseCategory(categoryParam);
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         Recon.OrderColumn orderColumn = Recon.OrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -118,17 +126,17 @@ public class ReconScansResource extends TapDataHandlingResource {
         Recon recon = nzyme.getEthernet().recon();
         ReconConfiguration config = recon.getConfiguration(organizationId, tenantId);
 
-        long total = recon.countScans(filters, taps, organizationId, tenantId);
+        long total = recon.countScans(filters, category, taps, organizationId, tenantId);
         Map<ReconExclusionEntry, ReconExclusionMatcher> exclusions = recon.exclusions()
                 .compileEnabled(organizationId, tenantId);
         List<ReconScanDetailsResponse> result = Lists.newArrayList();
         for (ReconScanEntry scan : recon.findAllScans(
-                filters, taps, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
+                filters, category, taps, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
             result.add(toResponse(scan, config, organizationId, tenantId, exclusions));
         }
 
         return Response.ok(ReconScansListResponse.create(
-                total, recon.countScansByType(taps, organizationId, tenantId), result
+                total, recon.countScansByType(category, taps, organizationId, tenantId), result
         )).build();
     }
 
@@ -146,6 +154,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                                          @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the scans list.") @QueryParam("filters") String filtersParameter,
                                          @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.") @QueryParam("taps") @Nullable String tapIds,
+                                         @Parameter(description = "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.") @QueryParam("category") @Nullable String categoryParam,
                                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -156,9 +165,16 @@ public class ReconScansResource extends TapDataHandlingResource {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
+        ReconScanCategory category;
+        try {
+            category = parseCategory(categoryParam);
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         Map<DateTime, Integer> histogram = Maps.newHashMap();
         for (GenericIntegerHistogramEntry bucket : nzyme.getEthernet().recon().activeScansHistogram(
-                filters, taps, organizationId, tenantId, timeRange, bucketing)) {
+                filters, category, taps, organizationId, tenantId, timeRange, bucketing)) {
             histogram.put(bucket.bucket(), bucket.value());
         }
 
@@ -398,7 +414,10 @@ public class ReconScansResource extends TapDataHandlingResource {
             ReconRegistryKeys.SOURCE_TCP_ENABLED,
             ReconRegistryKeys.SOURCE_UDP_ENABLED,
             ReconRegistryKeys.SOURCE_ARP_ENABLED,
-            ReconRegistryKeys.ALERT_ON_NEW_SCAN
+            ReconRegistryKeys.SOURCE_ICMP_ENABLED,
+            ReconRegistryKeys.FINGERPRINTING_ENABLED,
+            ReconRegistryKeys.ALERT_ON_NEW_SCAN,
+            ReconRegistryKeys.ALERT_ON_NEW_FINGERPRINTING
     };
 
     @GET
@@ -433,9 +452,12 @@ public class ReconScansResource extends TapDataHandlingResource {
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_TCP_ENABLED, "TCP sessions", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_UDP_ENABLED, "UDP conversations", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ARP_ENABLED, "ARP requests", organizationId, tenantId));
+        sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ICMP_ENABLED, "ICMP echo and discovery requests (ping sweeps)", organizationId, tenantId));
+        sources.add(booleanEntry(ReconRegistryKeys.FINGERPRINTING_ENABLED, "ICMP OS fingerprinting probes", organizationId, tenantId));
 
         List<ConfigurationEntryResponse> alerting = Lists.newArrayList();
         alerting.add(booleanEntry(ReconRegistryKeys.ALERT_ON_NEW_SCAN, "Alert on new scan", organizationId, tenantId));
+        alerting.add(booleanEntry(ReconRegistryKeys.ALERT_ON_NEW_FINGERPRINTING, "Alert on new OS fingerprinting attempt", organizationId, tenantId));
 
         return Response.ok(ReconConfigurationResponse.create(detection, sources, alerting)).build();
     }
@@ -479,11 +501,15 @@ public class ReconScansResource extends TapDataHandlingResource {
         return Response.ok().build();
     }
 
-    /*
-     * An absent parameter means no tap filter. A present but empty parameter is what the web interface sends
-     * when no tap is selected and yields an empty list, therefore no scans, like the other tap-scoped endpoints.
-     * "*" or a list is validated against the taps the user can access.
-     */
+    private static ReconScanCategory parseCategory(@Nullable String param) {
+        if (param == null || param.isBlank()) {
+            return ReconScanCategory.SCANS;
+        }
+
+        return ReconScanCategory.valueOf(param.toUpperCase());
+    }
+
+    // Absent means no tap filter; present but empty means no taps selected, which yields no scans.
     @Nullable
     private List<UUID> parseTapsFilter(SecurityContext sc, @Nullable String tapIds) {
         if (tapIds == null) {
@@ -562,7 +588,6 @@ public class ReconScansResource extends TapDataHandlingResource {
             ));
         }
 
-        // Inside the detection window: new probes from the device extend this scan instead of starting a new one.
         boolean recent = scan.lastSeen().isAfter(DateTime.now().minusMinutes(config.detectionWindowMinutes()));
 
         return ReconScanDetailsResponse.create(

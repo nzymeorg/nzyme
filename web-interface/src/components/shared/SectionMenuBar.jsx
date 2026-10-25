@@ -1,4 +1,5 @@
 import React, {useContext} from 'react';
+import {Link} from "react-router-dom";
 import {userHasPermission} from "../../util/Tools";
 import {UserContext} from "../../App";
 
@@ -15,9 +16,9 @@ export default function SectionMenuBar({items, activeRoute}) {
 
           return (
               <li key={i} className="nav-item">
-                <a className={"nav-link " + (item.href === activeRoute ? "active" : "")} href={item.href}>
+                <Link className={"nav-link " + (item.href === activeRoute ? "active" : "")} to={item.href}>
                   {item.name}
-                </a>
+                </Link>
               </li>
           )
         })}

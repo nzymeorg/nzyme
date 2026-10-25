@@ -54,12 +54,18 @@ export default function BeaconsSettingsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Detection" />
 
-              <p className="text-muted">
+              <p className="text-muted mb-2">
                 Detection runs every minute and looks at all connections in the detection window. A device is
-                beaconing when it connected to the same destination at least the minimum number of times, with a
-                median interval above the minimum interval, and when at least the minimum regularity share of its
-                intervals stayed within the maximum jitter around the median. Larger windows find slower beacons but
-                need the raw data to be retained that long.
+                beaconing when all of these hold for one destination:
+              </p>
+              <ul className="text-muted">
+                <li>it connected at least the minimum number of times,</li>
+                <li>the median interval is above the minimum interval,</li>
+                <li>and at least the minimum regularity share of its intervals stayed within the maximum jitter
+                  around the median.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                Larger windows find slower beacons but need the raw data to be retained that long.
               </p>
 
               <BeaconsConfiguration organizationId={organizationId} tenantId={tenantId} section="detection" />
@@ -72,10 +78,15 @@ export default function BeaconsSettingsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Data Sources" />
 
-              <p className="text-muted">
-                Which traffic is analyzed for beacons. TLS beacons are grouped by server name, SOCKS beacons by
-                tunneled destination and DNS beacons by registered domain. Everything else is grouped by destination
-                address and port. Protocol traffic that is periodic by design, like NTP and STUN, is always ignored.
+              <p className="text-muted mb-2">Which traffic is analyzed for beacons, and how check-ins are grouped:</p>
+              <ul className="text-muted">
+                <li><strong>TLS</strong> beacons are grouped by server name.</li>
+                <li><strong>SOCKS</strong> beacons by tunneled destination.</li>
+                <li><strong>DNS</strong> beacons by registered domain.</li>
+                <li><strong>Everything else</strong> by destination address and port.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                Protocol traffic that is periodic by design, like NTP and STUN, is always ignored.
               </p>
 
               <BeaconsConfiguration organizationId={organizationId} tenantId={tenantId} section="sources" />

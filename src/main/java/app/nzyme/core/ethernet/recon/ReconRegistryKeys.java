@@ -14,6 +14,8 @@ public class ReconRegistryKeys {
     public static final RegistryKey SOURCE_TCP_ENABLED = booleanKey("ethernet_recon_source_tcp_enabled", true);
     public static final RegistryKey SOURCE_UDP_ENABLED = booleanKey("ethernet_recon_source_udp_enabled", true);
     public static final RegistryKey SOURCE_ARP_ENABLED = booleanKey("ethernet_recon_source_arp_enabled", true);
+    public static final RegistryKey SOURCE_ICMP_ENABLED = booleanKey("ethernet_recon_source_icmp_enabled", true);
+    public static final RegistryKey FINGERPRINTING_ENABLED = booleanKey("ethernet_recon_fingerprinting_enabled", true);
 
     public static final RegistryKey INCLUDE_EXTERNAL_SOURCES =
             booleanKey("ethernet_recon_include_external_sources", false);
@@ -37,6 +39,7 @@ public class ReconRegistryKeys {
 
     // Alerting.
     public static final RegistryKey ALERT_ON_NEW_SCAN = booleanKey("ethernet_recon_alert_on_new_scan", true);
+    public static final RegistryKey ALERT_ON_NEW_FINGERPRINTING = booleanKey("ethernet_recon_alert_on_new_fingerprinting", true);
 
     private static RegistryKey booleanKey(String key, boolean defaultValue) {
         return RegistryKey.create(

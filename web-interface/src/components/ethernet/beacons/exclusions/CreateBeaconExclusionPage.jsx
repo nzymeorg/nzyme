@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useLocation} from "react-router-dom";
+import {Link, Navigate, useLocation} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -66,9 +66,9 @@ export default function CreateBeaconExclusionPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Exclusions</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.INDEX}>Beacons</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX}>Exclusions</Link></li>
               <li className="breadcrumb-item active" aria-current="page">Create</li>
             </ol>
           </nav>
@@ -81,7 +81,7 @@ export default function CreateBeaconExclusionPage() {
         </div>
 
         <div className="col-4 text-end">
-          <a href={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX} className="btn btn-primary">Back to Exclusions</a>
+          <Link to={ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.INDEX} className="btn btn-primary">Back to Exclusions</Link>
         </div>
       </div>
 

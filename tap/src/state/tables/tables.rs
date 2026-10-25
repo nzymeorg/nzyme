@@ -16,6 +16,7 @@ use crate::messagebus::bus::Bus;
 
 use crate::metrics::Metrics;
 use crate::state::tables::arp_table::ArpTable;
+use crate::state::tables::icmp_table::IcmpTable;
 use crate::state::tables::dhcp_table::DhcpTable;
 use crate::state::tables::ntp_table::NtpTable;
 use crate::state::tables::rtsp_table::RtspTable;
@@ -28,6 +29,7 @@ pub struct Tables {
     pub dot11: Arc<Mutex<Dot11Table>>,
     pub bluetooth: Arc<Mutex<BluetoothTable>>,
     pub arp: Arc<Mutex<ArpTable>>,
+    pub icmp: Arc<Mutex<IcmpTable>>,
     pub dhcp: Arc<Mutex<DhcpTable>>,
     pub tcp: Arc<Mutex<TcpTable>>,
     pub udp: Arc<Mutex<UdpTable>>,
@@ -73,6 +75,7 @@ impl Tables {
                 configuration.protocols.arp.poisoning_monitor,
                 configuration.protocols.arp.poisoning_window_seconds))
             ),
+            icmp: Arc::new(Mutex::new(IcmpTable::new(leaderlink.clone(), metrics.clone()))),
             dhcp: Arc::new(Mutex::new(DhcpTable::new(leaderlink.clone(), metrics.clone()))),
             dns: Arc::new(Mutex::new(DnsTable::new(leaderlink.clone(), metrics.clone()))),
             tcp: Arc::new(Mutex::new(TcpTable::new(
@@ -131,6 +134,14 @@ impl Tables {
                         arp.process_report();
                     },
                     Err(e) => error!("Could not acquire ARP table lock for report processing: {}", e)
+                });
+
+                timed(&mut cycle, "icmp", || match self.icmp.lock() {
+                    Ok(icmp) => {
+                        icmp.calculate_metrics();
+                        icmp.process_report();
+                    },
+                    Err(e) => error!("Could not acquire ICMP table lock for report processing: {}", e)
                 });
 
                 timed(&mut cycle, "dhcp", || match self.dhcp.lock() {

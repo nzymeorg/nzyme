@@ -9,6 +9,7 @@ pub mod table_helpers;
 pub mod uav_table;
 pub mod dhcp_table;
 pub mod arp_table;
+pub mod icmp_table;
 pub mod ntp_table;
 pub mod rtsp_table;
 pub mod stun_table;

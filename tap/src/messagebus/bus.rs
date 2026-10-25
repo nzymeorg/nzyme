@@ -6,7 +6,7 @@ use log::{debug, error};
 use crate::metrics::Metrics;
 use crate::wireless::bluetooth::bluetooth_device_advertisement::BluetoothDeviceAdvertisement;
 use crate::configuration::Configuration;
-use crate::wired::packets::{Dhcpv4Packet, NtpPacket, RtspStream, SocksTunnel, SshSession};
+use crate::wired::packets::{Dhcpv4Packet, NtpPacket, RtspStream, SocksTunnel, SshSession, IcmpPacket};
 use crate::messagebus::channel_names::{BluetoothChannelName, Dot11ChannelName, GenericChannelName, WiredChannelName};
 use crate::protocols::detection::taggers::remoteid::messages::UavRemoteIdMessage;
 use crate::protocols::parsers::stun_tagger::StunFlow;
@@ -21,6 +21,7 @@ use crate::wired::packets::{
 };
 use crate::wireless::dot11::frames::{Dot11Frame, Dot11RawFrame};
 
+
 pub struct Bus {
     pub name: String,
 
@@ -32,6 +33,7 @@ pub struct Bus {
     pub bluetooth_device_pipeline: NzymeChannel<BluetoothDeviceAdvertisement>,
 
     pub arp_pipeline: NzymeChannel<ArpPacket>,
+    pub icmp_pipeline: NzymeChannel<IcmpPacket>,
     pub tcp_pipeline: NzymeChannel<TcpSegment>,
     pub udp_pipeline: NzymeChannel<Datagram>,
     pub dns_pipeline: NzymeChannel<DNSPacket>,
@@ -103,6 +105,8 @@ impl Bus<> {
 
         let (arp_pipeline_sender, arp_pipeline_receiver) = 
             bounded(configuration.protocols.arp.pipeline_size as usize);
+        let (icmp_pipeline_sender, icmp_pipeline_receiver) =
+            bounded(configuration.protocols.icmp.pipeline_size as usize);
         let (tcp_pipeline_sender, tcp_pipeline_receiver) = 
             bounded(configuration.protocols.tcp.pipeline_size as usize);
         let (udp_pipeline_sender, udp_pipeline_receiver) = 
@@ -170,6 +174,14 @@ impl Bus<> {
                     name: WiredChannelName::ArpPipeline.to_string()
                 }),
                 receiver: Arc::new(arp_pipeline_receiver),
+            },
+            icmp_pipeline: NzymeChannel {
+                sender: Mutex::new(NzymeChannelSender {
+                    metrics: metrics.clone(),
+                    sender: icmp_pipeline_sender,
+                    name: WiredChannelName::IcmpPipeline.to_string()
+                }),
+                receiver: Arc::new(icmp_pipeline_receiver),
             },
             tcp_pipeline: NzymeChannel {
                 sender: Mutex::new(NzymeChannelSender {

@@ -179,6 +179,21 @@ import ReconExclusionsPage from "./components/ethernet/recon/exclusions/ReconExc
 import CreateReconExclusionPage from "./components/ethernet/recon/exclusions/CreateReconExclusionPage";
 import ReconExclusionDetailsPage from "./components/ethernet/recon/exclusions/ReconExclusionDetailsPage";
 import EditReconExclusionPage from "./components/ethernet/recon/exclusions/EditReconExclusionPage";
+import ReconFingerprintingPage from "./components/ethernet/recon/ReconFingerprintingPage";
+import IcmpTrafficPage from "./components/ethernet/icmp/IcmpTrafficPage";
+import IcmpRedirectsPage from "./components/ethernet/icmp/IcmpRedirectsPage";
+import IcmpTraceroutesPage from "./components/ethernet/icmp/IcmpTraceroutesPage";
+import IcmpUnreachablesPage from "./components/ethernet/icmp/IcmpUnreachablesPage";
+import IcmpUnreachableHostsPage from "./components/ethernet/icmp/IcmpUnreachableHostsPage";
+import IcmpTunnelsPage from "./components/ethernet/icmp/IcmpTunnelsPage";
+import IcmpRedirectDetailsPage from "./components/ethernet/icmp/IcmpRedirectDetailsPage";
+import IcmpTracerouteDetailsPage from "./components/ethernet/icmp/IcmpTracerouteDetailsPage";
+import IcmpTunnelDetailsPage from "./components/ethernet/icmp/IcmpTunnelDetailsPage";
+import IcmpSettingsPage from "./components/ethernet/icmp/IcmpSettingsPage";
+import IcmpExclusionsPage from "./components/ethernet/icmp/exclusions/IcmpExclusionsPage";
+import CreateIcmpExclusionPage from "./components/ethernet/icmp/exclusions/CreateIcmpExclusionPage";
+import IcmpExclusionDetailsPage from "./components/ethernet/icmp/exclusions/IcmpExclusionDetailsPage";
+import EditIcmpExclusionPage from "./components/ethernet/icmp/exclusions/EditIcmpExclusionPage";
 import TCPSessionDetailsPage from "./components/ethernet/l4/tcp/TCPSessionDetailsPage";
 import UDPSessionDetailsPage from "./components/ethernet/l4/udp/UDPSessionDetailsPage";
 import EthernetAssetsSettingsPage from "./components/ethernet/assets/EthernetAssetsSettingsPage";
@@ -653,6 +668,23 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.CREATE} element={<CreateReconExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.DETAILS(':uuid')} element={<ReconExclusionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.EDIT(':uuid')} element={<EditReconExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.INDEX} element={<ReconFingerprintingPage />}/>
+
+                                { /* Ethernet/ICMP. */}
+                                <Route path={ApiRoutes.ETHERNET.ICMP.OVERVIEW} element={<IcmpTrafficPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.REDIRECTS.INDEX} element={<IcmpRedirectsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.TRACEROUTES.INDEX} element={<IcmpTraceroutesPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.UNREACHABLES} element={<IcmpUnreachablesPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.UNREACHABLE_HOSTS} element={<IcmpUnreachableHostsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX} element={<IcmpTunnelsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.REDIRECTS.DETAILS(':uuid')} element={<IcmpRedirectDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.TRACEROUTES.DETAILS(':uuid')} element={<IcmpTracerouteDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.TUNNELS.DETAILS(':uuid')} element={<IcmpTunnelDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.INDEX} element={<IcmpExclusionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.CREATE} element={<CreateIcmpExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.DETAILS(':uuid')} element={<IcmpExclusionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.EDIT(':uuid')} element={<EditIcmpExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ICMP.SETTINGS} element={<IcmpSettingsPage />}/>
 
                                 { /* Ethernet/Portal Integrity */ }
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} element={<PortalIntegrityPage />}/>

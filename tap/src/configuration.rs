@@ -150,6 +150,7 @@ pub struct Protocols {
     pub udp: ProtocolsUdp,
     pub dns: ProtocolsDns,
     pub arp: ProtocolsArp,
+    pub icmp: ProtocolsIcmp,
     pub ssh: ProtocolsSsh,
     pub tls: ProtocolsTls,
     pub socks: ProtocolsSocks,
@@ -193,6 +194,11 @@ pub struct ProtocolsArp {
     pub pipeline_size: i32,
     pub poisoning_monitor: bool,
     pub poisoning_window_seconds: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProtocolsIcmp {
+    pub pipeline_size: i32
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -415,6 +421,12 @@ pub fn load(path: String) -> Result<Configuration, Error> {
     if doc.protocols.dns.entropy_zscore_threshold <= 0.0 {
         bail!("Configuration variable `protocols.dns.entropy_zscore_threshold` must be set to a \
             value greater than 0.0.");
+    }
+
+    // ICMP.
+    if doc.protocols.icmp.pipeline_size <= 0 {
+        bail!("Configuration variable `protocols.icmp.pipeline_size` must be set to a value \
+            greater than 0.");
     }
 
     // ARP.

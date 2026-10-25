@@ -54,18 +54,24 @@ export default function ReconSettingsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Detection" />
 
-              <p className="text-muted">
-                Detection runs every minute and looks at all connections in the detection window. A device is port
-                scanning when it probed at least the minimum number of ports on one host, and sweeping when it
-                probed at least the minimum number of hosts. ARP sweeps are devices asking for at least the minimum
-                number of addresses. All detections also require that at least the minimum share of probes got no
-                answer or was refused, which separates scanning from a client that simply talks to many servers.
-                A scan stays open while the device keeps probing within the detection window. Scans from devices
-                outside your site-local networks are ignored by default because the internet constantly probes
-                any reachable address. Scans against external targets are ignored by default as well, because
-                mail servers trying a provider&apos;s pool of addresses, clients reaching CDNs and peer-to-peer
-                software all look like sweeps of the internet. Enable it to also catch internal devices scanning
-                the internet. ARP sweeps are always local.
+              <p className="text-muted mb-2">
+                Detection runs every minute and looks at all connections in the detection window. A device is
+                flagged when:
+              </p>
+              <ul className="text-muted">
+                <li><strong>Port scanning:</strong> it probed at least the minimum number of ports on one host.</li>
+                <li><strong>Host sweeping:</strong> it probed at least the minimum number of hosts.</li>
+                <li><strong>ARP sweeps:</strong> it asked for at least the minimum number of addresses. ARP sweeps
+                  are always local.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                All detections also require that at least the minimum share of probes got no answer or was refused,
+                which separates scanning from a client that simply talks to many servers. A scan stays open while
+                the device keeps probing within the window. Scans from devices outside your site-local networks are
+                ignored by default, because the internet constantly probes any reachable address. Scans against
+                external targets are ignored by default as well, because mail servers trying a provider&apos;s pool
+                of addresses, clients reaching CDNs and peer-to-peer software all look like sweeps of the internet;
+                enable it to also catch internal devices scanning the internet.
               </p>
 
               <ReconConfiguration organizationId={organizationId} tenantId={tenantId} section="detection" />
@@ -78,13 +84,15 @@ export default function ReconSettingsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Data Sources" />
 
-              <p className="text-muted">
-                Which traffic is analyzed for scans. TCP sessions reveal port scans and host sweeps including
-                whether a port answered, was refused or stayed silent. UDP conversations only reveal whether a
-                target answered, and because one-way UDP is common in normal traffic, probes to the dynamic port
-                range and probes carrying DNS, NTP, STUN and similar payloads are never counted. ARP requests
-                reveal sweeps of the local network segment.
-              </p>
+              <p className="text-muted mb-2">Which traffic is analyzed for scans:</p>
+              <ul className="text-muted mb-0">
+                <li><strong>TCP sessions</strong> reveal port scans and host sweeps, including whether a port
+                  answered, was refused or stayed silent.</li>
+                <li><strong>UDP conversations</strong> only reveal whether a target answered. Because one-way UDP
+                  is common in normal traffic, probes to the dynamic port range and probes carrying DNS, NTP, STUN
+                  and similar payloads are never counted.</li>
+                <li><strong>ARP requests</strong> reveal sweeps of the local network segment.</li>
+              </ul>
 
               <ReconConfiguration organizationId={organizationId} tenantId={tenantId} section="sources" />
             </div>

@@ -939,7 +939,7 @@ div.context-overlay {
     background-color: #ffffff;
     border: 1px solid #c5c5c5;
     border-radius: 8px;
-    z-index: 1000;
+    z-index: 1030; /* Above the sticky navbar (Bootstrap .sticky-top is 1020). */
 }
 
 div.context-overlay .context-overlay-content {

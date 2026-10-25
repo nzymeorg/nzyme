@@ -74,13 +74,13 @@ export default function ReconScansPage() {
   useEffect(() => {
     setScans(null);
     reconService.findAllScans(
-      organizationId, tenantId, selectedTaps, filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setScans
+      organizationId, tenantId, selectedTaps, "SCANS", filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setScans
     );
   }, [page, filters, orderColumn, orderDirection, organizationId, tenantId, selectedTaps, revision]);
 
   useEffect(() => {
     setHistogram(null);
-    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, filters, histogramTimeRange, setHistogram);
+    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "SCANS", filters, histogramTimeRange, setHistogram);
   }, [organizationId, tenantId, selectedTaps, filters, histogramTimeRange, revision]);
 
   const typeCounts = () => {
@@ -91,7 +91,7 @@ export default function ReconScansPage() {
     return (
       <p className="mb-3">
         <strong>Total:</strong> {numeral(scans.total).format("0,0")}
-        {["TCP_PORT_SCAN", "TCP_HOST_SWEEP", "UDP_PORT_SCAN", "UDP_HOST_SWEEP", "ARP_SWEEP"].map((t) => {
+        {["TCP_PORT_SCAN", "TCP_HOST_SWEEP", "UDP_PORT_SCAN", "UDP_HOST_SWEEP", "ARP_SWEEP", "ICMP_SWEEP"].map((t) => {
           return (
             <span key={t} className="ms-3">
               {reconScanTypeToName(t)}: {numeral(scans.type_counts[t] || 0).format("0,0")}
@@ -154,11 +154,6 @@ export default function ReconScansPage() {
             <div className="card-body">
               <CardTitleWithControls title="Scans"
                                      refreshAction={() => setRevision(new Date())} />
-
-              <p className="text-muted">
-                Devices that probed your network.   The tap selection limits the list to scans observed by the
-                selected taps.
-              </p>
 
               {typeCounts()}
 

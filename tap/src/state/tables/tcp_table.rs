@@ -26,15 +26,7 @@ pub struct TcpTable {
     handshake_timeout_seconds: i32
 }
 
-/*
- * How long a session may stay in the handshake (SynSent, SynReceived) before it is considered
- * unanswered and timed out. Real TCP stacks stop retransmitting a SYN after roughly a minute, and
- * scans leave large numbers of handshake-less sessions behind that would otherwise be held and
- * re-reported for the full session timeout.
- *
- * This is the default. It is user-configurable via `protocols.tcp.handshake_timeout_seconds`
- * in the tap configuration file.
- */
+// Default for `protocols.tcp.handshake_timeout_seconds`. Real stacks stop retransmitting a SYN after ~1 minute.
 pub const DEFAULT_HANDSHAKE_TIMEOUT_SECONDS: i32 = 60;
 
 #[derive(Debug)]

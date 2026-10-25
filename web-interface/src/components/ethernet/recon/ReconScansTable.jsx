@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Paginator from "../../misc/Paginator";
 import numeral from "numeral";
@@ -42,7 +43,7 @@ export default function ReconScansTable({scans, page, setPage, perPage, orderCol
       return <span>{numeral(s.port_count).format("0,0")} ports</span>
     }
 
-    if (s.type === "ARP_SWEEP") {
+    if (s.type === "ARP_SWEEP" || s.type === "ICMP_SWEEP") {
       return <span>{numeral(s.host_count).format("0,0")} hosts</span>
     }
 
@@ -70,9 +71,9 @@ export default function ReconScansTable({scans, page, setPage, perPage, orderCol
           return (
             <tr key={s.uuid}>
               <td>
-                <a href={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(s.uuid)}>
+                <Link to={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(s.uuid)}>
                   <FullCopyShortenedId value={s.uuid} />
-                </a>
+                </Link>
               </td>
               <td>
                 <ReconScanType type={s.type} />{' '}

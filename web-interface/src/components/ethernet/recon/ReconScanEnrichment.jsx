@@ -1,6 +1,17 @@
 import React from "react";
 import numeral from "numeral";
 
+const signatureName = (signature) => {
+  switch (signature) {
+    case "ECHO_NONZERO_CODE": return "Echo request with non-zero code";
+    case "ECHO_TOS_4": return "Echo request with type of service 4";
+    case "INFORMATION_REQUEST": return "Information request";
+    case "TIMESTAMP_REQUEST": return "Timestamp request";
+    case "ADDRESS_MASK_REQUEST": return "Address mask request";
+    default: return signature;
+  }
+}
+
 export default function ReconScanEnrichment({scan}) {
 
   const e = scan.enrichment;
@@ -20,6 +31,39 @@ export default function ReconScanEnrichment({scan}) {
       <React.Fragment>
         <dt title={hint}>{label}</dt>
         <dd className="machine-data">{String(value)}</dd>
+      </React.Fragment>
+    )
+  }
+
+  if (scan.type === "OS_FINGERPRINTING" || scan.type === "ICMP_SWEEP") {
+    return (
+      <React.Fragment>
+        {scan.type === "OS_FINGERPRINTING" ?
+          <p className="text-muted">
+            Probe shapes that identify operating system detection. Nmap sends an echo request with a non-zero code,
+            an echo request with type of service 4 and a 150 byte payload, and an information request. Nothing
+            else on a network sends these.
+          </p> : null}
+
+        <dl className="mb-0">
+          {e.signatures && e.signatures.length > 0 ?
+            <React.Fragment>
+              <dt>Probe Signatures</dt>
+              <dd>
+                <ul className="mb-0 ps-3">
+                  {e.signatures.map((s) => <li key={s} className="machine-data">{signatureName(s)}</li>)}
+                </ul>
+              </dd>
+            </React.Fragment> : null}
+          {e.request_count !== undefined ? <React.Fragment><dt>Requests</dt><dd>{numeral(e.request_count).format("0,0")}</dd></React.Fragment> : null}
+          {row("IP TTL", e.ip_ttl)}
+          {e.payload_bytes_min !== undefined && e.payload_bytes_max !== undefined ?
+            <React.Fragment>
+              <dt>Payload Size</dt>
+              <dd className="machine-data">{e.payload_bytes_min === e.payload_bytes_max ? e.payload_bytes_min + " bytes" : e.payload_bytes_min + " to " + e.payload_bytes_max + " bytes"}</dd>
+            </React.Fragment>
+            : row("Payload Size", e.payload_bytes_max !== undefined ? e.payload_bytes_max + " bytes" : undefined)}
+        </dl>
       </React.Fragment>
     )
   }

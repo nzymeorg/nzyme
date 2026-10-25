@@ -118,6 +118,9 @@
     "description" : "Everything Nzyme knows about a single IP address seen on the Ethernet network, including the assets that used it, network context and geo information.",
     "name" : "IP Addresses"
   }, {
+    "description" : "ICMP traffic the taps recorded. Queries and replies like echo (ping) are aggregated per source, destination and message type within each tap report period. Error messages like destination unreachable, time exceeded and redirect are kept per packet together with the header of the packet that caused them. Redirects and traceroutes are detected from the error messages.",
+    "name" : "ICMP"
+  }, {
     "description" : "Layer 4 traffic that taps recorded on the Ethernet network. Nzyme reassembles TCP sessions and groups UDP traffic into conversations, and reports both as sessions with traffic statistics and histograms of the busiest addresses, MAC addresses and ports.",
     "name" : "L4"
   }, {
@@ -9712,6 +9715,1104 @@
         "tags" : [ "DNS" ]
       }
     },
+    "/api/ethernet/icmp/exclusions" : {
+      "get" : {
+        "description" : "Returns the exclusions of the tenant, sorted by name by default. Exclusions keep known good sources, like a legitimate second router or a monitoring host, out of redirect and traceroute detection. Results are paginated.",
+        "operationId" : "findIcmpExclusions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, ENABLED, LAST_MATCHED_AT, MATCH_COUNT, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpExclusionsListResponse"
+                }
+              }
+            },
+            "description" : "Exclusions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List ICMP exclusions of a tenant",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/exclusions/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates an exclusion. It takes effect with the next detection run. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "createIcmpExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IcmpExclusionRequest"
+              }
+            }
+          },
+          "description" : "The exclusion.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion created."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Create an ICMP exclusion",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}" : {
+      "delete" : {
+        "description" : "Deletes an exclusion. Suppressed detections are detected again with the next detection run. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteIcmpExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete an ICMP exclusion",
+        "tags" : [ "ICMP" ]
+      },
+      "put" : {
+        "description" : "Replaces name, description, enabled state and all criteria. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateIcmpExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IcmpExclusionRequest"
+              }
+            }
+          },
+          "description" : "The new exclusion data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Update an ICMP exclusion",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}/enabled/{enabled}" : {
+      "put" : {
+        "description" : "A disabled exclusion is kept but no longer applied. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setIcmpExclusionEnabled",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Enable or disable an ICMP exclusion",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/exclusions/show/{exclusion_uuid}" : {
+      "get" : {
+        "operationId" : "findIcmpExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get an ICMP exclusion",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/histograms/addresses/top" : {
+      "get" : {
+        "description" : "Returns the addresses with the most ICMP packets in the time range, as a two column histogram of address and packet count. Paginated and sortable.",
+        "operationId" : "findIcmpTopAddresses",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Which end to rank: source or destination.",
+          "in" : "query",
+          "name" : "column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY (address) or VALUE (packet count). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Addresses found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown column, sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the most active ICMP sources or destinations",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/histograms/types" : {
+      "get" : {
+        "description" : "Returns the ICMP message types seen in the time range, as a two column histogram of message type and packet count. Paginated and sortable.",
+        "operationId" : "findIcmpTypes",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY (type) or VALUE (packet count). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Types found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List ICMP message types by volume",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the redirect and traceroute detection settings and alerting of the tenant. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "findIcmpConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the ICMP detection configuration of a tenant",
+        "tags" : [ "ICMP" ]
+      },
+      "put" : {
+        "description" : "Updates one or more settings. Accepted keys are the keys returned by the configuration endpoint. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateIcmpConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change contains a key that is not part of the ICMP configuration."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the ICMP detection configuration of a tenant",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/organization/{organization_id}/tenant/{tenant_id}/redirects/show/{redirect_uuid}" : {
+      "delete" : {
+        "description" : "Deletes the finding. It is detected again, with a new alert, if the sender keeps redirecting. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteIcmpRedirect",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Redirect UUID.",
+          "in" : "path",
+          "name" : "redirect_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Redirect deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Redirect, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a detected ICMP redirect",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/organization/{organization_id}/tenant/{tenant_id}/traceroutes/show/{traceroute_uuid}" : {
+      "delete" : {
+        "description" : "Deletes the finding. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteIcmpTraceroute",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Traceroute UUID.",
+          "in" : "path",
+          "name" : "traceroute_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Traceroute deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Traceroute, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a detected traceroute",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/packets" : {
+      "get" : {
+        "description" : "Returns ICMP traffic in the time range, newest first by default. Queries and replies are aggregated rows with a packet count, error messages are single packets with the quoted original packet header. Results are paginated.",
+        "operationId" : "findIcmpPackets",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Defaults to the time the traffic was last seen.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpPacketsListResponse"
+                }
+              }
+            },
+            "description" : "Packets found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List ICMP traffic",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/redirects" : {
+      "get" : {
+        "description" : "Returns every detected sender, advertised gateway and target host combination, most recently seen first by default. Results are paginated.",
+        "operationId" : "findIcmpRedirects",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN or PACKET_COUNT.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpRedirectsListResponse"
+                }
+              }
+            },
+            "description" : "Redirects found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List detected ICMP redirects",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/statistics" : {
+      "get" : {
+        "description" : "Returns packet counts per time bucket, broken down into echo requests, echo replies, destination unreachable, time exceeded, redirect and other messages. The response is an object that maps each bucket timestamp to its values. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findIcmpStatistics",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Statistics found."
+          }
+        },
+        "summary" : "Get ICMP statistics",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/traceroutes" : {
+      "get" : {
+        "description" : "Returns detected traceroutes, most recently seen first by default. Each one names the tracing host, the traced destination and the routers that answered. Results are paginated.",
+        "operationId" : "findIcmpTraceroutes",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN or PACKET_COUNT.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpTraceroutesListResponse"
+                }
+              }
+            },
+            "description" : "Traceroutes found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List detected traceroutes",
+        "tags" : [ "ICMP" ]
+      }
+    },
     "/api/ethernet/ips/show/{address}" : {
       "get" : {
         "description" : "Returns all assets of the tenant that were seen using this IP address in the previous 7 days, the network context entries the address falls into and geo information from the GeoIP databases. The asset list is paginated. Geo information is null if no GeoIP database is configured or the address is not in it.",
@@ -11470,6 +12571,20 @@
             "type" : "string"
           }
         }, {
+          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.",
+          "in" : "query",
+          "name" : "category",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Sorting column. Defaults to the time the scan was last seen.",
           "in" : "query",
           "name" : "order_column",
@@ -12071,6 +13186,20 @@
             "type" : "string"
           }
         }, {
+          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.",
+          "in" : "query",
+          "name" : "category",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
           "in" : "query",
           "name" : "time_range",
@@ -12351,6 +13480,58 @@
           }
         },
         "summary" : "Get a scan",
+        "tags" : [ "Recon Scans" ]
+      }
+    },
+    "/api/ethernet/recon/scans/show/{scan_uuid}/summary" : {
+      "get" : {
+        "description" : "Returns what answered the scan (ports for a port scan, hosts with their answering ports for a sweep), a timeline of when targets were first probed per outcome, and a breakdown of the targets by network (sweeps) or by port range (port scans). This is the analyst's overview; the targets endpoint has the full detail.",
+        "operationId" : "findReconScanSummary",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Scan UUID.",
+          "in" : "path",
+          "name" : "scan_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconScanSummaryResponse"
+                }
+              }
+            },
+            "description" : "Summary found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Scan, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a condensed view of what a scan targeted and found",
         "tags" : [ "Recon Scans" ]
       }
     },
@@ -28149,6 +29330,393 @@
           }
         }
       },
+      "IcmpConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alerting" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "detection" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          }
+        }
+      },
+      "IcmpExclusionRequest" : {
+        "type" : "object",
+        "description" : "Body for creating or updating an ICMP exclusion. All criteria are optional, but at least one must be set. A detection is suppressed when every set criterion matches.",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Optional description of why the exclusion exists.",
+            "writeOnly" : true
+          },
+          "detection_types" : {
+            "type" : "array",
+            "description" : "Detection types to match: REDIRECT, TRACEROUTE. Omit or pass an empty list to match both.",
+            "items" : {
+              "type" : "string",
+              "description" : "Detection types to match: REDIRECT, TRACEROUTE. Omit or pass an empty list to match both."
+            },
+            "writeOnly" : true
+          },
+          "enabled" : {
+            "type" : "boolean",
+            "description" : "Whether the exclusion is active. Defaults to true.",
+            "writeOnly" : true
+          },
+          "gateway_cidr" : {
+            "type" : "string",
+            "description" : "Redirects only: IP address or CIDR network of the advertised gateway. A gateway criterion never matches a traceroute.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the exclusion. Required when creating or updating.",
+            "writeOnly" : true
+          },
+          "source_cidr" : {
+            "type" : "string",
+            "description" : "IP address or CIDR network of the sending device: the redirect sender or the tracing host.",
+            "writeOnly" : true
+          },
+          "source_mac" : {
+            "type" : "string",
+            "description" : "MAC address of the sending device.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "IcmpExclusionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "created_by_email" : {
+            "type" : "string"
+          },
+          "created_by_name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "detection_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "gateway_cidr" : {
+            "type" : "string"
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "source_cidr" : {
+            "type" : "string"
+          },
+          "source_mac" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IcmpExclusionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpExclusionResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IcmpPacketResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bytes_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "destination_address" : {
+            "type" : "string"
+          },
+          "destination_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "destination_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "icmp_code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "icmp_type" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "icmp_type_name" : {
+            "type" : "string"
+          },
+          "ip_df" : {
+            "type" : "boolean"
+          },
+          "ip_tos" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "ip_ttl" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "is_error" : {
+            "type" : "boolean"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "quoted_destination_address" : {
+            "type" : "string"
+          },
+          "quoted_destination_port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "quoted_protocol" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "quoted_source_address" : {
+            "type" : "string"
+          },
+          "quoted_source_port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "redirect_gateway" : {
+            "type" : "string"
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "source_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IcmpPacketsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "packets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpPacketResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IcmpRedirectResponse" : {
+        "type" : "object",
+        "properties" : {
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "gateway_address" : {
+            "type" : "string"
+          },
+          "gateway_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "redirected_destinations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/L4AddressResponse"
+            }
+          },
+          "sender_address" : {
+            "type" : "string"
+          },
+          "sender_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "sender_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "target_address" : {
+            "type" : "string"
+          },
+          "target_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "target_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IcmpRedirectsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "redirects" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpRedirectResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IcmpTracerouteResponse" : {
+        "type" : "object",
+        "properties" : {
+          "destination_address" : {
+            "type" : "string"
+          },
+          "destination_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "destination_reached" : {
+            "type" : "boolean"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "protocol" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol_name" : {
+            "type" : "string"
+          },
+          "routers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "source_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IcmpTraceroutesListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "traceroutes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpTracerouteResponse"
+            }
+          }
+        }
+      },
       "ImportMonitoredNetworkDataBSSIDRequest" : {
         "type" : "object",
         "description" : "A BSSID and its fingerprints inside a monitored WiFi network data import.",
@@ -30478,12 +32046,47 @@
           }
         }
       },
+      "ReconScanAnsweredHostResponse" : {
+        "type" : "object",
+        "description" : "Sweeps only: the hosts that answered, each with its answering ports. Limited to 250.",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "ports" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          }
+        }
+      },
+      "ReconScanAnsweredPortResponse" : {
+        "type" : "object",
+        "description" : "Port scans only: the ports of the target that answered, ascending, with probe count and timing. Limited to 500.",
+        "properties" : {
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "probe_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ReconScanDetailsResponse" : {
         "type" : "object",
         "properties" : {
-          "active" : {
-            "type" : "boolean"
-          },
           "closed_count" : {
             "type" : "integer",
             "format" : "int64"
@@ -30491,6 +32094,10 @@
           "created_at" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "detection_window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "enrichment" : {
             "type" : "object",
@@ -30530,6 +32137,9 @@
           "probe_count" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "recent" : {
+            "type" : "boolean"
           },
           "source" : {
             "type" : "string"
@@ -30584,6 +32194,78 @@
           }
         }
       },
+      "ReconScanPortRangeResponse" : {
+        "type" : "object",
+        "description" : "Port scans only: targets grouped into well-known, registered and dynamic port ranges.",
+        "properties" : {
+          "answered" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "probed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "range" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReconScanSummaryResponse" : {
+        "type" : "object",
+        "description" : "Condensed view of what a scan targeted and found, for the scan details page.",
+        "properties" : {
+          "answered_hosts" : {
+            "type" : "array",
+            "description" : "Sweeps only: the hosts that answered, each with its answering ports. Limited to 250.",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconScanAnsweredHostResponse"
+            }
+          },
+          "answered_hosts_total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sweeps only: total number of hosts that answered."
+          },
+          "answered_ports" : {
+            "type" : "array",
+            "description" : "Port scans only: the ports of the target that answered, ascending, with probe count and timing. Limited to 500.",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconScanAnsweredPortResponse"
+            }
+          },
+          "answered_ports_total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Port scans only: total number of ports that answered."
+          },
+          "networks" : {
+            "type" : "array",
+            "description" : "Sweeps only: targets grouped by network, /24 for IPv4 and /64 for IPv6. Limited to 100.",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconScanTargetNetworkResponse"
+            }
+          },
+          "port_ranges" : {
+            "type" : "array",
+            "description" : "Port scans only: targets grouped into well-known, registered and dynamic port ranges.",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconScanPortRangeResponse"
+            }
+          },
+          "timeline" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ReconScanTimelineBucketResponse"
+            },
+            "description" : "Targets by the time they were first probed, per outcome. Keys are bucket timestamps."
+          },
+          "timeline_bucket" : {
+            "type" : "string",
+            "description" : "Bucket size of the timeline, minute or hour."
+          }
+        }
+      },
       "ReconScanTapResponse" : {
         "type" : "object",
         "properties" : {
@@ -30593,6 +32275,27 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "ReconScanTargetNetworkResponse" : {
+        "type" : "object",
+        "description" : "Sweeps only: targets grouped by network, /24 for IPv4 and /64 for IPv6. Limited to 100.",
+        "properties" : {
+          "answered_hosts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hosts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "network" : {
+            "type" : "string"
+          },
+          "ports" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -30636,6 +32339,24 @@
             }
           },
           "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconScanTimelineBucketResponse" : {
+        "type" : "object",
+        "description" : "Targets by the time they were first probed, per outcome. Keys are bucket timestamps.",
+        "properties" : {
+          "closed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "open" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unanswered" : {
             "type" : "integer",
             "format" : "int64"
           }

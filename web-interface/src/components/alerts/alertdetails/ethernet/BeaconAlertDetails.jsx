@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import BeaconType from "../../../ethernet/beacons/BeaconType";
 import BeaconClassification from "../../../ethernet/beacons/BeaconClassification";
@@ -32,9 +33,9 @@ export default function BeaconAlertDetails({alert}) {
               <dl>
                 <dt>Beacon</dt>
                 <dd>
-                  <a href={ApiRoutes.ETHERNET.BEACONS.DETAILS(alert.attributes.beacon_uuid)}>
+                  <Link to={ApiRoutes.ETHERNET.BEACONS.DETAILS(alert.attributes.beacon_uuid)}>
                     {alert.attributes.beacon_name}
-                  </a>
+                  </Link>
                 </dd>
                 <dt>Type</dt>
                 <dd><BeaconType type={alert.attributes.beacon_type} /></dd>

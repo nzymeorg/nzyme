@@ -44,6 +44,44 @@ pub struct ArpPacket {
     pub timestamp: DateTime<Utc>
 }
 
+#[derive(Debug, Clone)]
+pub struct IcmpQuotedHeader {
+    pub protocol: u8,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub ttl: u8,
+    pub source_port: Option<u16>,
+    pub destination_port: Option<u16>
+}
+
+#[derive(Debug)]
+pub struct IcmpPacket {
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub ip_ttl: u8,
+    pub ip_tos: u8,
+    pub ip_df: bool,
+    pub icmp_type: u8,
+    pub icmp_code: u8,
+    // Echo, timestamp, information and address mask messages carry these. Errors do not.
+    pub identifier: Option<u16>,
+    pub sequence: Option<u16>,
+    pub redirect_gateway: Option<IpAddr>,
+    pub quoted: Option<IcmpQuotedHeader>,
+    // Bytes after the 8 byte ICMP header.
+    pub payload_size: u32,
+    pub size: u32,
+    pub timestamp: DateTime<Utc>
+}
+
+impl IcmpPacket {
+    pub fn is_error(&self) -> bool {
+        matches!(self.icmp_type, 3 | 4 | 5 | 11 | 12)
+    }
+}
+
 #[derive(Debug)]
 pub struct IPv4Packet {
     pub source_mac: Option<String>,

@@ -76,6 +76,7 @@ public class MetricNames {
 
     public static final String ARP_TOTAL_REPORT_PROCESSING_TIMER = name(ARPTable.class, "total-report-processing-timing");
     public static final String ARP_ASSET_REGISTRATION_PROCESSING_TIMER = name(ARPTable.class, "asset-registration-processing-timing");
+    public static final String ICMP_TOTAL_REPORT_PROCESSING_TIMER = name(ICMPTable.class, "total-report-processing-timing");
 
     public static final String DNS_TOTAL_REPORT_PROCESSING_TIMER = name(DNSTable.class, "total-report-processing-timing");
     public static final String DNS_STATISTICS_REPORT_PROCESSING_TIMER = name(DNSTable.class, "statistics-report-processing-timing");

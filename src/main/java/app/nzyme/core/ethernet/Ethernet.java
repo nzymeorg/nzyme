@@ -9,6 +9,7 @@ import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.nat.NAT;
 import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
 import app.nzyme.core.ethernet.recon.Recon;
+import app.nzyme.core.ethernet.icmp.ICMP;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
 import app.nzyme.core.ethernet.ssh.SSH;
@@ -36,6 +37,7 @@ public class Ethernet {
     private final PortalIntegrity portalIntegrity;
     private final Beacons beacons;
     private final Recon recon;
+    private final ICMP icmp;
 
     public Ethernet(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -55,6 +57,7 @@ public class Ethernet {
         this.portalIntegrity = new PortalIntegrity(this);
         this.beacons = new Beacons(nzyme);
         this.recon = new Recon(nzyme);
+        this.icmp = new ICMP(this);
     }
 
     public NzymeNode getNzyme() {
@@ -115,6 +118,10 @@ public class Ethernet {
 
     public Recon recon() {
         return recon;
+    }
+
+    public ICMP icmp() {
+        return icmp;
     }
 
     public PortalIntegrity portalIntegrity() {

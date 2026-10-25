@@ -6,10 +6,10 @@ const tapsParameter = (taps) => {
 
 export default class ReconService {
 
-  findAllScans(organizationId, tenantId, taps, filters, orderColumn, orderDirection, limit, offset, setScans) {
+  findAllScans(organizationId, tenantId, taps, category, filters, orderColumn, orderDirection, limit, offset, setScans) {
     RESTClient.get("/ethernet/recon/scans", {
-      organization_id: organizationId, tenant_id: tenantId, taps: tapsParameter(taps), filters: filters,
-      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+      organization_id: organizationId, tenant_id: tenantId, taps: tapsParameter(taps), category: category,
+      filters: filters, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
     }, (response) => setScans(response.data));
   }
 
@@ -30,10 +30,10 @@ export default class ReconService {
       (response) => setSummary(response.data));
   }
 
-  findActiveScansHistogram(organizationId, tenantId, taps, filters, timeRange, setHistogram) {
+  findActiveScansHistogram(organizationId, tenantId, taps, category, filters, timeRange, setHistogram) {
     RESTClient.get("/ethernet/recon/scans/histogram/active", {
-      organization_id: organizationId, tenant_id: tenantId, taps: tapsParameter(taps), filters: filters,
-      time_range: timeRange
+      organization_id: organizationId, tenant_id: tenantId, taps: tapsParameter(taps), category: category,
+      filters: filters, time_range: timeRange
     }, (response) => setHistogram(response.data));
   }
 

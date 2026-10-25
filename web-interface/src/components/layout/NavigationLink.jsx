@@ -1,4 +1,5 @@
-import React from 'react'
+import React from "react";
+import {Link, useLocation} from "react-router-dom";
 
 function NavigationLink(props) {
 
@@ -6,6 +7,8 @@ function NavigationLink(props) {
   const icon = props.icon;
   const title = props.title;
   const pathMatch = props.pathMatch ? props.pathMatch : href;
+
+  const location = useLocation();
 
   const show = props.show === undefined ? true : props.show;
 
@@ -16,14 +19,14 @@ function NavigationLink(props) {
   const inactiveClassName = "nav-link";
   let className = inactiveClassName;
   let liClassName = "";
-  if ((window.location.pathname === "/" && href === "/")
-      || (href !== '/' && window.location.pathname.startsWith(pathMatch))) {
+  if ((location.pathname === "/" && href === "/")
+      || (href !== '/' && location.pathname.startsWith(pathMatch))) {
     className += ' nav-link-active'
     liClassName = 'nav-item-active'
   }
 
   // Handle special cases.
-  if (title === "Organization" && window.location.pathname.includes("/events")) {
+  if (title === "Organization" && location.pathname.includes("/events")) {
     // Org events are nested under organization for super admin access. Don't mark both Events and Organization as active.
     className = inactiveClassName;
     liClassName = "";
@@ -31,10 +34,10 @@ function NavigationLink(props) {
 
   return (
     <li className={"nav-item " + liClassName}>
-      <a href={href} className={className}>
+      <Link to={href} className={className}>
         <span className="nav-icon">{icon}</span>
         {title}
-      </a>
+      </Link>
     </li>
   )
 

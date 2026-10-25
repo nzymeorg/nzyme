@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
+import {Link, useLocation} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -105,9 +105,9 @@ export default function ReconExclusionsPage() {
 
               {canEdit ?
                 <p>
-                  <a href={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.CREATE} className="btn btn-sm btn-primary">
+                  <Link to={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.CREATE} className="btn btn-sm btn-primary">
                     Create Exclusion
-                  </a>
+                  </Link>
                 </p> : null}
 
               <ReconExclusionsTable exclusions={exclusions}

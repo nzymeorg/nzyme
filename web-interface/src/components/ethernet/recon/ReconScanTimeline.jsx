@@ -61,15 +61,15 @@ export default function ReconScanTimeline({scan, summary}) {
     trace("Answered", "open", answeredColor)
   ];
 
-  if (scan.type.startsWith("TCP")) {
+  const hasRefused = scan.type.startsWith("TCP") || scan.closed_count > 0;
+  if (hasRefused) {
     traces.splice(1, 0, trace("Refused", "closed", refusedColor));
   }
 
   return (
     <React.Fragment>
       <p className="text-muted">
-        Targets by the {bucketLabel} they were first probed in. Answered targets use the standard bar color, grey
-        is what stayed silent{scan.type.startsWith("TCP") ? ", amber what refused" : ""}.
+        Targets by the {bucketLabel} they were first probed in.
         {dataKeys.length === 1 ?
           <span> All {numeral(total).format("0,0")} targets were first probed within a single {bucketLabel},
             starting {moment(dataKeys[0]).format("YYYY-MM-DD HH:mm")}. This was a fast scan.</span>
