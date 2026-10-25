@@ -8,6 +8,7 @@ public enum ReconScanType {
     UDP_HOST_SWEEP("UDP Host Sweep"),
     ARP_SWEEP("ARP Sweep"),
     ICMP_SWEEP("Ping Sweep"),
+    SLOW_SCAN("Slow Scan"),
     OS_FINGERPRINTING("OS Fingerprinting");
 
     private final String humanReadable;
@@ -26,6 +27,10 @@ public enum ReconScanType {
 
     public boolean isFingerprinting() {
         return this == OS_FINGERPRINTING;
+    }
+
+    public boolean isL4() {
+        return this == TCP_PORT_SCAN || this == TCP_HOST_SWEEP || this == UDP_PORT_SCAN || this == UDP_HOST_SWEEP;
     }
 
 }

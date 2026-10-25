@@ -19,10 +19,13 @@ public abstract class ReconConfiguration {
     public abstract int arpSweepMinimumHosts();
     public abstract int minimumFailurePercent();
     public abstract int scanRetentionTimeDays();
+    public abstract boolean slowScanEnabled();
+    public abstract int slowScanMemoryDays();
+    public abstract int slowScanMinimumTargets();
     public abstract boolean alertOnNewScan();
     public abstract boolean alertOnNewFingerprinting();
 
-    public static ReconConfiguration create(boolean detectionEnabled, boolean sourceTcpEnabled, boolean sourceUdpEnabled, boolean sourceArpEnabled, boolean sourceIcmpEnabled, boolean fingerprintingEnabled, boolean includeExternalSources, boolean includeExternalTargets, int detectionWindowMinutes, int portScanMinimumPorts, int hostSweepMinimumHosts, int arpSweepMinimumHosts, int minimumFailurePercent, int scanRetentionTimeDays, boolean alertOnNewScan, boolean alertOnNewFingerprinting) {
+    public static ReconConfiguration create(boolean detectionEnabled, boolean sourceTcpEnabled, boolean sourceUdpEnabled, boolean sourceArpEnabled, boolean sourceIcmpEnabled, boolean fingerprintingEnabled, boolean includeExternalSources, boolean includeExternalTargets, int detectionWindowMinutes, int portScanMinimumPorts, int hostSweepMinimumHosts, int arpSweepMinimumHosts, int minimumFailurePercent, int scanRetentionTimeDays, boolean slowScanEnabled, int slowScanMemoryDays, int slowScanMinimumTargets, boolean alertOnNewScan, boolean alertOnNewFingerprinting) {
         return builder()
                 .detectionEnabled(detectionEnabled)
                 .sourceTcpEnabled(sourceTcpEnabled)
@@ -38,6 +41,9 @@ public abstract class ReconConfiguration {
                 .arpSweepMinimumHosts(arpSweepMinimumHosts)
                 .minimumFailurePercent(minimumFailurePercent)
                 .scanRetentionTimeDays(scanRetentionTimeDays)
+                .slowScanEnabled(slowScanEnabled)
+                .slowScanMemoryDays(slowScanMemoryDays)
+                .slowScanMinimumTargets(slowScanMinimumTargets)
                 .alertOnNewScan(alertOnNewScan)
                 .alertOnNewFingerprinting(alertOnNewFingerprinting)
                 .build();
@@ -63,6 +69,9 @@ public abstract class ReconConfiguration {
         public abstract Builder arpSweepMinimumHosts(int arpSweepMinimumHosts);
         public abstract Builder minimumFailurePercent(int minimumFailurePercent);
         public abstract Builder scanRetentionTimeDays(int scanRetentionTimeDays);
+        public abstract Builder slowScanEnabled(boolean slowScanEnabled);
+        public abstract Builder slowScanMemoryDays(int slowScanMemoryDays);
+        public abstract Builder slowScanMinimumTargets(int slowScanMinimumTargets);
         public abstract Builder alertOnNewScan(boolean alertOnNewScan);
         public abstract Builder alertOnNewFingerprinting(boolean alertOnNewFingerprinting);
         public abstract ReconConfiguration build();

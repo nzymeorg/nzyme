@@ -10159,4 +10159,66 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="create_recon_probe_history_table" author="lennartkoopmann">
+        <createTable tableName="recon_probe_history">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="varchar(17)" />
+            <column name="l4_type" type="varchar(3)">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="outcome" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="attributed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <sql>
+            CREATE UNIQUE INDEX recon_probe_history_identity ON recon_probe_history
+                (organization_id, tenant_id, source_address, (COALESCE(source_mac, '')), l4_type, target_address, target_port);
+        </sql>
+        <createIndex tableName="recon_probe_history" indexName="recon_probe_history_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="recon_probe_history" indexName="recon_probe_history_target">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="target_address" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_tcp_probes_reply_count" author="lennartkoopmann">
+        <addColumn tableName="tcp_probes">
+            <column name="reply_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

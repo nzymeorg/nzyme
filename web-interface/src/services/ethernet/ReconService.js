@@ -37,6 +37,19 @@ export default class ReconService {
     }, (response) => setHistogram(response.data));
   }
 
+  findProbedTargets(organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, setTargets) {
+    RESTClient.get("/ethernet/recon/targets", {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, order_column: orderColumn,
+      order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setTargets(response.data));
+  }
+
+  findProbedTarget(address, organizationId, tenantId, timeRange, setTarget, onError = undefined) {
+    RESTClient.get(`/ethernet/recon/targets/show/${address}`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange
+    }, (response) => setTarget(response.data), onError);
+  }
+
   deleteScan(uuid, organizationId, tenantId, successCallback) {
     RESTClient.delete(`/ethernet/recon/scans/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
       successCallback);

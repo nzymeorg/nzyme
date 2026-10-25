@@ -8,6 +8,7 @@ export const reconScanTypeToName = (type) => {
     case "UDP_HOST_SWEEP": return "UDP Host Sweep";
     case "ARP_SWEEP": return "ARP Sweep";
     case "ICMP_SWEEP": return "Ping Sweep";
+    case "SLOW_SCAN": return "Slow Scan";
     case "OS_FINGERPRINTING": return "OS Fingerprinting";
     default: return type;
   }

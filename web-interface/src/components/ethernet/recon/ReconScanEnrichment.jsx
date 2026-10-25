@@ -77,6 +77,24 @@ export default function ReconScanEnrichment({scan}) {
     )
   }
 
+  if (scan.type === "SLOW_SCAN") {
+    return (
+      <React.Fragment>
+        <p className="text-muted">
+          This device probed hosts and ports too sparsely to cross the port scan or host sweep thresholds inside
+          any detection window. Its distinct unanswered or refused targets accumulated over the slow scan memory
+          period instead. Targets that were part of a regular scan of this device are not counted here.
+        </p>
+
+        <dl className="mb-0">
+          {row("Protocols", e.l4_type)}
+          {e.active_days !== undefined ? row("Active Over", e.active_days + (e.active_days === 1 ? " day" : " days")) : null}
+          {e.memory_days !== undefined ? row("Memory", e.memory_days + " days") : null}
+        </dl>
+      </React.Fragment>
+    )
+  }
+
   if (scan.type === "ARP_SWEEP") {
     if (e.request_count === undefined || e.request_count === null) {
       return NO_DATA;
@@ -91,7 +109,7 @@ export default function ReconScanEnrichment({scan}) {
   }
 
   // The type is always present. Without any packet attribute there is nothing to show.
-  const hasAttributes = ["ip_ttl", "ip_df", "tcp_window_size", "tcp_mss", "tcp_options", "fingerprint"]
+  const hasAttributes = ["ip_ttl", "ip_df", "tcp_window_size", "tcp_mss", "tcp_options", "fingerprint", "stealth_probe_count"]
     .some((key) => e[key] !== undefined && e[key] !== null && e[key] !== "");
 
   if (!hasAttributes) {
@@ -111,6 +129,16 @@ export default function ReconScanEnrichment({scan}) {
         {row("TCP MSS", e.tcp_mss)}
         {row("TCP Options", e.tcp_options)}
         {row("Fingerprint", e.fingerprint)}
+        {e.stealth_probe_count !== undefined && e.stealth_probe_count > 0 ?
+          <React.Fragment>
+            <dt title="Segments that belong to no session and have a shape no real stack sends: NULL, FIN, Xmas or crafted ACK probes">
+              Stealth Probes
+            </dt>
+            <dd className="machine-data">
+              {numeral(e.stealth_probe_count).format("0,0")}
+              {e.stealth_flags ? <span> (mostly {e.stealth_flags})</span> : null}
+            </dd>
+          </React.Fragment> : null}
         {e.fingerprint_count !== undefined && e.fingerprint_count > 1 ?
           <React.Fragment>
             <dt>Distinct Fingerprints</dt>

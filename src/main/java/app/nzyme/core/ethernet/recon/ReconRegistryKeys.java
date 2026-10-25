@@ -37,6 +37,13 @@ public class ReconRegistryKeys {
     public static final RegistryKey SCAN_RETENTION_TIME_DAYS =
             numberKey("ethernet_recon_scan_retention_time_days", 1, 3650, 30);
 
+    // Slow scans.
+    public static final RegistryKey SLOW_SCAN_ENABLED = booleanKey("ethernet_recon_slow_scan_enabled", true);
+    public static final RegistryKey SLOW_SCAN_MEMORY_DAYS =
+            numberKey("ethernet_recon_slow_scan_memory_days", 1, 90, 7);
+    public static final RegistryKey SLOW_SCAN_MINIMUM_TARGETS =
+            numberKey("ethernet_recon_slow_scan_minimum_targets", 2, 1000000, 25);
+
     // Alerting.
     public static final RegistryKey ALERT_ON_NEW_SCAN = booleanKey("ethernet_recon_alert_on_new_scan", true);
     public static final RegistryKey ALERT_ON_NEW_FINGERPRINTING = booleanKey("ethernet_recon_alert_on_new_fingerprinting", true);

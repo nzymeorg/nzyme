@@ -7,6 +7,7 @@ import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
 import app.nzyme.core.ethernet.l4.tcp.db.TcpSessionEntry;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.integrations.geoip.GeoIpService;
+import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbeReplyReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbeReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionReport;
@@ -93,7 +94,9 @@ public class TCPTable implements DataTable {
     }
 
     public void handleProbesReport(UUID tapUuid, DateTime timestamp, TcpProbesReport report) {
-        if (report.probes() == null || report.probes().isEmpty()) {
+        boolean hasProbes = report.probes() != null && !report.probes().isEmpty();
+        boolean hasReplies = report.replies() != null && !report.replies().isEmpty();
+        if (!hasProbes && !hasReplies) {
             return;
         }
 
@@ -104,10 +107,43 @@ public class TCPTable implements DataTable {
                     throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
                 }
 
-                tablesService.getNzyme().getDatabase().useHandle(handle ->
-                        writeProbes(handle, tap.get(), timestamp, report.probes())
-                );
+                tablesService.getNzyme().getDatabase().useHandle(handle -> {
+                    if (hasProbes) {
+                        writeProbes(handle, tap.get(), timestamp, report.probes());
+                    }
+
+                    if (hasReplies) {
+                        writeProbeReplies(handle, tap.get(), report.replies());
+                    }
+                });
             });
+        }
+    }
+
+    // A reply may answer a probe reported in an earlier cycle, so recent rows of the same triple are updated.
+    private static final int PROBE_REPLY_MATCH_MINUTES = 10;
+
+    private void writeProbeReplies(Handle handle, Tap tap, List<TcpProbeReplyReport> replies) {
+        PreparedBatch batch = handle.prepareBatch("UPDATE tcp_probes SET reply_count = reply_count + :packet_count " +
+                "WHERE tap_uuid = :tap_uuid AND source_address = :source_address::inet " +
+                "AND destination_address = :destination_address::inet AND destination_port = :destination_port " +
+                "AND last_seen >= :since");
+
+        DateTime since = DateTime.now().minusMinutes(PROBE_REPLY_MATCH_MINUTES);
+        for (TcpProbeReplyReport reply : replies) {
+            batch.bind("tap_uuid", tap.uuid())
+                    .bind("source_address", reply.sourceAddress())
+                    .bind("destination_address", reply.destinationAddress())
+                    .bind("destination_port", reply.destinationPort())
+                    .bind("packet_count", reply.packetCount())
+                    .bind("since", since)
+                    .add();
+        }
+
+        try {
+            batch.execute();
+        } catch (Exception e) {
+            LOG.error("Could not write TCP probe replies.", e);
         }
     }
 

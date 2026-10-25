@@ -14,7 +14,8 @@ export default function IcmpUnreachablesHistogram({histogram, timeRange, setTime
   let any = false;
   Object.keys(histogram).sort().forEach((key) => {
     series.x.push(new Date(key));
-    series.y.push(histogram[key]);
+    // Empty buckets get no marker. Plotly skips null points.
+    series.y.push(histogram[key] > 0 ? histogram[key] : null);
     if (histogram[key] > 0) {
       any = true;
     }

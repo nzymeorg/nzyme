@@ -120,6 +120,10 @@ export default function ReconScanDetailsPage() {
     return <LoadingSpinner />
   }
 
+  const windowDescription = scan.detection_window_minutes >= 1440
+    ? Math.round(scan.detection_window_minutes / 1440) + " days"
+    : scan.detection_window_minutes + " minutes";
+
   const share = (count) => {
     if (!scan.probe_count) {
       return "";
@@ -228,11 +232,11 @@ export default function ReconScanDetailsPage() {
                 <dd>
                   {scan.recent ?
                     <span className="text-danger">
-                      Probed new targets in the last {scan.detection_window_minutes} minutes. Further targets
+                      Probed new targets in the last {windowDescription}. Further targets
                       probed by this device are added to this scan.
                     </span>
                     : <span className="text-muted">
-                      No new targets probed in the last {scan.detection_window_minutes} minutes. Repeated probes
+                      No new targets probed in the last {windowDescription}. Repeated probes
                       of known targets do not count. Further targets probed by this device would start a new scan.
                     </span>}
                 </dd>

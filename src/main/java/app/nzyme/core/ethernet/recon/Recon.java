@@ -64,6 +64,26 @@ public class Recon {
         }
     }
 
+    public enum ProbedTargetOrderColumn {
+
+        ADDRESS("address"),
+        SOURCE_COUNT("source_count"),
+        PORT_COUNT("port_count"),
+        FAILED_PORT_COUNT("failed_port_count"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        ProbedTargetOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
     public record TargetRecord(String address,
                                @Nullable Integer port,
                                ReconTargetOutcome outcome,
@@ -107,6 +127,9 @@ public class Recon {
                 intValue(ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS, organizationId, tenantId),
                 intValue(ReconRegistryKeys.MINIMUM_FAILURE_PERCENT, organizationId, tenantId),
                 intValue(ReconRegistryKeys.SCAN_RETENTION_TIME_DAYS, organizationId, tenantId),
+                booleanValue(ReconRegistryKeys.SLOW_SCAN_ENABLED, organizationId, tenantId),
+                intValue(ReconRegistryKeys.SLOW_SCAN_MEMORY_DAYS, organizationId, tenantId),
+                intValue(ReconRegistryKeys.SLOW_SCAN_MINIMUM_TARGETS, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.ALERT_ON_NEW_SCAN, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.ALERT_ON_NEW_FINGERPRINTING, organizationId, tenantId)
         );
@@ -134,9 +157,10 @@ public class Recon {
             return "AND false ";
         }
 
+        // A scan without taps was built from the probe history of the whole tenant and belongs to every selection.
         String column = tableAlias == null || tableAlias.isEmpty() ? "tap_uuids" : tableAlias + ".tap_uuids";
-        return "AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(" + column + ") AS tap " +
-                "WHERE tap IN (<taps>)) ";
+        return "AND (jsonb_array_length(COALESCE(" + column + ", '[]'::jsonb)) = 0 " +
+                "OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(" + column + ") AS tap WHERE tap IN (<taps>))) ";
     }
 
     private static <T extends org.jdbi.v3.core.statement.SqlStatement<T>> T bindTaps(T query, @Nullable List<UUID> taps) {
@@ -537,6 +561,34 @@ public class Recon {
         );
     }
 
+    public List<AnsweredPort> findUnansweredPorts(long scanId, int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT target_port, SUM(probe_count) AS probe_count, MIN(first_seen) AS first_seen, " +
+                                "MAX(last_seen) AS last_seen FROM recon_scan_targets WHERE scan_id = :scan_id " +
+                                "AND outcome = 'UNANSWERED' AND target_port IS NOT NULL GROUP BY target_port " +
+                                "ORDER BY target_port ASC LIMIT :limit")
+                        .bind("scan_id", scanId)
+                        .bind("limit", limit)
+                        .map((rs, ctx) -> new AnsweredPort(
+                                rs.getInt("target_port"),
+                                rs.getLong("probe_count"),
+                                new DateTime(rs.getTimestamp("first_seen")),
+                                new DateTime(rs.getTimestamp("last_seen"))
+                        ))
+                        .list()
+        );
+    }
+
+    public long countUnansweredPorts(long scanId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(DISTINCT target_port) FROM recon_scan_targets WHERE scan_id = :scan_id " +
+                                "AND outcome = 'UNANSWERED' AND target_port IS NOT NULL")
+                        .bind("scan_id", scanId)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
     public long countAnsweredPorts(long scanId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(DISTINCT target_port) FROM recon_scan_targets WHERE scan_id = :scan_id " +
@@ -648,6 +700,208 @@ public class Recon {
                 .bind("limit", limit)
                 .mapTo(String.class)
                 .list();
+    }
+
+    public void recordProbeHistory(Handle handle, UUID organizationId, UUID tenantId, DateTime since) {
+        handle.createUpdate("INSERT INTO recon_probe_history(organization_id, tenant_id, source_address, " +
+                        "source_mac, l4_type, target_address, target_port, outcome, first_seen, last_seen) " +
+                        "SELECT :organization_id, :tenant_id, source_address::inet, source_mac, l4_type, " +
+                        "destination_address::inet, destination_port, outcome, first_seen, last_seen " +
+                        "FROM recon_probes WHERE last_seen >= :since " +
+                        "ON CONFLICT (organization_id, tenant_id, source_address, (COALESCE(source_mac, '')), " +
+                        "l4_type, target_address, target_port) DO UPDATE SET " +
+                        "outcome = GREATEST(recon_probe_history.outcome, EXCLUDED.outcome), " +
+                        "first_seen = LEAST(recon_probe_history.first_seen, EXCLUDED.first_seen), " +
+                        "last_seen = GREATEST(recon_probe_history.last_seen, EXCLUDED.last_seen)")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("since", since)
+                .execute();
+    }
+
+    public void attributeProbeHistory(Handle handle,
+                                      UUID organizationId,
+                                      UUID tenantId,
+                                      Collection<String> sourceKeys,
+                                      DateTime since) {
+        if (sourceKeys.isEmpty()) {
+            return;
+        }
+
+        handle.createUpdate("UPDATE recon_probe_history SET attributed = true " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                        "AND attributed = false AND last_seen >= :since " +
+                        "AND host(source_address) || '/' || COALESCE(source_mac, '') IN (<keys>)")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("since", since)
+                .bindList("keys", List.copyOf(sourceKeys))
+                .execute();
+    }
+
+    public static String probeHistorySourceKey(String sourceAddress, @Nullable String sourceMac) {
+        return sourceAddress + "/" + (sourceMac == null ? "" : sourceMac);
+    }
+
+    public void decayProbeHistory(UUID organizationId, UUID tenantId, DateTime cutoff) {
+        nzyme.getDatabase().useHandle(handle -> decayProbeHistory(handle, organizationId, tenantId, cutoff));
+    }
+
+    public void decayProbeHistory(Handle handle, UUID organizationId, UUID tenantId, DateTime cutoff) {
+        handle.createUpdate("DELETE FROM recon_probe_history WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id AND last_seen < :cutoff")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("cutoff", cutoff)
+                .execute();
+    }
+
+    public record ProbedTarget(String address, long sourceCount, long portCount, long failedPortCount,
+                               long pairCount, DateTime firstSeen, DateTime lastSeen) { }
+
+    public record ProbedTargetSource(String address, @Nullable String mac, List<String> l4Types, long portCount,
+                                     long failedPortCount, DateTime firstSeen, DateTime lastSeen) { }
+
+    public record ProbedTargetPort(String l4Type, int port, long sourceCount, boolean answered,
+                                   DateTime firstSeen, DateTime lastSeen) { }
+
+    private static final String PROBED_TARGETS_CTE =
+            "WITH ports AS (SELECT target_address, l4_type, target_port, MAX(outcome) AS outcome, " +
+            "COUNT(*) AS pairs, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+            "FROM recon_probe_history WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+            "AND last_seen >= :from AND last_seen <= :to GROUP BY target_address, l4_type, target_port), " +
+            "sources AS (SELECT target_address, COUNT(DISTINCT (source_address, COALESCE(source_mac, ''))) AS source_count " +
+            "FROM recon_probe_history WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+            "AND last_seen >= :from AND last_seen <= :to GROUP BY target_address), " +
+            "targets AS (SELECT host(p.target_address) AS address, s.source_count, COUNT(*) AS port_count, " +
+            "COUNT(*) FILTER (WHERE p.outcome < 2) AS failed_port_count, SUM(p.pairs) AS pair_count, " +
+            "MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen " +
+            "FROM ports p JOIN sources s ON s.target_address = p.target_address " +
+            "GROUP BY p.target_address, s.source_count) ";
+
+    public long countProbedTargets(UUID organizationId, UUID tenantId, TimeRange timeRange) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(PROBED_TARGETS_CTE + "SELECT COUNT(*) FROM targets")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("from", timeRange.from())
+                        .bind("to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<ProbedTarget> findProbedTargets(UUID organizationId,
+                                                UUID tenantId,
+                                                TimeRange timeRange,
+                                                ProbedTargetOrderColumn orderColumn,
+                                                OrderDirection orderDirection,
+                                                int limit,
+                                                int offset) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(PROBED_TARGETS_CTE + "SELECT * FROM targets ORDER BY " +
+                                orderColumn.getColumnName() + " " + orderDirection + ", address ASC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("from", timeRange.from())
+                        .bind("to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .map((rs, ctx) -> probedTarget(rs))
+                        .list()
+        );
+    }
+
+    public Optional<ProbedTarget> findProbedTarget(UUID organizationId, UUID tenantId, String address, TimeRange timeRange) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(PROBED_TARGETS_CTE + "SELECT * FROM targets WHERE address = :address")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("from", timeRange.from())
+                        .bind("to", timeRange.to())
+                        .bind("address", address)
+                        .map((rs, ctx) -> probedTarget(rs))
+                        .findOne()
+        );
+    }
+
+    private static ProbedTarget probedTarget(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new ProbedTarget(
+                rs.getString("address"),
+                rs.getLong("source_count"),
+                rs.getLong("port_count"),
+                rs.getLong("failed_port_count"),
+                rs.getLong("pair_count"),
+                new DateTime(rs.getTimestamp("first_seen")),
+                new DateTime(rs.getTimestamp("last_seen"))
+        );
+    }
+
+    public List<ProbedTargetSource> findProbedTargetSources(UUID organizationId,
+                                                            UUID tenantId,
+                                                            String address,
+                                                            TimeRange timeRange,
+                                                            int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT host(source_address) AS address, source_mac, " +
+                                "array_agg(DISTINCT l4_type) AS l4_types, COUNT(*) AS port_count, " +
+                                "COUNT(*) FILTER (WHERE outcome < 2) AS failed_port_count, " +
+                                "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+                                "FROM recon_probe_history WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id AND target_address = :address::inet " +
+                                "AND last_seen >= :from AND last_seen <= :to " +
+                                "GROUP BY source_address, source_mac " +
+                                "ORDER BY failed_port_count DESC, last_seen DESC LIMIT :limit")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("address", address)
+                        .bind("from", timeRange.from())
+                        .bind("to", timeRange.to())
+                        .bind("limit", limit)
+                        .map((rs, ctx) -> new ProbedTargetSource(
+                                rs.getString("address"),
+                                rs.getString("source_mac"),
+                                Arrays.asList((String[]) rs.getArray("l4_types").getArray()),
+                                rs.getLong("port_count"),
+                                rs.getLong("failed_port_count"),
+                                new DateTime(rs.getTimestamp("first_seen")),
+                                new DateTime(rs.getTimestamp("last_seen"))
+                        ))
+                        .list()
+        );
+    }
+
+    public List<ProbedTargetPort> findProbedTargetPorts(UUID organizationId,
+                                                        UUID tenantId,
+                                                        String address,
+                                                        TimeRange timeRange,
+                                                        int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT l4_type, target_port, " +
+                                "COUNT(DISTINCT (source_address, COALESCE(source_mac, ''))) AS source_count, " +
+                                "MAX(outcome) = 2 AS answered, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+                                "FROM recon_probe_history WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id AND target_address = :address::inet " +
+                                "AND last_seen >= :from AND last_seen <= :to " +
+                                "GROUP BY l4_type, target_port " +
+                                "ORDER BY answered ASC, source_count DESC, target_port ASC LIMIT :limit")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("address", address)
+                        .bind("from", timeRange.from())
+                        .bind("to", timeRange.to())
+                        .bind("limit", limit)
+                        .map((rs, ctx) -> new ProbedTargetPort(
+                                rs.getString("l4_type"),
+                                rs.getInt("target_port"),
+                                rs.getLong("source_count"),
+                                rs.getBoolean("answered"),
+                                new DateTime(rs.getTimestamp("first_seen")),
+                                new DateTime(rs.getTimestamp("last_seen"))
+                        ))
+                        .list()
+        );
     }
 
 }

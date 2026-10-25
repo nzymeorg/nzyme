@@ -23,6 +23,8 @@ pub struct TcpTable {
     metrics: Arc<Mutex<Metrics>>,
     sessions: Mutex<HashMap<L4Key, TcpSession>>,
     probes: Mutex<HashMap<TcpProbeKey, TcpProbe>>,
+    probe_triples: Mutex<HashMap<TcpProbeTriple, DateTime<Utc>>>,
+    probe_replies: Mutex<HashMap<TcpProbeTriple, TcpProbeReply>>,
     probes_dropped: AtomicU64,
     reassembly_buffer_size: i32,
     session_timeout_seconds: i32,
@@ -71,6 +73,27 @@ pub struct TcpProbe {
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>
 }
+
+/*
+ * A closed port answers a stateless probe with a reset, which arrives for an unknown session like the probe did.
+ * Resets are matched to the probes they answer by the (scanner, target, port) triple, which is remembered for a
+ * short while after the probe. The node joins replies to probes, so a reply landing in the next report still counts.
+ */
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TcpProbeTriple {
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub destination_port: u16
+}
+
+#[derive(Debug, Clone)]
+pub struct TcpProbeReply {
+    pub packet_count: u64,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>
+}
+
+pub const PROBE_TRIPLE_MEMORY_SECONDS: i64 = 60;
 
 #[derive(Debug)]
 pub struct TcpSession {
@@ -145,6 +168,8 @@ impl TcpTable {
             metrics,
             sessions: Mutex::new(HashMap::new()),
             probes: Mutex::new(HashMap::new()),
+            probe_triples: Mutex::new(HashMap::new()),
+            probe_replies: Mutex::new(HashMap::new()),
             probes_dropped: AtomicU64::new(0),
             reassembly_buffer_size,
             session_timeout_seconds,
@@ -262,6 +287,8 @@ impl TcpTable {
                                 "tables.tcp.sessions.timer.register_new",
                                 &self.metrics
                             );
+                        } else if is_probe_reply(segment) {
+                            self.register_probe_reply(segment);
                         } else if is_probe_segment(segment) {
                             self.register_probe(segment);
                         }
@@ -324,7 +351,57 @@ impl TcpTable {
             },
             Err(e) => {
                 error!("Could not acquire TCP probes table mutex: {}", e);
+                return;
             }
+        }
+
+        match self.probe_triples.lock() {
+            Ok(mut triples) => {
+                let triple = probe_triple(segment);
+                if triples.len() < MAX_PROBES || triples.contains_key(&triple) {
+                    triples.insert(triple, segment.timestamp);
+                }
+            },
+            Err(e) => error!("Could not acquire TCP probe triples mutex: {}", e)
+        }
+    }
+
+    fn register_probe_reply(&self, segment: &Arc<TcpSegment>) {
+        let triple = reply_probe_triple(segment);
+
+        match self.probe_triples.lock() {
+            Ok(triples) => {
+                if !triples.contains_key(&triple) {
+                    return;
+                }
+            },
+            Err(e) => {
+                error!("Could not acquire TCP probe triples mutex: {}", e);
+                return;
+            }
+        }
+
+        match self.probe_replies.lock() {
+            Ok(mut replies) => {
+                match replies.get_mut(&triple) {
+                    Some(reply) => {
+                        reply.packet_count += 1;
+                        reply.last_seen = segment.timestamp;
+                    },
+                    None => {
+                        if replies.len() >= MAX_PROBES {
+                            return;
+                        }
+
+                        replies.insert(triple, TcpProbeReply {
+                            packet_count: 1,
+                            first_seen: segment.timestamp,
+                            last_seen: segment.timestamp
+                        });
+                    }
+                }
+            },
+            Err(e) => error!("Could not acquire TCP probe replies mutex: {}", e)
         }
     }
 
@@ -405,12 +482,28 @@ impl TcpTable {
             }
         };
 
-        if probes.is_empty() {
+        let replies: Vec<(TcpProbeTriple, TcpProbeReply)> = match self.probe_replies.lock() {
+            Ok(mut replies) => replies.drain().collect(),
+            Err(e) => {
+                error!("Could not acquire TCP probe replies mutex for report generation: {}", e);
+                return;
+            }
+        };
+
+        match self.probe_triples.lock() {
+            Ok(mut triples) => {
+                let cutoff = Utc::now() - Duration::seconds(PROBE_TRIPLE_MEMORY_SECONDS);
+                triples.retain(|_, seen| *seen > cutoff);
+            },
+            Err(e) => error!("Could not acquire TCP probe triples mutex for pruning: {}", e)
+        }
+
+        if probes.is_empty() && replies.is_empty() {
             return;
         }
 
         let mut timer = Timer::new();
-        let report = match serde_json::to_string(&tcp_probes_report::generate(&probes)) {
+        let report = match serde_json::to_string(&tcp_probes_report::generate(&probes, &replies)) {
             Ok(report) => report,
             Err(e) => {
                 error!("Could not serialize TCP probes report: {}", e);
@@ -556,6 +649,28 @@ pub fn is_probe_segment(segment: &TcpSegment) -> bool {
     }
 
     false
+}
+
+/// A reset without SYN to an unknown session. Only counts when it answers a probe that was seen shortly before.
+pub fn is_probe_reply(segment: &TcpSegment) -> bool {
+    segment.flags.reset && !segment.flags.syn
+}
+
+pub fn probe_triple(segment: &TcpSegment) -> TcpProbeTriple {
+    TcpProbeTriple {
+        source_address: segment.source_address,
+        destination_address: segment.destination_address,
+        destination_port: segment.destination_port
+    }
+}
+
+/// The triple of the probe a reply answers: the reply travels from the probed port back to the scanner.
+pub fn reply_probe_triple(segment: &TcpSegment) -> TcpProbeTriple {
+    TcpProbeTriple {
+        source_address: segment.destination_address,
+        destination_address: segment.source_address,
+        destination_port: segment.source_port
+    }
 }
 
 fn insert_session_segment(segment: &TcpSegment, segments: &mut BTreeMap<u32, Vec<u8>>) {
@@ -714,6 +829,24 @@ mod tests {
         assert!(is_probe_segment(&segment(flags(false, false, true, false, true, true), vec![3, 1, 2, 8, 4])));
         // FIN scan.
         assert!(is_probe_segment(&segment(flags(false, false, true, false, false, false), vec![])));
+    }
+
+    #[test]
+    fn probe_replies_are_resets_matched_to_the_probe_they_answer() {
+        let probe = segment(flags(false, false, true, false, false, false), vec![]);
+        assert!(!is_probe_reply(&probe));
+
+        let mut reply = segment(flags(false, true, false, true, false, false), vec![]);
+        reply.source_address = probe.destination_address;
+        reply.source_port = probe.destination_port;
+        reply.destination_address = probe.source_address;
+        reply.destination_port = probe.source_port;
+        assert!(is_probe_reply(&reply));
+        assert_eq!(reply_probe_triple(&reply), probe_triple(&probe));
+
+        // A SYN/RST is not a reply, and a reset from somewhere else answers no probe.
+        assert!(!is_probe_reply(&segment(flags(true, false, false, true, false, false), vec![])));
+        assert_ne!(reply_probe_triple(&segment(flags(false, true, false, true, false, false), vec![])), probe_triple(&probe));
     }
 
     #[test]

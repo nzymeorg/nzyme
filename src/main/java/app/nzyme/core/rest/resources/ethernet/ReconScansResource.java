@@ -1,25 +1,16 @@
 package app.nzyme.core.rest.resources.ethernet;
 
 import app.nzyme.core.NzymeNode;
-import app.nzyme.core.assets.db.AssetEntry;
-import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
-import app.nzyme.core.ethernet.GeoData;
 import app.nzyme.core.ethernet.L4Type;
-import app.nzyme.core.ethernet.beacons.BeaconDetector;
-import app.nzyme.core.ethernet.l4.db.L4AddressAttributes;
-import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.recon.*;
 import app.nzyme.core.ethernet.recon.db.ReconExclusionEntry;
 import app.nzyme.core.ethernet.recon.db.ReconScanEntry;
 import app.nzyme.core.ethernet.recon.db.ReconScanTargetEntry;
-import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
-import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
-import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
 import app.nzyme.core.rest.responses.ethernet.recon.*;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.taps.Tap;
@@ -54,8 +45,6 @@ import org.joda.time.DateTime;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.*;
 
 import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
@@ -79,6 +68,16 @@ public class ReconScansResource extends TapDataHandlingResource {
     @Inject
     private NzymeNode nzyme;
 
+    private ReconAddressResponses addresses;
+
+    private ReconAddressResponses addresses() {
+        if (addresses == null) {
+            addresses = new ReconAddressResponses(nzyme);
+        }
+
+        return addresses;
+    }
+
     @GET
     @Operation(operationId = "findReconScans", summary = "List scans of a tenant",
             description = "Returns all detected scans of the tenant, most recently seen first by default. The "
@@ -92,7 +91,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
-                            @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.") @QueryParam("taps") @Nullable String tapIds,
+                            @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Slow scans are built from the probe history of the whole tenant and are always included. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.") @QueryParam("taps") @Nullable String tapIds,
                             @Parameter(description = "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.") @QueryParam("category") @Nullable String categoryParam,
                             @Parameter(description = "Sorting column. Defaults to the time the scan was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
@@ -153,7 +152,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                                          @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
                                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                                          @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the scans list.") @QueryParam("filters") String filtersParameter,
-                                         @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.") @QueryParam("taps") @Nullable String tapIds,
+                                         @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Slow scans are built from the probe history of the whole tenant and are always included. Omit or pass * for all taps the user can access.") @QueryParam("taps") @Nullable String tapIds,
                                          @Parameter(description = "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.") @QueryParam("category") @Nullable String categoryParam,
                                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -263,7 +262,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                 scan.get().id(), filters, orderColumn, orderDirection, limit, offset)) {
             targets.add(ReconScanTargetResponse.create(
                     target.targetAddress(),
-                    addressResponse(target.targetAddress(), target.targetPort(), null, l4Type, organizationId, tenantId),
+                    addresses().addressResponse(target.targetAddress(), target.targetPort(), null, l4Type, organizationId, tenantId),
                     target.targetPort(),
                     target.outcome(),
                     target.probeCount(),
@@ -311,6 +310,8 @@ public class ReconScansResource extends TapDataHandlingResource {
 
         List<ReconScanAnsweredPortResponse> answeredPorts = null;
         Long answeredPortsTotal = null;
+        List<ReconScanAnsweredPortResponse> unansweredPorts = null;
+        Long unansweredPortsTotal = null;
         List<ReconScanAnsweredHostResponse> answeredHosts = null;
         Long answeredHostsTotal = null;
         List<ReconScanTargetNetworkResponse> networks = null;
@@ -322,6 +323,12 @@ public class ReconScansResource extends TapDataHandlingResource {
                 answeredPorts.add(ReconScanAnsweredPortResponse.create(p.port(), p.probeCount(), p.firstSeen(), p.lastSeen()));
             }
             answeredPortsTotal = recon.countAnsweredPorts(scanId);
+
+            unansweredPorts = Lists.newArrayList();
+            for (Recon.AnsweredPort p : recon.findUnansweredPorts(scanId, 500)) {
+                unansweredPorts.add(ReconScanAnsweredPortResponse.create(p.port(), p.probeCount(), p.firstSeen(), p.lastSeen()));
+            }
+            unansweredPortsTotal = recon.countUnansweredPorts(scanId);
 
             portRanges = Lists.newArrayList();
             for (Recon.PortRange r : recon.portRanges(scanId)) {
@@ -348,7 +355,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                 .getStandardHours() <= 24 ? "minute" : "hour";
 
         return Response.ok(ReconScanSummaryResponse.create(
-                answeredPorts, answeredPortsTotal, answeredHosts, answeredHostsTotal,
+                answeredPorts, answeredPortsTotal, unansweredPorts, unansweredPortsTotal, answeredHosts, answeredHostsTotal,
                 timeline, timelineBucket, networks, portRanges
         )).build();
     }
@@ -411,6 +418,9 @@ public class ReconScansResource extends TapDataHandlingResource {
             ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS,
             ReconRegistryKeys.MINIMUM_FAILURE_PERCENT,
             ReconRegistryKeys.SCAN_RETENTION_TIME_DAYS,
+            ReconRegistryKeys.SLOW_SCAN_ENABLED,
+            ReconRegistryKeys.SLOW_SCAN_MEMORY_DAYS,
+            ReconRegistryKeys.SLOW_SCAN_MINIMUM_TARGETS,
             ReconRegistryKeys.SOURCE_TCP_ENABLED,
             ReconRegistryKeys.SOURCE_UDP_ENABLED,
             ReconRegistryKeys.SOURCE_ARP_ENABLED,
@@ -447,9 +457,12 @@ public class ReconScansResource extends TapDataHandlingResource {
         detection.add(numberEntry(ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS, "ARP sweep: Minimum hosts", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.MINIMUM_FAILURE_PERCENT, "Minimum share of unanswered or refused probes (Percent)", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.SCAN_RETENTION_TIME_DAYS, "Scan retention time (Days)", organizationId, tenantId));
+        detection.add(booleanEntry(ReconRegistryKeys.SLOW_SCAN_ENABLED, "Slow scan detection enabled", organizationId, tenantId));
+        detection.add(numberEntry(ReconRegistryKeys.SLOW_SCAN_MEMORY_DAYS, "Slow scan: Memory (Days)", organizationId, tenantId));
+        detection.add(numberEntry(ReconRegistryKeys.SLOW_SCAN_MINIMUM_TARGETS, "Slow scan: Minimum unanswered or refused host and port pairs", organizationId, tenantId));
 
         List<ConfigurationEntryResponse> sources = Lists.newArrayList();
-        sources.add(booleanEntry(ReconRegistryKeys.SOURCE_TCP_ENABLED, "TCP sessions", organizationId, tenantId));
+        sources.add(booleanEntry(ReconRegistryKeys.SOURCE_TCP_ENABLED, "TCP sessions and stateless probes", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_UDP_ENABLED, "UDP conversations", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ARP_ENABLED, "ARP requests", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ICMP_ENABLED, "ICMP echo and discovery requests (ping sweeps)", organizationId, tenantId));
@@ -588,7 +601,10 @@ public class ReconScansResource extends TapDataHandlingResource {
             ));
         }
 
-        boolean recent = scan.lastSeen().isAfter(DateTime.now().minusMinutes(config.detectionWindowMinutes()));
+        // A slow scan stays open for the memory period, a regular scan for the detection window.
+        int windowMinutes = type == ReconScanType.SLOW_SCAN
+                ? config.slowScanMemoryDays() * 24 * 60 : config.detectionWindowMinutes();
+        boolean recent = scan.lastSeen().isAfter(DateTime.now().minusMinutes(windowMinutes));
 
         return ReconScanDetailsResponse.create(
                 scan.uuid(),
@@ -596,14 +612,14 @@ public class ReconScansResource extends TapDataHandlingResource {
                 typeHumanReadable,
                 isPortScan,
                 recent,
-                config.detectionWindowMinutes(),
+                windowMinutes,
                 scan.sourceAddress(),
-                addressResponse(scan.sourceAddress(), null, scan.sourceMac(), l4Type, organizationId, tenantId),
+                addresses().addressResponse(scan.sourceAddress(), null, scan.sourceMac(), l4Type, organizationId, tenantId),
                 scan.sourceMac(),
-                macResponse(scan.sourceMac(), organizationId, tenantId),
+                addresses().macResponse(scan.sourceMac(), organizationId, tenantId),
                 ReconDetector.sourceDescription(scan),
                 scan.targetAddress(),
-                addressResponse(scan.targetAddress(), null, null, l4Type, organizationId, tenantId),
+                addresses().addressResponse(scan.targetAddress(), null, null, l4Type, organizationId, tenantId),
                 ReconDetector.targetDescription(scan),
                 scan.hostCount(),
                 scan.portCount(),
@@ -620,71 +636,6 @@ public class ReconScansResource extends TapDataHandlingResource {
                 scan.updatedAt(),
                 matchingExclusions
         );
-    }
-
-    @Nullable
-    private EthernetMacAddressResponse macResponse(@Nullable String mac, UUID organizationId, UUID tenantId) {
-        if (mac == null) {
-            return null;
-        }
-
-        Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(mac, organizationId, tenantId);
-        Optional<MacAddressContextEntry> context = nzyme.getContextService()
-                .findMacAddressContext(mac, organizationId, tenantId);
-
-        return EthernetMacAddressResponse.create(
-                mac,
-                nzyme.getOuiService().lookup(mac).orElse(null),
-                asset.map(AssetEntry::uuid).orElse(null),
-                asset.map(AssetEntry::isActive).orElse(null),
-                RestHelpers.macContextEntryToResponse(context)
-        );
-    }
-
-    @Nullable
-    private L4AddressResponse addressResponse(@Nullable String address,
-                                              @Nullable Integer port,
-                                              @Nullable String mac,
-                                              L4Type l4Type,
-                                              UUID organizationId,
-                                              UUID tenantId) {
-        if (address == null || !BeaconDetector.isValidAddress(address)) {
-            return null;
-        }
-
-        InetAddress inet;
-        try {
-            inet = InetAddress.getByName(address);
-        } catch (UnknownHostException e) {
-            return null;
-        }
-
-        GeoData geo = null;
-        Optional<GeoIpLookupResult> lookup = nzyme.getGeoIpService().lookup(inet);
-        if (lookup.isPresent() && (lookup.get().asn() != null || lookup.get().geo() != null)) {
-            GeoIpLookupResult r = lookup.get();
-            geo = GeoData.create(
-                    r.asn() == null ? null : r.asn().number(),
-                    r.asn() == null ? null : r.asn().name(),
-                    r.asn() == null ? null : r.asn().domain(),
-                    r.geo() == null ? null : r.geo().city(),
-                    r.geo() == null ? null : r.geo().countryCode(),
-                    r.geo() == null ? null : r.geo().latitude(),
-                    r.geo() == null ? null : r.geo().longitude()
-            );
-        }
-
-        L4AddressAttributes attributes = L4AddressAttributes.create(
-                inet.isSiteLocalAddress(), inet.isLoopbackAddress(), inet.isMulticastAddress()
-        );
-
-        try {
-            return RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, l4Type,
-                    L4AddressData.create(mac, address, port, geo, attributes));
-        } catch (Exception e) {
-            LOG.warn("Could not build address data for scan address [{}].", address, e);
-            return null;
-        }
     }
 
 }

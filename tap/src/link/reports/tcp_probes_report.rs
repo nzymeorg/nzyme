@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use crate::state::tables::tcp_table::{TcpProbe, TcpProbeKey};
+use crate::state::tables::tcp_table::{TcpProbe, TcpProbeKey, TcpProbeReply, TcpProbeTriple};
 
 /*
  * Stateless TCP probes: Segments that belong to no session and have a shape no real stack sends. See
@@ -8,7 +8,18 @@ use crate::state::tables::tcp_table::{TcpProbe, TcpProbeKey};
  */
 #[derive(Serialize)]
 pub struct TcpProbesReport {
-    pub probes: Vec<TcpProbeReport>
+    pub probes: Vec<TcpProbeReport>,
+    pub replies: Vec<TcpProbeReplyReport>
+}
+
+#[derive(Serialize)]
+pub struct TcpProbeReplyReport {
+    pub source_address: String,
+    pub destination_address: String,
+    pub destination_port: u16,
+    pub packet_count: u64,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>
 }
 
 #[derive(Serialize)]
@@ -38,8 +49,20 @@ pub struct TcpProbeReport {
     pub last_seen: DateTime<Utc>
 }
 
-pub fn generate(p: &[(TcpProbeKey, TcpProbe)]) -> TcpProbesReport {
+pub fn generate(p: &[(TcpProbeKey, TcpProbe)], r: &[(TcpProbeTriple, TcpProbeReply)]) -> TcpProbesReport {
     let mut probes: Vec<TcpProbeReport> = Vec::with_capacity(p.len());
+    let mut replies: Vec<TcpProbeReplyReport> = Vec::with_capacity(r.len());
+
+    for (triple, reply) in r {
+        replies.push(TcpProbeReplyReport {
+            source_address: triple.source_address.to_string(),
+            destination_address: triple.destination_address.to_string(),
+            destination_port: triple.destination_port,
+            packet_count: reply.packet_count,
+            first_seen: reply.first_seen,
+            last_seen: reply.last_seen
+        });
+    }
 
     for (key, probe) in p {
         probes.push(TcpProbeReport {
@@ -69,5 +92,5 @@ pub fn generate(p: &[(TcpProbeKey, TcpProbe)]) -> TcpProbesReport {
         });
     }
 
-    TcpProbesReport { probes }
+    TcpProbesReport { probes, replies }
 }

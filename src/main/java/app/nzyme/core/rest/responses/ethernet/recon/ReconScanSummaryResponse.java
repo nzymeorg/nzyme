@@ -23,6 +23,14 @@ public abstract class ReconScanSummaryResponse {
     @JsonProperty("answered_ports_total")
     public abstract Long answeredPortsTotal();
 
+    @Nullable
+    @JsonProperty("unanswered_ports")
+    public abstract List<ReconScanAnsweredPortResponse> unansweredPorts();
+
+    @Nullable
+    @JsonProperty("unanswered_ports_total")
+    public abstract Long unansweredPortsTotal();
+
     @Schema(description = "Sweeps only: the hosts that answered, each with its answering ports. Limited to 250.")
     @Nullable
     @JsonProperty("answered_hosts")
@@ -51,10 +59,12 @@ public abstract class ReconScanSummaryResponse {
     @JsonProperty("port_ranges")
     public abstract List<ReconScanPortRangeResponse> portRanges();
 
-    public static ReconScanSummaryResponse create(List<ReconScanAnsweredPortResponse> answeredPorts, Long answeredPortsTotal, List<ReconScanAnsweredHostResponse> answeredHosts, Long answeredHostsTotal, Map<DateTime, ReconScanTimelineBucketResponse> timeline, String timelineBucket, List<ReconScanTargetNetworkResponse> networks, List<ReconScanPortRangeResponse> portRanges) {
+    public static ReconScanSummaryResponse create(List<ReconScanAnsweredPortResponse> answeredPorts, Long answeredPortsTotal, List<ReconScanAnsweredPortResponse> unansweredPorts, Long unansweredPortsTotal, List<ReconScanAnsweredHostResponse> answeredHosts, Long answeredHostsTotal, Map<DateTime, ReconScanTimelineBucketResponse> timeline, String timelineBucket, List<ReconScanTargetNetworkResponse> networks, List<ReconScanPortRangeResponse> portRanges) {
         return builder()
                 .answeredPorts(answeredPorts)
                 .answeredPortsTotal(answeredPortsTotal)
+                .unansweredPorts(unansweredPorts)
+                .unansweredPortsTotal(unansweredPortsTotal)
                 .answeredHosts(answeredHosts)
                 .answeredHostsTotal(answeredHostsTotal)
                 .timeline(timeline)
@@ -72,6 +82,8 @@ public abstract class ReconScanSummaryResponse {
     public abstract static class Builder {
         public abstract Builder answeredPorts(List<ReconScanAnsweredPortResponse> answeredPorts);
         public abstract Builder answeredPortsTotal(Long answeredPortsTotal);
+        public abstract Builder unansweredPorts(List<ReconScanAnsweredPortResponse> unansweredPorts);
+        public abstract Builder unansweredPortsTotal(Long unansweredPortsTotal);
         public abstract Builder answeredHosts(List<ReconScanAnsweredHostResponse> answeredHosts);
         public abstract Builder answeredHostsTotal(Long answeredHostsTotal);
         public abstract Builder timeline(Map<DateTime, ReconScanTimelineBucketResponse> timeline);
