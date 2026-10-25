@@ -1,6 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
 import {useLocation} from "react-router-dom";
-import numeral from "numeral";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import usePageTitle from "../../../util/UsePageTitle";
@@ -13,6 +12,7 @@ import {RECON_MENU_ITEMS} from "./ReconMenuItems";
 import {RECON_SCANS_FILTER_FIELDS} from "./ReconScansFilterFields";
 import ReconScansTable from "./ReconScansTable";
 import ActiveScansHistogram from "./ActiveScansHistogram";
+import TwoColumnHistogram from "../../widgets/histograms/TwoColumnHistogram";
 import {reconScanTypeToName} from "./ReconScanType";
 import {Presets} from "../../shared/timerange/TimeRange";
 import {TapContext} from "../../../App";
@@ -83,23 +83,23 @@ export default function ReconScansPage() {
     reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "SCANS", filters, histogramTimeRange, setHistogram);
   }, [organizationId, tenantId, selectedTaps, filters, histogramTimeRange, revision]);
 
-  const typeCounts = () => {
+  // The type counts arrive with the scans list and are shaped here like a histogram response.
+  const typeHistogram = () => {
     if (!scans) {
       return null;
     }
 
-    return (
-      <p className="mb-3">
-        <strong>Total:</strong> {numeral(scans.total).format("0,0")}
-        {["TCP_PORT_SCAN", "TCP_HOST_SWEEP", "UDP_PORT_SCAN", "UDP_HOST_SWEEP", "ARP_SWEEP", "ICMP_SWEEP", "DNS_REVERSE_SWEEP", "SLOW_SCAN"].map((t) => {
-          return (
-            <span key={t} className="ms-3">
-              {reconScanTypeToName(t)}: {numeral(scans.type_counts[t] || 0).format("0,0")}
-            </span>
-          )
-        })}
-      </p>
-    )
+    const values = Object.keys(scans.type_counts)
+      .filter((t) => scans.type_counts[t] > 0)
+      .sort((a, b) => scans.type_counts[b] - scans.type_counts[a])
+      .map((t) => {
+        return {
+          column_one: {type: "GENERIC", value: reconScanTypeToName(t), metadata: {type: t}},
+          column_two: {type: "INTEGER", value: scans.type_counts[t]}
+        }
+      });
+
+    return {total: scans.total, show_bar_chart: true, values: values};
   }
 
   return (
@@ -152,10 +152,29 @@ export default function ReconScansPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Scans"
+              <CardTitleWithControls title="Scans by Type"
                                      refreshAction={() => setRevision(new Date())} />
 
-              {typeCounts()}
+              {scans && scans.total === 0 ?
+                <div className="alert alert-info mb-0">No scans match the current filters.</div>
+                : <TwoColumnHistogram data={typeHistogram()}
+                                      columnTitles={["Type", "Scans"]}
+                                      columnFilterElements={[
+                                        {field: "type", metadataField: "type", fields: RECON_SCANS_FILTER_FIELDS, setFilters: applyFilters},
+                                        null
+                                      ]}
+                                      customChartMarginLeft={140} />}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Scans"
+                                     refreshAction={() => setRevision(new Date())} />
 
               <ReconScansTable scans={scans}
                                page={page}

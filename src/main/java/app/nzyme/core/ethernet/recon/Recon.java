@@ -216,7 +216,9 @@ public class Recon {
         );
     }
 
-    public Map<String, Long> countScansByType(ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+    public Map<String, Long> countScansByType(Filters filters, ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconScanFilters());
+
         Map<String, Long> result = new HashMap<>();
         for (String t : category.types()) {
             result.put(t, 0L);
@@ -225,10 +227,12 @@ public class Recon {
         nzyme.getDatabase().useHandle(handle ->
                 bindTaps(handle.createQuery("SELECT type, COUNT(*) AS count FROM recon_scans " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND type IN (<types>) " + tapsCondition(taps, null) + "GROUP BY type"), taps)
+                                "AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql() +
+                                "GROUP BY type"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bindList("types", category.types())
+                        .bindMap(filterFragment.bindings())
                         .mapToMap()
                         .forEach(row -> result.put((String) row.get("type"), (Long) row.get("count")))
         );

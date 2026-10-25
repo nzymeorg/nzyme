@@ -1108,7 +1108,7 @@ public class ReconDetector {
     private static final String REVERSE_NAME_ADDRESS =
             "(split_part(data_value, '.', 4) || '.' || split_part(data_value, '.', 3) || '.' || " +
             "split_part(data_value, '.', 2) || '.' || split_part(data_value, '.', 1))::inet";
-    
+
     private String reverseDnsQueriesCte(ReconConfiguration config) {
         return "WITH queries AS (SELECT q.client_address, q.client_mac, q.server_address, q.tap_uuid, " +
                 "q.transaction_id, q.timestamp, " + REVERSE_NAME_ADDRESS + " AS address, " +

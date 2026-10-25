@@ -81,7 +81,7 @@ public class ReconScansResource extends TapDataHandlingResource {
     @GET
     @Operation(operationId = "findReconScans", summary = "List scans of a tenant",
             description = "Returns all detected scans of the tenant, most recently seen first by default. The "
-                    + "response also includes the number of scans per type, independent of the filters. Results "
+                    + "response also includes the number of scans per type under the same filters. Results "
                     + "are paginated.")
     @ApiResponse(responseCode = "200", description = "Scans found.",
             content = @Content(schema = @Schema(implementation = ReconScansListResponse.class)))
@@ -135,7 +135,7 @@ public class ReconScansResource extends TapDataHandlingResource {
         }
 
         return Response.ok(ReconScansListResponse.create(
-                total, recon.countScansByType(category, taps, organizationId, tenantId), result
+                total, recon.countScansByType(filters, category, taps, organizationId, tenantId), result
         )).build();
     }
 
