@@ -147,8 +147,17 @@ pub struct TcpFlags {
     pub reset: bool,
     pub syn: bool,
     pub fin: bool,
+    pub psh: bool,
+    pub urg: bool,
     pub ece: bool,
     pub cwr: bool
+}
+
+impl TcpFlags {
+    /// No flag set at all. Never sent by a real stack; the shape of NULL scans and the nmap T2 probe.
+    pub fn is_null(&self) -> bool {
+        !self.ack && !self.reset && !self.syn && !self.fin && !self.psh && !self.urg && !self.ece && !self.cwr
+    }
 }
 
 #[derive(Debug)]

@@ -10071,4 +10071,92 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="create_tcp_probes_table" author="lennartkoopmann">
+        <createTable tableName="tcp_probes">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="varchar(17)" />
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address_is_site_local" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_mac" type="varchar(17)" />
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_address_is_site_local" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_syn" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_ack" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_fin" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_rst" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_psh" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_urg" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_ece" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="flag_cwr" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="window_size" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="maximum_segment_size" type="integer" />
+            <column name="window_scale_multiplier" type="integer" />
+            <column name="options" type="jsonb" />
+            <column name="ip_ttl" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ip_tos" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ip_df" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="packet_count" type="bigint" defaultValueNumeric="1">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="tcp_probes" indexName="tcp_probes_tap_last_seen">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="tcp_probes" indexName="tcp_probes_source_target">
+            <column name="source_address" />
+            <column name="destination_address" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

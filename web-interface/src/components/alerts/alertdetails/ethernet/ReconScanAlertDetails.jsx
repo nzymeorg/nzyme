@@ -18,7 +18,9 @@ export default function ReconScanAlertDetails({alert}) {
               <dl>
                 <dt>Scan</dt>
                 <dd>
-                  <Link to={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(a.scan_uuid)}>
+                  <Link to={a.scan_type === "OS_FINGERPRINTING"
+                    ? ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(a.scan_uuid)
+                    : ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(a.scan_uuid)}>
                     <ReconScanType type={a.scan_type} /> from {a.source}
                   </Link>
                 </dd>

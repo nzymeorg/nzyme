@@ -453,7 +453,7 @@ public class ReconScansResource extends TapDataHandlingResource {
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_UDP_ENABLED, "UDP conversations", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ARP_ENABLED, "ARP requests", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ICMP_ENABLED, "ICMP echo and discovery requests (ping sweeps)", organizationId, tenantId));
-        sources.add(booleanEntry(ReconRegistryKeys.FINGERPRINTING_ENABLED, "ICMP OS fingerprinting probes", organizationId, tenantId));
+        sources.add(booleanEntry(ReconRegistryKeys.FINGERPRINTING_ENABLED, "OS fingerprinting probes (ICMP, TCP, UDP)", organizationId, tenantId));
 
         List<ConfigurationEntryResponse> alerting = Lists.newArrayList();
         alerting.add(booleanEntry(ReconRegistryKeys.ALERT_ON_NEW_SCAN, "Alert on new scan", organizationId, tenantId));

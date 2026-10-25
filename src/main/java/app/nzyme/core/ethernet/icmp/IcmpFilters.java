@@ -33,7 +33,7 @@ public class IcmpFilters implements SqlFilterProvider {
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }
     }
-    
+
     private static String icmpTypeMatch(String bindId, FilterOperator operator) {
         switch (operator) {
             case EQUALS:

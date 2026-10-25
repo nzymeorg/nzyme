@@ -489,6 +489,11 @@ public class DatabaseImpl implements Database {
                         "DELETE FROM l4_sessions WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
                 ));
                 tables.add(new DataTableInformation(
+                        "tcp_probes",
+                        "SELECT COUNT(*) FROM tcp_probes WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM tcp_probes WHERE last_seen < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
                         "l4_statistics",
                         "SELECT COUNT(*) FROM l4_statistics WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM l4_statistics WHERE timestamp < :since AND tap_uuid IN (<taps>)"

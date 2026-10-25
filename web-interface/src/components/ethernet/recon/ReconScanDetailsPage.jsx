@@ -42,6 +42,7 @@ export default function ReconScanDetailsPage() {
   const [redirect, setRedirect] = useState(false);
 
   const urlQuery = useQuery();
+  const location = useLocation();
   const [targetsFilters, setTargetsFilters] = useState(
     queryParametersToFilters(urlQuery.get("filters"), RECON_SCAN_TARGETS_FILTER_FIELDS)
   );
@@ -55,7 +56,19 @@ export default function ReconScanDetailsPage() {
 
   const [revision, setRevision] = useState(new Date());
 
-  usePageTitle(scan ? `Scan: ${scan.type_human_readable} from ${scan.source}` : "Ethernet Recon Scan Details");
+  /*
+   * Fingerprinting attempts are scans with their own tab and URL. Until the scan is loaded, the URL decides which
+   * tab this page belongs to; afterwards the scan type does, so links using either URL end up consistent.
+   */
+  const fingerprinting = scan
+    ? scan.type === "OS_FINGERPRINTING"
+    : location.pathname.startsWith(ApiRoutes.ETHERNET.RECON.FINGERPRINTING.INDEX);
+  const listRoute = fingerprinting ? ApiRoutes.ETHERNET.RECON.FINGERPRINTING.INDEX : ApiRoutes.ETHERNET.RECON.SCANS.INDEX;
+  const listName = fingerprinting ? "Fingerprinting" : "Scans";
+
+  usePageTitle(scan
+    ? `${fingerprinting ? "Fingerprinting" : "Scan"}: ${scan.type_human_readable} from ${scan.source}`
+    : "Ethernet Recon " + (fingerprinting ? "Fingerprinting" : "Scan") + " Details");
 
   useEffect(() => {
     setScan(null);
@@ -92,13 +105,13 @@ export default function ReconScanDetailsPage() {
   }
 
   if (redirect) {
-    return <Navigate to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX} />
+    return <Navigate to={listRoute} />
   }
 
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Scan not found. <Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Back to Scans</Link>
+        Scan not found. <Link to={listRoute}>Back to {listName}</Link>
       </div>
     )
   }
@@ -123,7 +136,7 @@ export default function ReconScanDetailsPage() {
             <ol className="breadcrumb">
               <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
               <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Recon</Link></li>
-              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}>Scans</Link></li>
+              <li className="breadcrumb-item"><Link to={listRoute}>{listName}</Link></li>
               <li className="breadcrumb-item active" aria-current="page">
                 {scan.type_human_readable} from {scan.source}
               </li>
@@ -149,7 +162,7 @@ export default function ReconScanDetailsPage() {
               </Link>
               <a href="#" className="btn btn-danger me-1" onClick={onDelete}>Delete Scan</a>
             </React.Fragment> : null}
-          <Link to={ApiRoutes.ETHERNET.RECON.SCANS.INDEX} className="btn btn-primary">Back to Scans</Link>
+          <Link to={listRoute} className="btn btn-primary">Back to {listName}</Link>
         </div>
       </div>
 

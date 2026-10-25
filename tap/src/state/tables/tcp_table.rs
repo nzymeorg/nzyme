@@ -2,6 +2,7 @@ use std::{sync::{Arc}};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::net::IpAddr;
 use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
 use chrono::{DateTime, Duration, Utc};
 use log::{debug, error, trace, warn};
 use strum_macros::Display;
@@ -12,7 +13,7 @@ use crate::protocols::parsers::l4_key::L4Key;
 use crate::wired::traffic_direction::TrafficDirection;
 use crate::helpers::timer::{record_timer, Timer};
 use crate::link::leaderlink::Leaderlink;
-use crate::link::reports::tcp_sessions_report;
+use crate::link::reports::{tcp_probes_report, tcp_sessions_report};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 
@@ -21,6 +22,8 @@ pub struct TcpTable {
     ethernet_bus: Arc<Bus>,
     metrics: Arc<Mutex<Metrics>>,
     sessions: Mutex<HashMap<L4Key, TcpSession>>,
+    probes: Mutex<HashMap<TcpProbeKey, TcpProbe>>,
+    probes_dropped: AtomicU64,
     reassembly_buffer_size: i32,
     session_timeout_seconds: i32,
     handshake_timeout_seconds: i32
@@ -28,6 +31,46 @@ pub struct TcpTable {
 
 // Default for `protocols.tcp.handshake_timeout_seconds`. Real stacks stop retransmitting a SYN after ~1 minute.
 pub const DEFAULT_HANDSHAKE_TIMEOUT_SECONDS: i32 = 60;
+
+// Upper bound of distinct probe shapes held between two reports. A stealth scan of every port produces one
+// shape per port, so this caps memory and report size under a flood. Overflow is counted in a metric.
+pub const MAX_PROBES: usize = 25_000;
+
+/*
+ * A stateless TCP probe: A segment that does not belong to a known session and cannot be the start of one,
+ * with a shape no real stack sends. These are what OS fingerprinting (nmap T2-T7) and stealth port scans
+ * (NULL, FIN, Xmas, ACK scans) look like on the wire.
+ */
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TcpProbeKey {
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub destination_port: u16,
+    pub flag_syn: bool,
+    pub flag_ack: bool,
+    pub flag_fin: bool,
+    pub flag_rst: bool,
+    pub flag_psh: bool,
+    pub flag_urg: bool,
+    pub flag_ece: bool,
+    pub flag_cwr: bool,
+    pub window_size: u16,
+    pub maximum_segment_size: Option<u16>,
+    pub window_scale_multiplier: Option<u8>,
+    pub options: Vec<u8>,
+    pub ip_ttl: u8,
+    pub ip_tos: u8,
+    pub ip_df: bool
+}
+
+#[derive(Debug, Clone)]
+pub struct TcpProbe {
+    pub packet_count: u64,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>
+}
 
 #[derive(Debug)]
 pub struct TcpSession {
@@ -101,6 +144,8 @@ impl TcpTable {
             ethernet_bus,
             metrics,
             sessions: Mutex::new(HashMap::new()),
+            probes: Mutex::new(HashMap::new()),
+            probes_dropped: AtomicU64::new(0),
             reassembly_buffer_size,
             session_timeout_seconds,
             handshake_timeout_seconds
@@ -164,8 +209,9 @@ impl TcpTable {
 
                         let session_state = Self::determine_session_state(segment, None);
 
-                        // We only record new sessions, not mid-session.
-                        if session_state == SynSent {
+                        // We only record new sessions, not mid-session. A SYN with FIN is not a connection
+                        // attempt but a probe (nmap T3) and is recorded as such below.
+                        if session_state == SynSent && !segment.flags.fin {
                             /*
                              * This branch only runs for a bare SYN, which is by definition
                              * the client opening segment, so direction is always ClientToServer.
@@ -216,12 +262,68 @@ impl TcpTable {
                                 "tables.tcp.sessions.timer.register_new",
                                 &self.metrics
                             );
+                        } else if is_probe_segment(segment) {
+                            self.register_probe(segment);
                         }
                     }
                 }
             },
             Err(e) => {
                 error!("Could not acquire TCP sessions table mutex: {}", e);
+            }
+        }
+    }
+
+    fn register_probe(&self, segment: &Arc<TcpSegment>) {
+        let key = TcpProbeKey {
+            source_mac: segment.source_mac.clone(),
+            destination_mac: segment.destination_mac.clone(),
+            source_address: segment.source_address,
+            destination_address: segment.destination_address,
+            destination_port: segment.destination_port,
+            flag_syn: segment.flags.syn,
+            flag_ack: segment.flags.ack,
+            flag_fin: segment.flags.fin,
+            flag_rst: segment.flags.reset,
+            flag_psh: segment.flags.psh,
+            flag_urg: segment.flags.urg,
+            flag_ece: segment.flags.ece,
+            flag_cwr: segment.flags.cwr,
+            window_size: segment.window_size,
+            maximum_segment_size: segment.maximum_segment_size,
+            window_scale_multiplier: segment.window_scale_multiplier,
+            options: segment.options.clone(),
+            ip_ttl: segment.ip_ttl,
+            ip_tos: segment.ip_tos,
+            ip_df: segment.ip_df
+        };
+
+        match self.probes.lock() {
+            Ok(mut probes) => {
+                match probes.get_mut(&key) {
+                    Some(probe) => {
+                        probe.packet_count += 1;
+                        probe.last_seen = segment.timestamp;
+                    },
+                    None => {
+                        if probes.len() >= MAX_PROBES {
+                            trace!("TCP probe table is full. Dropping probe: {:?}", key);
+                            self.probes_dropped.fetch_add(1, Ordering::Relaxed);
+                            return;
+                        }
+
+                        trace!("New TCP probe: {:?}, Flags: {:?}", segment.session_key, segment.flags);
+
+                        probes.insert(key, TcpProbe {
+                            packet_count: 1,
+                            first_seen: segment.timestamp,
+                            last_seen: segment.timestamp
+                        });
+                    }
+                }
+            },
+            Err(e) => {
+                error!("Could not acquire TCP probes table mutex: {}", e);
             }
         }
     }
@@ -289,6 +391,47 @@ impl TcpTable {
                 error!("Could not acquire TCP sessions table mutex for report generation: {}", e);
             }
         }
+
+        self.process_probes_report();
+    }
+
+    // Probes are reported once and then forgotten.
+    fn process_probes_report(&self) {
+        let probes: Vec<(TcpProbeKey, TcpProbe)> = match self.probes.lock() {
+            Ok(mut probes) => probes.drain().collect(),
+            Err(e) => {
+                error!("Could not acquire TCP probes table mutex for report generation: {}", e);
+                return;
+            }
+        };
+
+        if probes.is_empty() {
+            return;
+        }
+
+        let mut timer = Timer::new();
+        let report = match serde_json::to_string(&tcp_probes_report::generate(&probes)) {
+            Ok(report) => report,
+            Err(e) => {
+                error!("Could not serialize TCP probes report: {}", e);
+                return;
+            }
+        };
+        timer.stop();
+        record_timer(
+            timer.elapsed_microseconds(),
+            "tables.tcp.timer.probes_report_generation",
+            &self.metrics
+        );
+
+        match self.leaderlink.lock() {
+            Ok(link) => {
+                if let Err(e) = link.send_report("tcp/probes", report) {
+                    error!("Could not submit TCP probes report: {}", e);
+                }
+            },
+            Err(e) => error!("Could not acquire leader link lock for TCP probes report submission: {}", e)
+        }
     }
 
     pub fn calculate_metrics(&self) {
@@ -305,10 +448,20 @@ impl TcpTable {
             }
         };
 
+        let probes_size: i128 = match self.probes.lock() {
+            Ok(probes) => probes.len() as i128,
+            Err(e) => {
+                error!("Could not acquire mutex to calculate TCP probes table size: {}", e);
+                -1
+            }
+        };
+
         match self.metrics.lock() {
             Ok(mut metrics) => {
                 metrics.set_gauge("tables.tcp.sessions.size", sessions_size);
                 metrics.set_gauge("tables.tcp.sessions.bytes", sessions_bytes);
+                metrics.set_gauge("tables.tcp.probes.size", probes_size);
+                metrics.set_gauge("tables.tcp.probes.dropped", self.probes_dropped.load(Ordering::Relaxed) as i128);
             },
             Err(e) => error!("Could not acquire metrics mutex: {}", e)
         }
@@ -383,6 +536,28 @@ impl TcpTable {
     }
 }
 
+pub fn is_probe_segment(segment: &TcpSegment) -> bool {
+    let flags = &segment.flags;
+
+    if flags.is_null() {
+        return true;
+    }
+
+    if flags.syn && flags.fin {
+        return true;
+    }
+
+    if (flags.fin || flags.urg) && !flags.ack {
+        return true;
+    }
+
+    if !flags.syn && segment.options.iter().any(|kind| *kind == 2 || *kind == 3 || *kind == 4) {
+        return true;
+    }
+
+    false
+}
+
 fn insert_session_segment(segment: &TcpSegment, segments: &mut BTreeMap<u32, Vec<u8>>) {
     match segments.get(&segment.sequence_number) {
         Some(_) => {
@@ -443,6 +618,7 @@ fn incremental_counter_sweep(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::wired::packets::TcpFlags;
     use std::net::Ipv4Addr;
 
     fn session(port: u16, state: TcpSessionState, idle_seconds: i64) -> (L4Key, TcpSession) {
@@ -495,6 +671,63 @@ mod tests {
             IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), port
         );
         sessions.get(&key).unwrap().state.clone()
+    }
+
+    fn segment(flags: TcpFlags, options: Vec<u8>) -> TcpSegment {
+        TcpSegment {
+            sequence_number: 1,
+            ack_number: 0,
+            source_mac: None,
+            destination_mac: None,
+            source_address: "192.168.0.10".parse().unwrap(),
+            destination_address: "192.168.0.1".parse().unwrap(),
+            source_port: 40000,
+            destination_port: 22,
+            session_key: L4Key::new("192.168.0.10".parse().unwrap(), 40000, "192.168.0.1".parse().unwrap(), 22),
+            flags,
+            payload: Vec::new(),
+            ip_ttl: 64,
+            ip_tos: 0,
+            ip_df: true,
+            window_size: 1024,
+            maximum_segment_size: None,
+            window_scale_multiplier: None,
+            options,
+            size: 54,
+            timestamp: Utc::now()
+        }
+    }
+
+    fn flags(syn: bool, ack: bool, fin: bool, reset: bool, psh: bool, urg: bool) -> TcpFlags {
+        TcpFlags { syn, ack, fin, reset, psh, urg, ece: false, cwr: false }
+    }
+
+    #[test]
+    fn probe_detection_matches_crafted_shapes() {
+        // nmap T2 / NULL scan.
+        assert!(is_probe_segment(&segment(flags(false, false, false, false, false, false), vec![3, 1, 2, 8, 4])));
+        // nmap T3.
+        assert!(is_probe_segment(&segment(flags(true, false, true, false, true, true), vec![3, 1, 2, 8, 4])));
+        // nmap T4 / T6: bare ACK with SYN-only options.
+        assert!(is_probe_segment(&segment(flags(false, true, false, false, false, false), vec![3, 1, 2, 8, 4])));
+        // nmap T7 / Xmas scan.
+        assert!(is_probe_segment(&segment(flags(false, false, true, false, true, true), vec![3, 1, 2, 8, 4])));
+        // FIN scan.
+        assert!(is_probe_segment(&segment(flags(false, false, true, false, false, false), vec![])));
+    }
+
+    #[test]
+    fn probe_detection_ignores_regular_traffic() {
+        // Plain SYN: a session, not a probe.
+        assert!(!is_probe_segment(&segment(flags(true, false, false, false, false, false), vec![2, 4, 8, 1, 3])));
+        // SYN/ACK with options.
+        assert!(!is_probe_segment(&segment(flags(true, true, false, false, false, false), vec![2, 4, 8, 1, 3])));
+        // Mid-session data with timestamps and SACK blocks (kinds 8, 5), seen after capture start.
+        assert!(!is_probe_segment(&segment(flags(false, true, false, false, true, false), vec![1, 1, 8])));
+        assert!(!is_probe_segment(&segment(flags(false, true, false, false, false, false), vec![1, 1, 5])));
+        // Regular FIN/ACK and RST.
+        assert!(!is_probe_segment(&segment(flags(false, true, true, false, false, false), vec![1, 1, 8])));
+        assert!(!is_probe_segment(&segment(flags(false, false, false, true, false, false), vec![])));
     }
 
     #[test]

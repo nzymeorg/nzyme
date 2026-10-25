@@ -16,6 +16,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.portalintegrity.PortalI
 import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tls.TlsSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.uav.UavsReport;
@@ -94,6 +95,22 @@ public class TablesResource {
 
         LOG.debug("Received TCP session table report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().tcp().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/tcp/probes")
+    public Response tcpProbes(@Context SecurityContext sc, TcpProbesReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting TCP probes report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received TCP probes report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().tcp().handleProbesReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

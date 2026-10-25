@@ -705,13 +705,95 @@ public class ReconDetector {
                 .list();
     }
 
-    // Nmap OS-detection signatures. The first three are nmap-specific; timestamp and address mask are weak
-    // (some discovery tools use them) and only count alongside a strong signature.
+    /*
+     * Nmap OS-detection probe signatures. The probes are described in nmap's osscan2.cc and
+     * https://nmap.org/book/osdetect-methods.html. Strong signatures are shapes nothing else on a network
+     * sends. Weak signatures are used by some discovery tools as well and only count alongside a strong one.
+     */
+
+    // ICMP (IE probes). The first three are nmap-specific.
     static final String SIGNATURE_ECHO_NONZERO_CODE = "ECHO_NONZERO_CODE";
     static final String SIGNATURE_ECHO_TOS_4 = "ECHO_TOS_4";
     static final String SIGNATURE_INFORMATION_REQUEST = "INFORMATION_REQUEST";
     static final String SIGNATURE_TIMESTAMP_REQUEST = "TIMESTAMP_REQUEST";
     static final String SIGNATURE_ADDRESS_MASK_REQUEST = "ADDRESS_MASK_REQUEST";
+
+    // TCP. The six SEQ probes are SYNs to an open port with fixed window sizes and option layouts. A single
+    // shape is weak, two or more distinct shapes are strong. ECN, T3 and T5 are individually unique shapes.
+    static final String SIGNATURE_TCP_SEQ_PROBES = "TCP_SEQ_PROBES";
+    static final String SIGNATURE_TCP_ECN_PROBE = "TCP_ECN_PROBE";
+    static final String SIGNATURE_TCP_T3_PROBE = "TCP_T3_PROBE";
+    static final String SIGNATURE_TCP_T5_PROBE = "TCP_T5_PROBE";
+
+    // TCP probes without a session (recorded by the tap in tcp_probes): T2 NULL, T4/T6 bare ACK with SYN-only
+    // options, T7 FIN/PSH/URG. T3 (SYN/FIN/PSH/URG) also lands here on taps that know the probe table.
+    static final String SIGNATURE_TCP_T2_PROBE = "TCP_T2_PROBE";
+    static final String SIGNATURE_TCP_T4_PROBE = "TCP_T4_PROBE";
+    static final String SIGNATURE_TCP_T6_PROBE = "TCP_T6_PROBE";
+    static final String SIGNATURE_TCP_T7_PROBE = "TCP_T7_PROBE";
+
+    // UDP (U1 probe): A single datagram with 300 bytes of payload to a closed port. Weak on its own.
+    static final String SIGNATURE_UDP_U1_PROBE = "UDP_U1_PROBE";
+
+    /* U1 payload (300 bytes) plus UDP, IPv4 and Ethernet headers, as the tap sizes datagrams. */
+    static final int UDP_U1_PROBE_BYTES = 300 + 8 + 20 + 14;
+
+    static final List<String> STRONG_SIGNATURES = List.of(
+            SIGNATURE_ECHO_NONZERO_CODE,
+            SIGNATURE_ECHO_TOS_4,
+            SIGNATURE_INFORMATION_REQUEST,
+            SIGNATURE_TCP_ECN_PROBE,
+            SIGNATURE_TCP_T2_PROBE,
+            SIGNATURE_TCP_T3_PROBE,
+            SIGNATURE_TCP_T4_PROBE,
+            SIGNATURE_TCP_T5_PROBE,
+            SIGNATURE_TCP_T6_PROBE,
+            SIGNATURE_TCP_T7_PROBE
+    );
+
+    /*
+     * TCP SYN shapes of the nmap SEQ probes, as (window size, option kinds in order). Option kinds are what the tap
+     * records: 0 EOL, 1 NOP, 2 MSS, 3 window scale, 4 SACK permitted, 8 timestamp.
+     */
+    private static final String TCP_SEQ_SHAPE_CONDITION =
+            "((tcp_syn_window_size = 1 AND tcp_syn_options = '[3,1,2,8,4]'::jsonb) " +
+            "OR (tcp_syn_window_size = 63 AND tcp_syn_options = '[2,3,4,8,0]'::jsonb) " +
+            "OR (tcp_syn_window_size = 4 AND tcp_syn_options = '[8,1,1,3,1,2]'::jsonb) " +
+            "OR (tcp_syn_window_size = 4 AND tcp_syn_options = '[4,8,3,0]'::jsonb) " +
+            "OR (tcp_syn_window_size = 16 AND tcp_syn_options = '[2,4,8,3,0]'::jsonb) " +
+            "OR (tcp_syn_window_size = 512 AND tcp_syn_options = '[2,4,8]'::jsonb))";
+
+    // ECN probe: SYN with ECE and CWR set, window 3, options WScale/NOP/MSS/SACK/NOP/NOP.
+    private static final String TCP_ECN_SHAPE_CONDITION =
+            "(tcp_syn_ece = true AND tcp_syn_cwr = true AND tcp_syn_window_size = 3 " +
+            "AND tcp_syn_options = '[3,1,2,4,1,1]'::jsonb)";
+
+    // T3: SYN/FIN/URG/PSH to an open port, window 256. T5: SYN to a closed port, window 31337. Both use MSS 265.
+    private static final String TCP_T3_SHAPE_CONDITION =
+            "(tcp_syn_window_size = 256 AND tcp_syn_maximum_segment_size = 265 " +
+            "AND tcp_syn_options = '[3,1,2,8,4]'::jsonb)";
+    private static final String TCP_T5_SHAPE_CONDITION =
+            "(tcp_syn_window_size = 31337 AND tcp_syn_maximum_segment_size = 265 " +
+            "AND tcp_syn_options = '[3,1,2,8,4]'::jsonb)";
+
+    // Stateless probes (tcp_probes). All nmap T probes carry MSS 265 and the same option kinds.
+    private static final String PROBE_NMAP_OPTIONS_CONDITION =
+            "maximum_segment_size = 265 AND options = '[3,1,2,8,4]'::jsonb";
+    private static final String PROBE_T2_CONDITION =
+            "(NOT flag_syn AND NOT flag_ack AND NOT flag_fin AND NOT flag_rst AND NOT flag_psh AND NOT flag_urg " +
+            "AND window_size = 128 AND " + PROBE_NMAP_OPTIONS_CONDITION + ")";
+    private static final String PROBE_T3_CONDITION =
+            "(flag_syn AND flag_fin AND flag_psh AND flag_urg AND NOT flag_ack AND window_size = 256 " +
+            "AND " + PROBE_NMAP_OPTIONS_CONDITION + ")";
+    private static final String PROBE_T4_CONDITION =
+            "(flag_ack AND NOT flag_syn AND NOT flag_fin AND NOT flag_rst AND NOT flag_psh AND NOT flag_urg " +
+            "AND window_size = 1024 AND " + PROBE_NMAP_OPTIONS_CONDITION + ")";
+    private static final String PROBE_T6_CONDITION =
+            "(flag_ack AND NOT flag_syn AND NOT flag_fin AND NOT flag_rst AND NOT flag_psh AND NOT flag_urg " +
+            "AND window_size = 32768 AND " + PROBE_NMAP_OPTIONS_CONDITION + ")";
+    private static final String PROBE_T7_CONDITION =
+            "(flag_fin AND flag_psh AND flag_urg AND NOT flag_syn AND NOT flag_ack AND window_size = 65535 " +
+            "AND " + PROBE_NMAP_OPTIONS_CONDITION + ")";
 
     private List<Candidate> readFingerprintingCandidates(Handle handle,
                                                          List<UUID> taps,
@@ -720,34 +802,88 @@ public class ReconDetector {
                                                          ReconConfiguration config) {
         List<Candidate> result = Lists.newArrayList();
 
-        handle.createQuery("WITH probes AS (SELECT source_address, source_mac, destination_address, " +
+        String l4SourceCondition = config.includeExternalSources() ? "" : "AND source_address_is_site_local = true ";
+        String l4TargetCondition = config.includeExternalTargets() ? "" : "AND destination_address_is_site_local = true ";
+
+        String strongSignatures = STRONG_SIGNATURES.stream()
+                .map(s -> "'" + s + "'")
+                .collect(Collectors.joining(", "));
+
+        handle.createQuery("WITH probes AS (" +
+                        "SELECT 'ICMP' AS protocol, source_address, source_mac, destination_address, " +
+                        "NULL::integer AS destination_port, " +
                         "CASE WHEN icmp_type = 8 AND icmp_code <> 0 THEN '" + SIGNATURE_ECHO_NONZERO_CODE + "' " +
                         "WHEN icmp_type = 8 AND ip_tos = 4 THEN '" + SIGNATURE_ECHO_TOS_4 + "' " +
                         "WHEN icmp_type = 15 THEN '" + SIGNATURE_INFORMATION_REQUEST + "' " +
                         "WHEN icmp_type = 13 THEN '" + SIGNATURE_TIMESTAMP_REQUEST + "' " +
                         "WHEN icmp_type = 17 THEN '" + SIGNATURE_ADDRESS_MASK_REQUEST + "' END AS signature, " +
-                        "packet_count, first_seen, last_seen, tap_uuid, ip_ttl, bytes_max " +
+                        "NULL::text AS seq_shape, packet_count AS probe_count, first_seen, last_seen, tap_uuid, " +
+                        "ip_ttl, bytes_max, false AS replied " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND last_seen >= :since AND last_seen <= :until " +
                         "AND ((icmp_type = 8 AND (icmp_code <> 0 OR ip_tos = 4)) OR icmp_type IN (13, 15, 17)) " +
                         siteLocalCondition("source_address", config.includeExternalSources()) +
-                        siteLocalCondition("destination_address", config.includeExternalTargets()) + "), " +
+                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        "UNION ALL " +
+                        "SELECT 'TCP' AS protocol, source_address, source_mac, destination_address, destination_port, " +
+                        "CASE WHEN " + TCP_ECN_SHAPE_CONDITION + " THEN '" + SIGNATURE_TCP_ECN_PROBE + "' " +
+                        "WHEN " + TCP_T5_SHAPE_CONDITION + " THEN '" + SIGNATURE_TCP_T5_PROBE + "' " +
+                        "WHEN " + TCP_T3_SHAPE_CONDITION + " THEN '" + SIGNATURE_TCP_T3_PROBE + "' " +
+                        "WHEN " + TCP_SEQ_SHAPE_CONDITION + " THEN '" + SIGNATURE_TCP_SEQ_PROBES + "' END AS signature, " +
+                        "CASE WHEN " + TCP_SEQ_SHAPE_CONDITION + " THEN tcp_syn_window_size::text || '/' || tcp_syn_options::text " +
+                        "END AS seq_shape, 1 AS probe_count, start_time AS first_seen, " +
+                        "most_recent_segment_time AS last_seen, tap_uuid, ip_ttl, NULL::integer AS bytes_max, " +
+                        "bytes_rx_count > 0 AS replied " +
+                        "FROM l4_sessions WHERE tap_uuid IN (<taps>) AND l4_type = 'TCP' " +
+                        "AND start_time >= :since AND start_time <= :until " +
+                        "AND source_address_is_multicast = false AND destination_address_is_multicast = false " +
+                        l4SourceCondition + l4TargetCondition +
+                        "AND (" + TCP_SEQ_SHAPE_CONDITION + " OR " + TCP_ECN_SHAPE_CONDITION + " OR " +
+                        TCP_T3_SHAPE_CONDITION + " OR " + TCP_T5_SHAPE_CONDITION + ") " +
+                        "UNION ALL " +
+                        "SELECT 'TCP' AS protocol, source_address, source_mac, destination_address, destination_port, " +
+                        "CASE WHEN " + PROBE_T2_CONDITION + " THEN '" + SIGNATURE_TCP_T2_PROBE + "' " +
+                        "WHEN " + PROBE_T3_CONDITION + " THEN '" + SIGNATURE_TCP_T3_PROBE + "' " +
+                        "WHEN " + PROBE_T4_CONDITION + " THEN '" + SIGNATURE_TCP_T4_PROBE + "' " +
+                        "WHEN " + PROBE_T6_CONDITION + " THEN '" + SIGNATURE_TCP_T6_PROBE + "' " +
+                        "WHEN " + PROBE_T7_CONDITION + " THEN '" + SIGNATURE_TCP_T7_PROBE + "' END AS signature, " +
+                        "NULL::text AS seq_shape, packet_count AS probe_count, first_seen, last_seen, tap_uuid, " +
+                        "ip_ttl, NULL::integer AS bytes_max, false AS replied " +
+                        "FROM tcp_probes WHERE tap_uuid IN (<taps>) AND last_seen >= :since AND last_seen <= :until " +
+                        l4SourceCondition + l4TargetCondition +
+                        "AND (" + PROBE_T2_CONDITION + " OR " + PROBE_T3_CONDITION + " OR " + PROBE_T4_CONDITION +
+                        " OR " + PROBE_T6_CONDITION + " OR " + PROBE_T7_CONDITION + ") " +
+                        "UNION ALL " +
+                        "SELECT 'UDP' AS protocol, source_address, source_mac, destination_address, destination_port, " +
+                        "'" + SIGNATURE_UDP_U1_PROBE + "' AS signature, NULL::text AS seq_shape, 1 AS probe_count, " +
+                        "start_time AS first_seen, most_recent_segment_time AS last_seen, tap_uuid, ip_ttl, " +
+                        "NULL::integer AS bytes_max, bytes_rx_count > 0 AS replied " +
+                        "FROM l4_sessions WHERE tap_uuid IN (<taps>) AND l4_type = 'UDP' " +
+                        "AND start_time >= :since AND start_time <= :until " +
+                        "AND source_address_is_multicast = false AND destination_address_is_multicast = false " +
+                        l4SourceCondition + l4TargetCondition +
+                        "AND segments_count = 1 AND bytes_tx_count = :u1_bytes AND bytes_rx_count = 0), " +
                         "replies AS (SELECT DISTINCT source_address AS replier, destination_address AS requester " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (0, 14, 16, 18) " +
                         "AND last_seen >= :since AND last_seen <= :until) " +
                         "SELECT host(p.source_address) AS source_address, p.source_mac, " +
                         "host(p.destination_address) AS target_address, " +
-                        "array_agg(DISTINCT p.signature) AS signatures, SUM(p.packet_count) AS probe_count, " +
+                        "array_agg(DISTINCT p.signature) AS signatures, array_agg(DISTINCT p.protocol) AS protocols, " +
+                        "array_agg(DISTINCT p.destination_port) FILTER (WHERE p.protocol = 'TCP') AS tcp_ports, " +
+                        "COUNT(DISTINCT p.seq_shape) AS tcp_seq_probes, " +
+                        "SUM(p.probe_count) AS probe_count, " +
                         "MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen, " +
                         "string_agg(DISTINCT p.tap_uuid::text, ',') AS taps, " +
-                        "mode() WITHIN GROUP (ORDER BY p.ip_ttl) AS ip_ttl, MAX(p.bytes_max) AS bytes_max, " +
-                        "bool_or(r.replier IS NOT NULL) AS replied " +
+                        "mode() WITHIN GROUP (ORDER BY p.ip_ttl) FILTER (WHERE p.ip_ttl IS NOT NULL) AS ip_ttl, " +
+                        "MAX(p.bytes_max) AS bytes_max, " +
+                        "bool_or(p.replied OR r.replier IS NOT NULL) AS replied " +
                         "FROM probes p LEFT JOIN replies r ON r.replier = p.destination_address AND r.requester = p.source_address " +
+                        "WHERE p.signature IS NOT NULL " +
                         "GROUP BY p.source_address, p.source_mac, p.destination_address " +
-                        "HAVING bool_or(p.signature IN ('" + SIGNATURE_ECHO_NONZERO_CODE + "', '" + SIGNATURE_ECHO_TOS_4 + "', '" +
-                        SIGNATURE_INFORMATION_REQUEST + "'))")
+                        "HAVING bool_or(p.signature IN (" + strongSignatures + ")) OR COUNT(DISTINCT p.seq_shape) >= 2")
                 .bindList("taps", taps)
                 .bind("since", since)
                 .bind("until", until)
+                .bind("u1_bytes", UDP_U1_PROBE_BYTES)
                 .mapToMap()
                 .forEach(row -> {
                     try {
@@ -757,10 +893,20 @@ public class ReconDetector {
                         boolean replied = Boolean.TRUE.equals(row.get("replied"));
                         long probeCount = ((Number) row.get("probe_count")).longValue();
                         List<String> signatures = stringArray(row.get("signatures"));
+                        List<String> protocols = stringArray(row.get("protocols"));
+                        List<String> tcpPorts = stringArray(row.get("tcp_ports"));
+                        long tcpSeqProbes = ((Number) row.get("tcp_seq_probes")).longValue();
 
                         Map<String, Object> enrichment = Maps.newHashMap();
-                        enrichment.put("l4_type", "ICMP");
+                        enrichment.put("l4_type", protocols.size() == 1 ? protocols.get(0) : "MIXED");
+                        enrichment.put("protocols", protocols);
                         enrichment.put("signatures", signatures);
+                        if (!tcpPorts.isEmpty()) {
+                            enrichment.put("tcp_ports", tcpPorts.stream().map(Integer::parseInt).toList());
+                        }
+                        if (tcpSeqProbes > 0) {
+                            enrichment.put("tcp_seq_probes", tcpSeqProbes);
+                        }
                         putIfNotNull(enrichment, "ip_ttl", row.get("ip_ttl"));
                         putIfNotNull(enrichment, "payload_bytes_max", row.get("bytes_max"));
 
@@ -774,7 +920,7 @@ public class ReconDetector {
                                 sourceMac,
                                 targetAddress,
                                 1,
-                                0,
+                                tcpPorts.size(),
                                 probeCount,
                                 replied ? 1 : 0,
                                 0,

@@ -18,6 +18,15 @@ const signatureName = (signature) => {
     case "INFORMATION_REQUEST": return "Information request";
     case "TIMESTAMP_REQUEST": return "Timestamp request";
     case "ADDRESS_MASK_REQUEST": return "Address mask request";
+    case "TCP_SEQ_PROBES": return "TCP SYN sequence";
+    case "TCP_ECN_PROBE": return "TCP ECN SYN";
+    case "TCP_T2_PROBE": return "TCP NULL (T2)";
+    case "TCP_T3_PROBE": return "TCP SYN/FIN (T3)";
+    case "TCP_T4_PROBE": return "TCP ACK (T4)";
+    case "TCP_T5_PROBE": return "TCP SYN, window 31337 (T5)";
+    case "TCP_T6_PROBE": return "TCP ACK (T6)";
+    case "TCP_T7_PROBE": return "TCP FIN/PSH/URG (T7)";
+    case "UDP_U1_PROBE": return "UDP 300 byte probe";
     default: return signature;
   }
 }
@@ -71,7 +80,7 @@ export default function ReconFingerprintingTable({scans, page, setPage, perPage,
           return (
             <tr key={s.uuid}>
               <td>
-                <Link to={ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(s.uuid)}>
+                <Link to={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(s.uuid)}>
                   <FullCopyShortenedId value={s.uuid} />
                 </Link>
                 {s.matching_exclusions && s.matching_exclusions.length > 0 ?

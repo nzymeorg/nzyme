@@ -7,6 +7,8 @@ import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
 import app.nzyme.core.ethernet.l4.tcp.db.TcpSessionEntry;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.integrations.geoip.GeoIpService;
+import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbeReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
 import app.nzyme.core.tables.DataTable;
@@ -40,6 +42,7 @@ public class TCPTable implements DataTable {
 
     private final Timer totalReportTimer;
     private final Timer sessionsReportTimer;
+    private final Timer probesReportTimer;
     private final Timer sessionDiscoveryTimer;
     private final Timer assetRegistrationTimer;
 
@@ -57,6 +60,9 @@ public class TCPTable implements DataTable {
 
         this.sessionsReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.TCP_SESSIONS_REPORT_PROCESSING_TIMER);
+
+        this.probesReportTimer = tablesService.getNzyme().getMetrics()
+                .timer(MetricNames.TCP_PROBES_REPORT_PROCESSING_TIMER);
 
         this.sessionDiscoveryTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.TCP_SESSION_DISCOVERY_QUERY_TIMER);
@@ -82,6 +88,25 @@ public class TCPTable implements DataTable {
                         registerAssets(handle, tap.get(), timestamp, report.sessions());
                     }
                 });
+            });
+        }
+    }
+
+    public void handleProbesReport(UUID tapUuid, DateTime timestamp, TcpProbesReport report) {
+        if (report.probes() == null || report.probes().isEmpty()) {
+            return;
+        }
+
+        try (Timer.Context ignored = probesReportTimer.time()) {
+            tablesService.getProcessorPool().submit(() -> {
+                Optional<Tap> tap = tablesService.getNzyme().getTapManager().findTap(tapUuid);
+                if (tap.isEmpty()) {
+                    throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
+                }
+
+                tablesService.getNzyme().getDatabase().useHandle(handle ->
+                        writeProbes(handle, tap.get(), timestamp, report.probes())
+                );
             });
         }
     }
@@ -298,6 +323,76 @@ public class TCPTable implements DataTable {
                     .execute();
         } catch (Exception e) {
             LOG.error("Could not write TCP statistics.", e);
+        }
+    }
+
+    private void writeProbes(Handle handle, Tap tap, DateTime timestamp, List<TcpProbeReport> probes) {
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO tcp_probes(tap_uuid, source_mac, source_address, " +
+                "source_address_is_site_local, destination_mac, destination_address, " +
+                "destination_address_is_site_local, destination_port, flag_syn, flag_ack, flag_fin, flag_rst, " +
+                "flag_psh, flag_urg, flag_ece, flag_cwr, window_size, maximum_segment_size, " +
+                "window_scale_multiplier, options, ip_ttl, ip_tos, ip_df, packet_count, first_seen, last_seen, " +
+                "created_at) VALUES(:tap_uuid, :source_mac, :source_address::inet, :source_address_is_site_local, " +
+                ":destination_mac, :destination_address::inet, :destination_address_is_site_local, " +
+                ":destination_port, :flag_syn, :flag_ack, :flag_fin, :flag_rst, :flag_psh, :flag_urg, :flag_ece, " +
+                ":flag_cwr, :window_size, :maximum_segment_size, :window_scale_multiplier, :options::jsonb, " +
+                ":ip_ttl, :ip_tos, :ip_df, :packet_count, :first_seen, :last_seen, :created_at)");
+
+        int added = 0;
+        for (TcpProbeReport probe : probes) {
+            try {
+                InetAddress sourceAddress = stringtoInetAddress(probe.sourceAddress());
+                InetAddress destinationAddress = stringtoInetAddress(probe.destinationAddress());
+
+                String options;
+                try {
+                    options = om.writeValueAsString(probe.options() == null ? List.of() : probe.options());
+                } catch (JacksonException e) {
+                    throw new RuntimeException("Could not serialize probe options: " + probe.options(), e);
+                }
+
+                batch.bind("tap_uuid", tap.uuid())
+                        .bind("source_mac", probe.sourceMac())
+                        .bind("source_address", probe.sourceAddress())
+                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("destination_mac", probe.destinationMac())
+                        .bind("destination_address", probe.destinationAddress())
+                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_port", probe.destinationPort())
+                        .bind("flag_syn", probe.flagSyn())
+                        .bind("flag_ack", probe.flagAck())
+                        .bind("flag_fin", probe.flagFin())
+                        .bind("flag_rst", probe.flagRst())
+                        .bind("flag_psh", probe.flagPsh())
+                        .bind("flag_urg", probe.flagUrg())
+                        .bind("flag_ece", probe.flagEce())
+                        .bind("flag_cwr", probe.flagCwr())
+                        .bind("window_size", probe.windowSize())
+                        .bind("maximum_segment_size", probe.maximumSegmentSize())
+                        .bind("window_scale_multiplier", probe.windowScaleMultiplier())
+                        .bind("options", options)
+                        .bind("ip_ttl", probe.ipTtl())
+                        .bind("ip_tos", probe.ipTos())
+                        .bind("ip_df", probe.ipDf())
+                        .bind("packet_count", probe.packetCount())
+                        .bind("first_seen", probe.firstSeen())
+                        .bind("last_seen", probe.lastSeen())
+                        .bind("created_at", timestamp)
+                        .add();
+                added++;
+            } catch (Exception e) {
+                LOG.error("Could not handle TCP probe.", e);
+            }
+        }
+
+        if (added == 0) {
+            return;
+        }
+
+        try {
+            batch.execute();
+        } catch (Exception e) {
+            LOG.error("Could not write TCP probes.", e);
         }
     }
 

@@ -669,6 +669,7 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.DETAILS(':uuid')} element={<ReconExclusionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.EDIT(':uuid')} element={<EditReconExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.INDEX} element={<ReconFingerprintingPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(':uuid')} element={<ReconScanDetailsPage />}/>
 
                                 { /* Ethernet/ICMP. */}
                                 <Route path={ApiRoutes.ETHERNET.ICMP.OVERVIEW} element={<IcmpTrafficPage />}/>
