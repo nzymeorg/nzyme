@@ -246,7 +246,8 @@ export default function ReconScanDetailsPage() {
                     <L4Address address={scan.target_address_data} hidePort={true} withAssetName />
                     : <span>{numeral(scan.host_count).format("0,0")} hosts</span>}
                 </dd>
-                {scan.type !== "ARP_SWEEP" && scan.type !== "ICMP_SWEEP" && scan.type !== "OS_FINGERPRINTING" ?
+                {scan.type !== "ARP_SWEEP" && scan.type !== "ICMP_SWEEP" && scan.type !== "DNS_REVERSE_SWEEP"
+                  && scan.type !== "OS_FINGERPRINTING" ?
                   <React.Fragment>
                     <dt>Distinct Ports</dt>
                     <dd>{numeral(scan.port_count).format("0,0")}</dd>

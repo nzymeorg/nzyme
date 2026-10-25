@@ -118,6 +118,7 @@ public class Recon {
                 booleanValue(ReconRegistryKeys.SOURCE_UDP_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.SOURCE_ARP_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.SOURCE_ICMP_ENABLED, organizationId, tenantId),
+                booleanValue(ReconRegistryKeys.SOURCE_DNS_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.FINGERPRINTING_ENABLED, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.INCLUDE_EXTERNAL_SOURCES, organizationId, tenantId),
                 booleanValue(ReconRegistryKeys.INCLUDE_EXTERNAL_TARGETS, organizationId, tenantId),

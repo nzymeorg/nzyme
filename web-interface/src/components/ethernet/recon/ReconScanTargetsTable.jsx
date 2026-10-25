@@ -31,7 +31,8 @@ export default function ReconScanTargetsTable({scan, targets, page, setPage, per
     return <div className="alert alert-info mb-0">No targets match the current filters.</div>
   }
 
-  const showPort = scan.type !== "ARP_SWEEP" && scan.type !== "ICMP_SWEEP" && scan.type !== "OS_FINGERPRINTING";
+  const showPort = scan.type !== "ARP_SWEEP" && scan.type !== "ICMP_SWEEP" && scan.type !== "DNS_REVERSE_SWEEP"
+    && scan.type !== "OS_FINGERPRINTING";
 
   return (
     <React.Fragment>

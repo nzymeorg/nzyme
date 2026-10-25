@@ -15,6 +15,7 @@ public class ReconRegistryKeys {
     public static final RegistryKey SOURCE_UDP_ENABLED = booleanKey("ethernet_recon_source_udp_enabled", true);
     public static final RegistryKey SOURCE_ARP_ENABLED = booleanKey("ethernet_recon_source_arp_enabled", true);
     public static final RegistryKey SOURCE_ICMP_ENABLED = booleanKey("ethernet_recon_source_icmp_enabled", true);
+    public static final RegistryKey SOURCE_DNS_ENABLED = booleanKey("ethernet_recon_source_dns_enabled", true);
     public static final RegistryKey FINGERPRINTING_ENABLED = booleanKey("ethernet_recon_fingerprinting_enabled", true);
 
     public static final RegistryKey INCLUDE_EXTERNAL_SOURCES =

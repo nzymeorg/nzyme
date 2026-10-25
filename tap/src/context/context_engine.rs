@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::{IpAddr, Ipv4Addr};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -29,7 +29,8 @@ pub struct ContextEngine {
     configuration: Configuration,
     macs: Arc<Mutex<HashMap<String, MacAddressContext>>>,
     local_metrics: Arc<Mutex<ContextEngineMetrics>>,
-    used_transaction_ids: Arc<Mutex<Vec<u16>>>
+    used_transaction_ids: Arc<Mutex<Vec<u16>>>,
+    injection_addresses: Arc<Mutex<HashSet<IpAddr>>>
 }
 
 #[derive(Default)]
@@ -50,7 +51,37 @@ impl ContextEngine {
             leaderlink,
             macs: Arc::new(Mutex::new(HashMap::new())),
             local_metrics: Arc::new(Mutex::new(ContextEngineMetrics::default())),
-            used_transaction_ids: Arc::new(Mutex::new(Vec::new()))
+            used_transaction_ids: Arc::new(Mutex::new(Vec::new())),
+            injection_addresses: Arc::new(Mutex::new(HashSet::new()))
+        }
+    }
+
+    /*
+     * The PTR lookups this tap injects for context come back through its own capture. They are sensor traffic,
+     * not activity of the network, and the DNS processor keeps them out of the DNS log. A lookup is ours when its
+     * transaction ID is one we issued and its client is one of our injection addresses.
+     */
+    pub fn is_own_dns_transaction(&self, transaction_id: Option<u16>, client: &IpAddr) -> bool {
+        let Some(transaction_id) = transaction_id else { return false; };
+
+        let own_address = match self.injection_addresses.lock() {
+            Ok(addresses) => addresses.contains(client),
+            Err(e) => {
+                error!("Could not acquire injection addresses mutex: {}", e);
+                false
+            }
+        };
+
+        if !own_address {
+            return false;
+        }
+
+        match self.used_transaction_ids.lock() {
+            Ok(ids) => ids.contains(&transaction_id),
+            Err(e) => {
+                error!("Could not acquire used transaction ID vector mutex: {}", e);
+                false
+            }
         }
     }
 
@@ -63,11 +94,13 @@ impl ContextEngine {
         let configuration = self.configuration.clone();
         let local_metrics = self.local_metrics.clone();
         let used_transaction_ids = self.used_transaction_ids.clone();
+        let injection_addresses = self.injection_addresses.clone();
         scheduler.every(1.minute()).run(move || {
             Self::determine_additional_mac_address_context(&state,
                                                            &configuration,
                                                            &local_metrics,
-                                                           &used_transaction_ids);
+                                                           &used_transaction_ids,
+                                                           &injection_addresses);
         });
 
         // Retention cleaners.
@@ -222,7 +255,8 @@ impl ContextEngine {
     fn determine_additional_mac_address_context(state: &Arc<State>,
                                                 configuration: &Configuration,
                                                 metrics: &Arc<Mutex<ContextEngineMetrics>>,
-                                                used_transaction_ids: &Arc<Mutex<Vec<u16>>>) {
+                                                used_transaction_ids: &Arc<Mutex<Vec<u16>>>,
+                                                injection_addresses: &Arc<Mutex<HashSet<IpAddr>>>) {
         match used_transaction_ids.lock() {
             Ok(mut ids) => ids.clear(),
             Err(e) => {
@@ -303,6 +337,11 @@ impl ContextEngine {
                                     }
                                 }
                             };
+
+                            match injection_addresses.lock() {
+                                Ok(mut addresses) => { addresses.insert(IpAddr::V4(injection_ip)); },
+                                Err(e) => error!("Could not acquire injection addresses mutex: {}", e)
+                            }
 
                             for dns_server in network.dns_servers {
                                 let server_ip: Ipv4Addr = match dns_server.ip() {

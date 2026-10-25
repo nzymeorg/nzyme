@@ -95,6 +95,25 @@ export default function ReconScanEnrichment({scan}) {
     )
   }
 
+  if (scan.type === "DNS_REVERSE_SWEEP") {
+    return (
+      <React.Fragment>
+        <p className="text-muted">
+          The device asked a DNS resolver for the names of many addresses instead of directly probing the hosts. The
+          targets never saw a packet.
+        </p>
+
+        <dl className="mb-0">
+          {e.query_count !== undefined ? <React.Fragment><dt>Queries</dt><dd>{numeral(e.query_count).format("0,0")}</dd></React.Fragment> : null}
+          {row("Resolver", e.resolver)}
+          {e.resolver_count !== undefined && e.resolver_count > 1 ? row("Resolvers Used", e.resolver_count) : null}
+          {e.network_count !== undefined ? row("Networks (/24)", e.network_count) : null}
+          {e.range_coverage_percent !== undefined ? row("Range Coverage", e.range_coverage_percent + "%") : null}
+        </dl>
+      </React.Fragment>
+    )
+  }
+
   if (scan.type === "ARP_SWEEP") {
     if (e.request_count === undefined || e.request_count === null) {
       return NO_DATA;

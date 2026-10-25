@@ -115,6 +115,12 @@ impl DnsProcessor {
     }
 
     pub fn process(&mut self, packet: Arc<DNSPacket>) {
+        // Decided before context registration below, which consumes the transaction ID of an answered lookup.
+        let own_lookup = match packet.dns_type {
+            DNSType::Query => self.context_engine.is_own_dns_transaction(packet.transaction_id, &packet.source_address),
+            DNSType::QueryResponse => self.context_engine.is_own_dns_transaction(packet.transaction_id, &packet.destination_address)
+        };
+
         // Is this a PTR response for an internal host that we can use for context?
         if packet.dns_type == QueryResponse && packet.queries.is_some()
             && packet.transaction_id.is_some() {
@@ -167,6 +173,10 @@ impl DnsProcessor {
                     }
                 }
             }
+        }
+
+        if own_lookup {
+            return;
         }
 
         match self.dns_table.lock() {

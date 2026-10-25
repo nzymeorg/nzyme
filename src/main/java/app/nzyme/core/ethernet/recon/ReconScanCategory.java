@@ -11,6 +11,7 @@ public enum ReconScanCategory {
             ReconScanType.UDP_HOST_SWEEP.name(),
             ReconScanType.ARP_SWEEP.name(),
             ReconScanType.ICMP_SWEEP.name(),
+            ReconScanType.DNS_REVERSE_SWEEP.name(),
             ReconScanType.SLOW_SCAN.name()
     )),
     FINGERPRINTING(List.of(ReconScanType.OS_FINGERPRINTING.name()));

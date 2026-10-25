@@ -43,7 +43,7 @@ export default function ReconScansTable({scans, page, setPage, perPage, orderCol
       return <span>{numeral(s.port_count).format("0,0")} ports</span>
     }
 
-    if (s.type === "ARP_SWEEP" || s.type === "ICMP_SWEEP") {
+    if (s.type === "ARP_SWEEP" || s.type === "ICMP_SWEEP" || s.type === "DNS_REVERSE_SWEEP") {
       return <span>{numeral(s.host_count).format("0,0")} hosts</span>
     }
 

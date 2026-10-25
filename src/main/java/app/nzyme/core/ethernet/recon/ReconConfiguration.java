@@ -10,6 +10,7 @@ public abstract class ReconConfiguration {
     public abstract boolean sourceUdpEnabled();
     public abstract boolean sourceArpEnabled();
     public abstract boolean sourceIcmpEnabled();
+    public abstract boolean sourceDnsEnabled();
     public abstract boolean fingerprintingEnabled();
     public abstract boolean includeExternalSources();
     public abstract boolean includeExternalTargets();
@@ -25,13 +26,14 @@ public abstract class ReconConfiguration {
     public abstract boolean alertOnNewScan();
     public abstract boolean alertOnNewFingerprinting();
 
-    public static ReconConfiguration create(boolean detectionEnabled, boolean sourceTcpEnabled, boolean sourceUdpEnabled, boolean sourceArpEnabled, boolean sourceIcmpEnabled, boolean fingerprintingEnabled, boolean includeExternalSources, boolean includeExternalTargets, int detectionWindowMinutes, int portScanMinimumPorts, int hostSweepMinimumHosts, int arpSweepMinimumHosts, int minimumFailurePercent, int scanRetentionTimeDays, boolean slowScanEnabled, int slowScanMemoryDays, int slowScanMinimumTargets, boolean alertOnNewScan, boolean alertOnNewFingerprinting) {
+    public static ReconConfiguration create(boolean detectionEnabled, boolean sourceTcpEnabled, boolean sourceUdpEnabled, boolean sourceArpEnabled, boolean sourceIcmpEnabled, boolean sourceDnsEnabled, boolean fingerprintingEnabled, boolean includeExternalSources, boolean includeExternalTargets, int detectionWindowMinutes, int portScanMinimumPorts, int hostSweepMinimumHosts, int arpSweepMinimumHosts, int minimumFailurePercent, int scanRetentionTimeDays, boolean slowScanEnabled, int slowScanMemoryDays, int slowScanMinimumTargets, boolean alertOnNewScan, boolean alertOnNewFingerprinting) {
         return builder()
                 .detectionEnabled(detectionEnabled)
                 .sourceTcpEnabled(sourceTcpEnabled)
                 .sourceUdpEnabled(sourceUdpEnabled)
                 .sourceArpEnabled(sourceArpEnabled)
                 .sourceIcmpEnabled(sourceIcmpEnabled)
+                .sourceDnsEnabled(sourceDnsEnabled)
                 .fingerprintingEnabled(fingerprintingEnabled)
                 .includeExternalSources(includeExternalSources)
                 .includeExternalTargets(includeExternalTargets)
@@ -60,6 +62,7 @@ public abstract class ReconConfiguration {
         public abstract Builder sourceUdpEnabled(boolean sourceUdpEnabled);
         public abstract Builder sourceArpEnabled(boolean sourceArpEnabled);
         public abstract Builder sourceIcmpEnabled(boolean sourceIcmpEnabled);
+        public abstract Builder sourceDnsEnabled(boolean sourceDnsEnabled);
         public abstract Builder fingerprintingEnabled(boolean fingerprintingEnabled);
         public abstract Builder includeExternalSources(boolean includeExternalSources);
         public abstract Builder includeExternalTargets(boolean includeExternalTargets);

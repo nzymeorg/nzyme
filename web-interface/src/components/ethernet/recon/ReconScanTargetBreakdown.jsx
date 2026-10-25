@@ -49,7 +49,8 @@ export default function ReconScanTargetBreakdown({scan, summary}) {
   }
 
   const networks = summary.networks || [];
-  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "OS_FINGERPRINTING";
+  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "DNS_REVERSE_SWEEP"
+    || scan.type === "OS_FINGERPRINTING";
 
   if (networks.length === 0) {
     return <div className="alert alert-info mb-0">No target information was recorded for this scan.</div>

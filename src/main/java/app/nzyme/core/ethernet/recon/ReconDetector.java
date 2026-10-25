@@ -165,6 +165,10 @@ public class ReconDetector {
                     readSource(handle, "ICMP", candidates, () -> readIcmpCandidates(handle, taps, since, until, config));
                 }
 
+                if (config.sourceDnsEnabled()) {
+                    readSource(handle, "DNS", candidates, () -> readReverseDnsCandidates(handle, taps, since, until, config));
+                }
+
                 if (config.fingerprintingEnabled()) {
                     readSource(handle, "FINGERPRINTING", candidates, () -> readFingerprintingCandidates(handle, taps, since, until, config));
                 }
@@ -1098,6 +1102,129 @@ public class ReconDetector {
         }
 
         return result;
+    }
+
+    private static final String REVERSE_NAME_PATTERN = "^([0-9]{1,3}\\.){4}in-addr\\.arpa$";
+    private static final String REVERSE_NAME_ADDRESS =
+            "(split_part(data_value, '.', 4) || '.' || split_part(data_value, '.', 3) || '.' || " +
+            "split_part(data_value, '.', 2) || '.' || split_part(data_value, '.', 1))::inet";
+    
+    private String reverseDnsQueriesCte(ReconConfiguration config) {
+        return "WITH queries AS (SELECT q.client_address, q.client_mac, q.server_address, q.tap_uuid, " +
+                "q.transaction_id, q.timestamp, " + REVERSE_NAME_ADDRESS + " AS address, " +
+                "EXISTS (SELECT 1 FROM dns_log r WHERE r.dns_type = 'response' AND r.data_type = 'PTR' " +
+                "AND r.transaction_id = q.transaction_id AND r.client_address = q.client_address " +
+                "AND r.server_address = q.server_address " +
+                "AND r.timestamp >= q.timestamp AND r.timestamp <= q.timestamp + interval '10 seconds') AS answered " +
+                "FROM dns_log q WHERE q.tap_uuid IN (<taps>) AND q.timestamp >= :since AND q.timestamp <= :until " +
+                "AND q.dns_type = 'query' AND q.data_type = 'PTR' AND q.data_value ~ :reverse_name_pattern " +
+                "AND q.server_address_is_multicast = false " +
+                (config.includeExternalSources() ? "" : "AND q.client_address_is_site_local = true ") +
+                "AND NOT EXISTS (SELECT 1 FROM dns_log f WHERE f.dns_type = 'query' AND f.data_type = 'PTR' " +
+                "AND f.server_address = q.client_address AND f.data_value = q.data_value " +
+                "AND f.timestamp >= :since AND f.timestamp <= :until)), " +
+                "targets AS (SELECT client_address, client_mac, address, bool_or(answered) AS answered, " +
+                "COUNT(DISTINCT transaction_id) AS query_count, MIN(timestamp) AS first_seen, MAX(timestamp) AS last_seen " +
+                "FROM queries WHERE true " + siteLocalCondition("address", config.includeExternalTargets()) +
+                "GROUP BY client_address, client_mac, address) ";
+    }
+
+    private List<Candidate> readReverseDnsCandidates(Handle handle,
+                                                     List<UUID> taps,
+                                                     DateTime since,
+                                                     DateTime until,
+                                                     ReconConfiguration config) {
+        List<Candidate> result = Lists.newArrayList();
+
+        handle.createQuery(reverseDnsQueriesCte(config) +
+                        "SELECT host(t.client_address) AS source_address, t.client_mac, COUNT(*) AS host_count, " +
+                        "COUNT(*) FILTER (WHERE t.answered) AS answered_count, SUM(t.query_count) AS query_count, " +
+                        "COUNT(DISTINCT network(set_masklen(t.address, 24))) AS network_count, " +
+                        "MIN(t.first_seen) AS first_seen, MAX(t.last_seen) AS last_seen, " +
+                        "(SELECT string_agg(DISTINCT q.tap_uuid::text, ',') FROM queries q " +
+                        "WHERE q.client_address = t.client_address AND q.client_mac IS NOT DISTINCT FROM t.client_mac) AS taps, " +
+                        "(SELECT mode() WITHIN GROUP (ORDER BY host(q.server_address)) FROM queries q " +
+                        "WHERE q.client_address = t.client_address AND q.client_mac IS NOT DISTINCT FROM t.client_mac) AS resolver, " +
+                        "(SELECT COUNT(DISTINCT q.server_address) FROM queries q " +
+                        "WHERE q.client_address = t.client_address AND q.client_mac IS NOT DISTINCT FROM t.client_mac) AS resolver_count " +
+                        "FROM targets t GROUP BY t.client_address, t.client_mac HAVING COUNT(*) >= :minimum_hosts")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("reverse_name_pattern", REVERSE_NAME_PATTERN)
+                .bind("minimum_hosts", config.hostSweepMinimumHosts())
+                .mapToMap()
+                .forEach(row -> {
+                    try {
+                        String sourceAddress = (String) row.get("source_address");
+                        String sourceMac = (String) row.get("client_mac");
+                        int hosts = ((Number) row.get("host_count")).intValue();
+                        long answered = ((Number) row.get("answered_count")).longValue();
+                        long networks = ((Number) row.get("network_count")).longValue();
+
+                        Map<String, Object> enrichment = Maps.newHashMap();
+                        enrichment.put("l4_type", "DNS");
+                        enrichment.put("query_count", ((Number) row.get("query_count")).longValue());
+                        enrichment.put("network_count", networks);
+                        // How much of the swept /24 networks was asked about. A sweep covers a range, name resolution
+                        // of observed hosts does not.
+                        enrichment.put("range_coverage_percent", Math.min(100, Math.round(hosts * 100.0 / (networks * 254.0))));
+                        putIfNotNull(enrichment, "resolver", row.get("resolver"));
+                        putIfNotNull(enrichment, "resolver_count", row.get("resolver_count"));
+
+                        result.add(new Candidate(
+                                ReconScanType.DNS_REVERSE_SWEEP,
+                                sourceAddress,
+                                sourceMac,
+                                null,
+                                hosts,
+                                0,
+                                hosts,
+                                answered,
+                                0,
+                                hosts - answered,
+                                new DateTime(row.get("first_seen")),
+                                new DateTime(row.get("last_seen")),
+                                parseTaps((String) row.get("taps")),
+                                enrichment,
+                                limit -> loadReverseDnsTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit)
+                        ));
+                    } catch (Exception e) {
+                        LOG.error("Could not read reverse DNS sweep candidate.", e);
+                    }
+                });
+
+        return result;
+    }
+
+    private List<Recon.TargetRecord> loadReverseDnsTargets(Handle handle,
+                                                           List<UUID> taps,
+                                                           String sourceAddress,
+                                                           @Nullable String sourceMac,
+                                                           DateTime since,
+                                                           DateTime until,
+                                                           ReconConfiguration config,
+                                                           int limit) {
+        return handle.createQuery(reverseDnsQueriesCte(config) +
+                        "SELECT host(address) AS address, answered, query_count, first_seen, last_seen FROM targets " +
+                        "WHERE client_address = :source_address::inet AND client_mac IS NOT DISTINCT FROM :source_mac " +
+                        "ORDER BY answered DESC, last_seen DESC LIMIT :limit")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("reverse_name_pattern", REVERSE_NAME_PATTERN)
+                .bind("source_address", sourceAddress)
+                .bind("source_mac", sourceMac)
+                .bind("limit", limit)
+                .map((rs, ctx) -> new Recon.TargetRecord(
+                        rs.getString("address"),
+                        null,
+                        rs.getBoolean("answered") ? ReconTargetOutcome.OPEN : ReconTargetOutcome.UNANSWERED,
+                        rs.getLong("query_count"),
+                        new DateTime(rs.getTimestamp("first_seen")),
+                        new DateTime(rs.getTimestamp("last_seen"))
+                ))
+                .list();
     }
 
     private List<Candidate> readSlowScanCandidates(Handle handle,

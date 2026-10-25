@@ -91,7 +91,7 @@ export default function ReconScansPage() {
     return (
       <p className="mb-3">
         <strong>Total:</strong> {numeral(scans.total).format("0,0")}
-        {["TCP_PORT_SCAN", "TCP_HOST_SWEEP", "UDP_PORT_SCAN", "UDP_HOST_SWEEP", "ARP_SWEEP", "ICMP_SWEEP", "SLOW_SCAN"].map((t) => {
+        {["TCP_PORT_SCAN", "TCP_HOST_SWEEP", "UDP_PORT_SCAN", "UDP_HOST_SWEEP", "ARP_SWEEP", "ICMP_SWEEP", "DNS_REVERSE_SWEEP", "SLOW_SCAN"].map((t) => {
           return (
             <span key={t} className="ms-3">
               {reconScanTypeToName(t)}: {numeral(scans.type_counts[t] || 0).format("0,0")}

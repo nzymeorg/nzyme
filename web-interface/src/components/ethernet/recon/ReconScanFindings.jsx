@@ -137,14 +137,17 @@ export default function ReconScanFindings({scan, summary}) {
 
   const hosts = summary.answered_hosts || [];
   const total = summary.answered_hosts_total || 0;
-  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "OS_FINGERPRINTING";
+  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "DNS_REVERSE_SWEEP"
+    || scan.type === "OS_FINGERPRINTING";
+  const isDns = scan.type === "DNS_REVERSE_SWEEP";
 
   if (hosts.length === 0) {
     return (
       <React.Fragment>
         {stealthNote}
         <div className="alert alert-success mb-0">
-          No host answered. The scanner learned nothing about this network.
+          {isDns ? "No address resolved to a name. The scanner learned nothing about this network."
+            : "No host answered. The scanner learned nothing about this network."}
         </div>
       </React.Fragment>
     )
@@ -154,8 +157,9 @@ export default function ReconScanFindings({scan, summary}) {
     <React.Fragment>
       {stealthNote}
       <p>
-        <strong>{numeral(total).format("0,0")}</strong> {total === 1 ? "host" : "hosts"} answered.
-        {isArp ? " The scanner now knows these devices exist:" : " The scanner now knows these hosts and services exist:"}
+        <strong>{numeral(total).format("0,0")}</strong> {total === 1 ? "host" : "hosts"} {isDns ? "resolved to a name" : "answered"}.
+        {isDns ? " The scanner now knows these hosts exist, and what they are called:"
+          : isArp ? " The scanner now knows these devices exist:" : " The scanner now knows these hosts and services exist:"}
       </p>
 
       <div style={{maxHeight: 260, overflowY: "auto"}}>

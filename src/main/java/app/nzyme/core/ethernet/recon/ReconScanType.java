@@ -8,6 +8,7 @@ public enum ReconScanType {
     UDP_HOST_SWEEP("UDP Host Sweep"),
     ARP_SWEEP("ARP Sweep"),
     ICMP_SWEEP("Ping Sweep"),
+    DNS_REVERSE_SWEEP("Reverse DNS Sweep"),
     SLOW_SCAN("Slow Scan"),
     OS_FINGERPRINTING("OS Fingerprinting");
 
