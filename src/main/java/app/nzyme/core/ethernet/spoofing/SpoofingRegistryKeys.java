@@ -19,8 +19,21 @@ public class SpoofingRegistryKeys {
     public static final RegistryKey ARP_RETENTION_TIME_DAYS =
             numberKey("ethernet_spoofing_arp_retention_time_days", 1, 3650, 30);
 
+    // DHCP spoofing.
+    public static final RegistryKey DHCP_DETECTION_ENABLED = booleanKey("ethernet_spoofing_dhcp_detection_enabled", true);
+    public static final RegistryKey DHCP_LEARNING_PERIOD_HOURS =
+            numberKey("ethernet_spoofing_dhcp_learning_period_hours", 0, 720, 24);
+    public static final RegistryKey DHCP_DETECTION_WINDOW_MINUTES =
+            numberKey("ethernet_spoofing_dhcp_detection_window_minutes", 1, 1440, 60);
+    public static final RegistryKey DHCP_RETENTION_TIME_DAYS =
+            numberKey("ethernet_spoofing_dhcp_retention_time_days", 1, 3650, 30);
+
     // Alerting.
     public static final RegistryKey ARP_ALERT_ON_NEW = booleanKey("ethernet_spoofing_arp_alert_on_new", true);
+    public static final RegistryKey DHCP_ALERT_ON_ROGUE_SERVER =
+            booleanKey("ethernet_spoofing_dhcp_alert_on_rogue_server", true);
+    public static final RegistryKey DHCP_ALERT_ON_PARAMETERS_CHANGED =
+            booleanKey("ethernet_spoofing_dhcp_alert_on_parameters_changed", true);
 
     private static RegistryKey booleanKey(String key, boolean defaultValue) {
         return RegistryKey.create(

@@ -60,6 +60,10 @@ import {
 import {ALLOWED_RECON_SCAN_TYPE_VALUES, RECON_SCAN_TYPE_SELECT_OPTIONS} from "./validators/ReconScanTypeValidator";
 import {ALLOWED_SPOOFING_TYPE_VALUES, SPOOFING_TYPE_SELECT_OPTIONS} from "./validators/SpoofingTypeValidator";
 import {
+  ALLOWED_DHCP_SPOOFING_FINDING_TYPE_VALUES,
+  DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS
+} from "./validators/DhcpSpoofingFindingTypeValidator";
+import {
   ALLOWED_RECON_TARGET_OUTCOME_VALUES,
   RECON_TARGET_OUTCOME_SELECT_OPTIONS
 } from "./validators/ReconTargetOutcomeValidator";
@@ -226,6 +230,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_SPOOFING_TYPE_VALUES, value)
     ],
     placeholder: "ARP"
+  },
+  DHCP_SPOOFING_FINDING_TYPE: {
+    name: "dhcp_spoofing_finding_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_DHCP_SPOOFING_FINDING_TYPE_VALUES, value)
+    ],
+    placeholder: "ROGUE_SERVER"
   },
   RECON_TARGET_OUTCOME: {
     name: "recon_target_outcome",
@@ -617,6 +628,24 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: SPOOFING_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DHCP_SPOOFING_FINDING_TYPE_EQUALS: {
+    name: "dhcp_spoofing_finding_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DHCP_SPOOFING_FINDING_TYPE_NOT_EQUALS: {
+    name: "dhcp_spoofing_finding_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   RECON_TARGET_OUTCOME_EQUALS: {
@@ -1016,6 +1045,12 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.SPOOFING_TYPE_EQUALS,
             OPERATORS.SPOOFING_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.DHCP_SPOOFING_FINDING_TYPE:
+          setAllowedOperators([
+            OPERATORS.DHCP_SPOOFING_FINDING_TYPE_EQUALS,
+            OPERATORS.DHCP_SPOOFING_FINDING_TYPE_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.RECON_TARGET_OUTCOME:

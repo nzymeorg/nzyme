@@ -165,14 +165,15 @@ export default function SpoofingExclusionForm({organizationId, tenantId, initial
         </div>
 
         <div className="col-md-4 mb-3">
-          <label htmlFor="exclusion-address-cidr" className="form-label">Claimed Address or Network</label>
+          <label htmlFor="exclusion-address-cidr" className="form-label">Address or Network</label>
           <input type="text" className="form-control" id="exclusion-address-cidr"
                  placeholder="192.168.0.1"
                  value={values.address_cidr} onChange={update("address_cidr")} />
           <div className="form-text">
-            The address that is being claimed. A single address like <code>192.168.0.1</code> or a network in
-            CIDR notation like <code>10.0.0.0/8</code>. Use it for a virtual router address that moves between
-            routers on purpose.
+            For ARP poisoning, the address that is being claimed. For DHCP spoofing, the address of the DHCP server.
+            A single address like <code>192.168.0.1</code> or a network in CIDR notation like <code>10.0.0.0/8</code>.
+            Use it for a virtual router address that moves between routers on purpose, or for a lab network with
+            its own DHCP servers.
           </div>
         </div>
 
@@ -182,8 +183,9 @@ export default function SpoofingExclusionForm({organizationId, tenantId, initial
                  placeholder="74:56:3C:43:77:AF"
                  value={values.mac} onChange={update("mac")} />
           <div className="form-text">
-            The device doing the claiming. Use it for a failover node or a hypervisor that takes over addresses
-            on purpose.
+            For ARP poisoning, the device doing the claiming. For DHCP spoofing, the DHCP server. Use it for a
+            failover node or a hypervisor that takes over addresses on purpose, or a DHCP server you do not want
+            to see findings for.
           </div>
         </div>
       </div>

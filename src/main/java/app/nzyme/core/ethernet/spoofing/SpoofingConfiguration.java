@@ -12,7 +12,14 @@ public abstract class SpoofingConfiguration {
     public abstract int arpRetentionTimeDays();
     public abstract boolean arpAlertOnNew();
 
-    public static SpoofingConfiguration create(boolean arpDetectionEnabled, int arpDetectionWindowMinutes, int arpOwnerLookbackHours, int arpMinimumClaims, int arpRetentionTimeDays, boolean arpAlertOnNew) {
+    public abstract boolean dhcpDetectionEnabled();
+    public abstract int dhcpLearningPeriodHours();
+    public abstract int dhcpDetectionWindowMinutes();
+    public abstract int dhcpRetentionTimeDays();
+    public abstract boolean dhcpAlertOnRogueServer();
+    public abstract boolean dhcpAlertOnParametersChanged();
+
+    public static SpoofingConfiguration create(boolean arpDetectionEnabled, int arpDetectionWindowMinutes, int arpOwnerLookbackHours, int arpMinimumClaims, int arpRetentionTimeDays, boolean arpAlertOnNew, boolean dhcpDetectionEnabled, int dhcpLearningPeriodHours, int dhcpDetectionWindowMinutes, int dhcpRetentionTimeDays, boolean dhcpAlertOnRogueServer, boolean dhcpAlertOnParametersChanged) {
         return builder()
                 .arpDetectionEnabled(arpDetectionEnabled)
                 .arpDetectionWindowMinutes(arpDetectionWindowMinutes)
@@ -20,6 +27,12 @@ public abstract class SpoofingConfiguration {
                 .arpMinimumClaims(arpMinimumClaims)
                 .arpRetentionTimeDays(arpRetentionTimeDays)
                 .arpAlertOnNew(arpAlertOnNew)
+                .dhcpDetectionEnabled(dhcpDetectionEnabled)
+                .dhcpLearningPeriodHours(dhcpLearningPeriodHours)
+                .dhcpDetectionWindowMinutes(dhcpDetectionWindowMinutes)
+                .dhcpRetentionTimeDays(dhcpRetentionTimeDays)
+                .dhcpAlertOnRogueServer(dhcpAlertOnRogueServer)
+                .dhcpAlertOnParametersChanged(dhcpAlertOnParametersChanged)
                 .build();
     }
 
@@ -35,6 +48,12 @@ public abstract class SpoofingConfiguration {
         public abstract Builder arpMinimumClaims(int arpMinimumClaims);
         public abstract Builder arpRetentionTimeDays(int arpRetentionTimeDays);
         public abstract Builder arpAlertOnNew(boolean arpAlertOnNew);
+        public abstract Builder dhcpDetectionEnabled(boolean dhcpDetectionEnabled);
+        public abstract Builder dhcpLearningPeriodHours(int dhcpLearningPeriodHours);
+        public abstract Builder dhcpDetectionWindowMinutes(int dhcpDetectionWindowMinutes);
+        public abstract Builder dhcpRetentionTimeDays(int dhcpRetentionTimeDays);
+        public abstract Builder dhcpAlertOnRogueServer(boolean dhcpAlertOnRogueServer);
+        public abstract Builder dhcpAlertOnParametersChanged(boolean dhcpAlertOnParametersChanged);
         public abstract SpoofingConfiguration build();
     }
 }

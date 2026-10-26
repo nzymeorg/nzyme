@@ -22,25 +22,45 @@ const prefillFromFinding = (details) => {
   };
 }
 
+const prefillFromDhcpFinding = (details) => {
+  const finding = details.finding;
+
+  return {
+    name: "Exclude DHCP server " + finding.server_address + " (" + finding.server_mac + ")",
+    description: "Created from DHCP spoofing finding of server " + finding.server_address + " with MAC address "
+      + finding.server_mac + ".",
+    types: ["DHCP"],
+    address_cidr: finding.server_address,
+    mac: finding.server_mac
+  };
+}
+
 export default function CreateSpoofingExclusionPage() {
 
   usePageTitle("Create Spoofing Exclusion");
 
   const [organizationId, tenantId] = useSelectedTenant();
-  const findingUuid = new URLSearchParams(useLocation().search).get("finding");
+  const query = new URLSearchParams(useLocation().search);
+  const findingUuid = query.get("finding");
+  const dhcpFindingUuid = query.get("dhcp_finding");
 
-  const [initialValues, setInitialValues] = useState(findingUuid ? null : {});
+  const [initialValues, setInitialValues] = useState(findingUuid || dhcpFindingUuid ? null : {});
   const [redirect, setRedirect] = useState(false);
 
   useEffect(() => {
-    if (!findingUuid) {
+    if (findingUuid) {
+      spoofingService.findArpFinding(findingUuid, organizationId, tenantId,
+        (details) => setInitialValues(prefillFromFinding(details)),
+        () => setInitialValues({}));
       return;
     }
 
-    spoofingService.findArpFinding(findingUuid, organizationId, tenantId,
-      (details) => setInitialValues(prefillFromFinding(details)),
-      () => setInitialValues({}));
-  }, [findingUuid, organizationId, tenantId]);
+    if (dhcpFindingUuid) {
+      spoofingService.findDhcpFinding(dhcpFindingUuid, organizationId, tenantId,
+        (details) => setInitialValues(prefillFromDhcpFinding(details)),
+        () => setInitialValues({}));
+    }
+  }, [findingUuid, dhcpFindingUuid, organizationId, tenantId]);
 
   const create = (payload, onError) => {
     spoofingService.createExclusion(organizationId, tenantId, payload, () => {

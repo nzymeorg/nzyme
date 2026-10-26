@@ -159,6 +159,9 @@
     "description" : "ARP poisoning findings of a tenant. A finding is one address that a device (the spoofer) claimed with its own MAC address while the legitimate owner of the address was still claiming it as well. It carries the devices that received the spoofer's replies, which are the devices whose ARP cache may now point at the spoofer. Findings are built from the ARP packets of all taps of the tenant.",
     "name" : "Spoofing: ARP"
   }, {
+    "description" : "DHCP spoofing findings and the DHCP servers of a tenant. Every server that answers clients is learned with the configuration it hands out. A server that answers while it is not trusted is a rogue server finding. A trusted server that hands out a gateway, DNS server, domain or subnet mask different from its baseline is a changed configuration finding. Findings carry the clients that accepted a lease from the server. Built from the DHCP transactions of all taps of the tenant.",
+    "name" : "Spoofing: DHCP"
+  }, {
     "description" : "Exclusions keep known setups out of spoofing detection. An exclusion is a set of criteria for the spoofing type, the address that is being claimed (address or network) and the MAC address of the device doing the claiming. Every criterion that is set must match. Use them for router redundancy protocols, failover clusters and other setups where an address legitimately has more than one MAC address at a time. An exclusion can also be applied to the existing findings, which deletes them.",
     "name" : "Spoofing Exclusions"
   }, {
@@ -16092,6 +16095,599 @@
         "tags" : [ "Spoofing: ARP" ]
       }
     },
+    "/api/ethernet/spoofing/dhcp" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. Results are paginated.",
+        "operationId" : "findDhcpSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: type, server_mac, server_address, response_count, transaction_count, victim_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: TYPE, SERVER_MAC, SERVER_ADDRESS, RESPONSE_COUNT, TRANSACTION_COUNT, VICTIM_COUNT, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DhcpSpoofingFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List DHCP spoofing findings of a tenant",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/histogram/active" : {
+      "get" : {
+        "description" : "Returns the number of findings of the tenant that were going on per time bucket. Respects the same filters as the findings list. The response is an object that maps each bucket timestamp to a count. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findActiveDhcpSpoofingFindingsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the findings list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of active DHCP spoofing findings over time",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/organization/{organization_id}/tenant/{tenant_id}" : {
+      "delete" : {
+        "description" : "Deletes every finding of the tenant with all victims. Learned servers, exclusions and the detection configuration are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteAllDhcpSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SpoofingFindingsDeletedResponse"
+                }
+              }
+            },
+            "description" : "Findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all DHCP spoofing findings of a tenant",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding with its victims. The finding is detected again as a new finding if the server keeps answering clients. To stop that, trust the server or create an exclusion. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteDhcpSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a DHCP spoofing finding",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers" : {
+      "get" : {
+        "description" : "Returns every DHCP server that answered clients on the taps of the tenant, with whether it is trusted, the configuration it hands out (latest) and the configuration it is expected to hand out (baseline). Results are paginated.",
+        "operationId" : "findDhcpServers",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: mac, address, trusted, response_count, transaction_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: MAC, ADDRESS, TRUSTED, RESPONSE_COUNT, TRANSACTION_COUNT, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DhcpSpoofingServersListResponse"
+                }
+              }
+            },
+            "description" : "Servers found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the DHCP servers of a tenant",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/show/{server_uuid}" : {
+      "delete" : {
+        "description" : "Removes a learned server. If it answers clients again it is learned anew, and trusted only if that still falls inside the learning period. Findings of the server are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteDhcpServer",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Server UUID.",
+          "in" : "path",
+          "name" : "server_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Forget a DHCP server",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/show/{server_uuid}/baseline" : {
+      "put" : {
+        "description" : "Takes the configuration the server hands out at the moment as the expected configuration, which ends changed configuration findings for it. Use this after an intended change of the gateway, DNS servers, domain or subnet mask. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "acceptDhcpServerConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Server UUID.",
+          "in" : "path",
+          "name" : "server_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Baseline updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Accept the current configuration of a DHCP server as its baseline",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/show/{server_uuid}/trusted/{trusted}" : {
+      "put" : {
+        "description" : "A trusted server does not raise rogue server findings. Trusting a server takes the configuration it currently hands out as its baseline. Untrusting a server makes its next answer a rogue server finding. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setDhcpServerTrusted",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Server UUID.",
+          "in" : "path",
+          "name" : "server_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Whether the server is trusted.",
+          "in" : "path",
+          "name" : "trusted",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Trust or untrust a DHCP server",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers/show/{server_uuid}" : {
+      "get" : {
+        "description" : "Returns one learned DHCP server.",
+        "operationId" : "findDhcpServer",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Server UUID.",
+          "in" : "path",
+          "name" : "server_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DhcpSpoofingServerResponse"
+                }
+              }
+            },
+            "description" : "Server found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Server, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DHCP server",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with the clients that accepted a lease from the server or chose its offer.",
+        "operationId" : "findDhcpSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DhcpSpoofingFindingDetailsResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DHCP spoofing finding",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
     "/api/ethernet/spoofing/exclusions" : {
       "get" : {
         "description" : "Returns the exclusions of the tenant, sorted by name by default. Each exclusion includes which existing findings it currently applies to. Results are paginated.",
@@ -30807,6 +31403,63 @@
           }
         }
       },
+      "DHCPServerResponseResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dns_servers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "domain_name" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lease_time_seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "message_type" : {
+            "type" : "string"
+          },
+          "offered_address" : {
+            "type" : "string"
+          },
+          "routers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "server_address" : {
+            "type" : "string"
+          },
+          "server_identifier" : {
+            "type" : "string"
+          },
+          "server_mac" : {
+            "type" : "string"
+          },
+          "server_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "subnet_mask" : {
+            "type" : "string"
+          }
+        }
+      },
       "DHCPTimelineStepResponse" : {
         "type" : "object",
         "properties" : {
@@ -30901,8 +31554,17 @@
           "requested_ip_address" : {
             "$ref" : "#/components/schemas/InternalAddressResponse"
           },
+          "selected_server_address" : {
+            "type" : "string"
+          },
           "server_mac" : {
             "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "server_responses" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DHCPServerResponseResponse"
+            }
           },
           "timeline" : {
             "type" : "array",
@@ -31244,6 +31906,270 @@
           },
           "title" : {
             "type" : "string"
+          }
+        }
+      },
+      "DhcpOfferedParametersResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dns_servers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "domain_name" : {
+            "type" : "string"
+          },
+          "lease_time_seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "routers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "subnet_mask" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DhcpSpoofingFindingDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "finding" : {
+            "$ref" : "#/components/schemas/DhcpSpoofingFindingResponse"
+          },
+          "victims" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DhcpSpoofingVictimResponse"
+            }
+          }
+        }
+      },
+      "DhcpSpoofingFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "ack_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingExclusionReferenceResponse"
+            }
+          },
+          "expected" : {
+            "$ref" : "#/components/schemas/DhcpOfferedParametersResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "offer_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "offered" : {
+            "$ref" : "#/components/schemas/DhcpOfferedParametersResponse"
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "response_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "server_address" : {
+            "type" : "string"
+          },
+          "server_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "server_identifier" : {
+            "type" : "string"
+          },
+          "server_mac" : {
+            "type" : "string"
+          },
+          "server_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "server_trusted" : {
+            "type" : "boolean"
+          },
+          "server_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingTapResponse"
+            }
+          },
+          "transaction_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "victim_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DhcpSpoofingFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DhcpSpoofingFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DhcpSpoofingServerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "ack_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "baseline" : {
+            "$ref" : "#/components/schemas/DhcpOfferedParametersResponse"
+          },
+          "baseline_updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "latest" : {
+            "$ref" : "#/components/schemas/DhcpOfferedParametersResponse"
+          },
+          "latest_matches_baseline" : {
+            "type" : "boolean"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "offer_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "response_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "server_identifier" : {
+            "type" : "string"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingTapResponse"
+            }
+          },
+          "transaction_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "trust_source" : {
+            "type" : "string"
+          },
+          "trusted" : {
+            "type" : "boolean"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DhcpSpoofingServersListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "servers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DhcpSpoofingServerResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DhcpSpoofingVictimResponse" : {
+        "type" : "object",
+        "properties" : {
+          "assigned_address" : {
+            "type" : "string"
+          },
+          "assigned_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lease_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "transaction_count" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

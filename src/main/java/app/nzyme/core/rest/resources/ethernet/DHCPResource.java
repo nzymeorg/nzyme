@@ -14,6 +14,7 @@ import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPStatisticsBucketResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPTimelineStepResponse;
+import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPServerResponseResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPTransactionDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPTransactionsListResponse;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
@@ -233,7 +234,38 @@ public class DHCPResource extends TapDataHandlingResource {
                 tx.notes(),
                 tx.isSuccessful(),
                 tx.isComplete(),
-                duration
+                duration,
+                tx.serverResponses().stream().map(r -> DHCPServerResponseResponse.create(
+                        r.messageType(),
+                        r.serverMac(),
+                        r.serverMac() == null ? null : buildMacResponse(r.serverMac(), organizationId, tenantId),
+                        r.serverAddress(),
+                        r.serverIdentifier(),
+                        r.offeredAddress(),
+                        r.subnetMask(),
+                        r.routers(),
+                        r.dnsServers(),
+                        r.domainName(),
+                        r.leaseTimeSeconds(),
+                        r.count(),
+                        r.firstSeen(),
+                        r.lastSeen()
+                )).toList(),
+                tx.selectedServerAddress()
+        );
+    }
+
+    private EthernetMacAddressResponse buildMacResponse(String mac, UUID organizationId, UUID tenantId) {
+        Optional<MacAddressContextEntry> context = nzyme.getContextService()
+                .findMacAddressContext(mac, organizationId, tenantId);
+        Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(mac, organizationId, tenantId);
+
+        return EthernetMacAddressResponse.create(
+                mac,
+                nzyme.getOuiService().lookup(mac).orElse(null),
+                asset.map(AssetEntry::uuid).orElse(null),
+                asset.map(AssetEntry::isActive).orElse(null),
+                macContextEntryToResponse(context)
         );
     }
 

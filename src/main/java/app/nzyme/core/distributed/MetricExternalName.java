@@ -25,6 +25,7 @@ public enum MetricExternalName {
     RECON_DETECTION_RUN_TIMER("recon_detection_run_timer"),
     RECON_CANDIDATE_DISCOVERY_TIMER("recon_candidate_discovery_timer"),
     SPOOFING_ARP_DETECTION_RUN_TIMER("spoofing_arp_detection_run_timer"),
+    SPOOFING_DHCP_DETECTION_RUN_TIMER("spoofing_dhcp_detection_run_timer"),
 
     GEOIP_CACHE_SIZE("geoip_cache_size"),
     CONTEXT_MAC_CACHE_SIZE("context_mac_cache_size"),

@@ -3,6 +3,7 @@ import React from "react";
 export const spoofingTypeToName = (type) => {
   switch (type) {
     case "ARP": return "ARP Poisoning";
+    case "DHCP": return "DHCP Spoofing";
     default: return type;
   }
 }

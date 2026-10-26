@@ -2,7 +2,8 @@ package app.nzyme.core.ethernet.spoofing;
 
 public enum SpoofingType {
 
-    ARP("ARP Poisoning");
+    ARP("ARP Poisoning"),
+    DHCP("DHCP Spoofing");
 
     private final String humanReadable;
 

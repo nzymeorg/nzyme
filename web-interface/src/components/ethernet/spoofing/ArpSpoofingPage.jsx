@@ -12,7 +12,7 @@ import SpoofingService from "../../../services/ethernet/SpoofingService";
 import {SPOOFING_MENU_ITEMS} from "./SpoofingMenuItems";
 import {ARP_SPOOFING_FILTER_FIELDS} from "./ArpSpoofingFilterFields";
 import ArpSpoofingTable from "./ArpSpoofingTable";
-import ActiveArpSpoofingHistogram from "./ActiveArpSpoofingHistogram";
+import ActiveSpoofingFindingsHistogram from "./ActiveSpoofingFindingsHistogram";
 import {Presets} from "../../shared/timerange/TimeRange";
 
 const spoofingService = new SpoofingService();
@@ -113,9 +113,10 @@ export default function ArpSpoofingPage() {
               <CardTitleWithControls title="Active ARP Poisoning"
                                      refreshAction={() => setRevision(new Date())} />
 
-              <ActiveArpSpoofingHistogram histogram={histogram}
-                                          timeRange={timeRange}
-                                          setTimeRange={applyTimeRange} />
+              <ActiveSpoofingFindingsHistogram histogram={histogram}
+                                               timeRange={timeRange}
+                                               setTimeRange={applyTimeRange}
+                                               emptyMessage="No ARP poisoning in the selected time range." />
             </div>
           </div>
         </div>

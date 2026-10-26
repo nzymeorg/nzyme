@@ -10,7 +10,7 @@ export default function SpoofingExclusionCriteria({exclusion}) {
   }
 
   if (exclusion.address_cidr) {
-    criteria.push({label: "Claimed address", value: exclusion.address_cidr});
+    criteria.push({label: "Address", value: exclusion.address_cidr});
   }
 
   if (exclusion.mac) {

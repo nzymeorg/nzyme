@@ -17,6 +17,8 @@ public enum DetectionType {
     RECON_FINGERPRINTING_NEW("OS fingerprinting detected", Subsystem.ETHERNET),
 
     SPOOFING_ARP_NEW("ARP poisoning detected", Subsystem.ETHERNET),
+    SPOOFING_DHCP_ROGUE_SERVER("Rogue DHCP server detected", Subsystem.ETHERNET),
+    SPOOFING_DHCP_PARAMETERS_CHANGED("DHCP server handing out changed configuration", Subsystem.ETHERNET),
 
     ICMP_REDIRECT("ICMP redirect detected", Subsystem.ETHERNET),
     ICMP_TRACEROUTE("Traceroute detected", Subsystem.ETHERNET),

@@ -10365,4 +10365,197 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_dhcp_server_responses_and_spoofing_dhcp_tables" author="lennartkoopmann">
+        <addColumn tableName="dhcp_transactions">
+            <column name="server_responses" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="selected_server_address" type="inet" />
+        </addColumn>
+        <createIndex tableName="dhcp_transactions" indexName="dhcptx_tap_latest_packet">
+            <column name="tap_uuid" />
+            <column name="latest_packet" />
+        </createIndex>
+
+        <createTable tableName="spoofing_dhcp_servers">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_identifier" type="inet" />
+            <column name="trusted" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="trust_source" type="text" />
+            <column name="baseline" type="jsonb" />
+            <column name="baseline_updated_at" type="timestamp with time zone" />
+            <column name="latest" type="jsonb" />
+            <column name="response_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="offer_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ack_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="transaction_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_dhcp_servers" indexName="spoofing_dhcp_servers_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_dhcp_servers" indexName="spoofing_dhcp_servers_identity" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="mac" />
+            <column name="address" />
+        </createIndex>
+
+        <createTable tableName="spoofing_dhcp_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_identifier" type="inet" />
+            <column name="offered" type="jsonb" />
+            <column name="expected" type="jsonb" />
+            <column name="response_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="offer_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="ack_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="transaction_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="victim_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_dhcp_findings" indexName="spoofing_dhcp_findings_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_dhcp_findings" indexName="spoofing_dhcp_findings_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="spoofing_dhcp_victims">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="finding_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="spoofing_dhcp_victims_finding_id" references="spoofing_dhcp_findings(id)" deleteCascade="true" />
+            </column>
+            <column name="mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="assigned_address" type="inet" />
+            <column name="transaction_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="lease_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_dhcp_victims" indexName="spoofing_dhcp_victims_identity" unique="true">
+            <column name="finding_id" />
+            <column name="mac" />
+        </createIndex>
+
+        <createTable tableName="spoofing_dhcp_detection_state">
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="processed_until" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addPrimaryKey tableName="spoofing_dhcp_detection_state" columnNames="organization_id, tenant_id" constraintName="spoofing_dhcp_detection_state_pk" />
+    </changeSet>
+
+    <changeSet id="add_spoofing_dhcp_learning_started_at" author="lennartkoopmann">
+        <addColumn tableName="spoofing_dhcp_detection_state">
+            <column name="learning_started_at" type="timestamp with time zone" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_spoofing_dhcp_learning_ended_at" author="lennartkoopmann">
+        <addColumn tableName="spoofing_dhcp_detection_state">
+            <column name="learning_ended_at" type="timestamp with time zone" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

@@ -2,7 +2,7 @@ import React from "react";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
 import SimpleScatterChart from "../../widgets/charts/SimpleScatterChart";
 
-export default function ActiveArpSpoofingHistogram({histogram, timeRange, setTimeRange}) {
+export default function ActiveSpoofingFindingsHistogram({histogram, timeRange, setTimeRange, emptyMessage}) {
 
   if (!histogram) {
     return <GenericWidgetLoadingSpinner height={200} />;
@@ -21,7 +21,7 @@ export default function ActiveArpSpoofingHistogram({histogram, timeRange, setTim
   });
 
   if (!any) {
-    return <div className="alert alert-info mb-0">No ARP poisoning in the selected time range.</div>
+    return <div className="alert alert-info mb-0">{emptyMessage}</div>
   }
 
   return (

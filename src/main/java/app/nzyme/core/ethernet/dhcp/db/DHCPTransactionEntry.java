@@ -34,10 +34,13 @@ public abstract class DHCPTransactionEntry {
     public abstract DateTime firstPacket();
     public abstract DateTime latestPacket();
     public abstract List<String> notes();
+    public abstract List<DHCPServerResponseEntry> serverResponses();
+    @Nullable
+    public abstract String selectedServerAddress();
     public abstract boolean isSuccessful();
     public abstract boolean isComplete();
 
-    public static DHCPTransactionEntry create(long transactionId, String transactionType, String clientMac, List<String> additionalClientMacs, String serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, String requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, Map<String, List<String>> timestamps, DateTime firstPacket, DateTime latestPacket, List<String> notes, boolean isSuccessful, boolean isComplete) {
+    public static DHCPTransactionEntry create(long transactionId, String transactionType, String clientMac, List<String> additionalClientMacs, String serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, String requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, Map<String, List<String>> timestamps, DateTime firstPacket, DateTime latestPacket, List<String> notes, List<DHCPServerResponseEntry> serverResponses, String selectedServerAddress, boolean isSuccessful, boolean isComplete) {
         return builder()
                 .transactionId(transactionId)
                 .transactionType(transactionType)
@@ -57,6 +60,8 @@ public abstract class DHCPTransactionEntry {
                 .firstPacket(firstPacket)
                 .latestPacket(latestPacket)
                 .notes(notes)
+                .serverResponses(serverResponses)
+                .selectedServerAddress(selectedServerAddress)
                 .isSuccessful(isSuccessful)
                 .isComplete(isComplete)
                 .build();
@@ -103,6 +108,10 @@ public abstract class DHCPTransactionEntry {
         public abstract Builder latestPacket(DateTime latestPacket);
 
         public abstract Builder notes(List<String> notes);
+
+        public abstract Builder serverResponses(List<DHCPServerResponseEntry> serverResponses);
+
+        public abstract Builder selectedServerAddress(String selectedServerAddress);
 
         public abstract Builder isSuccessful(boolean isSuccessful);
 

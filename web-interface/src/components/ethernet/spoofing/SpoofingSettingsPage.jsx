@@ -35,6 +35,19 @@ export default function SpoofingSettingsPage() {
     });
   }
 
+  const onDeleteAllDhcp = (e) => {
+    e.preventDefault();
+
+    if (!confirm("Really delete ALL DHCP spoofing findings of this tenant, including their victims? This cannot " +
+        "be undone. Learned servers are kept. Findings are detected again if untrusted servers keep answering.")) {
+      return;
+    }
+
+    spoofingService.deleteAllDhcpFindings(organizationId, tenantId, (response) => {
+      toast.success(numeral(response.data.deleted_count).format("0,0") + " findings deleted.");
+    });
+  }
+
   return (
     <React.Fragment>
       <div className="row">
@@ -64,11 +77,31 @@ export default function SpoofingSettingsPage() {
                   it after the other device started, and</li>
                 <li>the other device claimed it at least the minimum number of times inside the window.</li>
               </ul>
-              <p className="text-muted mb-0">
+              <p className="text-muted">
                 The overlap requirement is what separates poisoning from an address that simply changed hands, for
                 example after a DHCP lease expired. A finding stays open while the spoofer keeps claiming the
                 address within the window. Router redundancy protocols, failover clusters and virtual machine
                 migration can legitimately move an address between MAC addresses; add an exclusion for them.
+              </p>
+
+              <p className="text-muted mb-2">
+                DHCP spoofing detection runs over the DHCP transactions of all taps of the tenant. Every server
+                that answers clients is learned together with the configuration it hands out:
+              </p>
+              <ul className="text-muted">
+                <li>Servers that answer inside the learning period after the first server was seen are trusted
+                  automatically. A learning period of zero trusts nothing until you do. End the learning period on
+                  the DHCP tab once every expected server is listed, and restart it there after replacing a
+                  server.</li>
+                <li>A server that answers while it is not trusted is a rogue server finding. Trust it on the DHCP
+                  tab if it is legitimate.</li>
+                <li>A trusted server that hands out a gateway, DNS server, domain or subnet mask different from its
+                  baseline is a changed configuration finding. Accept the new configuration on the DHCP tab if the
+                  change was intended.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                A finding stays open while the server keeps answering within the detection window. Transactions are
+                analyzed a few minutes after they end, once all taps have reported them.
               </p>
 
               <SpoofingConfiguration organizationId={organizationId} tenantId={tenantId} section="detection" />
@@ -102,6 +135,22 @@ export default function SpoofingSettingsPage() {
                 </p>
 
                 <button className="btn btn-sm btn-danger" onClick={onDeleteAllArp}>Delete All Findings</button>
+              </div>
+            </div>
+            : null}
+
+          {canManage ?
+            <div className="card mt-3">
+              <div className="card-body">
+                <CardTitleWithControls title="Delete All DHCP Spoofing Findings" slim={true} />
+
+                <p>
+                  Deletes every DHCP spoofing finding of this tenant, including its victims. Learned servers and
+                  their trust status are kept, as are exclusions and the settings on this page. Findings are
+                  detected again if untrusted servers keep answering clients.
+                </p>
+
+                <button className="btn btn-sm btn-danger" onClick={onDeleteAllDhcp}>Delete All Findings</button>
               </div>
             </div>
             : null}

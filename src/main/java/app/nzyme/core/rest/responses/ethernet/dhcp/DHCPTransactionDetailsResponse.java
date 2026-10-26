@@ -83,7 +83,14 @@ public abstract class DHCPTransactionDetailsResponse {
     @Nullable
     public abstract Long durationMs();
 
-    public static DHCPTransactionDetailsResponse create(long transactionId, String transactionType, EthernetMacAddressResponse clientMac, List<String> additionalClientMacs, EthernetMacAddressResponse serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, InternalAddressResponse requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, List<DHCPTimelineStepResponse> timeline, DateTime firstPacket, DateTime latestPacket, List<String> notes, Boolean isSuccessful, boolean isComplete, Long durationMs) {
+    @JsonProperty("server_responses")
+    public abstract List<DHCPServerResponseResponse> serverResponses();
+
+    @JsonProperty("selected_server_address")
+    @Nullable
+    public abstract String selectedServerAddress();
+
+    public static DHCPTransactionDetailsResponse create(long transactionId, String transactionType, EthernetMacAddressResponse clientMac, List<String> additionalClientMacs, EthernetMacAddressResponse serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, InternalAddressResponse requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, List<DHCPTimelineStepResponse> timeline, DateTime firstPacket, DateTime latestPacket, List<String> notes, Boolean isSuccessful, boolean isComplete, Long durationMs, List<DHCPServerResponseResponse> serverResponses, String selectedServerAddress) {
         return builder()
                 .transactionId(transactionId)
                 .transactionType(transactionType)
@@ -106,6 +113,8 @@ public abstract class DHCPTransactionDetailsResponse {
                 .isSuccessful(isSuccessful)
                 .isComplete(isComplete)
                 .durationMs(durationMs)
+                .serverResponses(serverResponses)
+                .selectedServerAddress(selectedServerAddress)
                 .build();
     }
 
@@ -156,6 +165,10 @@ public abstract class DHCPTransactionDetailsResponse {
         public abstract Builder isComplete(boolean isComplete);
 
         public abstract Builder durationMs(Long durationMs);
+
+        public abstract Builder serverResponses(List<DHCPServerResponseResponse> serverResponses);
+
+        public abstract Builder selectedServerAddress(String selectedServerAddress);
 
         public abstract DHCPTransactionDetailsResponse build();
     }

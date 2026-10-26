@@ -17,6 +17,7 @@ import DHCPOfferedIpAddresses from "./DHCPOfferedIpAddresses";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import L4Address from "../../shared/L4Address";
 import usePageTitle from "../../../../util/UsePageTitle";
+import DHCPServerResponses from "./DHCPServerResponses";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -174,6 +175,24 @@ export default function DHCPTransactionDetailsPage() {
                   <dd>{tx.vendor_class ? <span className="machine-data">{tx.vendor_class}</span>
                       : <span className="text-muted">None</span>}</dd>
                 </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Server Responses" />
+
+                <p className="text-muted">
+                  Every server that answered this transaction and the configuration it handed out. More than one
+                  server answering is normal with redundant DHCP servers, but a server you do not recognize may be
+                  a rogue server. The spoofing detection on the <em>Spoofing</em> page keeps track of this.
+                </p>
+
+                <DHCPServerResponses responses={tx.server_responses} selectedServerAddress={tx.selected_server_address} />
               </div>
             </div>
           </div>

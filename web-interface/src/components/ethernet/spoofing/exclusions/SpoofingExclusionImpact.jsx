@@ -40,10 +40,12 @@ export default function SpoofingExclusionImpact({impact, compact = false}) {
         {impact.findings.map((f) => {
           return (
             <li key={f.uuid}>
-              <a href={ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(f.uuid)} target="_blank" rel="noreferrer">
-                {spoofingTypeToName(f.type)} of <span className="machine-data">{f.address}</span>
+              <a href={f.type === "DHCP" ? ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(f.uuid) : ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(f.uuid)}
+                 target="_blank" rel="noreferrer">
+                {spoofingTypeToName(f.type)}{f.type === "DHCP" ? " by server " : " of "}
+                <span className="machine-data">{f.address}</span>
               </a>{' '}
-              <span className="text-muted">(by <span className="machine-data">{f.mac}</span>)</span>
+              <span className="text-muted">({f.type === "DHCP" ? "MAC" : "by"} <span className="machine-data">{f.mac}</span>)</span>
             </li>
           )
         })}

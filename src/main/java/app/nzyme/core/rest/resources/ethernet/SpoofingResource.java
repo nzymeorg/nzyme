@@ -46,7 +46,13 @@ public class SpoofingResource extends TapDataHandlingResource {
             SpoofingRegistryKeys.ARP_OWNER_LOOKBACK_HOURS,
             SpoofingRegistryKeys.ARP_MINIMUM_CLAIMS,
             SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS,
-            SpoofingRegistryKeys.ARP_ALERT_ON_NEW
+            SpoofingRegistryKeys.ARP_ALERT_ON_NEW,
+            SpoofingRegistryKeys.DHCP_DETECTION_ENABLED,
+            SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS,
+            SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES,
+            SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS,
+            SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER,
+            SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED
     };
 
     @Inject
@@ -74,9 +80,15 @@ public class SpoofingResource extends TapDataHandlingResource {
         detection.add(numberEntry(SpoofingRegistryKeys.ARP_OWNER_LOOKBACK_HOURS, "ARP poisoning: Address owner lookback (Hours)", organizationId, tenantId));
         detection.add(numberEntry(SpoofingRegistryKeys.ARP_MINIMUM_CLAIMS, "ARP poisoning: Minimum claims in window", organizationId, tenantId));
         detection.add(numberEntry(SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS, "ARP poisoning: Finding retention time (Days)", organizationId, tenantId));
+        detection.add(booleanEntry(SpoofingRegistryKeys.DHCP_DETECTION_ENABLED, "DHCP spoofing detection enabled", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "DHCP spoofing: Server learning period (Hours)", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, "DHCP spoofing: Detection window (Minutes)", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, "DHCP spoofing: Finding retention time (Days)", organizationId, tenantId));
 
         List<ConfigurationEntryResponse> alerting = Lists.newArrayList();
         alerting.add(booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning finding", organizationId, tenantId));
+        alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server", organizationId, tenantId));
+        alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP configuration", organizationId, tenantId));
 
         return Response.ok(SpoofingConfigurationResponse.create(detection, alerting)).build();
     }

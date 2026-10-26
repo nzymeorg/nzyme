@@ -19,6 +19,7 @@ import EnvironmentalSevereAlertDetails from "./generic/EnvironmentalSevereAlertD
 import BeaconAlertDetails from "./ethernet/BeaconAlertDetails";
 import ReconScanAlertDetails from "./ethernet/ReconScanAlertDetails";
 import ArpSpoofingAlertDetails from "./ethernet/ArpSpoofingAlertDetails";
+import DhcpSpoofingAlertDetails from "./ethernet/DhcpSpoofingAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
@@ -75,6 +76,9 @@ function AlertDetails(props) {
       return <ReconScanAlertDetails alert={alert} />
     case "SPOOFING_ARP_NEW":
       return <ArpSpoofingAlertDetails alert={alert} />
+    case "SPOOFING_DHCP_ROGUE_SERVER":
+    case "SPOOFING_DHCP_PARAMETERS_CHANGED":
+      return <DhcpSpoofingAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
       return <IcmpAlertDetails alert={alert} />

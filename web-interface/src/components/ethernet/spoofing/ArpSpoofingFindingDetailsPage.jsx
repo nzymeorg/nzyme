@@ -258,7 +258,8 @@ export default function ArpSpoofingFindingDetailsPage() {
               <p className="text-muted">
                 Devices that received the spoofer&apos;s replies for the address. Their ARP cache may now point at
                 the spoofer, which means their traffic for the address goes to the spoofer first. These are the
-                devices to check.
+                devices to check. A man-in-the-middle attack poisons both directions and produces one finding per
+                address, so the device listed here is usually the spoofer&apos;s other victim in a second finding.
               </p>
 
               {details.victims.length === 0 ?

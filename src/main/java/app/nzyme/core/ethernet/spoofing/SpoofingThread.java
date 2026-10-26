@@ -12,10 +12,12 @@ public class SpoofingThread extends Periodical {
 
     private final NzymeNode nzyme;
     private final ArpSpoofingDetector arpDetector;
+    private final DhcpSpoofingDetector dhcpDetector;
 
     public SpoofingThread(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.arpDetector = new ArpSpoofingDetector(nzyme);
+        this.dhcpDetector = new DhcpSpoofingDetector(nzyme);
     }
 
     @Override
@@ -25,6 +27,13 @@ public class SpoofingThread extends Periodical {
                 arpDetector.runForTenant(tenant.organizationUuid(), tenant.uuid());
             } catch (Exception e) {
                 LOG.error("Could not run ARP spoofing detection for tenant [{}/{}]. Skipping.",
+                        tenant.organizationUuid(), tenant.uuid(), e);
+            }
+
+            try {
+                dhcpDetector.runForTenant(tenant.organizationUuid(), tenant.uuid());
+            } catch (Exception e) {
+                LOG.error("Could not run DHCP spoofing detection for tenant [{}/{}]. Skipping.",
                         tenant.organizationUuid(), tenant.uuid(), e);
             }
         }

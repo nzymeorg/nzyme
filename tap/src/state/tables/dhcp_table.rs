@@ -46,6 +46,7 @@ impl DhcpTable {
                                         tx.latest_packet = dhcp.timestamp;
                                         tx.record_timestamp(Dhcpv4MessageType::Offer, dhcp.timestamp);
                                         tx.record_server_mac(dhcp.source_mac.clone());
+                                        tx.record_server_response(&dhcp);
 
                                         match dhcp.assigned_address {
                                             Some(address) => {
@@ -74,6 +75,11 @@ impl DhcpTable {
 
                                         tx.requested_ip_address = requested_ip_address;
 
+                                        // The server whose offer the client accepts.
+                                        if dhcp.server_identifier.is_some() {
+                                            tx.selected_server_address = dhcp.server_identifier;
+                                        }
+
                                         tx.record_client_mac(dhcp.source_mac.clone());
                                         tx.record_server_mac(dhcp.destination_mac.clone()); }
                                     Dhcpv4MessageType::Ack => {
@@ -81,6 +87,7 @@ impl DhcpTable {
                                         tx.latest_packet = dhcp.timestamp;
                                         tx.record_timestamp(Dhcpv4MessageType::Ack, dhcp.timestamp);
                                         tx.record_server_mac(dhcp.source_mac.clone());
+                                        tx.record_server_response(&dhcp);
                                         tx.successful = Some(true);
                                         tx.complete = true;
                                     }
@@ -187,6 +194,8 @@ impl DhcpTable {
                             additional_options: HashSet::new(),
                             vendor_class: dhcp.vendor_class.clone(),
                             additional_vendor_classes: HashSet::new(),
+                            server_responses: Vec::new(),
+                            selected_server_address: dhcp.server_identifier,
                             successful,
                             complete
                         };

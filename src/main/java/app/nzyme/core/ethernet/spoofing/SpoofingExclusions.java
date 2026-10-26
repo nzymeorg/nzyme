@@ -3,6 +3,7 @@ package app.nzyme.core.ethernet.spoofing;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -260,12 +261,23 @@ public class SpoofingExclusions {
                 }
             }
 
+            for (DhcpSpoofingFindingEntry finding : spoofing.findAllDhcpFindingsOfTenant(handle, organizationId, tenantId)) {
+                if (matchesDhcpFinding(matcher, finding)) {
+                    spoofing.deleteDhcpFindingById(handle, finding.id());
+                }
+            }
+
             return impact;
         });
     }
 
     public static boolean matchesArpFinding(SpoofingExclusionMatcher matcher, ArpSpoofingFindingEntry finding) {
         return matcher.matches(SpoofingType.ARP, finding.address(), finding.spooferMac());
+    }
+
+    // For DHCP, the address is the server's address and the MAC is the server's MAC.
+    public static boolean matchesDhcpFinding(SpoofingExclusionMatcher matcher, DhcpSpoofingFindingEntry finding) {
+        return matcher.matches(SpoofingType.DHCP, finding.serverAddress(), finding.serverMac());
     }
 
     private Impact matchExisting(Handle handle, SpoofingExclusionMatcher matcher, UUID organizationId, UUID tenantId) {
@@ -277,6 +289,16 @@ public class SpoofingExclusions {
 
             matched.add(new MatchedFinding(
                     finding.uuid(), SpoofingType.ARP.name(), finding.address(), finding.spooferMac()
+            ));
+        }
+
+        for (DhcpSpoofingFindingEntry finding : spoofing.findAllDhcpFindingsOfTenant(handle, organizationId, tenantId)) {
+            if (!matchesDhcpFinding(matcher, finding)) {
+                continue;
+            }
+
+            matched.add(new MatchedFinding(
+                    finding.uuid(), SpoofingType.DHCP.name(), finding.serverAddress(), finding.serverMac()
             ));
         }
 
@@ -296,6 +318,18 @@ public class SpoofingExclusions {
         List<SpoofingExclusionEntry> result = Lists.newArrayList();
         for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
             if (matchesArpFinding(e.getValue(), finding)) {
+                result.add(e.getKey());
+            }
+        }
+
+        return result;
+    }
+
+    public List<SpoofingExclusionEntry> findMatchingExclusions(DhcpSpoofingFindingEntry finding,
+                                                               Map<SpoofingExclusionEntry, SpoofingExclusionMatcher> compiled) {
+        List<SpoofingExclusionEntry> result = Lists.newArrayList();
+        for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
+            if (matchesDhcpFinding(e.getValue(), finding)) {
                 result.add(e.getKey());
             }
         }

@@ -35,6 +35,9 @@ public abstract class Dhcpv4TransactionReport {
     public abstract DateTime firstPacket();
     public abstract DateTime latestPacket();
     public abstract Set<String> notes();
+    public abstract List<Dhcpv4ServerResponseReport> serverResponses();
+    @Nullable
+    public abstract String selectedServerAddress();
     @Nullable
     public abstract Boolean successful();
     @Nullable
@@ -57,6 +60,8 @@ public abstract class Dhcpv4TransactionReport {
                                                  @JsonProperty("first_packet") DateTime firstPacket,
                                                  @JsonProperty("latest_packet") DateTime latestPacket,
                                                  @JsonProperty("notes") Set<String> notes,
+                                                 @JsonProperty("server_responses") List<Dhcpv4ServerResponseReport> serverResponses,
+                                                 @JsonProperty("selected_server_address") String selectedServerAddress,
                                                  @JsonProperty("successful") Boolean successful,
                                                  @JsonProperty("complete") Boolean complete) {
         return builder()
@@ -76,6 +81,8 @@ public abstract class Dhcpv4TransactionReport {
                 .firstPacket(firstPacket)
                 .latestPacket(latestPacket)
                 .notes(notes)
+                .serverResponses(serverResponses == null ? List.of() : serverResponses) // Older taps do not send it.
+                .selectedServerAddress(selectedServerAddress)
                 .successful(successful)
                 .complete(complete)
                 .build();
@@ -118,6 +125,10 @@ public abstract class Dhcpv4TransactionReport {
         public abstract Builder latestPacket(DateTime latestPacket);
 
         public abstract Builder notes(Set<String> notes);
+
+        public abstract Builder serverResponses(List<Dhcpv4ServerResponseReport> serverResponses);
+
+        public abstract Builder selectedServerAddress(String selectedServerAddress);
 
         public abstract Builder successful(Boolean successful);
 

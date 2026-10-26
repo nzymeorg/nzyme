@@ -29,6 +29,65 @@ export default class SpoofingService {
     RESTClient.delete(`/ethernet/spoofing/arp/organization/${organizationId}/tenant/${tenantId}`, successCallback);
   }
 
+  findAllDhcpFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
+    RESTClient.get("/ethernet/spoofing/dhcp", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setFindings(response.data));
+  }
+
+  findActiveDhcpFindingsHistogram(organizationId, tenantId, filters, timeRange, setHistogram) {
+    RESTClient.get("/ethernet/spoofing/dhcp/histogram/active", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange
+    }, (response) => setHistogram(response.data));
+  }
+
+  findDhcpFinding(uuid, organizationId, tenantId, setFinding, onError = undefined) {
+    RESTClient.get(`/ethernet/spoofing/dhcp/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setFinding(response.data), onError);
+  }
+
+  deleteDhcpFinding(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/dhcp/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  deleteAllDhcpFindings(organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/dhcp/organization/${organizationId}/tenant/${tenantId}`, successCallback);
+  }
+
+  findAllDhcpServers(organizationId, tenantId, filters, orderColumn, orderDirection, limit, offset, setServers) {
+    RESTClient.get("/ethernet/spoofing/dhcp/servers", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, order_column: orderColumn,
+      order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setServers(response.data));
+  }
+
+  setDhcpServerTrusted(uuid, organizationId, tenantId, trusted, successCallback) {
+    RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/trusted/${trusted}`,
+      {}, successCallback);
+  }
+
+  acceptDhcpServerConfiguration(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/baseline`,
+      {}, successCallback);
+  }
+
+  restartDhcpLearningPeriod(organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/learning/restart`,
+      {}, successCallback);
+  }
+
+  endDhcpLearningPeriod(organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/learning/end`,
+      {}, successCallback);
+  }
+
+  deleteDhcpServer(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
   findAllExclusions(organizationId, tenantId, filters, orderColumn, orderDirection, limit, offset, setExclusions) {
     RESTClient.get("/ethernet/spoofing/exclusions", {
       organization_id: organizationId, tenant_id: tenantId, filters: filters, order_column: orderColumn,

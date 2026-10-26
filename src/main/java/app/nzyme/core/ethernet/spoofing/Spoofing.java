@@ -4,6 +4,9 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingVictimEntry;
+import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntry;
+import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingVictimEntry;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
@@ -18,6 +21,7 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 import tools.jackson.databind.ObjectMapper;
 
+import java.sql.Timestamp;
 import java.util.*;
 
 public class Spoofing {
@@ -51,6 +55,54 @@ public class Spoofing {
 
     public record ClaimTimelineBucket(DateTime bucket, String mac, long count) { }
 
+    public enum DhcpFindingOrderColumn {
+
+        TYPE("type"),
+        SERVER_MAC("server_mac"),
+        SERVER_ADDRESS("server_address"),
+        RESPONSE_COUNT("response_count"),
+        TRANSACTION_COUNT("transaction_count"),
+        VICTIM_COUNT("victim_count"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        DhcpFindingOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
+    public enum DhcpServerOrderColumn {
+
+        MAC("mac"),
+        ADDRESS("address"),
+        TRUSTED("trusted"),
+        RESPONSE_COUNT("response_count"),
+        TRANSACTION_COUNT("transaction_count"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        DhcpServerOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
+    public record DhcpVictimRecord(String mac, @Nullable String assignedAddress, long transactionCount,
+                                   long leaseCount, DateTime firstSeen, DateTime lastSeen) { }
+
+    public record DhcpActivityCounts(long responseCount, long offerCount, long ackCount, long transactionCount) { }
+
     private final NzymeNode nzyme;
     private final SpoofingExclusions exclusions;
 
@@ -70,7 +122,13 @@ public class Spoofing {
                 intValue(SpoofingRegistryKeys.ARP_OWNER_LOOKBACK_HOURS, organizationId, tenantId),
                 intValue(SpoofingRegistryKeys.ARP_MINIMUM_CLAIMS, organizationId, tenantId),
                 intValue(SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS, organizationId, tenantId),
-                booleanValue(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, organizationId, tenantId)
+                booleanValue(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.DHCP_DETECTION_ENABLED, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, organizationId, tenantId)
         );
     }
 
@@ -377,6 +435,562 @@ public class Spoofing {
                         .bind("cutoff", cutoff)
                         .execute()
         );
+    }
+
+    public long countDhcpFindings(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM spoofing_dhcp_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DhcpSpoofingFindingEntry> findAllDhcpFindings(Filters filters,
+                                                              TimeRange timeRange,
+                                                              DhcpFindingOrderColumn orderColumn,
+                                                              OrderDirection orderDirection,
+                                                              int limit,
+                                                              int offset,
+                                                              UUID organizationId,
+                                                              UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql() +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(DhcpSpoofingFindingEntry.class)
+                        .list()
+        );
+    }
+
+    public List<GenericIntegerHistogramEntry> activeDhcpFindingsHistogram(Filters filters,
+                                                                          UUID organizationId,
+                                                                          UUID tenantId,
+                                                                          TimeRange timeRange,
+                                                                          Bucketing.BucketingConfiguration bucketing) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingFindingFilters("f"));
+
+        String step = "1 " + bucketing.type().getDateTruncName();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.bucket AS bucket, COUNT(f.id)::integer AS value " +
+                                "FROM generate_series(date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                                ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
+                                "LEFT JOIN spoofing_dhcp_findings f ON f.organization_id = :organization_id " +
+                                "AND f.tenant_id = :tenant_id AND f.first_seen < b.bucket + :step::interval " +
+                                "AND f.last_seen >= b.bucket " + filterFragment.whereSql() +
+                                "GROUP BY b.bucket ORDER BY b.bucket DESC")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindMap(filterFragment.bindings())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("step", step)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public Optional<DhcpSpoofingFindingEntry> findDhcpFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(DhcpSpoofingFindingEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<DhcpSpoofingFindingEntry> findDhcpFindingById(Handle handle, long id) {
+        return handle.createQuery("SELECT * FROM spoofing_dhcp_findings WHERE id = :id")
+                .bind("id", id)
+                .mapTo(DhcpSpoofingFindingEntry.class)
+                .findOne();
+    }
+
+    public List<DhcpSpoofingFindingEntry> findAllDhcpFindingsOfTenant(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT * FROM spoofing_dhcp_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(DhcpSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public List<DhcpSpoofingFindingEntry> findActiveDhcpFindingsOfTenant(Handle handle,
+                                                                         UUID organizationId,
+                                                                         UUID tenantId,
+                                                                         DateTime activeSince) {
+        return handle.createQuery("SELECT * FROM spoofing_dhcp_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id AND last_seen >= :active_since")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("active_since", activeSince)
+                .mapTo(DhcpSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public DhcpSpoofingFindingEntry createDhcpFinding(Handle handle,
+                                                      UUID organizationId,
+                                                      UUID tenantId,
+                                                      DhcpSpoofingFindingType type,
+                                                      String serverMac,
+                                                      String serverAddress,
+                                                      @Nullable String serverIdentifier,
+                                                      @Nullable DhcpOfferedParameters offered,
+                                                      @Nullable DhcpOfferedParameters expected,
+                                                      DateTime firstSeen,
+                                                      DateTime lastSeen) {
+        return handle.createQuery("INSERT INTO spoofing_dhcp_findings(uuid, organization_id, tenant_id, type, " +
+                        "server_mac, server_address, server_identifier, offered, expected, response_count, " +
+                        "offer_count, ack_count, transaction_count, victim_count, tap_uuids, first_seen, " +
+                        "last_seen, created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :type, " +
+                        ":server_mac, :server_address::inet, :server_identifier::inet, :offered::jsonb, " +
+                        ":expected::jsonb, 0, 0, 0, 0, 0, '[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) " +
+                        "RETURNING *")
+                .bind("uuid", UUID.randomUUID())
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("type", type.name())
+                .bind("server_mac", serverMac)
+                .bind("server_address", serverAddress)
+                .bind("server_identifier", serverIdentifier)
+                .bind("offered", offered == null ? null : offered.toJson())
+                .bind("expected", expected == null ? null : expected.toJson())
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .mapTo(DhcpSpoofingFindingEntry.class)
+                .one();
+    }
+
+    public void addDhcpFindingActivity(Handle handle,
+                                       long id,
+                                       DhcpActivityCounts counts,
+                                       @Nullable DhcpOfferedParameters offered,
+                                       @Nullable String serverIdentifier,
+                                       Collection<UUID> existingTaps,
+                                       Collection<UUID> newTaps,
+                                       DateTime lastSeen) {
+        handle.createUpdate("UPDATE spoofing_dhcp_findings SET response_count = response_count + :response_count, " +
+                        "offer_count = offer_count + :offer_count, ack_count = ack_count + :ack_count, " +
+                        "transaction_count = transaction_count + :transaction_count, " +
+                        "victim_count = (SELECT COUNT(*) FROM spoofing_dhcp_victims WHERE finding_id = :id), " +
+                        "offered = COALESCE(:offered::jsonb, offered), " +
+                        "server_identifier = COALESCE(:server_identifier::inet, server_identifier), " +
+                        "tap_uuids = :tap_uuids::jsonb, last_seen = GREATEST(last_seen, :last_seen), " +
+                        "updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .bind("response_count", counts.responseCount())
+                .bind("offer_count", counts.offerCount())
+                .bind("ack_count", counts.ackCount())
+                .bind("transaction_count", counts.transactionCount())
+                .bind("offered", offered == null ? null : offered.toJson())
+                .bind("server_identifier", serverIdentifier)
+                .bind("tap_uuids", tapsJson(existingTaps, newTaps))
+                .bind("last_seen", lastSeen)
+                .execute();
+    }
+
+    public void upsertDhcpVictims(Handle handle, long findingId, Collection<DhcpVictimRecord> victims) {
+        if (victims.isEmpty()) {
+            return;
+        }
+
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO spoofing_dhcp_victims(finding_id, mac, " +
+                "assigned_address, transaction_count, lease_count, first_seen, last_seen) VALUES(:finding_id, :mac, " +
+                ":assigned_address::inet, :transaction_count, :lease_count, :first_seen, :last_seen) " +
+                "ON CONFLICT (finding_id, mac) DO UPDATE SET " +
+                "assigned_address = COALESCE(EXCLUDED.assigned_address, spoofing_dhcp_victims.assigned_address), " +
+                "transaction_count = spoofing_dhcp_victims.transaction_count + EXCLUDED.transaction_count, " +
+                "lease_count = spoofing_dhcp_victims.lease_count + EXCLUDED.lease_count, " +
+                "first_seen = LEAST(spoofing_dhcp_victims.first_seen, EXCLUDED.first_seen), " +
+                "last_seen = GREATEST(spoofing_dhcp_victims.last_seen, EXCLUDED.last_seen)");
+
+        for (DhcpVictimRecord v : victims) {
+            batch.bind("finding_id", findingId)
+                    .bind("mac", v.mac())
+                    .bind("assigned_address", v.assignedAddress())
+                    .bind("transaction_count", v.transactionCount())
+                    .bind("lease_count", v.leaseCount())
+                    .bind("first_seen", v.firstSeen())
+                    .bind("last_seen", v.lastSeen())
+                    .add();
+        }
+
+        batch.execute();
+    }
+
+    public List<DhcpSpoofingVictimEntry> findDhcpVictims(long findingId, int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_victims WHERE finding_id = :finding_id " +
+                                "ORDER BY lease_count DESC, transaction_count DESC, mac ASC LIMIT :limit")
+                        .bind("finding_id", findingId)
+                        .bind("limit", limit)
+                        .mapTo(DhcpSpoofingVictimEntry.class)
+                        .list()
+        );
+    }
+
+    public void deleteDhcpFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dhcp_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteDhcpFindingById(Handle handle, long id) {
+        handle.createUpdate("DELETE FROM spoofing_dhcp_findings WHERE id = :id")
+                .bind("id", id)
+                .execute();
+    }
+
+    public int deleteAllDhcpFindings(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dhcp_findings WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void retentionCleanDhcp(UUID organizationId, UUID tenantId, DateTime cutoff) {
+        nzyme.getDatabase().useHandle(handle -> {
+            handle.createUpdate("DELETE FROM spoofing_dhcp_findings WHERE organization_id = :organization_id " +
+                            "AND tenant_id = :tenant_id AND last_seen < :cutoff")
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .bind("cutoff", cutoff)
+                    .execute();
+
+            // Trusted servers are kept so that a returning server does not look rogue. Untrusted ones expire.
+            handle.createUpdate("DELETE FROM spoofing_dhcp_servers WHERE organization_id = :organization_id " +
+                            "AND tenant_id = :tenant_id AND trusted = false AND last_seen < :cutoff")
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .bind("cutoff", cutoff)
+                    .execute();
+        });
+    }
+
+    public long countDhcpServers(Filters filters, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingServerFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM spoofing_dhcp_servers " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DhcpSpoofingServerEntry> findAllDhcpServers(Filters filters,
+                                                            DhcpServerOrderColumn orderColumn,
+                                                            OrderDirection orderDirection,
+                                                            int limit,
+                                                            int offset,
+                                                            UUID organizationId,
+                                                            UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingServerFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_servers " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                filterFragment.whereSql() +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindMap(filterFragment.bindings())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(DhcpSpoofingServerEntry.class)
+                        .list()
+        );
+    }
+
+    public List<DhcpSpoofingServerEntry> findAllDhcpServersOfTenant(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT * FROM spoofing_dhcp_servers WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(DhcpSpoofingServerEntry.class)
+                .list();
+    }
+
+    public Optional<DhcpSpoofingServerEntry> findDhcpServer(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_servers WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(DhcpSpoofingServerEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<DhcpSpoofingServerEntry> findDhcpServerByIdentity(String mac,
+                                                                      String address,
+                                                                      UUID organizationId,
+                                                                      UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dhcp_servers WHERE mac = :mac " +
+                                "AND address = :address::inet AND organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id")
+                        .bind("mac", mac)
+                        .bind("address", address)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(DhcpSpoofingServerEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<DhcpSpoofingServerEntry> findDhcpServerById(Handle handle, long id) {
+        return handle.createQuery("SELECT * FROM spoofing_dhcp_servers WHERE id = :id")
+                .bind("id", id)
+                .mapTo(DhcpSpoofingServerEntry.class)
+                .findOne();
+    }
+
+    public DhcpSpoofingServerEntry createDhcpServer(Handle handle,
+                                                    UUID organizationId,
+                                                    UUID tenantId,
+                                                    String mac,
+                                                    String address,
+                                                    @Nullable String serverIdentifier,
+                                                    boolean trusted,
+                                                    @Nullable String trustSource,
+                                                    @Nullable DhcpOfferedParameters baseline,
+                                                    DateTime firstSeen,
+                                                    DateTime lastSeen) {
+        return handle.createQuery("INSERT INTO spoofing_dhcp_servers(uuid, organization_id, tenant_id, mac, " +
+                        "address, server_identifier, trusted, trust_source, baseline, baseline_updated_at, latest, " +
+                        "response_count, offer_count, ack_count, transaction_count, tap_uuids, first_seen, " +
+                        "last_seen, created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :mac, " +
+                        ":address::inet, :server_identifier::inet, :trusted, :trust_source, :baseline::jsonb, " +
+                        "CASE WHEN :baseline::jsonb IS NULL THEN NULL ELSE NOW() END, NULL, 0, 0, 0, 0, " +
+                        "'[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) RETURNING *")
+                .bind("uuid", UUID.randomUUID())
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("mac", mac)
+                .bind("address", address)
+                .bind("server_identifier", serverIdentifier)
+                .bind("trusted", trusted)
+                .bind("trust_source", trustSource)
+                .bind("baseline", baseline == null ? null : baseline.toJson())
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .mapTo(DhcpSpoofingServerEntry.class)
+                .one();
+    }
+
+    public void addDhcpServerActivity(Handle handle,
+                                      long id,
+                                      DhcpActivityCounts counts,
+                                      @Nullable DhcpOfferedParameters latest,
+                                      @Nullable String serverIdentifier,
+                                      Collection<UUID> existingTaps,
+                                      Collection<UUID> newTaps,
+                                      DateTime firstSeen,
+                                      DateTime lastSeen) {
+        handle.createUpdate("UPDATE spoofing_dhcp_servers SET response_count = response_count + :response_count, " +
+                        "offer_count = offer_count + :offer_count, ack_count = ack_count + :ack_count, " +
+                        "transaction_count = transaction_count + :transaction_count, " +
+                        "latest = COALESCE(:latest::jsonb, latest), " +
+                        "server_identifier = COALESCE(:server_identifier::inet, server_identifier), " +
+                        "tap_uuids = :tap_uuids::jsonb, first_seen = LEAST(first_seen, :first_seen), " +
+                        "last_seen = GREATEST(last_seen, :last_seen), updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .bind("response_count", counts.responseCount())
+                .bind("offer_count", counts.offerCount())
+                .bind("ack_count", counts.ackCount())
+                .bind("transaction_count", counts.transactionCount())
+                .bind("latest", latest == null ? null : latest.toJson())
+                .bind("server_identifier", serverIdentifier)
+                .bind("tap_uuids", tapsJson(existingTaps, newTaps))
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .execute();
+    }
+
+    public void setDhcpServerBaseline(Handle handle, long id, @Nullable DhcpOfferedParameters baseline) {
+        handle.createUpdate("UPDATE spoofing_dhcp_servers SET baseline = :baseline::jsonb, " +
+                        "baseline_updated_at = NOW(), updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .bind("baseline", baseline == null ? null : baseline.toJson())
+                .execute();
+    }
+
+    // Trusting takes the current configuration as baseline. Untrusting keeps the baseline for reference.
+    public void setDhcpServerTrusted(long id, boolean trusted) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE spoofing_dhcp_servers SET trusted = :trusted, trust_source = 'USER', " +
+                                "baseline = CASE WHEN :trusted THEN COALESCE(latest, baseline) ELSE baseline END, " +
+                                "baseline_updated_at = CASE WHEN :trusted THEN NOW() ELSE baseline_updated_at END, " +
+                                "updated_at = NOW() WHERE id = :id")
+                        .bind("id", id)
+                        .bind("trusted", trusted)
+                        .execute()
+        );
+    }
+
+    public void resetDhcpServerBaselineToLatest(long id) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE spoofing_dhcp_servers SET baseline = COALESCE(latest, baseline), " +
+                                "baseline_updated_at = NOW(), updated_at = NOW() WHERE id = :id")
+                        .bind("id", id)
+                        .execute()
+        );
+    }
+
+    public void deleteDhcpServer(long id) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dhcp_servers WHERE id = :id")
+                        .bind("id", id)
+                        .execute()
+        );
+    }
+
+    public Optional<DateTime> findDhcpProcessedUntil(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT processed_until FROM spoofing_dhcp_detection_state " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .map((rs, ctx) -> new DateTime(rs.getTimestamp("processed_until")))
+                .findOne();
+    }
+
+    public void setDhcpProcessedUntil(Handle handle, UUID organizationId, UUID tenantId, DateTime processedUntil) {
+        handle.createUpdate("INSERT INTO spoofing_dhcp_detection_state(organization_id, tenant_id, processed_until) " +
+                        "VALUES(:organization_id, :tenant_id, :processed_until) " +
+                        "ON CONFLICT (organization_id, tenant_id) DO UPDATE SET processed_until = EXCLUDED.processed_until")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("processed_until", processedUntil)
+                .execute();
+    }
+
+    public Optional<DateTime> findDhcpLearningStartedAt(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT learning_started_at FROM spoofing_dhcp_detection_state " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                        "AND learning_started_at IS NOT NULL")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .map((rs, ctx) -> new DateTime(rs.getTimestamp("learning_started_at")))
+                .findOne();
+    }
+
+    public Optional<DateTime> findDhcpLearningStartedAt(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle -> findDhcpLearningStartedAt(handle, organizationId, tenantId));
+    }
+
+    public Optional<DateTime> findEarliestDhcpServerFirstSeen(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT MIN(first_seen) AS first_seen FROM spoofing_dhcp_servers " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .map((rs, ctx) -> {
+                            Timestamp ts = rs.getTimestamp("first_seen");
+                            return ts == null ? null : new DateTime(ts);
+                        })
+                        .findOne()
+        );
+    }
+
+    public Optional<DateTime> findDhcpLearningEndedAt(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT learning_ended_at FROM spoofing_dhcp_detection_state " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                        "AND learning_ended_at IS NOT NULL")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .map((rs, ctx) -> new DateTime(rs.getTimestamp("learning_ended_at")))
+                .findOne();
+    }
+
+    public Optional<DateTime> findDhcpLearningEndedAt(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle -> findDhcpLearningEndedAt(handle, organizationId, tenantId));
+    }
+
+    // The state row does not exist before the first detection run. The cursor matches the detector's initial one.
+    public void endDhcpLearning(UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("INSERT INTO spoofing_dhcp_detection_state(organization_id, tenant_id, " +
+                                "processed_until, learning_ended_at) " +
+                                "VALUES(:organization_id, :tenant_id, NOW() - INTERVAL '24 hours', NOW()) " +
+                                "ON CONFLICT (organization_id, tenant_id) DO UPDATE SET learning_ended_at = NOW()")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void restartDhcpLearning(UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("INSERT INTO spoofing_dhcp_detection_state(organization_id, tenant_id, " +
+                                "processed_until, learning_started_at, learning_ended_at) " +
+                                "VALUES(:organization_id, :tenant_id, NOW() - INTERVAL '24 hours', NOW(), NULL) " +
+                                "ON CONFLICT (organization_id, tenant_id) DO UPDATE SET learning_started_at = NOW(), " +
+                                "learning_ended_at = NULL")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void setDhcpServerLearned(Handle handle, long id) {
+        handle.createUpdate("UPDATE spoofing_dhcp_servers SET trusted = true, trust_source = 'LEARNED', " +
+                        "updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .execute();
+    }
+
+    private static String tapsJson(Collection<UUID> existingTaps, Collection<UUID> newTaps) {
+        Set<UUID> taps = Sets.newLinkedHashSet(existingTaps);
+        taps.addAll(newTaps);
+
+        try {
+            return OM.writeValueAsString(taps.stream().map(UUID::toString).toList());
+        } catch (Exception e) {
+            throw new RuntimeException("Could not serialize tap UUIDs.", e);
+        }
     }
 
 }

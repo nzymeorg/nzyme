@@ -96,6 +96,8 @@ public class DHCP {
                                 "MIN(additional_vendor_classes::text)::jsonb AS additional_vendor_classes, " +
                                 "MIN(timestamps::text)::jsonb AS timestamps, MAX(first_packet) AS first_packet, " +
                                 "MAX(latest_packet) AS latest_packet, MIN(notes::text)::jsonb AS notes, " +
+                                "jsonb_agg(server_responses) AS server_responses, " +
+                                "MIN(selected_server_address) AS selected_server_address, " +
                                 "BOOL_OR(is_successful) AS is_successful, BOOL_OR(is_complete) AS is_complete " +
                                 "FROM dhcp_transactions " +
                                 "WHERE latest_packet >= :tr_from AND latest_packet <= :tr_to " +
@@ -137,6 +139,8 @@ public class DHCP {
                                 "MIN(additional_vendor_classes::text)::jsonb AS additional_vendor_classes, " +
                                 "MIN(timestamps::text)::jsonb AS timestamps, MAX(first_packet) AS first_packet, " +
                                 "MAX(latest_packet) AS latest_packet, MIN(notes::text)::jsonb AS notes, " +
+                                "jsonb_agg(server_responses) AS server_responses, " +
+                                "MIN(selected_server_address) AS selected_server_address, " +
                                 "BOOL_OR(is_successful) AS is_successful, BOOL_OR(is_complete) AS is_complete " +
                                 "FROM dhcp_transactions " +
                                 "WHERE transaction_id = :transaction_id " +

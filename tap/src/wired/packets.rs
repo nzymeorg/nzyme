@@ -516,7 +516,15 @@ pub struct Dhcpv4Packet {
     pub message_type: Dhcpv4MessageType,
     pub requested_ip_address: Option<IpAddr>,
     pub hostname: Option<String>,
-    pub parameter_request_list: Vec<u8>
+    pub parameter_request_list: Vec<u8>,
+
+    // Option 54 is also set by clients in REQUEST messages to name the server whose offer they accept.
+    pub server_identifier: Option<IpAddr>,
+    pub subnet_mask: Option<IpAddr>,
+    pub routers: Vec<IpAddr>,
+    pub dns_servers: Vec<IpAddr>,
+    pub domain_name: Option<String>,
+    pub lease_time_seconds: Option<u32>
 }
 
 impl Dhcpv4Packet {
@@ -549,8 +557,34 @@ impl Dhcpv4Packet {
             size += hostname.len() as u32;
         }
 
+        size += mem::size_of::<IpAddr>() as u32 * self.server_identifier.is_some() as u32;
+        size += mem::size_of::<IpAddr>() as u32 * self.subnet_mask.is_some() as u32;
+        size += mem::size_of::<IpAddr>() as u32 * (self.routers.len() + self.dns_servers.len()) as u32;
+        if let Some(ref domain_name) = self.domain_name {
+            size += domain_name.len() as u32;
+        }
+        size += mem::size_of::<u32>() as u32 * self.lease_time_seconds.is_some() as u32;
+
         size
     }
+}
+
+// One entry per message type, server and offered address. Retransmissions increment the count.
+#[derive(Debug, Clone)]
+pub struct Dhcpv4ServerResponse {
+    pub message_type: Dhcpv4MessageType,
+    pub server_mac: Option<String>,
+    pub server_address: IpAddr,
+    pub server_identifier: Option<IpAddr>,
+    pub offered_address: Option<IpAddr>,
+    pub subnet_mask: Option<IpAddr>,
+    pub routers: Vec<IpAddr>,
+    pub dns_servers: Vec<IpAddr>,
+    pub domain_name: Option<String>,
+    pub lease_time_seconds: Option<u32>,
+    pub count: u32,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>
 }
 
 #[derive(Debug)]
@@ -571,11 +605,57 @@ pub struct Dhcpv4Transaction {
     pub additional_options: HashSet<Vec<u8>>,
     pub vendor_class: Option<String>,
     pub additional_vendor_classes: HashSet<String>,
+    pub server_responses: Vec<Dhcpv4ServerResponse>,
+    pub selected_server_address: Option<IpAddr>,
     pub successful: Option<bool>,
     pub complete: bool
 }
 
 impl Dhcpv4Transaction {
+    pub fn record_server_response(&mut self, dhcp: &Dhcpv4Packet) {
+        let server_mac = match &dhcp.source_mac {
+            Some(mac) if mac != "FF:FF:FF:FF:FF:FF" => Some(mac.clone()),
+            _ => None
+        };
+
+        let existing = self.server_responses.iter_mut().find(|r|
+            r.message_type == dhcp.message_type
+                && r.server_mac == server_mac
+                && r.server_address == dhcp.source_address
+                && r.offered_address == dhcp.assigned_address
+        );
+
+        match existing {
+            Some(r) => {
+                r.count += 1;
+                r.last_seen = dhcp.timestamp;
+                r.server_identifier = dhcp.server_identifier;
+                r.subnet_mask = dhcp.subnet_mask;
+                r.routers = dhcp.routers.clone();
+                r.dns_servers = dhcp.dns_servers.clone();
+                r.domain_name = dhcp.domain_name.clone();
+                r.lease_time_seconds = dhcp.lease_time_seconds;
+            },
+            None => {
+                self.server_responses.push(Dhcpv4ServerResponse {
+                    message_type: dhcp.message_type.clone(),
+                    server_mac,
+                    server_address: dhcp.source_address,
+                    server_identifier: dhcp.server_identifier,
+                    offered_address: dhcp.assigned_address,
+                    subnet_mask: dhcp.subnet_mask,
+                    routers: dhcp.routers.clone(),
+                    dns_servers: dhcp.dns_servers.clone(),
+                    domain_name: dhcp.domain_name.clone(),
+                    lease_time_seconds: dhcp.lease_time_seconds,
+                    count: 1,
+                    first_seen: dhcp.timestamp,
+                    last_seen: dhcp.timestamp
+                });
+            }
+        }
+    }
+
     // Handles `server_mac` and `additional_server_macs`.
     pub fn record_server_mac(&mut self, new_mac: Option<String>) {
         if new_mac == Some("FF:FF:FF:FF:FF:FF".to_string()) {

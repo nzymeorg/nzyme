@@ -70,6 +70,8 @@ public class DHCPTransactionMapper implements RowMapper<DHCPTransactionEntry> {
                 firstPacket,
                 new DateTime(rs.getTimestamp("latest_packet")),
                 notes,
+                DHCPServerResponses.fromJson(rs.getString("server_responses")),
+                rs.getString("selected_server_address"),
                 rs.getBoolean("is_successful"),
                 rs.getBoolean("is_complete")
         );

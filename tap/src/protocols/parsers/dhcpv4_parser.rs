@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 use byteorder::{BigEndian, ByteOrder};
 use serde::__private228::from_utf8_lossy;
@@ -79,6 +80,12 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
     let mut parameter_request_list = Vec::new();
     let mut options: Vec<u8> = Vec::new();
     let mut vendor_class = None;
+    let mut server_identifier = None;
+    let mut subnet_mask = None;
+    let mut routers = Vec::new();
+    let mut dns_servers = Vec::new();
+    let mut domain_name = None;
+    let mut lease_time_seconds = None;
 
     let mut cursor: usize = 240;
     loop {
@@ -111,10 +118,30 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
         }
 
         match option_id {
+            1 => {
+                // Subnet mask.
+                if length == 4 {
+                    subnet_mask = Some(to_ipv4_address(&udp.payload[cursor..cursor+4]));
+                }
+            },
+            3 => {
+                // Routers. (list of IPv4 addresses)
+                routers = parse_address_list(&udp.payload[cursor..cursor+length]);
+            },
+            6 => {
+                // DNS servers. (list of IPv4 addresses)
+                dns_servers = parse_address_list(&udp.payload[cursor..cursor+length]);
+            },
             12 => {
                 // Client hostname. (variable length)
                 hostname = Some(
                     from_utf8_lossy(&udp.payload[cursor..cursor+length]).to_string()
+                );
+            },
+            15 => {
+                // Domain name. (variable length)
+                domain_name = Some(
+                    from_utf8_lossy(&udp.payload[cursor..cursor+length]).trim_end_matches('\0').to_string()
                 );
             },
             50 => {
@@ -140,6 +167,18 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
                         break;
                     }
                 };
+            },
+            51 => {
+                // Lease time in seconds.
+                if length == 4 {
+                    lease_time_seconds = Some(BigEndian::read_u32(&udp.payload[cursor..cursor+4]));
+                }
+            },
+            54 => {
+                // Server identifier.
+                if length == 4 {
+                    server_identifier = Some(to_ipv4_address(&udp.payload[cursor..cursor+4]));
+                }
             },
             55 => {
                 // Parameter request list.
@@ -182,6 +221,17 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
         message_type,
         requested_ip_address,
         hostname,
-        parameter_request_list
+        parameter_request_list,
+        server_identifier,
+        subnet_mask,
+        routers,
+        dns_servers,
+        domain_name,
+        lease_time_seconds
     })
+}
+
+// Trailing bytes that do not form a full address are ignored.
+fn parse_address_list(bytes: &[u8]) -> Vec<IpAddr> {
+    bytes.chunks_exact(4).map(to_ipv4_address).collect()
 }
