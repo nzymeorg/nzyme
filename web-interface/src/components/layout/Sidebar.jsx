@@ -57,6 +57,11 @@ function Sidebar(props) {
                 title="Beacons"
                 icon={<i className="sidebar-icon fa-solid fa-location-arrow"/>}/>
             <NavigationLink
+                href={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}
+                pathMatch="/ethernet/spoofing/"
+                title="Spoofing"
+                icon={<i className="sidebar-icon fa-solid fa-masks-theater"/>}/>
+            <NavigationLink
                 href={ApiRoutes.ETHERNET.RECON.SCANS.INDEX}
                 pathMatch="/ethernet/recon/"
                 title="Recon"

@@ -9,6 +9,7 @@ import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.nat.NAT;
 import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
 import app.nzyme.core.ethernet.recon.Recon;
+import app.nzyme.core.ethernet.spoofing.Spoofing;
 import app.nzyme.core.ethernet.icmp.ICMP;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
@@ -37,6 +38,7 @@ public class Ethernet {
     private final PortalIntegrity portalIntegrity;
     private final Beacons beacons;
     private final Recon recon;
+    private final Spoofing spoofing;
     private final ICMP icmp;
 
     public Ethernet(NzymeNode nzyme) {
@@ -57,6 +59,7 @@ public class Ethernet {
         this.portalIntegrity = new PortalIntegrity(this);
         this.beacons = new Beacons(nzyme);
         this.recon = new Recon(nzyme);
+        this.spoofing = new Spoofing(nzyme);
         this.icmp = new ICMP(this);
     }
 
@@ -118,6 +121,10 @@ public class Ethernet {
 
     public Recon recon() {
         return recon;
+    }
+
+    public Spoofing spoofing() {
+        return spoofing;
     }
 
     public ICMP icmp() {

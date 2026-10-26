@@ -98,9 +98,7 @@ pub struct ConfigurationReportProtocolsDns {
 
 #[derive(Serialize)]
 pub struct ConfigurationReportProtocolsArp {
-    pub pipeline_size: i32,
-    pub poisoning_monitor: bool,
-    pub poisoning_window_seconds: i32
+    pub pipeline_size: i32
 }
 
 #[derive(Serialize)]
@@ -168,9 +166,7 @@ impl TryFrom<Configuration> for ConfigurationReport {
                     entropy_zscore_threshold: c.protocols.dns.entropy_zscore_threshold
                 },
                 arp: ConfigurationReportProtocolsArp {
-                    pipeline_size: c.protocols.arp.pipeline_size,
-                    poisoning_monitor: c.protocols.arp.poisoning_monitor,
-                    poisoning_window_seconds: c.protocols.arp.poisoning_window_seconds
+                    pipeline_size: c.protocols.arp.pipeline_size
                 },
                 ssh: ConfigurationReportProtocolsSsh {
                     pipeline_size: c.protocols.ssh.pipeline_size

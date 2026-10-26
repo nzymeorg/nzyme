@@ -182,6 +182,13 @@ import EditReconExclusionPage from "./components/ethernet/recon/exclusions/EditR
 import ReconFingerprintingPage from "./components/ethernet/recon/ReconFingerprintingPage";
 import ReconProbedHostsPage from "./components/ethernet/recon/ReconProbedHostsPage";
 import ReconProbedHostDetailsPage from "./components/ethernet/recon/ReconProbedHostDetailsPage";
+import ArpSpoofingPage from "./components/ethernet/spoofing/ArpSpoofingPage";
+import ArpSpoofingFindingDetailsPage from "./components/ethernet/spoofing/ArpSpoofingFindingDetailsPage";
+import SpoofingSettingsPage from "./components/ethernet/spoofing/SpoofingSettingsPage";
+import SpoofingExclusionsPage from "./components/ethernet/spoofing/exclusions/SpoofingExclusionsPage";
+import CreateSpoofingExclusionPage from "./components/ethernet/spoofing/exclusions/CreateSpoofingExclusionPage";
+import SpoofingExclusionDetailsPage from "./components/ethernet/spoofing/exclusions/SpoofingExclusionDetailsPage";
+import EditSpoofingExclusionPage from "./components/ethernet/spoofing/exclusions/EditSpoofingExclusionPage";
 import IcmpTrafficPage from "./components/ethernet/icmp/IcmpTrafficPage";
 import IcmpRedirectsPage from "./components/ethernet/icmp/IcmpRedirectsPage";
 import IcmpTraceroutesPage from "./components/ethernet/icmp/IcmpTraceroutesPage";
@@ -674,6 +681,15 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(':uuid')} element={<ReconScanDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.HOSTS.INDEX} element={<ReconProbedHostsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.HOSTS.DETAILS(':address')} element={<ReconProbedHostDetailsPage />}/>
+
+                                { /* Ethernet/Spoofing. */}
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX} element={<ArpSpoofingPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(':uuid')} element={<ArpSpoofingFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.SETTINGS} element={<SpoofingSettingsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.INDEX} element={<SpoofingExclusionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.CREATE} element={<CreateSpoofingExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.DETAILS(':uuid')} element={<SpoofingExclusionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.EDIT(':uuid')} element={<EditSpoofingExclusionPage />}/>
 
                                 { /* Ethernet/ICMP. */}
                                 <Route path={ApiRoutes.ETHERNET.ICMP.OVERVIEW} element={<IcmpTrafficPage />}/>

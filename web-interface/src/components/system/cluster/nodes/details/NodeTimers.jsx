@@ -32,6 +32,7 @@ function NodeTimers(props) {
           <TimerRow title="Beacon Detection: Candidate Discovery" timer={timers.beacon_candidate_discovery} />
           <TimerRow title="Recon Detection: Run per Tenant" timer={timers.recon_detection_run} />
           <TimerRow title="Recon Detection: Candidate Discovery" timer={timers.recon_candidate_discovery} />
+          <TimerRow title="ARP Spoofing Detection: Run per Tenant" timer={timers.spoofing_arp_detection_run} />
         </tbody>
       </table>
   )

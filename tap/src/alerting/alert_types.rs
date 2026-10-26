@@ -18,14 +18,3 @@ pub struct Dot11Alert {
 pub enum Dot11AlertType {
     PwnagotchiDetected
 }
-
-#[derive(Debug)]
-pub struct ArpAlert {
-    pub alert_type: ArpAlertType,
-    pub attributes: HashMap<String, AlertAttribute>
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub enum ArpAlertType {
-    PoisoningDetected
-}

@@ -68,6 +68,9 @@ import app.nzyme.core.ethernet.beacons.db.BeaconExclusionEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconScanEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconScanTargetEntryMapper;
 import app.nzyme.core.ethernet.recon.db.ReconExclusionEntryMapper;
+import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntryMapper;
+import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingVictimEntryMapper;
+import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpPacketEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpRedirectEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpTracerouteEntryMapper;
@@ -287,6 +290,9 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new ReconScanEntryMapper())
                 .registerRowMapper(new ReconScanTargetEntryMapper())
                 .registerRowMapper(new ReconExclusionEntryMapper())
+                .registerRowMapper(new ArpSpoofingFindingEntryMapper())
+                .registerRowMapper(new ArpSpoofingVictimEntryMapper())
+                .registerRowMapper(new SpoofingExclusionEntryMapper())
                 .registerRowMapper(new IcmpPacketEntryMapper())
                 .registerRowMapper(new IcmpRedirectEntryMapper())
                 .registerRowMapper(new IcmpTracerouteEntryMapper())

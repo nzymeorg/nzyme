@@ -10221,4 +10221,148 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="create_spoofing_tables" author="lennartkoopmann">
+        <createTable tableName="spoofing_arp_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="spoofer_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="owner_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="claim_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="reply_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unsolicited_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="broadcast_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="owner_claim_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="victim_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_arp_findings" indexName="spoofing_arp_findings_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_arp_findings" indexName="spoofing_arp_findings_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="spoofing_arp_victims">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="finding_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="spoofing_arp_victims_finding_id" references="spoofing_arp_findings(id)" deleteCascade="true" />
+            </column>
+            <column name="mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="inet" />
+            <column name="packet_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unsolicited_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_arp_victims" indexName="spoofing_arp_victims_identity" unique="true">
+            <column name="finding_id" />
+            <column name="mac" />
+        </createIndex>
+
+        <createTable tableName="spoofing_exclusions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+            <column name="types" type="text" />
+            <column name="address_cidr" type="text" />
+            <column name="mac" type="text" />
+            <column name="match_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_matched_at" type="timestamp with time zone" />
+            <column name="created_by_user_id" type="uuid" />
+            <column name="created_by_name" type="text" />
+            <column name="created_by_email" type="text" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_exclusions" indexName="spoofing_exclusions_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_exclusions" indexName="spoofing_exclusions_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+
+        <createIndex tableName="arp_packets" indexName="arp_sender_address_timestamp">
+            <column name="arp_sender_address" />
+            <column name="timestamp" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

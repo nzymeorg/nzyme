@@ -58,6 +58,7 @@ import {
   BEACON_CLASSIFICATION_SELECT_OPTIONS
 } from "./validators/BeaconClassificationValidator";
 import {ALLOWED_RECON_SCAN_TYPE_VALUES, RECON_SCAN_TYPE_SELECT_OPTIONS} from "./validators/ReconScanTypeValidator";
+import {ALLOWED_SPOOFING_TYPE_VALUES, SPOOFING_TYPE_SELECT_OPTIONS} from "./validators/SpoofingTypeValidator";
 import {
   ALLOWED_RECON_TARGET_OUTCOME_VALUES,
   RECON_TARGET_OUTCOME_SELECT_OPTIONS
@@ -218,6 +219,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_RECON_SCAN_TYPE_VALUES, value)
     ],
     placeholder: "TCP_PORT_SCAN"
+  },
+  SPOOFING_TYPE: {
+    name: "spoofing_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_SPOOFING_TYPE_VALUES, value)
+    ],
+    placeholder: "ARP"
   },
   RECON_TARGET_OUTCOME: {
     name: "recon_target_outcome",
@@ -591,6 +599,24 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: RECON_SCAN_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SPOOFING_TYPE_EQUALS: {
+    name: "spoofing_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SPOOFING_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SPOOFING_TYPE_NOT_EQUALS: {
+    name: "spoofing_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SPOOFING_TYPE_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   RECON_TARGET_OUTCOME_EQUALS: {
@@ -984,6 +1010,12 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.RECON_SCAN_TYPE_EQUALS,
             OPERATORS.RECON_SCAN_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SPOOFING_TYPE:
+          setAllowedOperators([
+            OPERATORS.SPOOFING_TYPE_EQUALS,
+            OPERATORS.SPOOFING_TYPE_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.RECON_TARGET_OUTCOME:

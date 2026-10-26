@@ -269,6 +269,19 @@ const ApiRoutes = {
       },
       SETTINGS: '/ethernet/icmp/settings'
     },
+    SPOOFING: {
+      ARP: {
+        INDEX: '/ethernet/spoofing/arp',
+        DETAILS: uuid => `/ethernet/spoofing/arp/show/${uuid}`
+      },
+      SETTINGS: '/ethernet/spoofing/settings',
+      EXCLUSIONS: {
+        INDEX: '/ethernet/spoofing/exclusions',
+        CREATE: '/ethernet/spoofing/exclusions/create',
+        DETAILS: uuid => `/ethernet/spoofing/exclusions/show/${uuid}`,
+        EDIT: uuid => `/ethernet/spoofing/exclusions/show/${uuid}/edit`
+      }
+    },
     RECON: {
       FINGERPRINTING: {
         INDEX: '/ethernet/recon/fingerprinting',

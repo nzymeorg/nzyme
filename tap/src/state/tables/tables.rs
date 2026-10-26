@@ -69,12 +69,7 @@ impl Tables {
         Tables {
             dot11: Arc::new(Mutex::new(Dot11Table::new(leaderlink.clone()))),
             bluetooth: Arc::new(Mutex::new(BluetoothTable::new(leaderlink.clone(), metrics.clone()))),
-            arp: Arc::new(Mutex::new(ArpTable::new(
-                leaderlink.clone(),
-                metrics.clone(),
-                configuration.protocols.arp.poisoning_monitor,
-                configuration.protocols.arp.poisoning_window_seconds))
-            ),
+            arp: Arc::new(Mutex::new(ArpTable::new(leaderlink.clone(), metrics.clone()))),
             icmp: Arc::new(Mutex::new(IcmpTable::new(leaderlink.clone(), metrics.clone()))),
             dhcp: Arc::new(Mutex::new(DhcpTable::new(leaderlink.clone(), metrics.clone()))),
             dns: Arc::new(Mutex::new(DnsTable::new(leaderlink.clone(), metrics.clone()))),

@@ -1,0 +1,113 @@
+import React, {useContext} from "react";
+import numeral from "numeral";
+import {toast} from "react-toastify";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
+import SectionMenuBar from "../../shared/SectionMenuBar";
+import ApiRoutes from "../../../util/ApiRoutes";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
+import usePageTitle from "../../../util/UsePageTitle";
+import {SPOOFING_MENU_ITEMS} from "./SpoofingMenuItems";
+import SpoofingConfiguration from "./SpoofingConfiguration";
+import SpoofingService from "../../../services/ethernet/SpoofingService";
+import {UserContext} from "../../../App";
+import {userHasPermission} from "../../../util/Tools";
+
+const spoofingService = new SpoofingService();
+
+export default function SpoofingSettingsPage() {
+
+  usePageTitle("Ethernet Spoofing Settings");
+
+  const [organizationId, tenantId] = useSelectedTenant();
+  const user = useContext(UserContext);
+  const canManage = userHasPermission(user, "ethernet_monitoring_manage");
+
+  const onDeleteAllArp = (e) => {
+    e.preventDefault();
+
+    if (!confirm("Really delete ALL ARP poisoning findings of this tenant, including their victims? This cannot " +
+        "be undone. Findings are detected again if the devices keep claiming addresses.")) {
+      return;
+    }
+
+    spoofingService.deleteAllArpFindings(organizationId, tenantId, (response) => {
+      toast.success(numeral(response.data.deleted_count).format("0,0") + " findings deleted.");
+    });
+  }
+
+  return (
+    <React.Fragment>
+      <div className="row">
+        <div className="col-md-10">
+          <SectionMenuBar items={SPOOFING_MENU_ITEMS}
+                          activeRoute={ApiRoutes.ETHERNET.SPOOFING.SETTINGS} />
+        </div>
+
+        <div className="col-md-2">
+          <a href="https://go.nzyme.org/ethernet-spoofing-config" className="btn btn-secondary float-end">Help</a>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Detection" />
+
+              <p className="text-muted mb-2">
+                Detection runs every minute over the ARP packets of all taps of the tenant. Every ARP packet
+                carries a claim that an address belongs to a MAC address. A finding is raised when:
+              </p>
+              <ul className="text-muted">
+                <li>two different MAC addresses claimed the same address inside the detection window,</li>
+                <li>the device that claimed the address first, over the owner lookback period, was still claiming
+                  it after the other device started, and</li>
+                <li>the other device claimed it at least the minimum number of times inside the window.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                The overlap requirement is what separates poisoning from an address that simply changed hands, for
+                example after a DHCP lease expired. A finding stays open while the spoofer keeps claiming the
+                address within the window. Router redundancy protocols, failover clusters and virtual machine
+                migration can legitimately move an address between MAC addresses; add an exclusion for them.
+              </p>
+
+              <SpoofingConfiguration organizationId={organizationId} tenantId={tenantId} section="detection" />
+            </div>
+          </div>
+        </div>
+
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Alerting" />
+
+              <p className="text-muted">
+                Detection alerts raised by spoofing detection. An alert is raised once per finding when it is
+                first detected, not again while it continues.
+              </p>
+
+              <SpoofingConfiguration organizationId={organizationId} tenantId={tenantId} section="alerting" />
+            </div>
+          </div>
+
+          {canManage ?
+            <div className="card mt-3">
+              <div className="card-body">
+                <CardTitleWithControls title="Delete All ARP Poisoning Findings" slim={true} />
+
+                <p>
+                  Deletes every ARP poisoning finding of this tenant, including its victims. Device and asset data
+                  is not affected. Exclusions and the settings on this page are kept. Findings are detected again
+                  if the devices keep claiming addresses, unless an exclusion matches them.
+                </p>
+
+                <button className="btn btn-sm btn-danger" onClick={onDeleteAllArp}>Delete All Findings</button>
+              </div>
+            </div>
+            : null}
+        </div>
+      </div>
+    </React.Fragment>
+  )
+
+}

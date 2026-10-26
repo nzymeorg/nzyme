@@ -275,6 +275,8 @@ public class NodesResource {
                     node.uuid(), MetricExternalName.RECON_DETECTION_RUN_TIMER.database_label, handle)));
             timers.put("recon_candidate_discovery", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.RECON_CANDIDATE_DISCOVERY_TIMER.database_label, handle)));
+            timers.put("spoofing_arp_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.SPOOFING_ARP_DETECTION_RUN_TIMER.database_label, handle)));
 
             // Database connection pool.
             timers.put("database_pool_wait", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(

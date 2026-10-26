@@ -18,6 +18,7 @@ import MonitorTriggeredAlertDetails from "./generic/MonitorTriggeredAlertDetails
 import EnvironmentalSevereAlertDetails from "./generic/EnvironmentalSevereAlertDetails";
 import BeaconAlertDetails from "./ethernet/BeaconAlertDetails";
 import ReconScanAlertDetails from "./ethernet/ReconScanAlertDetails";
+import ArpSpoofingAlertDetails from "./ethernet/ArpSpoofingAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
@@ -72,6 +73,8 @@ function AlertDetails(props) {
     case "RECON_SCAN_NEW":
     case "RECON_FINGERPRINTING_NEW":
       return <ReconScanAlertDetails alert={alert} />
+    case "SPOOFING_ARP_NEW":
+      return <ArpSpoofingAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
       return <IcmpAlertDetails alert={alert} />

@@ -48,6 +48,7 @@ import app.nzyme.core.monitoring.health.HealthMonitor;
 import app.nzyme.core.monitors.MonitorExecutionTaskHandler;
 import app.nzyme.core.ethernet.beacons.BeaconsThread;
 import app.nzyme.core.ethernet.recon.ReconThread;
+import app.nzyme.core.ethernet.spoofing.SpoofingThread;
 import app.nzyme.core.ethernet.icmp.IcmpThread;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.monitors.MonitorsThread;
@@ -346,6 +347,7 @@ public class NzymeNodeImpl implements NzymeNode {
         periodicalManager.scheduleAtFixedRate(new MonitorsThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new BeaconsThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new ReconThread(this), 1, 1, TimeUnit.MINUTES);
+        periodicalManager.scheduleAtFixedRate(new SpoofingThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new IcmpThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new TimelinesThread(this), 0, EVENT_HORIZON_MINUTES, TimeUnit.MINUTES);
         if (configuration.versionchecksEnabled()) {

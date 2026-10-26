@@ -16,6 +16,8 @@ public enum DetectionType {
     RECON_SCAN_NEW("Network scan detected", Subsystem.ETHERNET),
     RECON_FINGERPRINTING_NEW("OS fingerprinting detected", Subsystem.ETHERNET),
 
+    SPOOFING_ARP_NEW("ARP poisoning detected", Subsystem.ETHERNET),
+
     ICMP_REDIRECT("ICMP redirect detected", Subsystem.ETHERNET),
     ICMP_TRACEROUTE("Traceroute detected", Subsystem.ETHERNET),
     ICMP_TUNNEL("ICMP tunnel detected", Subsystem.ETHERNET),
