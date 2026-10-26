@@ -2,10 +2,10 @@ import RESTClient from "../../util/RESTClient";
 
 export default class BeaconsService {
 
-  findAllBeacons(organizationId, tenantId, filters, orderColumn, orderDirection, limit, offset, setBeacons) {
+  findAllBeacons(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setBeacons) {
     RESTClient.get("/ethernet/beacons", {
-      organization_id: organizationId, tenant_id: tenantId, filters: filters, order_column: orderColumn,
-      order_direction: orderDirection, limit: limit, offset: offset
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
     }, (response) => setBeacons(response.data));
   }
 
@@ -14,9 +14,9 @@ export default class BeaconsService {
       (response) => setBeacon(response.data), onError);
   }
 
-  findBeaconSources(uuid, organizationId, tenantId, orderColumn, orderDirection, limit, offset, setSources) {
+  findBeaconSources(uuid, organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, setSources) {
     RESTClient.get(`/ethernet/beacons/show/${uuid}/sources`, {
-      organization_id: organizationId, tenant_id: tenantId, order_column: orderColumn,
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, order_column: orderColumn,
       order_direction: orderDirection, limit: limit, offset: offset
     }, (response) => setSources(response.data));
   }
@@ -83,9 +83,10 @@ export default class BeaconsService {
       {}, successCallback, errorCallback);
   }
 
-  classifyBeacons(organizationId, tenantId, filters, classification, successCallback, errorCallback) {
+  classifyBeacons(organizationId, tenantId, filters, timeRange, classification, successCallback, errorCallback) {
     RESTClient.put(`/ethernet/beacons/organization/${organizationId}/tenant/${tenantId}/classify/${classification}`
-      + "?filters=" + encodeURIComponent(JSON.stringify(filters ? filters : {})), {}, successCallback, errorCallback);
+      + "?filters=" + encodeURIComponent(JSON.stringify(filters ? filters : {}))
+      + "&time_range=" + encodeURIComponent(JSON.stringify(timeRange)), {}, successCallback, errorCallback);
   }
 
   deleteAllBeacons(organizationId, tenantId, successCallback) {

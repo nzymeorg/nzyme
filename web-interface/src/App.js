@@ -180,8 +180,8 @@ import CreateReconExclusionPage from "./components/ethernet/recon/exclusions/Cre
 import ReconExclusionDetailsPage from "./components/ethernet/recon/exclusions/ReconExclusionDetailsPage";
 import EditReconExclusionPage from "./components/ethernet/recon/exclusions/EditReconExclusionPage";
 import ReconFingerprintingPage from "./components/ethernet/recon/ReconFingerprintingPage";
-import ReconTargetsPage from "./components/ethernet/recon/ReconTargetsPage";
-import ReconTargetDetailsPage from "./components/ethernet/recon/ReconTargetDetailsPage";
+import ReconProbedHostsPage from "./components/ethernet/recon/ReconProbedHostsPage";
+import ReconProbedHostDetailsPage from "./components/ethernet/recon/ReconProbedHostDetailsPage";
 import IcmpTrafficPage from "./components/ethernet/icmp/IcmpTrafficPage";
 import IcmpRedirectsPage from "./components/ethernet/icmp/IcmpRedirectsPage";
 import IcmpTraceroutesPage from "./components/ethernet/icmp/IcmpTraceroutesPage";
@@ -672,8 +672,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.RECON.SCANS.EXCLUSIONS.EDIT(':uuid')} element={<EditReconExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.INDEX} element={<ReconFingerprintingPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(':uuid')} element={<ReconScanDetailsPage />}/>
-                                <Route path={ApiRoutes.ETHERNET.RECON.TARGETS.INDEX} element={<ReconTargetsPage />}/>
-                                <Route path={ApiRoutes.ETHERNET.RECON.TARGETS.DETAILS(':address')} element={<ReconTargetDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.RECON.HOSTS.INDEX} element={<ReconProbedHostsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.RECON.HOSTS.DETAILS(':address')} element={<ReconProbedHostDetailsPage />}/>
 
                                 { /* Ethernet/ICMP. */}
                                 <Route path={ApiRoutes.ETHERNET.ICMP.OVERVIEW} element={<IcmpTrafficPage />}/>

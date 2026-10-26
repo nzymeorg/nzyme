@@ -6,7 +6,7 @@ import {beaconClassificationToName} from "./BeaconClassification";
 
 const beaconsService = new BeaconsService();
 
-export default function BulkBeaconClassification({total, filters, organizationId, tenantId, onChanged}) {
+export default function BulkBeaconClassification({total, filters, timeRange, organizationId, tenantId, onChanged}) {
 
   const [open, setOpen] = useState(false);
   const [classification, setClassification] = useState("BENIGN");
@@ -14,7 +14,9 @@ export default function BulkBeaconClassification({total, filters, organizationId
 
   const hasFilters = filters && Object.keys(filters).length > 0;
   const count = numeral(total).format("0,0");
-  const scope = hasFilters ? "all " + count + " beacons matching the current filters" : "all " + count + " beacons";
+  const scope = hasFilters
+    ? "all " + count + " beacons matching the current filters and time range"
+    : "all " + count + " beacons in the selected time range";
 
   const apply = (e) => {
     e.preventDefault();
@@ -25,7 +27,7 @@ export default function BulkBeaconClassification({total, filters, organizationId
     }
 
     setIsSaving(true);
-    beaconsService.classifyBeacons(organizationId, tenantId, filters, classification, (response) => {
+    beaconsService.classifyBeacons(organizationId, tenantId, filters, timeRange, classification, (response) => {
       setIsSaving(false);
       setOpen(false);
       toast.success(numeral(response.data.updated_count).format("0,0") + " beacons classified as \""

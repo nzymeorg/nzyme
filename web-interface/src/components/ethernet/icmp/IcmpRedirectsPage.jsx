@@ -50,6 +50,11 @@ export default function IcmpRedirectsPage() {
   const [revision, setRevision] = useState(new Date());
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
+
   useEffect(() => {
     enableTapSelector(tapContext);
     return () => { disableTapSelector(tapContext); }
@@ -156,7 +161,7 @@ export default function IcmpRedirectsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Filters"
                                      timeRange={timeRange}
-                                     setTimeRange={setTimeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}

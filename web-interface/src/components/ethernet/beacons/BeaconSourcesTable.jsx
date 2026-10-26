@@ -30,7 +30,7 @@ export default function BeaconSourcesTable({sources, page, setPage, perPage, ord
   }
 
   if (sources.sources.length === 0) {
-    return <div className="alert alert-info mb-0">This beacon has no recorded devices.</div>
+    return <div className="alert alert-info mb-0">No devices called this beacon in the selected time range.</div>
   }
 
   return (

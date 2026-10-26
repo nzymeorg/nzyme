@@ -274,9 +274,9 @@ const ApiRoutes = {
         INDEX: '/ethernet/recon/fingerprinting',
         DETAILS: uuid => `/ethernet/recon/fingerprinting/show/${uuid}`
       },
-      TARGETS: {
-        INDEX: '/ethernet/recon/targets',
-        DETAILS: address => `/ethernet/recon/targets/show/${address}`
+      HOSTS: {
+        INDEX: '/ethernet/recon/hosts',
+        DETAILS: address => `/ethernet/recon/hosts/show/${address}`
       },
       SCANS: {
         INDEX: '/ethernet/recon/scans',

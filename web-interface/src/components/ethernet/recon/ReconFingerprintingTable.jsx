@@ -52,8 +52,8 @@ export default function ReconFingerprintingTable({scans, page, setPage, perPage,
 
   if (scans.scans.length === 0) {
     return <div className="alert alert-info mb-0">
-      No OS fingerprinting attempts match the current filters. They appear here when a device sends the probes
-      that operating system detection tools use.
+      No OS fingerprinting attempts match the current filters and time range. They appear here when a device
+      sends the probes that operating system detection tools use.
     </div>
   }
 

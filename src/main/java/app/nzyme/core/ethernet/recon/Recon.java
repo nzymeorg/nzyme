@@ -64,7 +64,7 @@ public class Recon {
         }
     }
 
-    public enum ProbedTargetOrderColumn {
+    public enum ProbedHostOrderColumn {
 
         ADDRESS("address"),
         SOURCE_COUNT("source_count"),
@@ -75,7 +75,7 @@ public class Recon {
 
         private final String columnName;
 
-        ProbedTargetOrderColumn(String columnName) {
+        ProbedHostOrderColumn(String columnName) {
             this.columnName = columnName;
         }
 
@@ -172,14 +172,24 @@ public class Recon {
         return query;
     }
 
-    public long countScans(Filters filters, ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+    private static final String SCAN_TIME_RANGE_CONDITION = "AND first_seen <= :tr_to AND last_seen >= :tr_from ";
+
+    public long countScans(Filters filters,
+                           ReconScanCategory category,
+                           @Nullable List<UUID> taps,
+                           TimeRange timeRange,
+                           UUID organizationId,
+                           UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconScanFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
                 bindTaps(handle.createQuery("SELECT COUNT(*) FROM recon_scans WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql()), taps)
+                                "AND tenant_id = :tenant_id AND type IN (<types>) " + SCAN_TIME_RANGE_CONDITION +
+                                tapsCondition(taps, null) + filterFragment.whereSql()), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .mapTo(Long.class)
@@ -190,6 +200,7 @@ public class Recon {
     public List<ReconScanEntry> findAllScans(Filters filters,
                                              ReconScanCategory category,
                                              @Nullable List<UUID> taps,
+                                             TimeRange timeRange,
                                              OrderColumn orderColumn,
                                              OrderDirection orderDirection,
                                              int limit,
@@ -200,11 +211,14 @@ public class Recon {
 
         return nzyme.getDatabase().withHandle(handle ->
                 bindTaps(handle.createQuery("SELECT * FROM recon_scans WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql() +
+                                "AND tenant_id = :tenant_id AND type IN (<types>) " + SCAN_TIME_RANGE_CONDITION +
+                                tapsCondition(taps, null) + filterFragment.whereSql() +
                                 "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
                                 "LIMIT :limit OFFSET :offset"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .bind("limit", limit)
@@ -216,7 +230,12 @@ public class Recon {
         );
     }
 
-    public Map<String, Long> countScansByType(Filters filters, ReconScanCategory category, @Nullable List<UUID> taps, UUID organizationId, UUID tenantId) {
+    public Map<String, Long> countScansByType(Filters filters,
+                                              ReconScanCategory category,
+                                              @Nullable List<UUID> taps,
+                                              TimeRange timeRange,
+                                              UUID organizationId,
+                                              UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconScanFilters());
 
         Map<String, Long> result = new HashMap<>();
@@ -227,10 +246,13 @@ public class Recon {
         nzyme.getDatabase().useHandle(handle ->
                 bindTaps(handle.createQuery("SELECT type, COUNT(*) AS count FROM recon_scans " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND type IN (<types>) " + tapsCondition(taps, null) + filterFragment.whereSql() +
+                                "AND type IN (<types>) " + SCAN_TIME_RANGE_CONDITION +
+                                tapsCondition(taps, null) + filterFragment.whereSql() +
                                 "GROUP BY type"), taps)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindList("types", category.types())
                         .bindMap(filterFragment.bindings())
                         .mapToMap()
@@ -761,78 +783,111 @@ public class Recon {
                 .execute();
     }
 
-    public record ProbedTarget(String address, long sourceCount, long portCount, long failedPortCount,
-                               long pairCount, DateTime firstSeen, DateTime lastSeen) { }
+    public record ProbedHost(String address, long sourceCount, long portCount, long failedPortCount,
+                             long pairCount, DateTime firstSeen, DateTime lastSeen) { }
 
-    public record ProbedTargetSource(String address, @Nullable String mac, List<String> l4Types, long portCount,
-                                     long failedPortCount, DateTime firstSeen, DateTime lastSeen) { }
+    public record ProbedHostSource(String address, @Nullable String mac, boolean scanner, List<String> l4Types,
+                                   long portCount, long failedPortCount, DateTime firstSeen, DateTime lastSeen) { }
 
-    public record ProbedTargetPort(String l4Type, int port, long sourceCount, boolean answered,
-                                   DateTime firstSeen, DateTime lastSeen) { }
+    public record ProbedHostPort(String l4Type, int port, long sourceCount, boolean answered,
+                                 DateTime firstSeen, DateTime lastSeen) { }
 
-    private static final String PROBED_TARGETS_CTE =
-            "WITH ports AS (SELECT target_address, l4_type, target_port, MAX(outcome) AS outcome, " +
+    private static final String SCANNERS_CTE =
+            "scanners AS (SELECT DISTINCT source_address, COALESCE(source_mac, '') AS source_mac " +
+            "FROM recon_probe_history WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+            "AND last_seen >= :from AND last_seen <= :to AND attributed = true), ";
+
+    private static final String PROBES_CTE =
+            "probes AS (SELECT h.target_address, h.l4_type, h.target_port, h.source_address, h.source_mac, " +
+            "h.outcome, h.first_seen, h.last_seen FROM recon_probe_history h " +
+            "WHERE h.organization_id = :organization_id AND h.tenant_id = :tenant_id " +
+            "AND h.last_seen >= :from AND h.last_seen <= :to " +
+            "AND (:include_scanners OR NOT EXISTS (SELECT 1 FROM scanners s " +
+            "WHERE s.source_address = h.source_address AND s.source_mac = COALESCE(h.source_mac, ''))))";
+
+    private static final String PROBED_HOSTS_CTE =
+            "WITH " + SCANNERS_CTE + PROBES_CTE + ", " +
+            "ports AS (SELECT target_address, l4_type, target_port, MAX(outcome) AS outcome, " +
             "COUNT(*) AS pairs, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
-            "FROM recon_probe_history WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-            "AND last_seen >= :from AND last_seen <= :to GROUP BY target_address, l4_type, target_port), " +
+            "FROM probes GROUP BY target_address, l4_type, target_port), " +
             "sources AS (SELECT target_address, COUNT(DISTINCT (source_address, COALESCE(source_mac, ''))) AS source_count " +
-            "FROM recon_probe_history WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-            "AND last_seen >= :from AND last_seen <= :to GROUP BY target_address), " +
-            "targets AS (SELECT host(p.target_address) AS address, s.source_count, COUNT(*) AS port_count, " +
-            "COUNT(*) FILTER (WHERE p.outcome < 2) AS failed_port_count, SUM(p.pairs) AS pair_count, " +
-            "MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen " +
+            "FROM probes GROUP BY target_address), " +
+            "hosts AS (SELECT host(p.target_address) AS address, p.target_address, s.source_count, " +
+            "COUNT(*) AS port_count, COUNT(*) FILTER (WHERE p.outcome < 2) AS failed_port_count, " +
+            "SUM(p.pairs) AS pair_count, MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen " +
             "FROM ports p JOIN sources s ON s.target_address = p.target_address " +
             "GROUP BY p.target_address, s.source_count) ";
 
-    public long countProbedTargets(UUID organizationId, UUID tenantId, TimeRange timeRange) {
+    public long countProbedHosts(UUID organizationId,
+                                 UUID tenantId,
+                                 TimeRange timeRange,
+                                 boolean includeScanners,
+                                 Filters filters) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconProbedHostFilters());
+
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery(PROBED_TARGETS_CTE + "SELECT COUNT(*) FROM targets")
+                handle.createQuery(PROBED_HOSTS_CTE + "SELECT COUNT(*) FROM hosts WHERE true " +
+                                filterFragment.whereSql())
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("from", timeRange.from())
                         .bind("to", timeRange.to())
+                        .bind("include_scanners", includeScanners)
+                        .bindMap(filterFragment.bindings())
                         .mapTo(Long.class)
                         .one()
         );
     }
 
-    public List<ProbedTarget> findProbedTargets(UUID organizationId,
-                                                UUID tenantId,
-                                                TimeRange timeRange,
-                                                ProbedTargetOrderColumn orderColumn,
-                                                OrderDirection orderDirection,
-                                                int limit,
-                                                int offset) {
+    public List<ProbedHost> findProbedHosts(UUID organizationId,
+                                            UUID tenantId,
+                                            TimeRange timeRange,
+                                            boolean includeScanners,
+                                            Filters filters,
+                                            ProbedHostOrderColumn orderColumn,
+                                            OrderDirection orderDirection,
+                                            int limit,
+                                            int offset) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new ReconProbedHostFilters());
+
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery(PROBED_TARGETS_CTE + "SELECT * FROM targets ORDER BY " +
+                handle.createQuery(PROBED_HOSTS_CTE + "SELECT * FROM hosts WHERE true " +
+                                filterFragment.whereSql() + "ORDER BY " +
                                 orderColumn.getColumnName() + " " + orderDirection + ", address ASC " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("from", timeRange.from())
                         .bind("to", timeRange.to())
+                        .bind("include_scanners", includeScanners)
+                        .bindMap(filterFragment.bindings())
                         .bind("limit", limit)
                         .bind("offset", offset)
-                        .map((rs, ctx) -> probedTarget(rs))
+                        .map((rs, ctx) -> probedHost(rs))
                         .list()
         );
     }
 
-    public Optional<ProbedTarget> findProbedTarget(UUID organizationId, UUID tenantId, String address, TimeRange timeRange) {
+    public Optional<ProbedHost> findProbedHost(UUID organizationId,
+                                               UUID tenantId,
+                                               String address,
+                                               TimeRange timeRange,
+                                               boolean includeScanners) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery(PROBED_TARGETS_CTE + "SELECT * FROM targets WHERE address = :address")
+                handle.createQuery(PROBED_HOSTS_CTE + "SELECT * FROM hosts WHERE address = :address")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("from", timeRange.from())
                         .bind("to", timeRange.to())
+                        .bind("include_scanners", includeScanners)
                         .bind("address", address)
-                        .map((rs, ctx) -> probedTarget(rs))
+                        .map((rs, ctx) -> probedHost(rs))
                         .findOne()
         );
     }
 
-    private static ProbedTarget probedTarget(java.sql.ResultSet rs) throws java.sql.SQLException {
-        return new ProbedTarget(
+    private static ProbedHost probedHost(java.sql.ResultSet rs) throws java.sql.SQLException {
+        return new ProbedHost(
                 rs.getString("address"),
                 rs.getLong("source_count"),
                 rs.getLong("port_count"),
@@ -843,30 +898,34 @@ public class Recon {
         );
     }
 
-    public List<ProbedTargetSource> findProbedTargetSources(UUID organizationId,
-                                                            UUID tenantId,
-                                                            String address,
-                                                            TimeRange timeRange,
-                                                            int limit) {
+    public List<ProbedHostSource> findProbedHostSources(UUID organizationId,
+                                                        UUID tenantId,
+                                                        String address,
+                                                        TimeRange timeRange,
+                                                        boolean includeScanners,
+                                                        int limit) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT host(source_address) AS address, source_mac, " +
-                                "array_agg(DISTINCT l4_type) AS l4_types, COUNT(*) AS port_count, " +
-                                "COUNT(*) FILTER (WHERE outcome < 2) AS failed_port_count, " +
-                                "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
-                                "FROM recon_probe_history WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND target_address = :address::inet " +
-                                "AND last_seen >= :from AND last_seen <= :to " +
-                                "GROUP BY source_address, source_mac " +
+                handle.createQuery("WITH " + SCANNERS_CTE + PROBES_CTE + " " +
+                                "SELECT host(p.source_address) AS address, p.source_mac, " +
+                                "EXISTS (SELECT 1 FROM scanners s WHERE s.source_address = p.source_address " +
+                                "AND s.source_mac = COALESCE(p.source_mac, '')) AS scanner, " +
+                                "array_agg(DISTINCT p.l4_type) AS l4_types, COUNT(*) AS port_count, " +
+                                "COUNT(*) FILTER (WHERE p.outcome < 2) AS failed_port_count, " +
+                                "MIN(p.first_seen) AS first_seen, MAX(p.last_seen) AS last_seen " +
+                                "FROM probes p WHERE p.target_address = :address::inet " +
+                                "GROUP BY p.source_address, p.source_mac " +
                                 "ORDER BY failed_port_count DESC, last_seen DESC LIMIT :limit")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("address", address)
                         .bind("from", timeRange.from())
                         .bind("to", timeRange.to())
+                        .bind("include_scanners", includeScanners)
                         .bind("limit", limit)
-                        .map((rs, ctx) -> new ProbedTargetSource(
+                        .map((rs, ctx) -> new ProbedHostSource(
                                 rs.getString("address"),
                                 rs.getString("source_mac"),
+                                rs.getBoolean("scanner"),
                                 Arrays.asList((String[]) rs.getArray("l4_types").getArray()),
                                 rs.getLong("port_count"),
                                 rs.getLong("failed_port_count"),
@@ -877,18 +936,18 @@ public class Recon {
         );
     }
 
-    public List<ProbedTargetPort> findProbedTargetPorts(UUID organizationId,
-                                                        UUID tenantId,
-                                                        String address,
-                                                        TimeRange timeRange,
-                                                        int limit) {
+    public List<ProbedHostPort> findProbedHostPorts(UUID organizationId,
+                                                    UUID tenantId,
+                                                    String address,
+                                                    TimeRange timeRange,
+                                                    boolean includeScanners,
+                                                    int limit) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT l4_type, target_port, " +
+                handle.createQuery("WITH " + SCANNERS_CTE + PROBES_CTE + " " +
+                                "SELECT l4_type, target_port, " +
                                 "COUNT(DISTINCT (source_address, COALESCE(source_mac, ''))) AS source_count, " +
                                 "MAX(outcome) = 2 AS answered, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
-                                "FROM recon_probe_history WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND target_address = :address::inet " +
-                                "AND last_seen >= :from AND last_seen <= :to " +
+                                "FROM probes WHERE target_address = :address::inet " +
                                 "GROUP BY l4_type, target_port " +
                                 "ORDER BY answered ASC, source_count DESC, target_port ASC LIMIT :limit")
                         .bind("organization_id", organizationId)
@@ -896,8 +955,9 @@ public class Recon {
                         .bind("address", address)
                         .bind("from", timeRange.from())
                         .bind("to", timeRange.to())
+                        .bind("include_scanners", includeScanners)
                         .bind("limit", limit)
-                        .map((rs, ctx) -> new ProbedTargetPort(
+                        .map((rs, ctx) -> new ProbedHostPort(
                                 rs.getString("l4_type"),
                                 rs.getInt("target_port"),
                                 rs.getLong("source_count"),

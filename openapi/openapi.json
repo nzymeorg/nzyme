@@ -136,8 +136,14 @@
     "description" : "Exclusions keep devices out of scan detection. An exclusion is a set of criteria for the scanning device (address or network, MAC address), the scan types and the scanned targets (address or network). Every criterion that is set must match. Use them for vulnerability scanners, monitoring systems and other devices that probe the network on purpose. An exclusion can also be applied to the existing scans, which deletes them.",
     "name" : "Recon Exclusions"
   }, {
+    "description" : "The hosts of a tenant that received connection attempts, seen from the host's side: which ports were probed, how many of them never answered, and how many distinct devices probed them. Built from the probe history that scan detection keeps for the slow scan memory period, across all sources, so a scan spread over many devices shows up here even when no single device crosses a scan threshold. Probes from devices that were already attributed to a detected scan are left out unless requested.",
+    "name" : "Recon Probed Hosts"
+  }, {
     "description" : "A scan is a device probing the network: a port scan tries many ports of one host, a host sweep tries many hosts, an ARP sweep asks for many addresses on the local segment. Nzyme detects scans passively from the TCP, UDP and ARP traffic the taps report, merges observations of several taps and keeps a scan open while the device continues probing. Each scan carries the targets it probed and whether they answered. Scans are retention cleaned.",
     "name" : "Recon Scans"
+  }, {
+    "description" : "The probed hosts of a tenant, seen from the target's side: which ports were probed, how many of them never answered, and how many distinct devices probed them. Built from the probe history that scan detection keeps for the slow scan memory period, across all sources, so a scan spread over many devices shows up here even when no single device crosses a scan threshold.",
+    "name" : "Recon Targets"
   }, {
     "description" : "SSH sessions that Nzyme taps observed on the network, including the client and server software versions exchanged during the initial unencrypted handshake. Each session is tracked over its lifetime and keyed by its underlying TCP session.",
     "externalDocs" : {
@@ -7322,7 +7328,7 @@
     },
     "/api/ethernet/beacons" : {
       "get" : {
-        "description" : "Returns all beacons of the tenant, most recently seen first by default. Each beacon carries its destination, name, classification, number of calling devices, the median check-in interval in seconds and its jitter. The response also includes the number of beacons per classification, independent of the filters. Results are paginated.",
+        "description" : "Returns the beacons of the tenant that were active at any point inside the time range, most recently seen first by default. Each beacon carries its destination, name, classification, number of calling devices, the median check-in interval in seconds and its jitter. The response also includes the number of beacons per classification inside the time range, independent of the filters. Results are paginated.",
         "operationId" : "findBeacons",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -7344,6 +7350,13 @@
           "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
           "in" : "query",
           "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A beacon matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
           "schema" : {
             "type" : "string"
           }
@@ -8057,6 +8070,13 @@
           "description" : "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the beacons list. Omit to classify all beacons of the tenant.",
           "in" : "query",
           "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. Only beacons active at any point inside the range are classified. Omit for all time.",
+          "in" : "query",
+          "name" : "time_range",
           "schema" : {
             "type" : "string"
           }
@@ -8970,7 +8990,7 @@
     },
     "/api/ethernet/beacons/show/{beacon_uuid}/sources" : {
       "get" : {
-        "description" : "Returns the devices (sources) that call out to the beacon destination. Each source carries its own check-in count, median interval, jitter and regularity, which is the share of its intervals that fell within the jitter tolerance. Sources are linked to assets by MAC address where possible. Results are paginated.",
+        "description" : "Returns the devices (sources) that called out to the beacon destination at any point inside the time range. Each source carries its own check-in count, median interval, jitter and regularity, which is the share of its intervals that fell within the jitter tolerance. The per-source figures cover the whole life of the source, not only the time range. Sources are linked to assets by MAC address where possible. Results are paginated.",
         "operationId" : "findBeaconSources",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -8996,6 +9016,13 @@
           "schema" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A source matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
           }
         }, {
           "description" : "Sorting column. Defaults to the time the source was last seen.",
@@ -10413,106 +10440,6 @@
         "tags" : [ "ICMP" ]
       }
     },
-    "/api/ethernet/icmp/organization/{organization_id}/tenant/{tenant_id}/redirects/show/{redirect_uuid}" : {
-      "delete" : {
-        "description" : "Deletes the finding. It is detected again, with a new alert, if the sender keeps redirecting. Requires the ethernet_monitoring_manage feature permission.",
-        "operationId" : "deleteIcmpRedirect",
-        "parameters" : [ {
-          "description" : "Organization UUID.",
-          "in" : "path",
-          "name" : "organization_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Tenant UUID.",
-          "in" : "path",
-          "name" : "tenant_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Redirect UUID.",
-          "in" : "path",
-          "name" : "redirect_uuid",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Redirect deleted."
-          },
-          "404" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Redirect, organization or tenant not found, or not accessible by the calling user."
-          }
-        },
-        "summary" : "Delete a detected ICMP redirect",
-        "tags" : [ "ICMP" ]
-      }
-    },
-    "/api/ethernet/icmp/organization/{organization_id}/tenant/{tenant_id}/traceroutes/show/{traceroute_uuid}" : {
-      "delete" : {
-        "description" : "Deletes the finding. Requires the ethernet_monitoring_manage feature permission.",
-        "operationId" : "deleteIcmpTraceroute",
-        "parameters" : [ {
-          "description" : "Organization UUID.",
-          "in" : "path",
-          "name" : "organization_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Tenant UUID.",
-          "in" : "path",
-          "name" : "tenant_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Traceroute UUID.",
-          "in" : "path",
-          "name" : "traceroute_uuid",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Traceroute deleted."
-          },
-          "404" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Traceroute, organization or tenant not found, or not accessible by the calling user."
-          }
-        },
-        "summary" : "Delete a detected traceroute",
-        "tags" : [ "ICMP" ]
-      }
-    },
     "/api/ethernet/icmp/packets" : {
       "get" : {
         "description" : "Returns ICMP traffic in the time range, newest first by default. Queries and replies are aggregated rows with a packet count, error messages are single packets with the quoted original packet header. Results are paginated.",
@@ -10615,7 +10542,7 @@
     },
     "/api/ethernet/icmp/redirects" : {
       "get" : {
-        "description" : "Returns every detected sender, advertised gateway and target host combination, most recently seen first by default. Results are paginated.",
+        "description" : "Returns every detected sender, advertised gateway and target host combination, most recently seen first by default. Supports the web interface filter builder. Results are paginated.",
         "operationId" : "findIcmpRedirects",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -10634,7 +10561,28 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN or PACKET_COUNT.",
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only redirects observed by at least one of these taps are returned. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SENDER_ADDRESS, GATEWAY_ADDRESS, TARGET_ADDRESS, PACKET_COUNT, FIRST_SEEN or LAST_SEEN.",
           "in" : "query",
           "name" : "order_column",
           "schema" : {
@@ -10692,6 +10640,58 @@
         "tags" : [ "ICMP" ]
       }
     },
+    "/api/ethernet/icmp/redirects/show/{redirect_uuid}" : {
+      "get" : {
+        "description" : "Returns a single redirect finding by its UUID, for sharing by link.",
+        "operationId" : "findIcmpRedirect",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Redirect UUID.",
+          "in" : "path",
+          "name" : "redirect_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpRedirectResponse"
+                }
+              }
+            },
+            "description" : "Redirect found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Redirect, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get one detected ICMP redirect",
+        "tags" : [ "ICMP" ]
+      }
+    },
     "/api/ethernet/icmp/statistics" : {
       "get" : {
         "description" : "Returns packet counts per time bucket, broken down into echo requests, echo replies, destination unreachable, time exceeded, redirect and other messages. The response is an object that maps each bucket timestamp to its values. The bucket size is chosen automatically from the time range.",
@@ -10736,7 +10736,7 @@
     },
     "/api/ethernet/icmp/traceroutes" : {
       "get" : {
-        "description" : "Returns detected traceroutes, most recently seen first by default. Each one names the tracing host, the traced destination and the routers that answered. Results are paginated.",
+        "description" : "Returns detected traceroutes, most recently seen first by default. Each one names the tracing host, the traced destination and the routers that answered. Supports the web interface filter builder. Results are paginated.",
         "operationId" : "findIcmpTraceroutes",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -10755,7 +10755,28 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN or PACKET_COUNT.",
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only traceroutes observed by at least one of these taps are returned. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SOURCE_ADDRESS, DESTINATION_ADDRESS, PROTOCOL, ROUTER_COUNT, DESTINATION_REACHED, PACKET_COUNT, FIRST_SEEN or LAST_SEEN.",
           "in" : "query",
           "name" : "order_column",
           "schema" : {
@@ -10810,6 +10831,1166 @@
           }
         },
         "summary" : "List detected traceroutes",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/traceroutes/histogram" : {
+      "get" : {
+        "description" : "Returns the number of traceroutes active in each time bucket, honoring the filter builder.",
+        "operationId" : "findIcmpTraceroutesHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only traceroutes observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of traceroutes over time",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/traceroutes/histograms" : {
+      "get" : {
+        "description" : "Returns the traced hosts, destinations or probe protocols with the most traceroutes, as a two column histogram. Honors the filter builder. Paginated and sortable.",
+        "operationId" : "findIcmpTraceroutesBreakdown",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "What to break down by: SENDER, DESTINATION or PROTOCOL.",
+          "in" : "query",
+          "name" : "by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only traceroutes observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY or VALUE (count). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown column, sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Break traceroutes down by sender, destination or protocol",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/traceroutes/show/{traceroute_uuid}" : {
+      "get" : {
+        "description" : "Returns a single traceroute finding by its UUID, for sharing by link.",
+        "operationId" : "findIcmpTraceroute",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Traceroute UUID.",
+          "in" : "path",
+          "name" : "traceroute_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpTracerouteResponse"
+                }
+              }
+            },
+            "description" : "Traceroute found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Traceroute, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get one detected traceroute",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/tunnels" : {
+      "get" : {
+        "description" : "Returns echo flows with large or sustained payloads that may carry a covert channel, grouped by source and destination. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpTunnels",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only tunnels observed by at least one of these taps are returned. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SOURCE_ADDRESS, DESTINATION_ADDRESS, MAX_PAYLOAD_BYTES, PACKET_COUNT, FIRST_SEEN or LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpTunnelsListResponse"
+                }
+              }
+            },
+            "description" : "Tunnels found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List suspected ICMP tunnels",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/tunnels/histogram" : {
+      "get" : {
+        "description" : "Returns the number of suspected ICMP tunnels active in each time bucket, honoring the filter builder.",
+        "operationId" : "findIcmpTunnelsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only tunnels observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of ICMP tunnels over time",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/tunnels/histograms" : {
+      "get" : {
+        "description" : "Returns the top peers or sources by the number of distinct hosts on the other side, as a two column histogram. A peer shared by many hosts is a likely command-and-control endpoint. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpTunnelsBreakdown",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "What to break down by: PEER or SOURCE.",
+          "in" : "query",
+          "name" : "by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY or VALUE (count). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown column, sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Break tunnels down by peer or source",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/tunnels/show/{tunnel_uuid}" : {
+      "get" : {
+        "description" : "Returns a single tunnel finding by its UUID, for sharing by link.",
+        "operationId" : "findIcmpTunnel",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tunnel UUID.",
+          "in" : "path",
+          "name" : "tunnel_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpTunnelResponse"
+                }
+              }
+            },
+            "description" : "Tunnel found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tunnel, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get one suspected ICMP tunnel",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachable-hosts" : {
+      "get" : {
+        "description" : "Returns ICMP host-unreachable and net-unreachable messages grouped by source, unreachable host, protocol and reason. A router sends these when it cannot deliver a packet, so they cover TCP, UDP and ICMP. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpUnreachableHosts",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SOURCE, UNREACHABLE_HOST, PROTOCOL, REASON, PACKET_COUNT, FIRST_SEEN or LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpUnreachableHostsListResponse"
+                }
+              }
+            },
+            "description" : "Events found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List host and network unreachable events",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachable-hosts/histogram" : {
+      "get" : {
+        "description" : "Returns the number of host-unreachable and net-unreachable packets in each time bucket. Honors the filter builder, tap selection and time range.",
+        "operationId" : "findIcmpUnreachableHostsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Host and network unreachable volume over time",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachable-hosts/histograms" : {
+      "get" : {
+        "description" : "Returns the top unreachable hosts, sources, reporting routers or protocols, as a two column histogram. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpUnreachableHostsBreakdown",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "What to break down by: UNREACHABLE_HOST, SOURCE, ROUTER or PROTOCOL.",
+          "in" : "query",
+          "name" : "by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY or VALUE (packets). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown column, sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Break host unreachables down by host, source, router or protocol",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachables" : {
+      "get" : {
+        "description" : "Returns ICMP port-unreachable messages grouped by host, source, protocol and port. Each row is a host that received traffic on a closed port. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpUnreachables",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: HOST, SOURCE, PROTOCOL, PORT, PACKET_COUNT, FIRST_SEEN or LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IcmpUnreachablesListResponse"
+                }
+              }
+            },
+            "description" : "Unreachables found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List port-unreachable events",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachables/histogram" : {
+      "get" : {
+        "description" : "Returns the number of port-unreachable packets in each time bucket. Honors the filter builder, tap selection and time range.",
+        "operationId" : "findIcmpUnreachablesHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Port-unreachable volume over time",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachables/histograms" : {
+      "get" : {
+        "description" : "Returns the top closed ports and services, hosts or sources, as a two column histogram. Honors the filter builder, tap selection and time range. Paginated and sortable.",
+        "operationId" : "findIcmpUnreachablesBreakdown",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "What to break down by: PORT, HOST or SOURCE.",
+          "in" : "query",
+          "name" : "by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY or VALUE (packets). Defaults to VALUE.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown column, sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Break port-unreachables down by port, host or source",
+        "tags" : [ "ICMP" ]
+      }
+    },
+    "/api/ethernet/icmp/unreachables/histograms/host-port" : {
+      "get" : {
+        "description" : "Returns the host and closed port pairs with the most port-unreachable packets, as a three column histogram of host, port and packet count. Honors the filter builder, tap selection and time range. Paginated and sortable per column.",
+        "operationId" : "findIcmpUnreachablesByHostAndPort",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: KEY (host), VALUE1 (port) or VALUE2 (packets). Defaults to VALUE2.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Top host and port pairs",
         "tags" : [ "ICMP" ]
       }
     },
@@ -12543,9 +13724,180 @@
         "tags" : [ "Portal Integrity" ]
       }
     },
+    "/api/ethernet/recon/hosts" : {
+      "get" : {
+        "description" : "Returns the hosts that received connection attempts within the time range, with the number of distinct probing devices and probed and unanswered ports. Every host with any probe qualifies, so callers usually filter by probing devices and unanswered ports, as the web interface does by default. Results are paginated.",
+        "operationId" : "findReconProbedHosts",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. Cannot reach further back than the slow scan memory of the tenant.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: address, source_count, port_count, failed_port_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Also count probes from devices that were attributed to a detected scan. Defaults to false, which leaves out everything a detected scan already explains.",
+          "in" : "query",
+          "name" : "include_scanners",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Sorting column. Defaults to the number of unanswered ports.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconProbedHostsListResponse"
+                }
+              }
+            },
+            "description" : "Probed hosts found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List probed hosts of a tenant",
+        "tags" : [ "Recon Probed Hosts" ]
+      }
+    },
+    "/api/ethernet/recon/hosts/show/{address}" : {
+      "get" : {
+        "description" : "Returns one probed host with the devices that probed it and the ports they probed, within the time range.",
+        "operationId" : "findReconProbedHost",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Also include probes from devices that were attributed to a detected scan. Defaults to false.",
+          "in" : "query",
+          "name" : "include_scanners",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "IP address of the host.",
+          "in" : "path",
+          "name" : "address",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconProbedHostDetailsResponse"
+                }
+              }
+            },
+            "description" : "Probed host found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The address is not a valid IP address."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Host, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a probed host",
+        "tags" : [ "Recon Probed Hosts" ]
+      }
+    },
     "/api/ethernet/recon/scans" : {
       "get" : {
-        "description" : "Returns all detected scans of the tenant, most recently seen first by default. The response also includes the number of scans per type, independent of the filters. Results are paginated.",
+        "description" : "Returns the detected scans of the tenant that were active at any point inside the time range, most recently seen first by default. The response also includes the number of scans per type under the same filters and time range. Results are paginated.",
         "operationId" : "findReconScans",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -12571,7 +13923,14 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.",
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A scan matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Slow scans are built from the probe history of the whole tenant and are always included. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -13186,7 +14545,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Omit or pass * for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are counted. Slow scans are built from the probe history of the whole tenant and are always included. Omit or pass * for all taps the user can access.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -13628,6 +14987,156 @@
         },
         "summary" : "List the targets of a scan",
         "tags" : [ "Recon Scans" ]
+      }
+    },
+    "/api/ethernet/recon/targets" : {
+      "get" : {
+        "description" : "Returns the hosts that were probed within the time range, with the number of distinct probing devices and probed and unanswered ports. Results are paginated.",
+        "operationId" : "findReconTargets",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. Cannot reach further back than the slow scan memory of the tenant.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Defaults to the number of unanswered ports.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconTargetsListResponse"
+                }
+              }
+            },
+            "description" : "Targets found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List probed targets of a tenant",
+        "tags" : [ "Recon Targets" ]
+      }
+    },
+    "/api/ethernet/recon/targets/show/{address}" : {
+      "get" : {
+        "description" : "Returns one probed host with the devices that probed it and the ports they probed, within the time range.",
+        "operationId" : "findReconTarget",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "IP address of the target.",
+          "in" : "path",
+          "name" : "address",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReconTargetDetailsResponse"
+                }
+              }
+            },
+            "description" : "Target found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The address is not a valid IP address."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Target, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a probed target",
+        "tags" : [ "Recon Targets" ]
       }
     },
     "/api/ethernet/rtsp/streams" : {
@@ -29717,6 +31226,205 @@
           }
         }
       },
+      "IcmpTunnelResponse" : {
+        "type" : "object",
+        "properties" : {
+          "destination_address" : {
+            "type" : "string"
+          },
+          "destination_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "destination_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "max_payload_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "source_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IcmpTunnelsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tunnels" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpTunnelResponse"
+            }
+          }
+        }
+      },
+      "IcmpUnreachableHostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "protocol" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol_name" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reporting_router" : {
+            "type" : "string"
+          },
+          "reporting_router_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "reporting_router_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "source_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "unreachable_host" : {
+            "type" : "string"
+          },
+          "unreachable_host_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          }
+        }
+      },
+      "IcmpUnreachableHostsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "hosts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpUnreachableHostResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IcmpUnreachableResponse" : {
+        "type" : "object",
+        "properties" : {
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "host_address" : {
+            "type" : "string"
+          },
+          "host_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "host_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol_name" : {
+            "type" : "string"
+          },
+          "service" : {
+            "type" : "string"
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "source_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          }
+        }
+      },
+      "IcmpUnreachablesListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unreachables" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IcmpUnreachableResponse"
+            }
+          }
+        }
+      },
       "ImportMonitoredNetworkDataBSSIDRequest" : {
         "type" : "object",
         "description" : "A BSSID and its fingerprints inside a monitored WiFi network data import.",
@@ -32046,6 +33754,145 @@
           }
         }
       },
+      "ReconProbedHostDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "host" : {
+            "$ref" : "#/components/schemas/ReconProbedHostResponse"
+          },
+          "ports" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconProbedHostPortResponse"
+            }
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconProbedHostSourceResponse"
+            }
+          }
+        }
+      },
+      "ReconProbedHostPortResponse" : {
+        "type" : "object",
+        "properties" : {
+          "answered" : {
+            "type" : "boolean"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconProbedHostResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "failed_port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pair_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconProbedHostSourceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "failed_port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "scanner" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ReconProbedHostsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "hosts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconProbedHostResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ReconScanAnsweredHostResponse" : {
         "type" : "object",
         "description" : "Sweeps only: the hosts that answered, each with its answering ports. Limited to 250.",
@@ -32064,7 +33911,6 @@
       },
       "ReconScanAnsweredPortResponse" : {
         "type" : "object",
-        "description" : "Port scans only: the ports of the target that answered, ascending, with probe count and timing. Limited to 500.",
         "properties" : {
           "first_seen" : {
             "type" : "string",
@@ -32263,6 +34109,16 @@
           "timeline_bucket" : {
             "type" : "string",
             "description" : "Bucket size of the timeline, minute or hour."
+          },
+          "unanswered_ports" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconScanAnsweredPortResponse"
+            }
+          },
+          "unanswered_ports_total" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -32390,6 +34246,142 @@
               "type" : "integer",
               "format" : "int64"
             }
+          }
+        }
+      },
+      "ReconTargetDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "ports" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconTargetPortResponse"
+            }
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconTargetSourceResponse"
+            }
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/ReconTargetResponse"
+          }
+        }
+      },
+      "ReconTargetPortResponse" : {
+        "type" : "object",
+        "properties" : {
+          "answered" : {
+            "type" : "boolean"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconTargetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "failed_port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pair_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconTargetSourceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "failed_port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "port_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ReconTargetsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "targets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ReconTargetResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

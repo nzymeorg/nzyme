@@ -6,29 +6,29 @@ import com.google.auto.value.AutoValue;
 import java.util.List;
 
 @AutoValue
-public abstract class ReconTargetsListResponse {
+public abstract class ReconProbedHostsListResponse {
 
     @JsonProperty("total")
     public abstract long total();
 
-    @JsonProperty("targets")
-    public abstract List<ReconTargetResponse> targets();
+    @JsonProperty("hosts")
+    public abstract List<ReconProbedHostResponse> hosts();
 
-    public static ReconTargetsListResponse create(long total, List<ReconTargetResponse> targets) {
+    public static ReconProbedHostsListResponse create(long total, List<ReconProbedHostResponse> hosts) {
         return builder()
                 .total(total)
-                .targets(targets)
+                .hosts(hosts)
                 .build();
     }
 
     public static Builder builder() {
-        return new AutoValue_ReconTargetsListResponse.Builder();
+        return new AutoValue_ReconProbedHostsListResponse.Builder();
     }
 
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder total(long total);
-        public abstract Builder targets(List<ReconTargetResponse> targets);
-        public abstract ReconTargetsListResponse build();
+        public abstract Builder hosts(List<ReconProbedHostResponse> hosts);
+        public abstract ReconProbedHostsListResponse build();
     }
 }

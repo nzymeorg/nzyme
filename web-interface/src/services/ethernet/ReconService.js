@@ -6,10 +6,12 @@ const tapsParameter = (taps) => {
 
 export default class ReconService {
 
-  findAllScans(organizationId, tenantId, taps, category, filters, orderColumn, orderDirection, limit, offset, setScans) {
+  findAllScans(organizationId, tenantId, taps, category, filters, timeRange, orderColumn, orderDirection, limit, offset,
+               setScans) {
     RESTClient.get("/ethernet/recon/scans", {
       organization_id: organizationId, tenant_id: tenantId, taps: tapsParameter(taps), category: category,
-      filters: filters, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+      filters: filters, time_range: timeRange, order_column: orderColumn, order_direction: orderDirection,
+      limit: limit, offset: offset
     }, (response) => setScans(response.data));
   }
 
@@ -37,17 +39,19 @@ export default class ReconService {
     }, (response) => setHistogram(response.data));
   }
 
-  findProbedTargets(organizationId, tenantId, timeRange, orderColumn, orderDirection, limit, offset, setTargets) {
-    RESTClient.get("/ethernet/recon/targets", {
-      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, order_column: orderColumn,
-      order_direction: orderDirection, limit: limit, offset: offset
-    }, (response) => setTargets(response.data));
+  findProbedHosts(organizationId, tenantId, timeRange, filters, includeScanners, orderColumn, orderDirection, limit,
+                  offset, setHosts) {
+    RESTClient.get("/ethernet/recon/hosts", {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters,
+      include_scanners: includeScanners, order_column: orderColumn, order_direction: orderDirection, limit: limit,
+      offset: offset
+    }, (response) => setHosts(response.data));
   }
 
-  findProbedTarget(address, organizationId, tenantId, timeRange, setTarget, onError = undefined) {
-    RESTClient.get(`/ethernet/recon/targets/show/${address}`, {
-      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange
-    }, (response) => setTarget(response.data), onError);
+  findProbedHost(address, organizationId, tenantId, timeRange, includeScanners, setHost, onError = undefined) {
+    RESTClient.get(`/ethernet/recon/hosts/show/${address}`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, include_scanners: includeScanners
+    }, (response) => setHost(response.data), onError);
   }
 
   deleteScan(uuid, organizationId, tenantId, successCallback) {

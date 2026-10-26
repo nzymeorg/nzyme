@@ -51,6 +51,11 @@ export default function IcmpTunnelsPage() {
   const [revision, setRevision] = useState(new Date());
 
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
   const [histogram, setHistogram] = useState(null);
 
   useEffect(() => {
@@ -160,7 +165,7 @@ export default function IcmpTunnelsPage() {
             <div className="card-body">
               <CardTitleWithControls title="Filters"
                                      timeRange={timeRange}
-                                     setTimeRange={setTimeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}
@@ -181,7 +186,7 @@ export default function IcmpTunnelsPage() {
 
               <IcmpTunnelsHistogram histogram={histogram}
                                     timeRange={timeRange}
-                                    setTimeRange={setTimeRange} />
+                                    setTimeRange={applyTimeRange} />
             </div>
           </div>
         </div>

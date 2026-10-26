@@ -5,7 +5,7 @@ import com.google.auto.value.AutoValue;
 import org.joda.time.DateTime;
 
 @AutoValue
-public abstract class ReconTargetPortResponse {
+public abstract class ReconProbedHostPortResponse {
 
     @JsonProperty("l4_type")
     public abstract String l4Type();
@@ -25,7 +25,7 @@ public abstract class ReconTargetPortResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static ReconTargetPortResponse create(String l4Type, int port, long sourceCount, boolean answered, DateTime firstSeen, DateTime lastSeen) {
+    public static ReconProbedHostPortResponse create(String l4Type, int port, long sourceCount, boolean answered, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .l4Type(l4Type)
                 .port(port)
@@ -37,7 +37,7 @@ public abstract class ReconTargetPortResponse {
     }
 
     public static Builder builder() {
-        return new AutoValue_ReconTargetPortResponse.Builder();
+        return new AutoValue_ReconProbedHostPortResponse.Builder();
     }
 
     @AutoValue.Builder
@@ -48,6 +48,6 @@ public abstract class ReconTargetPortResponse {
         public abstract Builder answered(boolean answered);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);
-        public abstract ReconTargetPortResponse build();
+        public abstract ReconProbedHostPortResponse build();
     }
 }

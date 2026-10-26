@@ -1,13 +1,16 @@
 package app.nzyme.core.rest.responses.ethernet.recon;
 
+import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
+import java.util.List;
+
 @AutoValue
-public abstract class ReconTargetResponse {
+public abstract class ReconProbedHostSourceResponse {
 
     @JsonProperty("address")
     public abstract String address();
@@ -16,8 +19,19 @@ public abstract class ReconTargetResponse {
     @JsonProperty("address_data")
     public abstract L4AddressResponse addressData();
 
-    @JsonProperty("source_count")
-    public abstract long sourceCount();
+    @Nullable
+    @JsonProperty("mac")
+    public abstract String mac();
+
+    @Nullable
+    @JsonProperty("mac_data")
+    public abstract EthernetMacAddressResponse macData();
+
+    @JsonProperty("scanner")
+    public abstract boolean scanner();
+
+    @JsonProperty("l4_types")
+    public abstract List<String> l4Types();
 
     @JsonProperty("port_count")
     public abstract long portCount();
@@ -25,42 +39,43 @@ public abstract class ReconTargetResponse {
     @JsonProperty("failed_port_count")
     public abstract long failedPortCount();
 
-    @JsonProperty("pair_count")
-    public abstract long pairCount();
-
     @JsonProperty("first_seen")
     public abstract DateTime firstSeen();
 
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static ReconTargetResponse create(String address, L4AddressResponse addressData, long sourceCount, long portCount, long failedPortCount, long pairCount, DateTime firstSeen, DateTime lastSeen) {
+    public static ReconProbedHostSourceResponse create(String address, L4AddressResponse addressData, String mac, EthernetMacAddressResponse macData, boolean scanner, List<String> l4Types, long portCount, long failedPortCount, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .address(address)
                 .addressData(addressData)
-                .sourceCount(sourceCount)
+                .mac(mac)
+                .macData(macData)
+                .scanner(scanner)
+                .l4Types(l4Types)
                 .portCount(portCount)
                 .failedPortCount(failedPortCount)
-                .pairCount(pairCount)
                 .firstSeen(firstSeen)
                 .lastSeen(lastSeen)
                 .build();
     }
 
     public static Builder builder() {
-        return new AutoValue_ReconTargetResponse.Builder();
+        return new AutoValue_ReconProbedHostSourceResponse.Builder();
     }
 
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder address(String address);
         public abstract Builder addressData(L4AddressResponse addressData);
-        public abstract Builder sourceCount(long sourceCount);
+        public abstract Builder mac(String mac);
+        public abstract Builder macData(EthernetMacAddressResponse macData);
+        public abstract Builder scanner(boolean scanner);
+        public abstract Builder l4Types(List<String> l4Types);
         public abstract Builder portCount(long portCount);
         public abstract Builder failedPortCount(long failedPortCount);
-        public abstract Builder pairCount(long pairCount);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);
-        public abstract ReconTargetResponse build();
+        public abstract ReconProbedHostSourceResponse build();
     }
 }

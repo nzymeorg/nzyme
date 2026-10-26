@@ -44,7 +44,7 @@ export default function BeaconsPage() {
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(new Date());
 
-  const [histogramTimeRange, setHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [histogram, setHistogram] = useState(null);
 
   const perPage = 25;
@@ -52,6 +52,11 @@ export default function BeaconsPage() {
   const applyFilters = (newFilters) => {
     setPage(1);
     setFilters(newFilters);
+  }
+
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
   }
 
   const applyOrderColumn = (column) => {
@@ -67,22 +72,22 @@ export default function BeaconsPage() {
   useEffect(() => {
     setBeacons(null);
     beaconsService.findAllBeacons(
-      organizationId, tenantId, filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setBeacons
+      organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, perPage, (page-1)*perPage, setBeacons
     );
-  }, [page, filters, orderColumn, orderDirection, organizationId, tenantId, revision]);
+  }, [page, filters, timeRange, orderColumn, orderDirection, organizationId, tenantId, revision]);
 
   useEffect(() => {
     setHistogram(null);
-    beaconsService.findActiveBeaconsHistogram(organizationId, tenantId, filters, histogramTimeRange, setHistogram);
-  }, [organizationId, tenantId, filters, histogramTimeRange, revision]);
+    beaconsService.findActiveBeaconsHistogram(organizationId, tenantId, filters, timeRange, setHistogram);
+  }, [organizationId, tenantId, filters, timeRange, revision]);
 
   // Reloads the data in place, without replacing the table with a spinner. Keeps the scroll position stable when a
   // classification is changed in the table.
   const refreshQuietly = () => {
     beaconsService.findAllBeacons(
-      organizationId, tenantId, filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setBeacons
+      organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, perPage, (page-1)*perPage, setBeacons
     );
-    beaconsService.findActiveBeaconsHistogram(organizationId, tenantId, filters, histogramTimeRange, setHistogram);
+    beaconsService.findActiveBeaconsHistogram(organizationId, tenantId, filters, timeRange, setHistogram);
   }
 
   const classificationCounts = () => {
@@ -123,8 +128,8 @@ export default function BeaconsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Filters"
-                                     timeRange={histogramTimeRange}
-                                     setTimeRange={setHistogramTimeRange}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}
@@ -144,8 +149,8 @@ export default function BeaconsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <ActiveBeaconsHistogram histogram={histogram}
-                                      timeRange={histogramTimeRange}
-                                      setTimeRange={setHistogramTimeRange} />
+                                      timeRange={timeRange}
+                                      setTimeRange={applyTimeRange} />
             </div>
           </div>
         </div>
@@ -159,7 +164,8 @@ export default function BeaconsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Destinations that devices in your network call out to in regular intervals.
+                Destinations that devices in your network call out to in regular intervals. The list and the
+                counts cover beacons that were active at any point in the selected time range.
               </p>
 
               <div className="row mb-3 align-items-center">
@@ -170,6 +176,7 @@ export default function BeaconsPage() {
                   {canEdit && beacons ?
                     <BulkBeaconClassification total={beacons.total}
                                               filters={filters}
+                                              timeRange={timeRange}
                                               organizationId={organizationId}
                                               tenantId={tenantId}
                                               onChanged={refreshQuietly} />

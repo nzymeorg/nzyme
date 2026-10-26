@@ -43,7 +43,7 @@ export default function ReconScansPage() {
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(new Date());
 
-  const [histogramTimeRange, setHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [histogram, setHistogram] = useState(null);
 
   const perPage = 25;
@@ -61,6 +61,11 @@ export default function ReconScansPage() {
     setFilters(newFilters);
   }
 
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
+
   const applyOrderColumn = (column) => {
     setPage(1);
     setOrderColumn(column);
@@ -74,14 +79,15 @@ export default function ReconScansPage() {
   useEffect(() => {
     setScans(null);
     reconService.findAllScans(
-      organizationId, tenantId, selectedTaps, "SCANS", filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setScans
+      organizationId, tenantId, selectedTaps, "SCANS", filters, timeRange, orderColumn, orderDirection, perPage,
+      (page-1)*perPage, setScans
     );
-  }, [page, filters, orderColumn, orderDirection, organizationId, tenantId, selectedTaps, revision]);
+  }, [page, filters, timeRange, orderColumn, orderDirection, organizationId, tenantId, selectedTaps, revision]);
 
   useEffect(() => {
     setHistogram(null);
-    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "SCANS", filters, histogramTimeRange, setHistogram);
-  }, [organizationId, tenantId, selectedTaps, filters, histogramTimeRange, revision]);
+    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "SCANS", filters, timeRange, setHistogram);
+  }, [organizationId, tenantId, selectedTaps, filters, timeRange, revision]);
 
   // The type counts arrive with the scans list and are shaped here like a histogram response.
   const typeHistogram = () => {
@@ -120,8 +126,8 @@ export default function ReconScansPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Filters"
-                                     timeRange={histogramTimeRange}
-                                     setTimeRange={setHistogramTimeRange}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}
@@ -141,8 +147,8 @@ export default function ReconScansPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <ActiveScansHistogram histogram={histogram}
-                                    timeRange={histogramTimeRange}
-                                    setTimeRange={setHistogramTimeRange} />
+                                    timeRange={timeRange}
+                                    setTimeRange={applyTimeRange} />
             </div>
           </div>
         </div>
@@ -156,7 +162,7 @@ export default function ReconScansPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               {scans && scans.total === 0 ?
-                <div className="alert alert-info mb-0">No scans match the current filters.</div>
+                <div className="alert alert-info mb-0">No scans match the current filters and time range.</div>
                 : <TwoColumnHistogram data={typeHistogram()}
                                       columnTitles={["Type", "Scans"]}
                                       columnFilterElements={[

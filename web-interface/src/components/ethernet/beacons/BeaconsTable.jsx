@@ -34,8 +34,8 @@ export default function BeaconsTable({beacons, page, setPage, perPage, orderColu
 
   if (beacons.beacons.length === 0) {
     return <div className="alert alert-info mb-0">
-      No beacons match the current filters. Beacons appear here once devices have called out to the same
-      destination in regular intervals for a while.
+      No beacons match the current filters and time range. Beacons appear here once devices have called out to
+      the same destination in regular intervals for a while.
     </div>
   }
 

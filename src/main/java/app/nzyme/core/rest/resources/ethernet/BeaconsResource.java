@@ -29,6 +29,7 @@ import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.TimeRangeFactory;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.RegistryKey;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
@@ -86,10 +87,11 @@ public class BeaconsResource extends TapDataHandlingResource {
 
     @GET
     @Operation(operationId = "findBeacons", summary = "List beacons of a tenant",
-            description = "Returns all beacons of the tenant, most recently seen first by default. Each beacon "
-                    + "carries its destination, name, classification, number of calling devices, the median "
-                    + "check-in interval in seconds and its jitter. The response also includes the number of beacons "
-                    + "per classification, independent of the filters. Results are paginated.")
+            description = "Returns the beacons of the tenant that were active at any point inside the time range, "
+                    + "most recently seen first by default. Each beacon carries its destination, name, "
+                    + "classification, number of calling devices, the median check-in interval in seconds and its "
+                    + "jitter. The response also includes the number of beacons per classification inside the time "
+                    + "range, independent of the filters. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Beacons found.",
             content = @Content(schema = @Schema(implementation = BeaconsListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
@@ -98,6 +100,7 @@ public class BeaconsResource extends TapDataHandlingResource {
                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker. A beacon matches when it was active at any point inside the range.") @QueryParam("time_range") @Valid String timeRangeParameter,
                             @Parameter(description = "Sorting column. Defaults to the time the beacon was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
@@ -107,6 +110,7 @@ public class BeaconsResource extends TapDataHandlingResource {
         }
 
         Filters filters = parseFiltersQueryParameter(filtersParameter);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Beacons.OrderColumn orderColumn = Beacons.OrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -121,17 +125,17 @@ public class BeaconsResource extends TapDataHandlingResource {
 
         Beacons beacons = nzyme.getEthernet().beacons();
 
-        long total = beacons.countBeacons(filters, organizationId, tenantId);
+        long total = beacons.countBeacons(filters, timeRange, organizationId, tenantId);
         Map<BeaconExclusionEntry, BeaconExclusionMatcher> exclusions = beacons.exclusions()
                 .compileEnabled(organizationId, tenantId);
         List<BeaconDetailsResponse> result = Lists.newArrayList();
         for (BeaconEntry beacon : beacons.findAllBeacons(
-                filters, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
+                filters, timeRange, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
             result.add(toResponse(beacon, organizationId, tenantId, exclusions));
         }
 
         return Response.ok(BeaconsListResponse.create(
-                total, beacons.countBeaconsByClassification(organizationId, tenantId), result
+                total, beacons.countBeaconsByClassification(timeRange, organizationId, tenantId), result
         )).build();
     }
 
@@ -196,10 +200,11 @@ public class BeaconsResource extends TapDataHandlingResource {
     @GET
     @Path("/show/{beacon_uuid}/sources")
     @Operation(operationId = "findBeaconSources", summary = "List devices calling a beacon",
-            description = "Returns the devices (sources) that call out to the beacon destination. Each source "
-                    + "carries its own check-in count, median interval, jitter and regularity, which is the share "
-                    + "of its intervals that fell within the jitter tolerance. Sources are linked to assets by "
-                    + "MAC address where possible. Results are paginated.")
+            description = "Returns the devices (sources) that called out to the beacon destination at any point "
+                    + "inside the time range. Each source carries its own check-in count, median interval, jitter "
+                    + "and regularity, which is the share of its intervals that fell within the jitter tolerance. "
+                    + "The per-source figures cover the whole life of the source, not only the time range. Sources "
+                    + "are linked to assets by MAC address where possible. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Sources found.",
             content = @Content(schema = @Schema(implementation = BeaconSourcesListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
@@ -208,6 +213,7 @@ public class BeaconsResource extends TapDataHandlingResource {
                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                                 @Parameter(description = "Beacon UUID.") @PathParam("beacon_uuid") UUID beaconUuid,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker. A source matches when it was active at any point inside the range.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                 @Parameter(description = "Sorting column. Defaults to the time the source was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                                 @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
@@ -215,6 +221,8 @@ public class BeaconsResource extends TapDataHandlingResource {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
+
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Beacons.SourceOrderColumn orderColumn = Beacons.SourceOrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -234,10 +242,10 @@ public class BeaconsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        long total = beacons.countSourcesOfBeacon(beacon.get().id());
+        long total = beacons.countSourcesOfBeacon(beacon.get().id(), timeRange);
         List<BeaconSourceResponse> sources = Lists.newArrayList();
         for (BeaconSourceEntry source : beacons.findSourcesOfBeacon(
-                beacon.get().id(), orderColumn, orderDirection, limit, offset)) {
+                beacon.get().id(), timeRange, orderColumn, orderDirection, limit, offset)) {
             sources.add(toResponse(source, organizationId, tenantId));
         }
 
@@ -441,8 +449,7 @@ public class BeaconsResource extends TapDataHandlingResource {
         }
 
         Map<Long, BeaconSourceEntry> sources = Maps.newHashMap();
-        for (BeaconSourceEntry source : beacons.findSourcesOfBeacon(
-                beacon.get().id(), Beacons.SourceOrderColumn.LAST_SEEN, OrderDirection.DESC, Integer.MAX_VALUE, 0)) {
+        for (BeaconSourceEntry source : beacons.findAllSourcesOfBeacon(beacon.get().id())) {
             sources.put(source.id(), source);
         }
 
@@ -507,8 +514,7 @@ public class BeaconsResource extends TapDataHandlingResource {
 
         // Sources and taps of this beacon, for enriching the check-ins.
         Map<Long, BeaconSourceEntry> sources = Maps.newHashMap();
-        for (BeaconSourceEntry source : beacons.findSourcesOfBeacon(
-                beacon.get().id(), Beacons.SourceOrderColumn.LAST_SEEN, OrderDirection.DESC, Integer.MAX_VALUE, 0)) {
+        for (BeaconSourceEntry source : beacons.findAllSourcesOfBeacon(beacon.get().id())) {
             sources.put(source.id(), source);
         }
 
@@ -759,7 +765,8 @@ public class BeaconsResource extends TapDataHandlingResource {
                                 @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
                                 @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
                                 @Parameter(description = "New classification: UNKNOWN, BENIGN, SUSPICIOUS or MALICIOUS.") @PathParam("classification") String classificationParam,
-                                @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the beacons list. Omit to classify all beacons of the tenant.") @QueryParam("filters") @Nullable String filtersParameter) {
+                                @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the beacons list. Omit to classify all beacons of the tenant.") @QueryParam("filters") @Nullable String filtersParameter,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker. Only beacons active at any point inside the range are classified. Omit for all time.") @QueryParam("time_range") @Valid @Nullable String timeRangeParameter) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
@@ -772,8 +779,10 @@ public class BeaconsResource extends TapDataHandlingResource {
         }
 
         Filters filters = parseFiltersQueryParameter(filtersParameter);
+        TimeRange timeRange = timeRangeParameter == null || timeRangeParameter.isEmpty()
+                ? TimeRangeFactory.allTime() : parseTimeRangeQueryParameter(timeRangeParameter);
 
-        int updated = nzyme.getEthernet().beacons().classifyBeacons(filters, classification, organizationId, tenantId);
+        int updated = nzyme.getEthernet().beacons().classifyBeacons(filters, timeRange, classification, organizationId, tenantId);
 
         return Response.ok(BeaconBulkClassificationResponse.create(updated)).build();
     }

@@ -56,10 +56,9 @@ export default function BeaconDetailsPage() {
     queryParametersToFilters(urlQuery.get("filters"), BEACON_CHECKINS_FILTER_FIELDS)
   );
 
-  const [checkinsTimeRange, setCheckinsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [points, setPoints] = useState(null);
   const [checkins, setCheckins] = useState(null);
-  const [connectionsTimeRange, setConnectionsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [connections, setConnections] = useState(null);
   const [checkinsPage, setCheckinsPage] = useState(1);
   const checkinsPerPage = 25;
@@ -75,30 +74,36 @@ export default function BeaconDetailsPage() {
 
   useEffect(() => {
     setSources(null);
-    beaconsService.findBeaconSources(uuid, organizationId, tenantId, sourcesOrderColumn, sourcesOrderDirection,
-      sourcesPerPage, (sourcesPage-1)*sourcesPerPage, setSources);
-  }, [uuid, organizationId, tenantId, sourcesOrderColumn, sourcesOrderDirection, sourcesPage, revision]);
+    beaconsService.findBeaconSources(uuid, organizationId, tenantId, timeRange, sourcesOrderColumn,
+      sourcesOrderDirection, sourcesPerPage, (sourcesPage-1)*sourcesPerPage, setSources);
+  }, [uuid, organizationId, tenantId, timeRange, sourcesOrderColumn, sourcesOrderDirection, sourcesPage, revision]);
 
   useEffect(() => {
     setPoints(null);
-    beaconsService.findBeaconCheckinPoints(uuid, organizationId, tenantId, checkinsTimeRange, checkinsFilters,
+    beaconsService.findBeaconCheckinPoints(uuid, organizationId, tenantId, timeRange, checkinsFilters,
       setPoints);
-  }, [uuid, organizationId, tenantId, checkinsTimeRange, checkinsFilters, revision]);
+  }, [uuid, organizationId, tenantId, timeRange, checkinsFilters, revision]);
 
   useEffect(() => {
     setConnections(null);
-    beaconsService.findBeaconDestinationConnections(uuid, organizationId, tenantId, connectionsTimeRange, setConnections);
-  }, [uuid, organizationId, tenantId, connectionsTimeRange, revision]);
+    beaconsService.findBeaconDestinationConnections(uuid, organizationId, tenantId, timeRange, setConnections);
+  }, [uuid, organizationId, tenantId, timeRange, revision]);
 
   useEffect(() => {
     setCheckins(null);
-    beaconsService.findBeaconCheckins(uuid, organizationId, tenantId, checkinsTimeRange, checkinsFilters,
+    beaconsService.findBeaconCheckins(uuid, organizationId, tenantId, timeRange, checkinsFilters,
       checkinsPerPage, (checkinsPage-1)*checkinsPerPage, setCheckins);
-  }, [uuid, organizationId, tenantId, checkinsTimeRange, checkinsFilters, checkinsPage, revision]);
+  }, [uuid, organizationId, tenantId, timeRange, checkinsFilters, checkinsPage, revision]);
 
   const applyCheckinsFilters = (newFilters) => {
     setCheckinsPage(1);
     setCheckinsFilters(newFilters);
+  }
+
+  const applyTimeRange = (newTimeRange) => {
+    setSourcesPage(1);
+    setCheckinsPage(1);
+    setTimeRange(newTimeRange);
   }
 
   const onDelete = (e) => {
@@ -285,10 +290,15 @@ export default function BeaconDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Devices"
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
+                                     doNotPersistTimeRange={true}
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Devices that call out to this destination. Each device has its own cadence.
+                Devices that called out to this destination at any point in the selected time range. Each device
+                has its own cadence, and its check-in count and interval cover its whole history. The time range
+                applies to the devices, check-ins and connections on this page.
               </p>
 
               <BeaconSourcesTable sources={sources}
@@ -311,8 +321,8 @@ export default function BeaconDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Check-Ins"
-                                     timeRange={checkinsTimeRange}
-                                     setTimeRange={(tr) => { setCheckinsPage(1); setCheckinsTimeRange(tr); }}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true}
                                      refreshAction={() => setRevision(new Date())} />
 
@@ -324,8 +334,8 @@ export default function BeaconDetailsPage() {
               </div>
 
               <BeaconCheckinScatterCharts points={points}
-                                          timeRange={checkinsTimeRange}
-                                          setTimeRange={(tr) => { setCheckinsPage(1); setCheckinsTimeRange(tr); }} />
+                                          timeRange={timeRange}
+                                          setTimeRange={applyTimeRange} />
 
               <div className="mt-3">
                 <BeaconCheckinsTable checkins={checkins}
@@ -345,8 +355,8 @@ export default function BeaconDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Connections to Destination"
-                                     timeRange={connectionsTimeRange}
-                                     setTimeRange={setConnectionsTimeRange}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true}
                                      refreshAction={() => setRevision(new Date())} />
 

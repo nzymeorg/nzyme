@@ -42,6 +42,11 @@ export default function IcmpTrafficPage() {
   const [orderColumn, setOrderColumn] = useState("last_seen");
   const [orderDirection, setOrderDirection] = useState("DESC");
   const [page, setPage] = useState(1);
+
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
   const perPage = 50;
   const [revision, setRevision] = useState(new Date());
 
@@ -87,7 +92,7 @@ export default function IcmpTrafficPage() {
             <div className="card-body">
               <CardTitleWithControls title="Filters"
                                      timeRange={timeRange}
-                                     setTimeRange={(tr) => { setPage(1); setTimeRange(tr); }} />
+                                     setTimeRange={applyTimeRange} />
 
               <Filters filters={filters}
                        setFilters={applyFilters}
@@ -108,7 +113,7 @@ export default function IcmpTrafficPage() {
 
               <IcmpPacketsChart statistics={statistics}
                                 timeRange={timeRange}
-                                setTimeRange={setTimeRange}
+                                setTimeRange={applyTimeRange}
                                 series={{echo_requests: "Echo Requests", echo_replies: "Echo Replies"}} />
             </div>
           </div>
@@ -125,7 +130,7 @@ export default function IcmpTrafficPage() {
 
               <IcmpPacketsChart statistics={statistics}
                                 timeRange={timeRange}
-                                setTimeRange={setTimeRange}
+                                setTimeRange={applyTimeRange}
                                 series={{unreachable: "Destination Unreachable", time_exceeded: "Time Exceeded", redirects: "Redirects"}} />
             </div>
           </div>

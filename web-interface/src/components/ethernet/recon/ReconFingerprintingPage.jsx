@@ -42,7 +42,7 @@ export default function ReconFingerprintingPage() {
   const [page, setPage] = useState(1);
   const [revision, setRevision] = useState(new Date());
 
-  const [histogramTimeRange, setHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [histogram, setHistogram] = useState(null);
 
   const perPage = 25;
@@ -60,17 +60,23 @@ export default function ReconFingerprintingPage() {
     setFilters(newFilters);
   }
 
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
+
   useEffect(() => {
     setScans(null);
     reconService.findAllScans(
-      organizationId, tenantId, selectedTaps, "FINGERPRINTING", filters, orderColumn, orderDirection, perPage, (page-1)*perPage, setScans
+      organizationId, tenantId, selectedTaps, "FINGERPRINTING", filters, timeRange, orderColumn, orderDirection,
+      perPage, (page-1)*perPage, setScans
     );
-  }, [page, filters, orderColumn, orderDirection, organizationId, tenantId, selectedTaps, revision]);
+  }, [page, filters, timeRange, orderColumn, orderDirection, organizationId, tenantId, selectedTaps, revision]);
 
   useEffect(() => {
     setHistogram(null);
-    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "FINGERPRINTING", filters, histogramTimeRange, setHistogram);
-  }, [organizationId, tenantId, selectedTaps, filters, histogramTimeRange, revision]);
+    reconService.findActiveScansHistogram(organizationId, tenantId, selectedTaps, "FINGERPRINTING", filters, timeRange, setHistogram);
+  }, [organizationId, tenantId, selectedTaps, filters, timeRange, revision]);
 
   return (
     <React.Fragment>
@@ -90,8 +96,8 @@ export default function ReconFingerprintingPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Filters"
-                                     timeRange={histogramTimeRange}
-                                     setTimeRange={setHistogramTimeRange}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}
@@ -111,8 +117,8 @@ export default function ReconFingerprintingPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <ActiveScansHistogram histogram={histogram}
-                                    timeRange={histogramTimeRange}
-                                    setTimeRange={setHistogramTimeRange} />
+                                    timeRange={timeRange}
+                                    setTimeRange={applyTimeRange} />
             </div>
           </div>
         </div>

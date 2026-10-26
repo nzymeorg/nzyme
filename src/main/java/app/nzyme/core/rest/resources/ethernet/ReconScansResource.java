@@ -80,9 +80,9 @@ public class ReconScansResource extends TapDataHandlingResource {
 
     @GET
     @Operation(operationId = "findReconScans", summary = "List scans of a tenant",
-            description = "Returns all detected scans of the tenant, most recently seen first by default. The "
-                    + "response also includes the number of scans per type under the same filters. Results "
-                    + "are paginated.")
+            description = "Returns the detected scans of the tenant that were active at any point inside the time "
+                    + "range, most recently seen first by default. The response also includes the number of scans "
+                    + "per type under the same filters and time range. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Scans found.",
             content = @Content(schema = @Schema(implementation = ReconScansListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
@@ -91,6 +91,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker. A scan matches when it was active at any point inside the range.") @QueryParam("time_range") @Valid String timeRangeParameter,
                             @Parameter(description = "Comma separated list of tap UUIDs. Only scans observed by at least one of these taps are returned. Slow scans are built from the probe history of the whole tenant and are always included. Omit or pass * for all taps the user can access. An empty value selects no taps. Detection itself always covers all taps of the tenant.") @QueryParam("taps") @Nullable String tapIds,
                             @Parameter(description = "SCANS for port scans and sweeps (default), FINGERPRINTING for OS fingerprinting attempts.") @QueryParam("category") @Nullable String categoryParam,
                             @Parameter(description = "Sorting column. Defaults to the time the scan was last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
@@ -102,6 +103,7 @@ public class ReconScansResource extends TapDataHandlingResource {
         }
 
         Filters filters = parseFiltersQueryParameter(filtersParameter);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         List<UUID> taps = parseTapsFilter(sc, tapIds);
 
         ReconScanCategory category;
@@ -125,17 +127,17 @@ public class ReconScansResource extends TapDataHandlingResource {
         Recon recon = nzyme.getEthernet().recon();
         ReconConfiguration config = recon.getConfiguration(organizationId, tenantId);
 
-        long total = recon.countScans(filters, category, taps, organizationId, tenantId);
+        long total = recon.countScans(filters, category, taps, timeRange, organizationId, tenantId);
         Map<ReconExclusionEntry, ReconExclusionMatcher> exclusions = recon.exclusions()
                 .compileEnabled(organizationId, tenantId);
         List<ReconScanDetailsResponse> result = Lists.newArrayList();
         for (ReconScanEntry scan : recon.findAllScans(
-                filters, category, taps, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
+                filters, category, taps, timeRange, orderColumn, orderDirection, limit, offset, organizationId, tenantId)) {
             result.add(toResponse(scan, config, organizationId, tenantId, exclusions));
         }
 
         return Response.ok(ReconScansListResponse.create(
-                total, recon.countScansByType(filters, category, taps, organizationId, tenantId), result
+                total, recon.countScansByType(filters, category, taps, timeRange, organizationId, tenantId), result
         )).build();
     }
 

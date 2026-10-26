@@ -129,14 +129,18 @@ public class Beacons {
         return Integer.parseInt(stringValue(key, organizationId, tenantId));
     }
 
-    public long countBeacons(Filters filters, UUID organizationId, UUID tenantId) {
+    private static final String TIME_RANGE_CONDITION = "AND first_seen <= :tr_to AND last_seen >= :tr_from ";
+
+    public long countBeacons(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new BeaconFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM beacons WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id " + filterFragment.whereSql())
+                                "AND tenant_id = :tenant_id " + TIME_RANGE_CONDITION + filterFragment.whereSql())
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindMap(filterFragment.bindings())
                         .mapTo(Long.class)
                         .one()
@@ -144,6 +148,7 @@ public class Beacons {
     }
 
     public List<BeaconEntry> findAllBeacons(Filters filters,
+                                            TimeRange timeRange,
                                             OrderColumn orderColumn,
                                             OrderDirection orderDirection,
                                             int limit,
@@ -154,10 +159,12 @@ public class Beacons {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM beacons WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id " + filterFragment.whereSql() +
+                                "AND tenant_id = :tenant_id " + TIME_RANGE_CONDITION + filterFragment.whereSql() +
                                 "ORDER BY <order_column> <order_direction>, name ASC LIMIT :limit OFFSET :offset")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindMap(filterFragment.bindings())
                         .bind("limit", limit)
                         .bind("offset", offset)
@@ -168,7 +175,7 @@ public class Beacons {
         );
     }
 
-    public Map<String, Long> countBeaconsByClassification(UUID organizationId, UUID tenantId) {
+    public Map<String, Long> countBeaconsByClassification(TimeRange timeRange, UUID organizationId, UUID tenantId) {
         Map<String, Long> result = new HashMap<>();
         for (BeaconClassification c : BeaconClassification.values()) {
             result.put(c.name(), 0L);
@@ -177,9 +184,11 @@ public class Beacons {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createQuery("SELECT classification, COUNT(*) AS count FROM beacons " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "GROUP BY classification")
+                                TIME_RANGE_CONDITION + "GROUP BY classification")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .mapToMap()
                         .forEach(row -> result.put((String) row.get("classification"), (Long) row.get("count")))
         );
@@ -332,17 +341,23 @@ public class Beacons {
         );
     }
 
-    public int classifyBeacons(Filters filters, BeaconClassification classification, UUID organizationId, UUID tenantId) {
+    public int classifyBeacons(Filters filters,
+                               TimeRange timeRange,
+                               BeaconClassification classification,
+                               UUID organizationId,
+                               UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new BeaconFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createUpdate("UPDATE beacons SET classification = :classification, " +
                                 "classification_changed_at = NOW(), updated_at = NOW() " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "AND classification <> :classification " + filterFragment.whereSql())
+                                "AND classification <> :classification " + TIME_RANGE_CONDITION + filterFragment.whereSql())
                         .bind("classification", classification.name())
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bindMap(filterFragment.bindings())
                         .execute()
         );
@@ -385,6 +400,15 @@ public class Beacons {
                 .execute();
     }
 
+    public List<BeaconSourceEntry> findAllSourcesOfBeacon(long beaconId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM beacon_sources WHERE beacon_id = :beacon_id")
+                        .bind("beacon_id", beaconId)
+                        .mapTo(BeaconSourceEntry.class)
+                        .list()
+        );
+    }
+
     public List<BeaconSourceEntry> findAllSourcesOfBeacons(Handle handle, Collection<Long> beaconIds) {
         if (beaconIds.isEmpty()) {
             return Collections.emptyList();
@@ -396,25 +420,32 @@ public class Beacons {
                 .list();
     }
 
-    public long countSourcesOfBeacon(long beaconId) {
+    public long countSourcesOfBeacon(long beaconId, TimeRange timeRange) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM beacon_sources WHERE beacon_id = :beacon_id")
+                handle.createQuery("SELECT COUNT(*) FROM beacon_sources WHERE beacon_id = :beacon_id " +
+                                TIME_RANGE_CONDITION)
                         .bind("beacon_id", beaconId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .mapTo(Long.class)
                         .one()
         );
     }
 
     public List<BeaconSourceEntry> findSourcesOfBeacon(long beaconId,
+                                                       TimeRange timeRange,
                                                        SourceOrderColumn orderColumn,
                                                        OrderDirection orderDirection,
                                                        int limit,
                                                        int offset) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM beacon_sources WHERE beacon_id = :beacon_id " +
+                                TIME_RANGE_CONDITION +
                                 "ORDER BY <order_column> <order_direction>, source_address ASC " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("beacon_id", beaconId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
                         .bind("limit", limit)
                         .bind("offset", offset)
                         .define("order_column", orderColumn.getColumnName())

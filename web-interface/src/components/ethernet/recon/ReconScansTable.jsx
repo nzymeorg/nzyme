@@ -33,8 +33,8 @@ export default function ReconScansTable({scans, page, setPage, perPage, orderCol
 
   if (scans.scans.length === 0) {
     return <div className="alert alert-info mb-0">
-      No scans match the current filters. Scans appear here once a device probes many ports of a host or many
-      hosts in your network.
+      No scans match the current filters and time range. Scans appear here once a device probes many ports of a
+      host or many hosts in your network.
     </div>
   }
 

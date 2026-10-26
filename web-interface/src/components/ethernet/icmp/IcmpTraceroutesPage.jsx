@@ -50,7 +50,12 @@ export default function IcmpTraceroutesPage() {
   const perPage = 25;
   const [revision, setRevision] = useState(new Date());
 
-  const [histogramTimeRange, setHistogramTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+
+  const applyTimeRange = (newTimeRange) => {
+    setPage(1);
+    setTimeRange(newTimeRange);
+  }
   const [histogram, setHistogram] = useState(null);
 
   useEffect(() => {
@@ -65,13 +70,13 @@ export default function IcmpTraceroutesPage() {
 
   useEffect(() => {
     setTraceroutes(null);
-    icmpService.findAllTraceroutes(organizationId, tenantId, filters, selectedTaps, histogramTimeRange, orderColumn, orderDirection, perPage, (page-1)*perPage, setTraceroutes);
-  }, [organizationId, tenantId, filters, selectedTaps, histogramTimeRange, orderColumn, orderDirection, page, revision]);
+    icmpService.findAllTraceroutes(organizationId, tenantId, filters, selectedTaps, timeRange, orderColumn, orderDirection, perPage, (page-1)*perPage, setTraceroutes);
+  }, [organizationId, tenantId, filters, selectedTaps, timeRange, orderColumn, orderDirection, page, revision]);
 
   useEffect(() => {
     setHistogram(null);
-    icmpService.getTraceroutesHistogram(organizationId, tenantId, filters, selectedTaps, histogramTimeRange, setHistogram);
-  }, [organizationId, tenantId, filters, selectedTaps, histogramTimeRange, revision]);
+    icmpService.getTraceroutesHistogram(organizationId, tenantId, filters, selectedTaps, timeRange, setHistogram);
+  }, [organizationId, tenantId, filters, selectedTaps, timeRange, revision]);
 
   const columnSorting = (columnName) => {
     return <ColumnSorting thisColumn={columnName}
@@ -163,7 +168,7 @@ export default function IcmpTraceroutesPage() {
             <CardTitleWithControls title={title} />
             <IcmpTracerouteBreakdownHistogram by={by} columnTitle={title} filters={filters}
                                               setFilters={applyFilters} taps={selectedTaps}
-                                              timeRange={histogramTimeRange} revision={revision} />
+                                              timeRange={timeRange} revision={revision} />
           </div>
         </div>
       </div>
@@ -187,8 +192,8 @@ export default function IcmpTraceroutesPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Filters"
-                                     timeRange={histogramTimeRange}
-                                     setTimeRange={setHistogramTimeRange}
+                                     timeRange={timeRange}
+                                     setTimeRange={applyTimeRange}
                                      doNotPersistTimeRange={true} />
 
               <Filters filters={filters}
@@ -208,8 +213,8 @@ export default function IcmpTraceroutesPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <IcmpTraceroutesHistogram histogram={histogram}
-                                        timeRange={histogramTimeRange}
-                                        setTimeRange={setHistogramTimeRange} />
+                                        timeRange={timeRange}
+                                        setTimeRange={applyTimeRange} />
             </div>
           </div>
         </div>
