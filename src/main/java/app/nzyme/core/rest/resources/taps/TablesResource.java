@@ -5,6 +5,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.rest.authentication.AuthenticatedTap;
 import app.nzyme.core.rest.authentication.TapSecured;
 import app.nzyme.core.rest.resources.taps.reports.tables.arp.ArpPacketsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.nameres.NameResolutionResponsesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.icmp.IcmpReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.bluetooth.BluetoothDevicesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsReport;
@@ -241,6 +242,22 @@ public class TablesResource {
 
         LOG.debug("Received ARP packets report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().arp().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/nameres/responses")
+    public Response nameResolutionResponses(@Context SecurityContext sc, NameResolutionResponsesReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting name resolution responses report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received name resolution responses report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().nameres().handleReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

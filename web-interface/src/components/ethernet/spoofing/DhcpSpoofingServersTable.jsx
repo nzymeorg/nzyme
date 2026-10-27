@@ -120,13 +120,13 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
               </td>
               <td>
                 {s.trusted ?
-                  <span className="badge bg-success"
+                  <span className="classification classification-benign"
                         title={s.trust_source === "USER" ? "Trusted by a user" : "Trusted because it was seen during the learning period"}>
                     Trusted
                   </span>
-                  : <span className="badge bg-danger" title="Answers from this server are rogue server findings">Untrusted</span>}
+                  : <span className="classification classification-hostile" title="Answers from this server are rogue server findings">Untrusted</span>}
                 {s.trusted && !s.latest_matches_baseline ?
-                  <span className="badge bg-warning text-dark ms-1"
+                  <span className="classification classification-suspicious ms-1"
                         title="The configuration it hands out now differs from the expected configuration">
                     Config Change
                   </span> : null}

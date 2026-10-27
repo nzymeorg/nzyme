@@ -52,7 +52,15 @@ public class SpoofingResource extends TapDataHandlingResource {
             SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES,
             SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS,
             SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER,
-            SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED
+            SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED,
+            SpoofingRegistryKeys.NAMERES_DETECTION_ENABLED,
+            SpoofingRegistryKeys.NAMERES_DETECTION_WINDOW_MINUTES,
+            SpoofingRegistryKeys.NAMERES_LLMNR_NAME_THRESHOLD,
+            SpoofingRegistryKeys.NAMERES_NBTNS_NAME_THRESHOLD,
+            SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD,
+            SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS,
+            SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS,
+            SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW
     };
 
     @Inject
@@ -84,11 +92,19 @@ public class SpoofingResource extends TapDataHandlingResource {
         detection.add(numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "DHCP spoofing: Server learning period (Hours)", organizationId, tenantId));
         detection.add(numberEntry(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, "DHCP spoofing: Detection window (Minutes)", organizationId, tenantId));
         detection.add(numberEntry(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, "DHCP spoofing: Finding retention time (Days)", organizationId, tenantId));
+        detection.add(booleanEntry(SpoofingRegistryKeys.NAMERES_DETECTION_ENABLED, "Name resolution poisoning detection enabled", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_DETECTION_WINDOW_MINUTES, "Name resolution poisoning: Detection window (Minutes)", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_LLMNR_NAME_THRESHOLD, "Name resolution poisoning: LLMNR names threshold", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_NBTNS_NAME_THRESHOLD, "Name resolution poisoning: NBT-NS names threshold", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD, "Name resolution poisoning: mDNS names threshold", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS, "Name resolution poisoning: Finding retention time (Days)", organizationId, tenantId));
+        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS, "Name resolution poisoning: Response retention time (Days)", organizationId, tenantId));
 
         List<ConfigurationEntryResponse> alerting = Lists.newArrayList();
         alerting.add(booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning finding", organizationId, tenantId));
         alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server", organizationId, tenantId));
         alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP configuration", organizationId, tenantId));
+        alerting.add(booleanEntry(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, "Alert on name resolution poisoning", organizationId, tenantId));
 
         return Response.ok(SpoofingConfigurationResponse.create(detection, alerting)).build();
     }

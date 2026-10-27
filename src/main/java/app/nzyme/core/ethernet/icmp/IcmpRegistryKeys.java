@@ -22,7 +22,7 @@ public class IcmpRegistryKeys {
             numberKey("ethernet_icmp_tunnel_minimum_packets", 1, 1000000, 10);
 
     public static final RegistryKey DETECTION_RETENTION_TIME_DAYS =
-            numberKey("ethernet_icmp_detection_retention_time_days", 1, 3650, 30);
+            numberKey("ethernet_icmp_detection_retention_time_days", 1, 3650, 365);
 
     public static final RegistryKey ALERT_ON_REDIRECT = booleanKey("ethernet_icmp_alert_on_redirect", true);
     public static final RegistryKey ALERT_ON_TRACEROUTE = booleanKey("ethernet_icmp_alert_on_traceroute", false);

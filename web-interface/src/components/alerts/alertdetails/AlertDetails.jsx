@@ -20,6 +20,7 @@ import BeaconAlertDetails from "./ethernet/BeaconAlertDetails";
 import ReconScanAlertDetails from "./ethernet/ReconScanAlertDetails";
 import ArpSpoofingAlertDetails from "./ethernet/ArpSpoofingAlertDetails";
 import DhcpSpoofingAlertDetails from "./ethernet/DhcpSpoofingAlertDetails";
+import NameResolutionSpoofingAlertDetails from "./ethernet/NameResolutionSpoofingAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
@@ -79,6 +80,8 @@ function AlertDetails(props) {
     case "SPOOFING_DHCP_ROGUE_SERVER":
     case "SPOOFING_DHCP_PARAMETERS_CHANGED":
       return <DhcpSpoofingAlertDetails alert={alert} />
+    case "SPOOFING_NAME_RESOLUTION_POISONING":
+      return <NameResolutionSpoofingAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
       return <IcmpAlertDetails alert={alert} />

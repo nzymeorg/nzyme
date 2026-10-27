@@ -88,6 +88,39 @@ export default class SpoofingService {
       successCallback);
   }
 
+  findAllNameResolutionFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
+    RESTClient.get("/ethernet/spoofing/nameres", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setFindings(response.data));
+  }
+
+  findActiveNameResolutionFindingsHistogram(organizationId, tenantId, filters, timeRange, setHistogram) {
+    RESTClient.get("/ethernet/spoofing/nameres/histogram/active", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange
+    }, (response) => setHistogram(response.data));
+  }
+
+  findNameResolutionFinding(uuid, organizationId, tenantId, setFinding, onError = undefined) {
+    RESTClient.get(`/ethernet/spoofing/nameres/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setFinding(response.data), onError);
+  }
+
+  deleteNameResolutionFinding(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/nameres/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  deleteAllNameResolutionFindings(organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/nameres/organization/${organizationId}/tenant/${tenantId}`, successCallback);
+  }
+
+  findNameResolutionResponders(organizationId, tenantId, timeRange, limit, offset, setResponders) {
+    RESTClient.get("/ethernet/spoofing/nameres/responders", {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, limit: limit, offset: offset
+    }, (response) => setResponders(response.data));
+  }
+
   findAllExclusions(organizationId, tenantId, filters, orderColumn, orderDirection, limit, offset, setExclusions) {
     RESTClient.get("/ethernet/spoofing/exclusions", {
       organization_id: organizationId, tenant_id: tenantId, filters: filters, order_column: orderColumn,

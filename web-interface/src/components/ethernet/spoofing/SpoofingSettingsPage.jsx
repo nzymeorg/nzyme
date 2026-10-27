@@ -48,6 +48,19 @@ export default function SpoofingSettingsPage() {
     });
   }
 
+  const onDeleteAllNameResolution = (e) => {
+    e.preventDefault();
+
+    if (!confirm("Really delete ALL name resolution poisoning findings of this tenant, including their victims? " +
+        "This cannot be undone. Findings are detected again if the devices keep answering name queries.")) {
+      return;
+    }
+
+    spoofingService.deleteAllNameResolutionFindings(organizationId, tenantId, (response) => {
+      toast.success(numeral(response.data.deleted_count).format("0,0") + " findings deleted.");
+    });
+  }
+
   return (
     <React.Fragment>
       <div className="row">
@@ -99,9 +112,26 @@ export default function SpoofingSettingsPage() {
                   baseline is a changed configuration finding. Accept the new configuration on the DHCP tab if the
                   change was intended.</li>
               </ul>
-              <p className="text-muted mb-0">
+              <p className="text-muted">
                 A finding stays open while the server keeps answering within the detection window. Transactions are
                 analyzed a few minutes after they end, once all taps have reported them.
+              </p>
+
+              <p className="text-muted mb-2">
+                Name resolution poisoning detection runs over the LLMNR, NBT-NS and mDNS answers of all taps of the
+                tenant. A legitimate device answers queries for its own name only:
+              </p>
+              <ul className="text-muted">
+                <li>A device that answered more different names than the threshold of the protocol allows inside the
+                  detection window, pointing them at one of its own addresses, is a finding.</li>
+                <li>A device whose answers all point at the same one or two addresses is treated the same way, which
+                  covers a poisoner that hands out the address of another machine.</li>
+                <li>mDNS gets a higher threshold than LLMNR and NBT-NS because reflectors and devices with several
+                  service names are common. Raise it further if a legitimate device keeps showing up, or add an
+                  exclusion for it.</li>
+              </ul>
+              <p className="text-muted mb-0">
+                A finding stays open while the device keeps answering within the detection window.
               </p>
 
               <SpoofingConfiguration organizationId={organizationId} tenantId={tenantId} section="detection" />
@@ -151,6 +181,22 @@ export default function SpoofingSettingsPage() {
                 </p>
 
                 <button className="btn btn-sm btn-danger" onClick={onDeleteAllDhcp}>Delete All Findings</button>
+              </div>
+            </div>
+            : null}
+
+          {canManage ?
+            <div className="card mt-3">
+              <div className="card-body">
+                <CardTitleWithControls title="Delete All Name Resolution Poisoning Findings" slim={true} />
+
+                <p>
+                  Deletes every name resolution poisoning finding of this tenant, including its victims. Exclusions
+                  and the settings on this page are kept. Findings are detected again if the devices keep answering
+                  name queries, unless an exclusion matches them.
+                </p>
+
+                <button className="btn btn-sm btn-danger" onClick={onDeleteAllNameResolution}>Delete All Findings</button>
               </div>
             </div>
             : null}

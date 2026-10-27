@@ -74,6 +74,8 @@ import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingVictimEntryMapper;
+import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntryMapper;
+import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingVictimEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpPacketEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpRedirectEntryMapper;
 import app.nzyme.core.ethernet.icmp.db.IcmpTracerouteEntryMapper;
@@ -299,6 +301,8 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new DhcpSpoofingServerEntryMapper())
                 .registerRowMapper(new DhcpSpoofingFindingEntryMapper())
                 .registerRowMapper(new DhcpSpoofingVictimEntryMapper())
+                .registerRowMapper(new NameResolutionSpoofingFindingEntryMapper())
+                .registerRowMapper(new NameResolutionSpoofingVictimEntryMapper())
                 .registerRowMapper(new IcmpPacketEntryMapper())
                 .registerRowMapper(new IcmpRedirectEntryMapper())
                 .registerRowMapper(new IcmpTracerouteEntryMapper())

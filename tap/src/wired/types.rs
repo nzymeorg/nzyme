@@ -98,6 +98,8 @@ pub enum DNSDataType {
     AAAA,
     LOC,
     SRV,
+    OPT,
+    ANY,
     NAPTR,
     KX,
     CERT,
@@ -160,6 +162,7 @@ impl TryFrom<u16> for DNSDataType {
             28    => Ok(DNSDataType::AAAA),
             29    => Ok(DNSDataType::LOC),
             33    => Ok(DNSDataType::SRV),
+            41    => Ok(DNSDataType::OPT),
             35    => Ok(DNSDataType::NAPTR),
             36    => Ok(DNSDataType::KX),
             37    => Ok(DNSDataType::CERT),
@@ -188,6 +191,7 @@ impl TryFrom<u16> for DNSDataType {
             109   => Ok(DNSDataType::EUI64),
             249   => Ok(DNSDataType::TKEY),
             250   => Ok(DNSDataType::TSIG),
+            255   => Ok(DNSDataType::ANY),
             256   => Ok(DNSDataType::URI),
             257   => Ok(DNSDataType::CAA),
             32768 => Ok(DNSDataType::TA),
@@ -284,4 +288,14 @@ pub enum Dhcp4TransactionType {
     Release,
     Inform,
     Unknown
+}
+
+#[derive(Debug, Display, Clone, Eq, PartialEq, Hash)]
+pub enum NameResolutionProtocol {
+    #[strum(serialize = "LLMNR")]
+    Llmnr,
+    #[strum(serialize = "MDNS")]
+    Mdns,
+    #[strum(serialize = "NBTNS")]
+    NbtNs
 }

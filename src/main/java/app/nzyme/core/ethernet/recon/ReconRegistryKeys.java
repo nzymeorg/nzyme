@@ -36,7 +36,7 @@ public class ReconRegistryKeys {
             numberKey("ethernet_recon_minimum_failure_percent", 0, 100, 50);
 
     public static final RegistryKey SCAN_RETENTION_TIME_DAYS =
-            numberKey("ethernet_recon_scan_retention_time_days", 1, 3650, 30);
+            numberKey("ethernet_recon_scan_retention_time_days", 1, 3650, 365);
 
     // Slow scans.
     public static final RegistryKey SLOW_SCAN_ENABLED = booleanKey("ethernet_recon_slow_scan_enabled", true);

@@ -160,7 +160,7 @@ export default function ReconProbedHostDetailsPage() {
                         <td>
                           {s.address_data ? <L4Address address={s.address_data} hidePort={true} withAssetName />
                             : <span className="machine-data">{s.address}</span>}
-                          {s.scanner ? <span className="badge bg-warning ms-1" title="Attributed to a detected scan">Scanner</span> : null}
+                          {s.scanner ? <span className="classification classification-suspicious ms-1" title="Attributed to a detected scan">Scanner</span> : null}
                         </td>
                         <td>
                           {s.mac_data ? <EthernetMacAddress addressWithContext={s.mac_data} withAssetLink withAssetName />

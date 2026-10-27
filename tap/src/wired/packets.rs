@@ -11,7 +11,7 @@ use crate::state::tables::tcp_table::TcpSession;
 use crate::state::tables::udp_table::UdpConversation;
 use crate::wired::traffic_direction::TrafficDirection;
 
-use crate::wired::types::{HardwareType, EtherType, ArpOpCode, DNSType, DNSClass, DNSDataType, Dhcpv4MessageType, Dhcpv4OpCode, Dhcp4TransactionType};
+use crate::wired::types::{HardwareType, EtherType, ArpOpCode, DNSType, DNSClass, DNSDataType, Dhcpv4MessageType, Dhcpv4OpCode, Dhcp4TransactionType, NameResolutionProtocol};
 
 #[derive(Debug)]
 pub struct EthernetData {
@@ -849,4 +849,61 @@ impl NtpPacket {
 
         size
     }
+}
+
+#[derive(Debug)]
+pub struct NameResolutionPacket {
+    pub protocol: NameResolutionProtocol,
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub is_response: bool,
+    pub queries: Vec<String>,
+    pub answers: Vec<NameResolutionAnswer>,
+    pub timestamp: DateTime<Utc>
+}
+
+#[derive(Debug, Clone)]
+pub struct NameResolutionAnswer {
+    pub name: String,
+    pub address: IpAddr
+}
+
+impl NameResolutionPacket {
+
+    // Only A and AAAA records matter: they are what a poisoner answers with. Service records are skipped.
+    pub fn from_dns(dns: &DNSPacket, protocol: NameResolutionProtocol) -> Self {
+        let queries = dns.queries.as_ref()
+            .map(|q| q.iter().map(|d| d.name.clone()).collect())
+            .unwrap_or_default();
+
+        let mut answers = Vec::new();
+        if let Some(responses) = &dns.responses {
+            for r in responses {
+                if r.dns_type != DNSDataType::A && r.dns_type != DNSDataType::AAAA {
+                    continue;
+                }
+
+                if let Some(value) = &r.value {
+                    if let Ok(address) = value.parse::<IpAddr>() {
+                        answers.push(NameResolutionAnswer { name: r.name.clone(), address });
+                    }
+                }
+            }
+        }
+
+        NameResolutionPacket {
+            protocol,
+            source_mac: dns.source_mac.clone(),
+            destination_mac: dns.destination_mac.clone(),
+            source_address: dns.source_address,
+            destination_address: dns.destination_address,
+            is_response: dns.dns_type == DNSType::QueryResponse,
+            queries,
+            answers,
+            timestamp: dns.timestamp
+        }
+    }
+
 }

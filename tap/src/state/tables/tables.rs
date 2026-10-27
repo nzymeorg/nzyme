@@ -18,6 +18,7 @@ use crate::metrics::Metrics;
 use crate::state::tables::arp_table::ArpTable;
 use crate::state::tables::icmp_table::IcmpTable;
 use crate::state::tables::dhcp_table::DhcpTable;
+use crate::state::tables::name_resolution_table::NameResolutionTable;
 use crate::state::tables::ntp_table::NtpTable;
 use crate::state::tables::rtsp_table::RtspTable;
 use crate::state::tables::stun_table::StunTable;
@@ -34,6 +35,7 @@ pub struct Tables {
     pub tcp: Arc<Mutex<TcpTable>>,
     pub udp: Arc<Mutex<UdpTable>>,
     pub dns: Arc<Mutex<DnsTable>>,
+    pub nameres: Arc<Mutex<NameResolutionTable>>,
     pub ssh: Arc<Mutex<SshTable>>,
     pub tls: Arc<Mutex<TlsTable>>,
     pub socks: Arc<Mutex<SocksTable>>,
@@ -73,6 +75,7 @@ impl Tables {
             icmp: Arc::new(Mutex::new(IcmpTable::new(leaderlink.clone(), metrics.clone()))),
             dhcp: Arc::new(Mutex::new(DhcpTable::new(leaderlink.clone(), metrics.clone()))),
             dns: Arc::new(Mutex::new(DnsTable::new(leaderlink.clone(), metrics.clone()))),
+            nameres: Arc::new(Mutex::new(NameResolutionTable::new(leaderlink.clone(), metrics.clone()))),
             tcp: Arc::new(Mutex::new(TcpTable::new(
                 leaderlink.clone(),
                 ethernet_bus.clone(),
@@ -169,6 +172,14 @@ impl Tables {
                         dns.process_report();
                     },
                     Err(e) => error!("Could not acquire DNS table lock for report processing: {}", e)
+                });
+
+                timed(&mut cycle, "nameres", || match self.nameres.lock() {
+                    Ok(nameres) => {
+                        nameres.calculate_metrics();
+                        nameres.process_report();
+                    },
+                    Err(e) => error!("Could not acquire name resolution table lock for report processing: {}", e)
                 });
 
                 timed(&mut cycle, "ssh", || match self.ssh.lock() {

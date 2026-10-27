@@ -5,18 +5,24 @@ use crate::context::context_source::ContextSource;
 use crate::to_pipeline;
 use crate::protocols::detection::l7_tagger::L7Tag;
 use crate::protocols::detection::l7_tagger::L7Tag::{Unencrypted, DHCP4, DNS, NTP};
-use crate::protocols::parsers::{dhcpv4_parser, dns_parser, ntp_parser};
+use crate::protocols::parsers::{dhcpv4_parser, dns_parser, nbtns_parser, ntp_parser};
+use crate::state::tables::name_resolution_table::NameResolutionTable;
 use crate::state::tables::udp_table::UdpTable;
 use crate::helpers::timer::{record_timer, Timer};
 use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::metrics::Metrics;
-use crate::wired::packets::Datagram;
+use crate::wired::packets::{Datagram, NameResolutionPacket};
+use crate::wired::types::NameResolutionProtocol;
+
+const MDNS_PORT: u16 = 5353;
+const LLMNR_PORT: u16 = 5355;
 
 pub struct UDPProcessor {
     bus: Arc<Bus>,
     metrics: Arc<Mutex<Metrics>>,
     udp_table: Arc<Mutex<UdpTable>>,
+    nameres_table: Arc<Mutex<NameResolutionTable>>,
     context: Arc<ContextEngine>
 }
 
@@ -25,8 +31,9 @@ impl UDPProcessor {
     pub fn new(bus: Arc<Bus>, 
                metrics: Arc<Mutex<Metrics>>, 
                udp_table: Arc<Mutex<UdpTable>>, 
+               nameres_table: Arc<Mutex<NameResolutionTable>>,
                context: Arc<ContextEngine>) -> Self {
-        Self { bus, metrics, udp_table, context }
+        Self { bus, metrics, udp_table, nameres_table, context }
     }
 
     pub fn process(&mut self, datagram: Arc<Datagram>) {
@@ -67,6 +74,11 @@ impl UDPProcessor {
         if let Some(dns) = dns_parser::parse(datagram) {
             tags.push(DNS);
             tags.push(Unencrypted);
+
+            // LLMNR and mDNS share the DNS wire format.
+            if let Some(protocol) = Self::name_resolution_protocol(datagram) {
+                self.register_name_resolution(&NameResolutionPacket::from_dns(&dns, protocol));
+            }
             
             // To DNS pipeline.
             let size = dns.size;
@@ -92,6 +104,10 @@ impl UDPProcessor {
             );
         }
 
+        if let Some(nbtns) = nbtns_parser::parse(datagram) {
+            self.register_name_resolution(&nbtns);
+        }
+
         if let Some(ntp) = ntp_parser::parse(datagram) {
             tags.push(NTP);
             tags.push(Unencrypted);
@@ -106,6 +122,23 @@ impl UDPProcessor {
         }
 
         tags
+    }
+
+    fn name_resolution_protocol(datagram: &Arc<Datagram>) -> Option<NameResolutionProtocol> {
+        if datagram.source_port == MDNS_PORT || datagram.destination_port == MDNS_PORT {
+            Some(NameResolutionProtocol::Mdns)
+        } else if datagram.source_port == LLMNR_PORT || datagram.destination_port == LLMNR_PORT {
+            Some(NameResolutionProtocol::Llmnr)
+        } else {
+            None
+        }
+    }
+
+    fn register_name_resolution(&self, packet: &NameResolutionPacket) {
+        match self.nameres_table.lock() {
+            Ok(table) => table.register(packet),
+            Err(e) => error!("Could not acquire name resolution table mutex: {}", e)
+        }
     }
 
 }

@@ -55,6 +55,7 @@ public class TablesService {
                 .put("tcp", new TCPTable(this))
                 .put("udp", new UDPTable(this))
                 .put("dns", new DNSTable(this))
+                .put("nameres", new NameResolutionTable(this))
                 .put("ssh", new SSHTable(this))
                 .put("tls", new TLSTable(this))
                 .put("socks", new SOCKSTable(this))
@@ -109,6 +110,10 @@ public class TablesService {
 
     public DNSTable dns() {
         return (DNSTable) tables.get("dns");
+    }
+
+    public NameResolutionTable nameres() {
+        return (NameResolutionTable) tables.get("nameres");
     }
 
     public TCPTable tcp() {

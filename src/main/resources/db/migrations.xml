@@ -10558,4 +10558,148 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_name_resolution_spoofing_tables" author="lennartkoopmann">
+        <createTable tableName="name_resolution_responses">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocol" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="responder_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="responder_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="answer_addresses" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="response_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unicast_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="victims" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="name_resolution_responses" indexName="nameres_responses_tap_last_seen">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="name_resolution_responses" indexName="nameres_responses_responder_last_seen">
+            <column name="responder_mac" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="spoofing_nameres_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="responder_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="responder_addresses" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocols" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="names" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="name_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="response_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unicast_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="victim_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_nameres_findings" indexName="spoofing_nameres_findings_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_nameres_findings" indexName="spoofing_nameres_findings_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="spoofing_nameres_victims">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="finding_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="spoofing_nameres_victims_finding_id" references="spoofing_nameres_findings(id)" deleteCascade="true" />
+            </column>
+            <column name="mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="inet" />
+            <column name="names" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="response_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_nameres_victims" indexName="spoofing_nameres_victims_identity" unique="true">
+            <column name="finding_id" />
+            <column name="mac" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

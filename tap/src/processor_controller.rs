@@ -137,6 +137,7 @@ impl ProcessorController {
                 self.ethernet_bus.clone(),
                 self.metrics.clone(),
                 self.tables.udp.clone(),
+                self.tables.nameres.clone(),
                 self.context.clone()
             );
 

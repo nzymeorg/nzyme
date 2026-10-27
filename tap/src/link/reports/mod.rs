@@ -14,3 +14,4 @@ pub mod rtsp_streams_report;
 pub mod nat_traversal_report;
 pub mod portal_integrity_report;
 pub mod webrtc_report;pub mod tls_sessions_report;
+pub mod name_resolution_responses_report;

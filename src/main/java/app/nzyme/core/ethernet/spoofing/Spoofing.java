@@ -7,6 +7,8 @@ import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingVictimEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingVictimEntry;
+import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingVictimEntry;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
@@ -103,6 +105,33 @@ public class Spoofing {
 
     public record DhcpActivityCounts(long responseCount, long offerCount, long ackCount, long transactionCount) { }
 
+    public enum NameResolutionOrderColumn {
+
+        RESPONDER_MAC("responder_mac"),
+        NAME_COUNT("name_count"),
+        RESPONSE_COUNT("response_count"),
+        VICTIM_COUNT("victim_count"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        NameResolutionOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
+    public record NameResolutionVictimRecord(String mac, @Nullable String address, List<String> names,
+                                             long responseCount, DateTime firstSeen, DateTime lastSeen) { }
+
+    public record NameResolutionResponder(String mac, List<String> addresses, List<String> protocols, long nameCount,
+                                          long selfPointingNameCount, long responseCount, long unicastCount,
+                                          List<String> namesSample, DateTime firstSeen, DateTime lastSeen) { }
+
     private final NzymeNode nzyme;
     private final SpoofingExclusions exclusions;
 
@@ -128,7 +157,15 @@ public class Spoofing {
                 intValue(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, organizationId, tenantId),
                 intValue(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, organizationId, tenantId),
                 booleanValue(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, organizationId, tenantId),
-                booleanValue(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, organizationId, tenantId)
+                booleanValue(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.NAMERES_DETECTION_ENABLED, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_DETECTION_WINDOW_MINUTES, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_LLMNR_NAME_THRESHOLD, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_NBTNS_NAME_THRESHOLD, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, organizationId, tenantId)
         );
     }
 
@@ -980,6 +1017,336 @@ public class Spoofing {
                         "updated_at = NOW() WHERE id = :id")
                 .bind("id", id)
                 .execute();
+    }
+
+
+    public long countNameResolutionFindings(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new NameResolutionSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM spoofing_nameres_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<NameResolutionSpoofingFindingEntry> findAllNameResolutionFindings(Filters filters,
+                                                                                  TimeRange timeRange,
+                                                                                  NameResolutionOrderColumn orderColumn,
+                                                                                  OrderDirection orderDirection,
+                                                                                  int limit,
+                                                                                  int offset,
+                                                                                  UUID organizationId,
+                                                                                  UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new NameResolutionSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_nameres_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql() +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(NameResolutionSpoofingFindingEntry.class)
+                        .list()
+        );
+    }
+
+    public List<GenericIntegerHistogramEntry> activeNameResolutionFindingsHistogram(Filters filters,
+                                                                                    UUID organizationId,
+                                                                                    UUID tenantId,
+                                                                                    TimeRange timeRange,
+                                                                                    Bucketing.BucketingConfiguration bucketing) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new NameResolutionSpoofingFindingFilters("f"));
+
+        String step = "1 " + bucketing.type().getDateTruncName();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.bucket AS bucket, COUNT(f.id)::integer AS value " +
+                                "FROM generate_series(date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                                ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
+                                "LEFT JOIN spoofing_nameres_findings f ON f.organization_id = :organization_id " +
+                                "AND f.tenant_id = :tenant_id AND f.first_seen < b.bucket + :step::interval " +
+                                "AND f.last_seen >= b.bucket " + filterFragment.whereSql() +
+                                "GROUP BY b.bucket ORDER BY b.bucket DESC")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindMap(filterFragment.bindings())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("step", step)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public Optional<NameResolutionSpoofingFindingEntry> findNameResolutionFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_nameres_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(NameResolutionSpoofingFindingEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<NameResolutionSpoofingFindingEntry> findNameResolutionFindingById(Handle handle, long id) {
+        return handle.createQuery("SELECT * FROM spoofing_nameres_findings WHERE id = :id")
+                .bind("id", id)
+                .mapTo(NameResolutionSpoofingFindingEntry.class)
+                .findOne();
+    }
+
+    public List<NameResolutionSpoofingFindingEntry> findAllNameResolutionFindingsOfTenant(Handle handle,
+                                                                                          UUID organizationId,
+                                                                                          UUID tenantId) {
+        return handle.createQuery("SELECT * FROM spoofing_nameres_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(NameResolutionSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public List<NameResolutionSpoofingFindingEntry> findActiveNameResolutionFindingsOfTenant(Handle handle,
+                                                                                             UUID organizationId,
+                                                                                             UUID tenantId,
+                                                                                             DateTime activeSince) {
+        return handle.createQuery("SELECT * FROM spoofing_nameres_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id AND last_seen >= :active_since")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("active_since", activeSince)
+                .mapTo(NameResolutionSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public NameResolutionSpoofingFindingEntry createNameResolutionFinding(Handle handle,
+                                                                          UUID organizationId,
+                                                                          UUID tenantId,
+                                                                          String responderMac,
+                                                                          DateTime firstSeen,
+                                                                          DateTime lastSeen) {
+        return handle.createQuery("INSERT INTO spoofing_nameres_findings(uuid, organization_id, tenant_id, " +
+                        "responder_mac, responder_addresses, protocols, names, name_count, response_count, " +
+                        "unicast_count, victim_count, tap_uuids, first_seen, last_seen, created_at, updated_at) " +
+                        "VALUES(:uuid, :organization_id, :tenant_id, :responder_mac, '[]'::jsonb, '[]'::jsonb, " +
+                        "'[]'::jsonb, 0, 0, 0, 0, '[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) RETURNING *")
+                .bind("uuid", UUID.randomUUID())
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("responder_mac", responderMac)
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .mapTo(NameResolutionSpoofingFindingEntry.class)
+                .one();
+    }
+
+    public void addNameResolutionFindingActivity(Handle handle,
+                                                 long id,
+                                                 List<String> responderAddresses,
+                                                 List<String> protocols,
+                                                 List<String> names,
+                                                 long responseCount,
+                                                 long unicastCount,
+                                                 Collection<UUID> existingTaps,
+                                                 Collection<UUID> newTaps,
+                                                 DateTime lastSeen) {
+        handle.createUpdate("UPDATE spoofing_nameres_findings SET responder_addresses = :responder_addresses::jsonb, " +
+                        "protocols = :protocols::jsonb, names = :names::jsonb, name_count = :name_count, " +
+                        "response_count = response_count + :response_count, " +
+                        "unicast_count = unicast_count + :unicast_count, " +
+                        "victim_count = (SELECT COUNT(*) FROM spoofing_nameres_victims WHERE finding_id = :id), " +
+                        "tap_uuids = :tap_uuids::jsonb, last_seen = GREATEST(last_seen, :last_seen), " +
+                        "updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .bind("responder_addresses", NameResolutionJson.toJson(responderAddresses))
+                .bind("protocols", NameResolutionJson.toJson(protocols))
+                .bind("names", NameResolutionJson.toJson(names))
+                .bind("name_count", names.size())
+                .bind("response_count", responseCount)
+                .bind("unicast_count", unicastCount)
+                .bind("tap_uuids", tapsJson(existingTaps, newTaps))
+                .bind("last_seen", lastSeen)
+                .execute();
+    }
+
+    public void upsertNameResolutionVictims(Handle handle, long findingId, List<NameResolutionVictimRecord> victims) {
+        if (victims.isEmpty()) {
+            return;
+        }
+
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO spoofing_nameres_victims(finding_id, mac, address, " +
+                "names, response_count, first_seen, last_seen) VALUES(:finding_id, :mac, :address::inet, " +
+                ":names::jsonb, :response_count, :first_seen, :last_seen) " +
+                "ON CONFLICT (finding_id, mac) DO UPDATE SET " +
+                "address = COALESCE(EXCLUDED.address, spoofing_nameres_victims.address), " +
+                "names = (SELECT COALESCE(jsonb_agg(n), '[]'::jsonb) FROM (SELECT DISTINCT n " +
+                "FROM jsonb_array_elements(spoofing_nameres_victims.names || EXCLUDED.names) n LIMIT 50) x), " +
+                "response_count = spoofing_nameres_victims.response_count + EXCLUDED.response_count, " +
+                "first_seen = LEAST(spoofing_nameres_victims.first_seen, EXCLUDED.first_seen), " +
+                "last_seen = GREATEST(spoofing_nameres_victims.last_seen, EXCLUDED.last_seen)");
+
+        for (NameResolutionVictimRecord v : victims) {
+            batch.bind("finding_id", findingId)
+                    .bind("mac", v.mac())
+                    .bind("address", v.address())
+                    .bind("names", NameResolutionJson.toJson(v.names()))
+                    .bind("response_count", v.responseCount())
+                    .bind("first_seen", v.firstSeen())
+                    .bind("last_seen", v.lastSeen())
+                    .add();
+        }
+
+        batch.execute();
+    }
+
+    public List<NameResolutionSpoofingVictimEntry> findNameResolutionVictims(long findingId, int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_nameres_victims WHERE finding_id = :finding_id " +
+                                "ORDER BY response_count DESC, mac ASC LIMIT :limit")
+                        .bind("finding_id", findingId)
+                        .bind("limit", limit)
+                        .mapTo(NameResolutionSpoofingVictimEntry.class)
+                        .list()
+        );
+    }
+
+    public void deleteNameResolutionFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_nameres_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteNameResolutionFindingById(Handle handle, long id) {
+        handle.createUpdate("DELETE FROM spoofing_nameres_findings WHERE id = :id")
+                .bind("id", id)
+                .execute();
+    }
+
+    public int deleteAllNameResolutionFindings(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_nameres_findings WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void retentionCleanNameResolutionFindings(UUID organizationId, UUID tenantId, DateTime cutoff) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_nameres_findings WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id AND last_seen < :cutoff")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", cutoff)
+                        .execute()
+        );
+    }
+
+    public void retentionCleanNameResolutionResponses(List<UUID> taps, DateTime cutoff) {
+        if (taps.isEmpty()) {
+            return;
+        }
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM name_resolution_responses WHERE tap_uuid IN (<taps>) " +
+                                "AND last_seen < :cutoff")
+                        .bindList("taps", taps)
+                        .bind("cutoff", cutoff)
+                        .execute()
+        );
+    }
+
+    public long countNameResolutionResponders(List<UUID> taps, TimeRange timeRange) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(DISTINCT responder_mac) FROM name_resolution_responses " +
+                                "WHERE tap_uuid IN (<taps>) AND last_seen >= :tr_from AND first_seen <= :tr_to")
+                        .bindList("taps", taps)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+    
+    public List<NameResolutionResponder> findNameResolutionResponders(List<UUID> taps,
+                                                                      TimeRange timeRange,
+                                                                      int limit,
+                                                                      int offset) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT responder_mac, " +
+                                "jsonb_agg(DISTINCT host(responder_address)) AS addresses, " +
+                                "jsonb_agg(DISTINCT protocol) AS protocols, " +
+                                "COUNT(DISTINCT name) AS name_count, " +
+                                "COUNT(DISTINCT name) FILTER (WHERE jsonb_exists(answer_addresses, host(responder_address))) " +
+                                "AS self_pointing_name_count, " +
+                                "SUM(response_count) AS response_count, SUM(unicast_count) AS unicast_count, " +
+                                "trim_array(array_agg(DISTINCT name), GREATEST(cardinality(array_agg(DISTINCT name)) - 10, 0)) " +
+                                "AS names_sample, " +
+                                "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+                                "FROM name_resolution_responses WHERE tap_uuid IN (<taps>) " +
+                                "AND last_seen >= :tr_from AND first_seen <= :tr_to " +
+                                "GROUP BY responder_mac " +
+                                "ORDER BY self_pointing_name_count DESC, name_count DESC, response_count DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .map((rs, ctx) -> {
+                            java.sql.Array sample = rs.getArray("names_sample");
+                            List<String> names = sample == null ? Collections.emptyList()
+                                    : Arrays.asList((String[]) sample.getArray());
+
+                            return new NameResolutionResponder(
+                                    rs.getString("responder_mac"),
+                                    NameResolutionJson.parseStrings(rs.getString("addresses")),
+                                    NameResolutionJson.parseStrings(rs.getString("protocols")),
+                                    rs.getLong("name_count"),
+                                    rs.getLong("self_pointing_name_count"),
+                                    rs.getLong("response_count"),
+                                    rs.getLong("unicast_count"),
+                                    names,
+                                    new DateTime(rs.getTimestamp("first_seen")),
+                                    new DateTime(rs.getTimestamp("last_seen"))
+                            );
+                        })
+                        .list()
+        );
     }
 
     private static String tapsJson(Collection<UUID> existingTaps, Collection<UUID> newTaps) {

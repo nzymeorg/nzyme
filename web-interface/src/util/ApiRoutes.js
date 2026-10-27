@@ -278,6 +278,10 @@ const ApiRoutes = {
         INDEX: '/ethernet/spoofing/dhcp',
         DETAILS: uuid => `/ethernet/spoofing/dhcp/show/${uuid}`
       },
+      NAME_RESOLUTION: {
+        INDEX: '/ethernet/spoofing/nameres',
+        DETAILS: uuid => `/ethernet/spoofing/nameres/show/${uuid}`
+      },
       SETTINGS: '/ethernet/spoofing/settings',
       EXCLUSIONS: {
         INDEX: '/ethernet/spoofing/exclusions',

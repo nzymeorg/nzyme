@@ -165,6 +165,9 @@
     "description" : "Exclusions keep known setups out of spoofing detection. An exclusion is a set of criteria for the spoofing type, the address that is being claimed (address or network) and the MAC address of the device doing the claiming. Every criterion that is set must match. Use them for router redundancy protocols, failover clusters and other setups where an address legitimately has more than one MAC address at a time. An exclusion can also be applied to the existing findings, which deletes them.",
     "name" : "Spoofing Exclusions"
   }, {
+    "description" : "Name resolution poisoning findings of a tenant. A finding is one device (the responder) that answered LLMNR, NBT-NS or mDNS queries for more different names than a device legitimately has, pointing them at its own address. It carries the names, the protocols, and the clients that received the answers. Findings are built from the name resolution answers recorded by all taps of the tenant.",
+    "name" : "Spoofing: Name Resolution"
+  }, {
     "description" : "Configuration of the spoofing detections of a tenant.",
     "name" : "Spoofing"
   }, {
@@ -16426,6 +16429,88 @@
         "tags" : [ "Spoofing: DHCP" ]
       }
     },
+    "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/learning/end" : {
+      "put" : {
+        "description" : "Ends a running learning period. Servers that answer clients from now on are not trusted automatically until a user trusts them or restarts the learning period. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "endDhcpLearningPeriod",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Learning period ended."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "End the DHCP server learning period now",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
+    "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/learning/restart" : {
+      "put" : {
+        "description" : "Starts a new learning period now and clears a manual end. Every server that answers clients during the configured learning period from now on is trusted automatically, including servers that are known but not trusted. Trusted servers and findings are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "restartDhcpLearningPeriod",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Learning period restarted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Restart the DHCP server learning period",
+        "tags" : [ "Spoofing: DHCP" ]
+      }
+    },
     "/api/ethernet/spoofing/dhcp/servers/organization/{organization_id}/tenant/{tenant_id}/show/{server_uuid}" : {
       "delete" : {
         "description" : "Removes a learned server. If it answers clients again it is learned anew, and trusted only if that still falls inside the learning period. Findings of the server are kept. Requires the ethernet_monitoring_manage feature permission.",
@@ -17201,6 +17286,369 @@
         },
         "summary" : "Get a spoofing exclusion",
         "tags" : [ "Spoofing Exclusions" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. Results are paginated.",
+        "operationId" : "findNameResolutionSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: responder_mac, name_count, response_count, victim_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: RESPONDER_MAC, NAME_COUNT, RESPONSE_COUNT, VICTIM_COUNT, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NameResolutionSpoofingFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List name resolution poisoning findings of a tenant",
+        "tags" : [ "Spoofing: Name Resolution" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres/histogram/active" : {
+      "get" : {
+        "description" : "Returns the number of findings of the tenant that were going on per time bucket. Respects the same filters as the findings list. The response is an object that maps each bucket timestamp to a count. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findActiveNameResolutionSpoofingFindingsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the findings list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of active name resolution poisoning findings over time",
+        "tags" : [ "Spoofing: Name Resolution" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres/organization/{organization_id}/tenant/{tenant_id}" : {
+      "delete" : {
+        "description" : "Deletes every finding of the tenant with all victims. Exclusions and the detection configuration are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteAllNameResolutionSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SpoofingFindingsDeletedResponse"
+                }
+              }
+            },
+            "description" : "Findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all name resolution poisoning findings of a tenant",
+        "tags" : [ "Spoofing: Name Resolution" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding with its victims. The finding is detected again as a new finding if the device keeps answering name queries. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteNameResolutionSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a name resolution poisoning finding",
+        "tags" : [ "Spoofing: Name Resolution" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres/responders" : {
+      "get" : {
+        "description" : "Returns every device that answered LLMNR, NBT-NS or mDNS queries on the taps of the tenant inside the time range, with how many different names it answered and how many of those it pointed at its own address. Most suspicious first. Built from the retained name resolution answers, which are kept for one day. Results are paginated.",
+        "operationId" : "findNameResolutionResponders",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NameResolutionRespondersListResponse"
+                }
+              }
+            },
+            "description" : "Responders found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List devices that answered name queries",
+        "tags" : [ "Spoofing: Name Resolution" ]
+      }
+    },
+    "/api/ethernet/spoofing/nameres/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with the names it answered and the clients that received the answers.",
+        "operationId" : "findNameResolutionSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NameResolutionSpoofingFindingDetailsResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a name resolution poisoning finding",
+        "tags" : [ "Spoofing: Name Resolution" ]
       }
     },
     "/api/ethernet/spoofing/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
@@ -31981,6 +32429,9 @@
           "offered" : {
             "$ref" : "#/components/schemas/DhcpOfferedParametersResponse"
           },
+          "offered_accepted" : {
+            "type" : "boolean"
+          },
           "recent" : {
             "type" : "boolean"
           },
@@ -31996,6 +32447,9 @@
           },
           "server_identifier" : {
             "type" : "string"
+          },
+          "server_latest_matches_baseline" : {
+            "type" : "boolean"
           },
           "server_mac" : {
             "type" : "string"
@@ -32128,6 +32582,20 @@
       "DhcpSpoofingServersListResponse" : {
         "type" : "object",
         "properties" : {
+          "learning_period_active" : {
+            "type" : "boolean"
+          },
+          "learning_period_end" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "learning_period_ended_by_user" : {
+            "type" : "boolean"
+          },
+          "learning_period_start" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "servers" : {
             "type" : "array",
             "items" : {
@@ -34760,6 +35228,214 @@
             "items" : {
               "$ref" : "#/components/schemas/NTPTransactionDetailsResponse"
             }
+          }
+        }
+      },
+      "NameResolutionResponderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "addresses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "name_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "names_sample" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "protocols" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "response_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "self_pointing_name_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unicast_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NameResolutionRespondersListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "responders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NameResolutionResponderResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NameResolutionSpoofingFindingDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "finding" : {
+            "$ref" : "#/components/schemas/NameResolutionSpoofingFindingResponse"
+          },
+          "victims" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NameResolutionSpoofingVictimResponse"
+            }
+          }
+        }
+      },
+      "NameResolutionSpoofingFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingExclusionReferenceResponse"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "names" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "protocols" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "responder_addresses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "responder_mac" : {
+            "type" : "string"
+          },
+          "responder_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "response_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingTapResponse"
+            }
+          },
+          "unicast_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "victim_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "NameResolutionSpoofingFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NameResolutionSpoofingFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NameResolutionSpoofingVictimResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "names" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "response_count" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

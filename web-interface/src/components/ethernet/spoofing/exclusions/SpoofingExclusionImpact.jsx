@@ -3,6 +3,14 @@ import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {spoofingTypeToName} from "../SpoofingType";
 
+const detailsLink = (f) => {
+  switch (f.type) {
+    case "DHCP": return ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(f.uuid);
+    case "NAME_RESOLUTION": return ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.DETAILS(f.uuid);
+    default: return ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(f.uuid);
+  }
+}
+
 export default function SpoofingExclusionImpact({impact, compact = false}) {
 
   if (!impact) {
@@ -40,12 +48,14 @@ export default function SpoofingExclusionImpact({impact, compact = false}) {
         {impact.findings.map((f) => {
           return (
             <li key={f.uuid}>
-              <a href={f.type === "DHCP" ? ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(f.uuid) : ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(f.uuid)}
-                 target="_blank" rel="noreferrer">
-                {spoofingTypeToName(f.type)}{f.type === "DHCP" ? " by server " : " of "}
-                <span className="machine-data">{f.address}</span>
+              <a href={detailsLink(f)} target="_blank" rel="noreferrer">
+                {spoofingTypeToName(f.type)}
+                {f.type === "NAME_RESOLUTION" ? " by " : f.type === "DHCP" ? " by server " : " of "}
+                <span className="machine-data">{f.type === "NAME_RESOLUTION" ? f.mac : f.address}</span>
               </a>{' '}
-              <span className="text-muted">({f.type === "DHCP" ? "MAC" : "by"} <span className="machine-data">{f.mac}</span>)</span>
+              {f.type === "NAME_RESOLUTION" ?
+                (f.address ? <span className="text-muted">(<span className="machine-data">{f.address}</span>)</span> : null)
+                : <span className="text-muted">({f.type === "DHCP" ? "MAC" : "by"} <span className="machine-data">{f.mac}</span>)</span>}
             </li>
           )
         })}

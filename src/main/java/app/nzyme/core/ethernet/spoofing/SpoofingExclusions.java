@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -267,6 +268,12 @@ public class SpoofingExclusions {
                 }
             }
 
+            for (NameResolutionSpoofingFindingEntry finding : spoofing.findAllNameResolutionFindingsOfTenant(handle, organizationId, tenantId)) {
+                if (matchesNameResolutionFinding(matcher, finding)) {
+                    spoofing.deleteNameResolutionFindingById(handle, finding.id());
+                }
+            }
+
             return impact;
         });
     }
@@ -278,6 +285,25 @@ public class SpoofingExclusions {
     // For DHCP, the address is the server's address and the MAC is the server's MAC.
     public static boolean matchesDhcpFinding(SpoofingExclusionMatcher matcher, DhcpSpoofingFindingEntry finding) {
         return matcher.matches(SpoofingType.DHCP, finding.serverAddress(), finding.serverMac());
+    }
+
+    // For name resolution, the MAC is the responder's MAC and the address is any address the responder answered from.
+    public static boolean matchesNameResolutionFinding(SpoofingExclusionMatcher matcher, NameResolutionSpoofingFindingEntry finding) {
+        return matchesNameResolutionResponder(matcher, finding.responderAddresses(), finding.responderMac());
+    }
+
+    public static boolean matchesNameResolutionResponder(SpoofingExclusionMatcher matcher, Collection<String> addresses, String mac) {
+        if (addresses.isEmpty()) {
+            return matcher.matches(SpoofingType.NAME_RESOLUTION, null, mac);
+        }
+
+        for (String address : addresses) {
+            if (matcher.matches(SpoofingType.NAME_RESOLUTION, address, mac)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private Impact matchExisting(Handle handle, SpoofingExclusionMatcher matcher, UUID organizationId, UUID tenantId) {
@@ -299,6 +325,19 @@ public class SpoofingExclusions {
 
             matched.add(new MatchedFinding(
                     finding.uuid(), SpoofingType.DHCP.name(), finding.serverAddress(), finding.serverMac()
+            ));
+        }
+
+        for (NameResolutionSpoofingFindingEntry finding : spoofing.findAllNameResolutionFindingsOfTenant(handle, organizationId, tenantId)) {
+            if (!matchesNameResolutionFinding(matcher, finding)) {
+                continue;
+            }
+
+            matched.add(new MatchedFinding(
+                    finding.uuid(),
+                    SpoofingType.NAME_RESOLUTION.name(),
+                    finding.responderAddresses().isEmpty() ? "" : finding.responderAddresses().get(0),
+                    finding.responderMac()
             ));
         }
 
@@ -330,6 +369,18 @@ public class SpoofingExclusions {
         List<SpoofingExclusionEntry> result = Lists.newArrayList();
         for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
             if (matchesDhcpFinding(e.getValue(), finding)) {
+                result.add(e.getKey());
+            }
+        }
+
+        return result;
+    }
+
+    public List<SpoofingExclusionEntry> findMatchingExclusions(NameResolutionSpoofingFindingEntry finding,
+                                                               Map<SpoofingExclusionEntry, SpoofingExclusionMatcher> compiled) {
+        List<SpoofingExclusionEntry> result = Lists.newArrayList();
+        for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
+            if (matchesNameResolutionFinding(e.getValue(), finding)) {
                 result.add(e.getKey());
             }
         }

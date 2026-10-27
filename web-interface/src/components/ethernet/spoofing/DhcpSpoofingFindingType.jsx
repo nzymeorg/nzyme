@@ -9,7 +9,9 @@ export const dhcpSpoofingFindingTypeToName = (type) => {
 }
 
 export default function DhcpSpoofingFindingType({type}) {
-  const className = type === "ROGUE_SERVER" ? "badge bg-danger" : "badge bg-warning text-dark";
+  const className = type === "ROGUE_SERVER"
+    ? "classification classification-hostile"
+    : "classification classification-suspicious";
 
   return <span className={className} title={type}>{dhcpSpoofingFindingTypeToName(type)}</span>
 }

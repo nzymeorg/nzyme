@@ -251,7 +251,8 @@ fn parse_query_element(data: &[u8]) -> Result<(usize, DNSData)> {
     };
     cursor += 2;
 
-    let class_num = BigEndian::read_u16(&data[cursor..cursor+2]);
+    // mDNS uses the top bit of the class as unicast-response (queries) and cache-flush (answers) flag.
+    let class_num = BigEndian::read_u16(&data[cursor..cursor+2]) & 0x7FFF;
     let Ok(class) = DNSClass::try_from(class_num) else {
         bail!("Unknown DNS class <{}>.", class_num)
     };
@@ -294,7 +295,7 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
     };
     cursor += 2;
    
-    let class_num = BigEndian::read_u16(&data[cursor..cursor+2]);
+    let class_num = BigEndian::read_u16(&data[cursor..cursor+2]) & 0x7FFF;
     let Ok(class) = DNSClass::try_from(class_num) else {
         bail!("Unknown DNS class <{}>.", class_num)
     };

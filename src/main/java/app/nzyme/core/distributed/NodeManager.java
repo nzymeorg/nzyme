@@ -387,6 +387,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SPOOFING_ARP_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.SPOOFING_DHCP_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.SPOOFING_DHCP_DETECTION_RUN_TIMER));
+            writeTimer(MetricExternalName.SPOOFING_NAMERES_DETECTION_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.SPOOFING_NAMERES_DETECTION_RUN_TIMER));
 
             // Write all monitor execution timers.
             for (Map.Entry<String, Timer> timer : metrics.getTimers().entrySet()) {
