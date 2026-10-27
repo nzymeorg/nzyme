@@ -171,7 +171,18 @@ const ApiRoutes = {
     },
     DNS: {
       INDEX: '/ethernet/dns',
-      TRANSACTION_LOGS: '/ethernet/dns/logs'
+      TRANSACTION_LOGS: '/ethernet/dns/logs',
+      TUNNELS: {
+        INDEX: '/ethernet/dns/tunnels',
+        DETAILS: uuid => `/ethernet/dns/tunnels/show/${uuid}`,
+        SETTINGS: '/ethernet/dns/tunnels/settings',
+        EXCLUSIONS: {
+          INDEX: '/ethernet/dns/tunnels/exclusions',
+          CREATE: '/ethernet/dns/tunnels/exclusions/create',
+          DETAILS: uuid => `/ethernet/dns/tunnels/exclusions/show/${uuid}`,
+          EDIT: uuid => `/ethernet/dns/tunnels/exclusions/show/${uuid}/edit`
+        }
+      }
     },
     TUNNELS: {
       SOCKS: {

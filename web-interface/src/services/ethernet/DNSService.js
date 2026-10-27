@@ -26,14 +26,6 @@ export default class DNSService {
     )
   }
 
-  getGlobalEntropyLog(organizationId, tenantId, timeRange, taps, limit, offset, setEntropyLog) {
-    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
-
-    RESTClient.get("/ethernet/dns/global/entropylog", { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, taps: tapsList, limit: limit, offset: offset },
-        (response) => setEntropyLog(response.data)
-    )
-  }
-
   findAllTransactions(organizationId, tenantId, timeRange, filters, taps, limit, offset, setTransactions) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

@@ -19,7 +19,6 @@ use crate::protocols::processors::uav_remote_id_processor::UavRemoteIdProcessor;
 use crate::protocols::processors::udp_processor::UDPProcessor;
 use crate::state::state::State;
 use crate::state::tables::tables::Tables;
-use crate::system_state::SystemState;
 use crate::protocols::processors::bluetooth_device_processor::BluetoothDeviceProcessor;
 use crate::protocols::processors::ntp_processor::NtpProcessor;
 use crate::protocols::processors::rtsp_processor::RtspProcessor;
@@ -39,7 +38,6 @@ pub struct ProcessorController {
     tables: Arc<Tables>,
     state: Arc<State>,
     context: Arc<ContextEngine>,
-    system_state: Arc<SystemState>,
     metrics: Arc<Mutex<Metrics>>,
     configuration: Configuration
 }
@@ -53,7 +51,6 @@ impl ProcessorController {
                tables: Arc<Tables>,
                state: Arc<State>,
                context: Arc<ContextEngine>,
-               system_state: Arc<SystemState>,
                metrics: Arc<Mutex<Metrics>>,
                configuration: Configuration) -> ProcessorController {
         ProcessorController {
@@ -64,7 +61,6 @@ impl ProcessorController {
             tables,
             state,
             context,
-            system_state,
             metrics,
             configuration
         }
@@ -170,11 +166,9 @@ impl ProcessorController {
             let mut icmp_processor = IcmpProcessor::new(self.tables.icmp.clone());
             let mut dhcp4_processor = Dhcpv4Processor::new(self.state.clone(), self.tables.dhcp.clone(), self.context.clone());
             let mut dns_processor = DnsProcessor::new(
-                self.system_state.clone(),
-                self.state.clone(), 
-                self.context.clone(), 
-                self.tables.dns.clone(), 
-                self.metrics.clone(),
+                self.state.clone(),
+                self.context.clone(),
+                self.tables.dns.clone(),
                 &self.configuration
             );
             let mut ssh_processor = SshProcessor::new(self.tables.ssh.clone());

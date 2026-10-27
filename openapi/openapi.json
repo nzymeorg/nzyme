@@ -108,12 +108,22 @@
     "description" : "DHCP transactions that taps recorded on the Ethernet network, including client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. Nzyme also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.",
     "name" : "DHCP"
   }, {
-    "description" : "DNS queries and responses that taps recorded on the Ethernet network, with traffic statistics, client and server pairs and the entropy log of suspicious query names.",
+    "description" : "DNS queries and responses that taps recorded on the Ethernet network, with traffic statistics and client and server pairs.",
     "externalDocs" : {
       "description" : "DNS in the Nzyme documentation",
       "url" : "https://go.nzyme.org/ethernet-dns"
     },
     "name" : "DNS"
+  }, {
+    "description" : "Exclusions keep known setups out of DNS tunnel detection. An exclusion is a domain, a client address or network, or both. The domain matches a finding's registered domain exactly or as a parent domain. Every criterion that is set must match. Use them for antivirus and endpoint products that look up file hashes over DNS, DNS blocklists, update checks and telemetry that encode data in names. An exclusion can also be applied to the existing findings, which deletes them.",
+    "name" : "DNS Tunnel Exclusions"
+  }, {
+    "description" : "DNS tunnel findings of a tenant and the detection configuration. A finding is one client that looked up many distinct names below one registered domain inside the detection window, where the labels below the registered domain show at least one indicator of tunneling: high entropy, long names or an unusual share of TXT, NULL, CNAME, MX, KEY or SRV queries. Findings are built on the node from the DNS transactions recorded by all taps of the tenant.",
+    "externalDocs" : {
+      "description" : "DNS tunnels in the Nzyme documentation",
+      "url" : "https://go.nzyme.org/ethernet-dns-tunnels"
+    },
+    "name" : "DNS Tunnels"
   }, {
     "description" : "Everything Nzyme knows about a single IP address seen on the Ethernet network, including the assets that used it, network context and geo information.",
     "name" : "IP Addresses"
@@ -9361,83 +9371,6 @@
         "tags" : [ "DNS" ]
       }
     },
-    "/api/ethernet/dns/global/entropylog" : {
-      "get" : {
-        "description" : "The entropy log records DNS queries whose names have an unusually high character entropy, which can indicate DNS tunneling or algorithmically generated domain names. Each entry carries the query, its responses, the measured entropy, the mean entropy and the resulting z-score. A tap logs an entry when the z-score exceeds the threshold configured in its own configuration file. Many legitimate queries have high entropy, so review entries manually. Entries whose transaction can no longer be resolved are skipped, so a page can hold fewer entries than the total count suggests. Results are paginated.",
-        "externalDocs" : {
-          "description" : "Entropy outliers in the Nzyme documentation",
-          "url" : "https://go.nzyme.org/ethernet-dns-entropy"
-        },
-        "operationId" : "findDnsEntropyLog",
-        "parameters" : [ {
-          "description" : "Organization UUID.",
-          "in" : "query",
-          "name" : "organization_id",
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Tenant UUID.",
-          "in" : "query",
-          "name" : "tenant_id",
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
-          "in" : "query",
-          "name" : "time_range",
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Page size.",
-          "in" : "query",
-          "name" : "limit",
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "description" : "Page offset.",
-          "in" : "query",
-          "name" : "offset",
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
-          "in" : "query",
-          "name" : "taps",
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DNSEntropyLogListResponse"
-                }
-              }
-            },
-            "description" : "Entropy log entries found."
-          },
-          "404" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Organization or tenant not found, or not accessible by the calling user."
-          }
-        },
-        "summary" : "List DNS entropy log entries",
-        "tags" : [ "DNS" ]
-      }
-    },
     "/api/ethernet/dns/global/pairs" : {
       "get" : {
         "description" : "Returns each DNS server that was queried in the time range, the number of distinct clients that queried it and the total number of requests. Busiest server first. Results are paginated.",
@@ -9755,6 +9688,919 @@
         },
         "summary" : "List responses of a DNS transaction",
         "tags" : [ "DNS" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. Results are paginated.",
+        "operationId" : "findDnsTunnelFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: client_address, client_mac, domain, query_count, distinct_name_count, negative_count, indicator (equals or not equals one of HIGH_ENTROPY, LONG_NAMES, UNUSUAL_RECORD_TYPES).",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: CLIENT_ADDRESS, CLIENT_MAC, DOMAIN, QUERY_COUNT, DISTINCT_NAME_COUNT, NEGATIVE_COUNT, AVERAGE_ENTROPY, AVERAGE_NAME_LENGTH, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List DNS tunnel findings of a tenant",
+        "tags" : [ "DNS Tunnels" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions" : {
+      "get" : {
+        "description" : "Returns the exclusions of the tenant, sorted by name by default. Each exclusion includes which existing findings it currently applies to. Results are paginated.",
+        "operationId" : "findDnsTunnelExclusions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: name, description, enabled, domain, client_address_cidr, match_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, ENABLED, LAST_MATCHED_AT, MATCH_COUNT, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionsListResponse"
+                }
+              }
+            },
+            "description" : "Exclusions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List DNS tunnel exclusions of a tenant",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates an exclusion. It takes effect with the next detection run. Pass apply_to_existing_findings to also delete the existing findings it matches right away. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "createDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DnsTunnelExclusionRequest"
+              }
+            }
+          },
+          "description" : "The exclusion.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion created."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Create a DNS tunnel exclusion",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/organization/{organization_id}/tenant/{tenant_id}/preview" : {
+      "post" : {
+        "description" : "Validates the criteria and returns the existing findings they match, without saving anything. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "previewDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DnsTunnelExclusionRequest"
+              }
+            }
+          },
+          "description" : "The criteria. Name and description are ignored.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionImpactResponse"
+                }
+              }
+            },
+            "description" : "Impact calculated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Preview which existing findings an exclusion would apply to",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}" : {
+      "delete" : {
+        "description" : "Deletes an exclusion. Findings it matched are detected again with the next detection run. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a DNS tunnel exclusion",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      },
+      "put" : {
+        "description" : "Replaces name, description, enabled state and all criteria of an exclusion. Changes take effect with the next detection run. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DnsTunnelExclusionRequest"
+              }
+            }
+          },
+          "description" : "The new exclusion data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Update a DNS tunnel exclusion",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}/apply" : {
+      "post" : {
+        "description" : "Deletes every existing finding that matches the exclusion. This cannot be undone, but a deleted finding is detected again if the exclusion is removed and the client keeps querying. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "applyDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionImpactResponse"
+                }
+              }
+            },
+            "description" : "Exclusion applied. The response describes what was deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The exclusion has invalid criteria."
+          }
+        },
+        "summary" : "Apply a DNS tunnel exclusion to the existing findings",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}/enabled/{enabled}" : {
+      "put" : {
+        "description" : "A disabled exclusion is kept but no longer applied. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setDnsTunnelExclusionEnabled",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Enable or disable a DNS tunnel exclusion",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/exclusions/show/{exclusion_uuid}" : {
+      "get" : {
+        "description" : "Returns one exclusion, including which existing findings it currently applies to.",
+        "operationId" : "findDnsTunnelExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DNS tunnel exclusion",
+        "tags" : [ "DNS Tunnel Exclusions" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/histogram/active" : {
+      "get" : {
+        "description" : "Returns the number of findings of the tenant that were going on per time bucket. Respects the same filters as the findings list. The response is an object that maps each bucket timestamp to a count. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findActiveDnsTunnelFindingsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the findings list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of active DNS tunnel findings over time",
+        "tags" : [ "DNS Tunnels" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/organization/{organization_id}/tenant/{tenant_id}" : {
+      "delete" : {
+        "description" : "Deletes every finding of the tenant. Exclusions and the detection configuration are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteAllDnsTunnelFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelFindingsDeletedResponse"
+                }
+              }
+            },
+            "description" : "Findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all DNS tunnel findings of a tenant",
+        "tags" : [ "DNS Tunnels" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the DNS tunnel detection settings of the tenant as one section with its detection parameters and alerting settings. The entropy threshold is in tenths of a bit per character. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "findDnsTunnelConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the DNS tunnel detection configuration of a tenant",
+        "tags" : [ "DNS Tunnels" ]
+      },
+      "put" : {
+        "description" : "Updates one or more DNS tunnel detection settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateDnsTunnelConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains an unknown key, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the DNS tunnel detection configuration of a tenant",
+        "tags" : [ "DNS Tunnels" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding. It is detected again as a new finding if the client keeps querying the domain. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteDnsTunnelFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a DNS tunnel finding",
+        "tags" : [ "DNS Tunnels" ]
+      }
+    },
+    "/api/ethernet/dns/tunnels/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with its indicators, statistics, record type breakdown and the sampled names.",
+        "operationId" : "findDnsTunnelFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsTunnelFindingResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DNS tunnel finding",
+        "tags" : [ "DNS Tunnels" ]
       }
     },
     "/api/ethernet/icmp/exclusions" : {
@@ -32347,47 +33193,6 @@
           }
         }
       },
-      "DNSEntropyLogListResponse" : {
-        "type" : "object",
-        "properties" : {
-          "logs" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/DNSEntropyLogResponse"
-            }
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "DNSEntropyLogResponse" : {
-        "type" : "object",
-        "properties" : {
-          "entropy" : {
-            "type" : "number",
-            "format" : "float"
-          },
-          "entropy_mean" : {
-            "type" : "number",
-            "format" : "float"
-          },
-          "query" : {
-            "$ref" : "#/components/schemas/DNSLogDataResponse"
-          },
-          "responses" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/DNSLogDataResponse"
-            }
-          },
-          "zscore" : {
-            "type" : "number",
-            "format" : "float"
-          }
-        }
-      },
       "DNSLogDataResponse" : {
         "type" : "object",
         "properties" : {
@@ -33150,6 +33955,326 @@
           "won_count" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DnsTunnelConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelConfigurationSectionResponse"
+            }
+          }
+        }
+      },
+      "DnsTunnelConfigurationSectionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alerting" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "detection" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DnsTunnelExclusionImpactResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelExclusionMatchedFindingResponse"
+            }
+          },
+          "matching_findings" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DnsTunnelExclusionMatchedFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "client_address" : {
+            "type" : "string"
+          },
+          "domain" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DnsTunnelExclusionReferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DnsTunnelExclusionRequest" : {
+        "type" : "object",
+        "description" : "Body for creating, updating or previewing a DNS tunnel exclusion. Both criteria are optional, but at least one must be set. A finding is excluded when every set criterion matches.",
+        "properties" : {
+          "apply_to_existing_findings" : {
+            "type" : "boolean",
+            "description" : "Only when creating: also delete the existing findings that match the exclusion. Defaults to false.",
+            "writeOnly" : true
+          },
+          "client_address_cidr" : {
+            "type" : "string",
+            "description" : "IP address or CIDR network of the client, like 10.0.0.1 or 10.0.0.0/24.",
+            "writeOnly" : true
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "Optional description of why the exclusion exists.",
+            "writeOnly" : true
+          },
+          "domain" : {
+            "type" : "string",
+            "description" : "Domain to exclude. Matches a finding's registered domain exactly or as a parent domain, so example.com also matches sub.example.com.",
+            "writeOnly" : true
+          },
+          "enabled" : {
+            "type" : "boolean",
+            "description" : "Whether the exclusion is active. Defaults to true.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the exclusion. Required when creating or updating, ignored for previews.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "DnsTunnelExclusionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "client_address_cidr" : {
+            "type" : "string"
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "created_by_email" : {
+            "type" : "string"
+          },
+          "created_by_name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "domain" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "impact" : {
+            "$ref" : "#/components/schemas/DnsTunnelExclusionImpactResponse"
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DnsTunnelExclusionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelExclusionResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DnsTunnelFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "average_entropy" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "average_name_length" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "client_address" : {
+            "type" : "string"
+          },
+          "client_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "client_mac" : {
+            "type" : "string"
+          },
+          "client_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "distinct_name_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "domain" : {
+            "type" : "string"
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelExclusionReferenceResponse"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "indicators" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "maximum_entropy" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "maximum_name_length" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "names" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "negative_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "query_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "record_types" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "server_addresses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelTapResponse"
+            }
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DnsTunnelFindingsDeletedResponse" : {
+        "type" : "object",
+        "properties" : {
+          "deleted" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DnsTunnelFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsTunnelFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DnsTunnelTapResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },

@@ -75,6 +75,8 @@ import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingVictimEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingFindingEntryMapper;
+import app.nzyme.core.ethernet.dns.tunnels.db.DnsTunnelFindingEntryMapper;
+import app.nzyme.core.ethernet.dns.tunnels.db.DnsTunnelExclusionEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingVictimEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntryMapper;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingVictimEntryMapper;
@@ -239,7 +241,6 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new TapMetricsTimerHistogramAggregationMapper())
                 .registerRowMapper(new Dot11FrequencyAndChannelWidthEntryMapper())
                 .registerRowMapper(new TcpSessionEntryMapper())
-                .registerRowMapper(new DNSEntropyLogEntryMapper())
                 .registerRowMapper(new DNSLogEntryMapper())
                 .registerRowMapper(new SocksTunnelEntryMapper())
                 .registerRowMapper(new SSHSessionEntryMapper())
@@ -307,6 +308,8 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new NameResolutionSpoofingVictimEntryMapper())
                 .registerRowMapper(new DnsSpoofingFindingEntryMapper())
                 .registerRowMapper(new DnsSpoofingVictimEntryMapper())
+                .registerRowMapper(new DnsTunnelFindingEntryMapper())
+                .registerRowMapper(new DnsTunnelExclusionEntryMapper())
                 .registerRowMapper(new IcmpPacketEntryMapper())
                 .registerRowMapper(new IcmpRedirectEntryMapper())
                 .registerRowMapper(new IcmpTracerouteEntryMapper())
@@ -564,12 +567,6 @@ public class DatabaseImpl implements Database {
                         "dns_log",
                         "SELECT COUNT(*) FROM dns_log WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM dns_log WHERE timestamp < :since AND tap_uuid IN (<taps>)"
-                ));
-
-                tables.add(new DataTableInformation(
-                        "dns_entropy_log",
-                        "SELECT COUNT(*) FROM dns_entropy_log WHERE tap_uuid IN (<taps>)",
-                        "DELETE FROM dns_entropy_log WHERE timestamp < :since AND tap_uuid IN (<taps>)"
                 ));
 
                 tables.add(new DataTableInformation(

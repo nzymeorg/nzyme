@@ -51,7 +51,6 @@ pub struct ConfigurationReportPerformance {
 
 #[derive(Serialize)]
 pub struct ConfigurationReportMisc {
-    pub training_period_minutes: i32,
     pub context_mac_ip_retention_hours: i32,
     pub context_mac_hostname_retention_hours: i32,
     pub panic_log_file_path: Option<String>
@@ -92,8 +91,7 @@ pub struct ConfigurationReportProtocolsUdp {
 
 #[derive(Serialize)]
 pub struct ConfigurationReportProtocolsDns {
-    pub pipeline_size: i32,
-    pub entropy_zscore_threshold: f32
+    pub pipeline_size: i32
 }
 
 #[derive(Serialize)]
@@ -141,7 +139,6 @@ impl TryFrom<Configuration> for ConfigurationReport {
                 shared_protocol_processors: c.performance.shared_protocol_processors
             },
             misc: ConfigurationReportMisc {
-                training_period_minutes: c.misc.training_period_minutes,
                 context_mac_ip_retention_hours: c.misc.context_mac_ip_retention_hours,
                 context_mac_hostname_retention_hours: c.misc.context_mac_hostname_retention_hours,
                 panic_log_file_path: c.misc.panic_log_file_path
@@ -162,8 +159,7 @@ impl TryFrom<Configuration> for ConfigurationReport {
                     processors: c.protocols.udp.processors
                 },
                 dns: ConfigurationReportProtocolsDns {
-                    pipeline_size: c.protocols.dns.pipeline_size,
-                    entropy_zscore_threshold: c.protocols.dns.entropy_zscore_threshold
+                    pipeline_size: c.protocols.dns.pipeline_size
                 },
                 arp: ConfigurationReportProtocolsArp {
                     pipeline_size: c.protocols.arp.pipeline_size
@@ -258,7 +254,6 @@ pub struct TablesReport {
 #[derive(Serialize)]
 pub struct DnsTableReport {
     pub ips: HashMap<String, DnsIpStatisticsReport>,
-    pub entropy_log: Vec<DNSEntropyLog>,
     pub queries: Vec<DNSLogReport>,
     pub responses: Vec<DNSLogReport>
 }
@@ -270,15 +265,6 @@ pub struct DnsIpStatisticsReport {
     pub response_count: u128,
     pub response_bytes: u128,
     pub nxdomain_count: u128
-}
-
-#[derive(Serialize)]
-pub struct DNSEntropyLog {
-    pub transaction_id: u16,
-    pub entropy: f32,
-    pub zscore: f32,
-    pub entropy_mean: f32,
-    pub timestamp: DateTime<Utc>
 }
 
 #[derive(Serialize)]

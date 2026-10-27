@@ -22,6 +22,7 @@ import ArpSpoofingAlertDetails from "./ethernet/ArpSpoofingAlertDetails";
 import DhcpSpoofingAlertDetails from "./ethernet/DhcpSpoofingAlertDetails";
 import NameResolutionSpoofingAlertDetails from "./ethernet/NameResolutionSpoofingAlertDetails";
 import DnsSpoofingAlertDetails from "./ethernet/DnsSpoofingAlertDetails";
+import DnsTunnelAlertDetails from "./ethernet/DnsTunnelAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
@@ -85,6 +86,8 @@ function AlertDetails(props) {
       return <NameResolutionSpoofingAlertDetails alert={alert} />
     case "SPOOFING_DNS_NEW":
       return <DnsSpoofingAlertDetails alert={alert} />
+    case "DNS_TUNNEL":
+      return <DnsTunnelAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
       return <IcmpAlertDetails alert={alert} />

@@ -755,12 +755,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "entropy"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aaddcf1b2c2d0a2c4fe3cf7fbbd7172d07e3fedc61dda7405a0560084d1a483e"
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1776,7 +1770,6 @@ dependencies = [
  "clokwerk",
  "crossbeam-channel",
  "dbus",
- "entropy",
  "fern",
  "libc",
  "log",

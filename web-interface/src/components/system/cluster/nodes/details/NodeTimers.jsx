@@ -36,6 +36,8 @@ function NodeTimers(props) {
           <TimerRow title="DHCP Spoofing Detection: Run per Tenant" timer={timers.spoofing_dhcp_detection_run} />
           <TimerRow title="Name Resolution Poisoning Detection: Run per Tenant" timer={timers.spoofing_nameres_detection_run} />
           <TimerRow title="DNS Spoofing Detection: Run per Tenant" timer={timers.spoofing_dns_detection_run} />
+          {timers.dns_tunnel_detection_run ?
+            <TimerRow title="DNS Tunnel Detection: Run per Tenant" timer={timers.dns_tunnel_detection_run} /> : null}
         </tbody>
       </table>
   )

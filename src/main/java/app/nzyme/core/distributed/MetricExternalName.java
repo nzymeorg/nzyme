@@ -28,6 +28,7 @@ public enum MetricExternalName {
     SPOOFING_DHCP_DETECTION_RUN_TIMER("spoofing_dhcp_detection_run_timer"),
     SPOOFING_NAMERES_DETECTION_RUN_TIMER("spoofing_nameres_detection_run_timer"),
     SPOOFING_DNS_DETECTION_RUN_TIMER("spoofing_dns_detection_run_timer"),
+    DNS_TUNNEL_DETECTION_RUN_TIMER("dns_tunnel_detection_run_timer"),
 
     GEOIP_CACHE_SIZE("geoip_cache_size"),
     CONTEXT_MAC_CACHE_SIZE("context_mac_cache_size"),

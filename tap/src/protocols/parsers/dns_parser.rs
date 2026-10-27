@@ -4,7 +4,6 @@ use anyhow::{bail, Result};
 use bitvec::{order::Msb0, view::BitView};
 use byteorder::{BigEndian, ByteOrder};
 use bitreader::BitReader;
-use entropy::shannon_entropy;
 use crate::helpers::network::is_ip_address;
 use crate::tracemark;
 use crate::wired::types::{DNSClass, DNSDataType, DNSType};
@@ -281,14 +280,11 @@ fn parse_query_element(data: &[u8]) -> Result<(usize, DNSData)> {
     };
     cursor += 2;
 
-    let entropy = shannon_entropy(name.as_bytes());
-
     Ok((cursor, DNSData {
        name,
        name_etld,
        dns_type,
        class,
-       entropy: Some(entropy),
        value: None,
        value_etld: None,
        ttl: None
@@ -334,12 +330,9 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
         bail!("DNS answer element too short to fit announced data length.");
     }
 
-    // Not collapsing branches here because logic might become more specific in the future.
-    let dns_type_has_entropy;
     let mut visited_pointer_offsets: Vec<u16> = vec![];
     let value = match dns_type {
         DNSDataType::A => {
-            dns_type_has_entropy = false;
             match parse_ipv4(&data[cursor..cursor+data_length]) {
                 Ok(addr) => {
                     Some(addr.to_lowercase())
@@ -348,7 +341,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::CNAME => {
-            dns_type_has_entropy = true;
             match parse_string(&data[cursor..cursor+data_length], full_packet, &mut visited_pointer_offsets) {
                 Ok((_, cname)) => {
                     Some(cname.to_lowercase())
@@ -357,7 +349,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::AAAA => {
-            dns_type_has_entropy = false;
             match parse_ipv6(&data[cursor..cursor+data_length]) {
                 Ok(addr) => {
                     Some(addr.to_lowercase())
@@ -366,7 +357,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::NS => {
-            dns_type_has_entropy = true;
             match parse_string(&data[cursor..cursor+data_length], full_packet, &mut visited_pointer_offsets) {
                 Ok((_, ns)) => {
                     Some(ns.to_lowercase())
@@ -375,7 +365,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::PTR => {
-            dns_type_has_entropy = true;
             match parse_string(&data[cursor..cursor+data_length], full_packet, &mut visited_pointer_offsets) {
                 Ok((_, ptr)) => {
                     Some(ptr.to_lowercase())
@@ -384,7 +373,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::MX => {
-            dns_type_has_entropy = true;
             if data_length < 3 {
                 bail!("MX data is too short.");
             }
@@ -398,7 +386,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         DNSDataType::TXT => {
-            dns_type_has_entropy = true;
             match parse_string(&data[cursor..cursor+data_length], full_packet, &mut visited_pointer_offsets) {
                 Ok((_, txt)) => {
                     Some(txt.to_lowercase())
@@ -407,28 +394,13 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
             }
         },
         _ => {
-            dns_type_has_entropy = false;
             None
         }
     };
 
-    let (entropy, value_etld) = match value.clone() {
-        Some(v) => {
-            let entropy = if dns_type_has_entropy {
-                Some(shannon_entropy(v.as_bytes()))
-            } else {
-                None
-            };
-
-            let etld = if !is_ip_address(&v) {
-                psl::domain_str(&v).map(|d| d.to_string())
-            } else {
-                None
-            };
-
-            (entropy, etld)
-        },
-        None => (None, None)
+    let value_etld = match &value {
+        Some(v) if !is_ip_address(v) => psl::domain_str(v).map(|d| d.to_string()),
+        _ => None
     };
 
     cursor += data_length;
@@ -440,7 +412,6 @@ fn parse_answer_element(data: &[u8], full_packet: &[u8]) -> Result<(usize, DNSDa
         dns_type,
         value,
         value_etld,
-        entropy,
         ttl: Some(ttl)
     }))
 }

@@ -125,42 +125,6 @@ public class DNS {
         );
     }
 
-    public long countAllEntropyLogs(TimeRange timeRange, List<UUID> taps) {
-        if (taps.isEmpty()) {
-            return 0;
-        }
-
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(*) FROM dns_entropy_log " +
-                                "WHERE timestamp >= :tr_from AND timestamp <= :tr_to AND tap_uuid IN (<taps>)")
-                        .bindList("taps", taps)
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .mapTo(Long.class)
-                        .one()
-        );
-    }
-
-    public List<DNSEntropyLogEntry> findAllEntropyLogs(TimeRange timeRange, int limit, int offset, List<UUID> taps) {
-        if (taps.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT * FROM dns_entropy_log " +
-                                "WHERE timestamp >= :tr_from AND timestamp <= :tr_to AND tap_uuid IN (<taps>) " +
-                                "ORDER BY timestamp DESC " +
-                                "LIMIT :limit OFFSET :offset")
-                        .bindList("taps", taps)
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .bind("limit", limit)
-                        .bind("offset", offset)
-                        .mapTo(DNSEntropyLogEntry.class)
-                        .list()
-        );
-    }
-
     public List<DateTimeNumberAggregationResult> getTransactionCountHistogram(String dnsType,
                                                                               TimeRange timeRange,
                                                                               Filters filters,

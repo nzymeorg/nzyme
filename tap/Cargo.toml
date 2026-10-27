@@ -54,7 +54,6 @@ strum = "0.28.0"
 strum_macros = "0.28.0"
 bitreader = "0.3.6"
 bitvec = "1.0.0"
-entropy = "0.4.1"
 clokwerk = "0.4.0"
 clap = { version = "4.3.19", features = ["derive"] }
 toml = "1.1.2"

@@ -7,7 +7,6 @@ import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import DNSService from "../../../services/ethernet/DNSService";
 import DNSContactAttemptsTable from "./DNSContactAttemptsTable";
-import DNSEntropyLogTable from "./entropy/DNSEntropyLogTable";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {DNS_MENU_ITEMS} from "./DNSMenuItems";
@@ -35,7 +34,6 @@ function DNSOverviewPage () {
   const [responseStatsTimeRange, setResponseStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_resp_traffic"));
   const [nxdomainStatsTimeRange, setNxdomainStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_nxdomain_traffic"));
   const [contactAttemptsTimeRange, setContactAttemptsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [entropyLogTimeRange, setEntropyLogTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
   useEffect(() => {
     enableTapSelector(tapContext);
@@ -139,21 +137,6 @@ function DNSOverviewPage () {
                                        setTimeRange={setContactAttemptsTimeRange}/>
 
                 <DNSContactAttemptsTable timeRange={contactAttemptsTimeRange} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="row mt-3">
-          <div className="col-md-12">
-            <div className="card">
-              <div className="card-body">
-                <CardTitleWithControls title="DNS Transactions with Entropy Outliers"
-                                       helpLink="https://go.nzyme.org/ethernet-dns-entropy"
-                                       timeRange={entropyLogTimeRange}
-                                       setTimeRange={setEntropyLogTimeRange}/>
-
-                <DNSEntropyLogTable timeRange={entropyLogTimeRange}  />
               </div>
             </div>
           </div>

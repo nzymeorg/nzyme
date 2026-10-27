@@ -17,8 +17,8 @@
 
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.dns.DnsNames;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
-import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsEntropyLogReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsIpStatisticsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsLogReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
@@ -49,7 +49,6 @@ public class DNSTable implements DataTable {
     private final Timer statisticsReportTimer;
     private final Timer pairsReportTimer;
     private final Timer logReportTimer;
-    private final Timer entropyReportTimer;
 
     public DNSTable(TablesService tablesService) {
         this.tablesService = tablesService;
@@ -62,8 +61,6 @@ public class DNSTable implements DataTable {
                 .timer(MetricNames.DNS_PAIRS_REPORT_PROCESSING_TIMER);
         this.logReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DNS_LOG_REPORT_PROCESSING_TIMER);
-        this.entropyReportTimer = tablesService.getNzyme().getMetrics()
-                .timer(MetricNames.DNS_ENTROPY_REPORT_PROCESSING_TIMER);
     }
 
     public void handleReport(UUID tapUuid, DateTime timestamp, DnsTablesReport report) {
@@ -79,10 +76,6 @@ public class DNSTable implements DataTable {
 
                 try (Timer.Context ignored2 = logReportTimer.time()) {
                     registerLogs(handle, tapUuid, report.queryLog(), report.responseLog());
-                }
-
-                try (Timer.Context ignored2 = entropyReportTimer.time()) {
-                    registerEntropyLogs(handle, tapUuid, report.entropyLog());
                 }
             });
         }
@@ -193,7 +186,7 @@ public class DNSTable implements DataTable {
                 "server_address_geo_asn_name, server_address_geo_asn_domain, server_address_geo_city, " +
                 "server_address_geo_country_code, server_address_geo_latitude, server_address_geo_longitude, " +
                 "server_address_is_site_local, server_address_is_multicast, server_address_is_loopback, " +
-                "data_value, data_value_etld, data_type, response_code, timestamp, created_at) VALUES(:uuid, :tap_uuid, " +
+                "data_value, data_value_etld, data_value_entropy, data_type, response_code, timestamp, created_at) VALUES(:uuid, :tap_uuid, " +
                 ":transaction_id, :dns_type, :client_address::inet, :client_port, :client_mac, " +
                 ":client_address_geo_asn_number, :client_address_geo_asn_name, :client_address_geo_asn_domain, " +
                 ":client_address_geo_city, :client_address_geo_country_code, :client_address_geo_latitude, " +
@@ -202,7 +195,7 @@ public class DNSTable implements DataTable {
                 ":server_address_geo_asn_number, :server_address_geo_asn_name, :server_address_geo_asn_domain, " +
                 ":server_address_geo_city, :server_address_geo_country_code, :server_address_geo_latitude, " +
                 ":server_address_geo_longitude, :server_address_is_site_local, :server_address_is_multicast, " +
-                ":server_address_is_loopback, :data_value, :data_value_etld, :data_type, :response_code, :timestamp, NOW())");
+                ":server_address_is_loopback, :data_value, :data_value_etld, :data_value_entropy, :data_type, :response_code, :timestamp, NOW())");
 
         for (DnsLogReport d : queries) {
             InetAddress serverAddress = stringtoInetAddress(d.serverAddress());
@@ -244,6 +237,7 @@ public class DNSTable implements DataTable {
                     .bind("server_address_is_loopback", serverAddress.isLoopbackAddress())
                     .bind("data_value", d.dataValue())
                     .bind("data_value_etld", d.dataValueEtld())
+                    .bind("data_value_entropy", DnsNames.subdomainEntropy(d.dataValue(), d.dataValueEtld()))
                     .bind("data_type", d.dataType())
                     .bind("response_code", d.responseCode())
                     .bind("timestamp", d.timestamp())
@@ -290,30 +284,10 @@ public class DNSTable implements DataTable {
                     .bind("server_address_is_loopback", serverAddress.isLoopbackAddress())
                     .bind("data_value", d.dataValue())
                     .bind("data_value_etld", d.dataValueEtld())
+                    .bind("data_value_entropy", (Float) null)
                     .bind("data_type", d.dataType())
                     .bind("response_code", d.responseCode())
                     .bind("timestamp", d.timestamp())
-                    .add();
-        }
-
-        batch.execute();
-    }
-
-    public void registerEntropyLogs(Handle handle,
-                                    UUID tapUuid,
-                                    List<DnsEntropyLogReport> logs) {
-        PreparedBatch batch = handle.prepareBatch("INSERT INTO dns_entropy_log(tap_uuid, transaction_id, " +
-                "entropy, entropy_mean, zscore, timestamp, created_at) VALUES(:tap_uuid, :transaction_id, " +
-                ":entropy, :entropy_mean, :zscore, :timestamp, NOW())");
-
-        for (DnsEntropyLogReport log : logs) {
-            batch
-                    .bind("tap_uuid", tapUuid)
-                    .bind("transaction_id", log.transactionId())
-                    .bind("entropy", log.entropy())
-                    .bind("entropy_mean", log.entropyMean())
-                    .bind("zscore", log.zScore())
-                    .bind("timestamp", log.timestamp())
                     .add();
         }
 

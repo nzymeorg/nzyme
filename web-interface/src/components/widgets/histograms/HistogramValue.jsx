@@ -1,4 +1,5 @@
 import React from "react";
+import {Link} from "react-router-dom";
 
 import numeral from "numeral";
 import AutomaticDot11MacAddressLink from "../../shared/context/macs/AutomaticDot11MacAddressLink";
@@ -60,7 +61,7 @@ function HistogramValue(props) {
     case "BYTES":
       return <>{numeral(value.value).format("0,0b")} {filterElement}</>
     case "DNS_TRANSACTION_LOG_LINK":
-      return <a href={ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS + "?filters=" + value.metadata.filter_parameters}>{numeral(value.value.title).format("0,0")}</a>
+      return <Link to={ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS + "?filters=" + value.metadata.filter_parameters}>{numeral(value.value.title).format("0,0")}</Link>
     case "INTEGER":
       return <span className={value.value === highlightValue ? "highlighted" : null}>{numeral(value.value).format("0,0")} {filterElement}</span>
     case "DOUBLE_DECIMAL2":

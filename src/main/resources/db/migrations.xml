@@ -10812,4 +10812,135 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="dns_tunnel_detection" author="lennartkoopmann">
+        <dropTable tableName="dns_entropy_log" />
+
+        <addColumn tableName="dns_log">
+            <column name="data_value_entropy" type="real" />
+        </addColumn>
+
+        <createTable tableName="dns_tunnel_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="client_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="client_mac" type="varchar(17)" />
+            <column name="domain" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_addresses" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="indicators" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="query_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="distinct_name_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="negative_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="average_entropy" type="double precision" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="maximum_entropy" type="double precision" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="average_name_length" type="double precision" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="maximum_name_length" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="record_types" type="jsonb" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+            <column name="names" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="name_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="dns_tunnel_findings" indexName="dns_tunnel_findings_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="dns_tunnel_findings" indexName="dns_tunnel_findings_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="dns_tunnel_exclusions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+            <column name="domain" type="text" />
+            <column name="client_address_cidr" type="text" />
+            <column name="match_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_matched_at" type="timestamp with time zone" />
+            <column name="created_by_user_id" type="uuid" />
+            <column name="created_by_name" type="text" />
+            <column name="created_by_email" type="text" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="dns_tunnel_exclusions" indexName="dns_tunnel_exclusions_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="dns_tunnel_exclusions" indexName="dns_tunnel_exclusions_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

@@ -4,11 +4,6 @@ general: {
 
   admin_password_hash: 932f3c1b56257ce8539ac269d7aab42550dacf8818d075f0bdf1990562aae3ef
 
-  alerting {
-    clean_after_minutes: 15
-    training_period_seconds: 300
-  }
-
   database_path: "postgresql://localhost:5432/nzyme-java-tests?user=postgres&password=123123123"
   database_path: ${?TEST_DATABASE_URL}
 

@@ -78,7 +78,6 @@ processors = 3
 
 [protocols.dns]
 pipeline_size = 4096
-entropy_zscore_threshold = 3.0
 
 [protocols.ssh]
 pipeline_size = 256
@@ -119,7 +118,6 @@ listen = "127.0.0.1:22910"
 tick_ms = 100
 
 [misc]
-training_period_minutes = 5
 context_mac_ip_retention_hours = 36 
 context_mac_hostname_retention_hours = 36
 panic_log_file_path = "/var/log/nzyme-tap-panic.log"

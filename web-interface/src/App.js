@@ -131,6 +131,13 @@ import DNSTransactionLogsPage from "./components/ethernet/dns/logs/DNSTransactio
 import ConnectPage from "./components/system/connect/ConnectPage";
 import BluetoothDevicesPage from "./components/bluetooth/devices/BluetoothDevicesPage";
 import SOCKSTunnelDetailsPage from "./components/ethernet/tunnels/socks/SOCKSTunnelDetailsPage";
+import DnsTunnelsPage from "./components/ethernet/dns/tunnels/DnsTunnelsPage";
+import DnsTunnelFindingDetailsPage from "./components/ethernet/dns/tunnels/DnsTunnelFindingDetailsPage";
+import DnsTunnelSettingsPage from "./components/ethernet/dns/tunnels/DnsTunnelSettingsPage";
+import DnsTunnelExclusionsPage from "./components/ethernet/dns/tunnels/exclusions/DnsTunnelExclusionsPage";
+import CreateDnsTunnelExclusionPage from "./components/ethernet/dns/tunnels/exclusions/CreateDnsTunnelExclusionPage";
+import DnsTunnelExclusionDetailsPage from "./components/ethernet/dns/tunnels/exclusions/DnsTunnelExclusionDetailsPage";
+import EditDnsTunnelExclusionPage from "./components/ethernet/dns/tunnels/exclusions/EditDnsTunnelExclusionPage";
 import SSHSessionDetailsPage from "./components/ethernet/remote/ssh/SSHSessionDetailsPage";
 import L4OverviewPage from "./components/ethernet/l4/L4OverviewPage";
 import BluetoothDeviceDetailsPage from "./components/bluetooth/devices/BluetoothDeviceDetailsPage";
@@ -650,6 +657,13 @@ function App() {
                                 { /* Ethernet/Tunnels. */}
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX} element={<SOCKSTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.TUNNEL_DETAILS(':sessionId')} element={<SOCKSTunnelDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.INDEX} element={<DnsTunnelsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.DETAILS(':uuid')} element={<DnsTunnelFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.SETTINGS} element={<DnsTunnelSettingsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.EXCLUSIONS.INDEX} element={<DnsTunnelExclusionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.EXCLUSIONS.CREATE} element={<CreateDnsTunnelExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.EXCLUSIONS.DETAILS(':uuid')} element={<DnsTunnelExclusionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.EXCLUSIONS.EDIT(':uuid')} element={<EditDnsTunnelExclusionPage />}/>
 
                                 { /* Ethernet/Streams. */}
                                 <Route path={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX} element={<WebRTCSessionsPage />}/>

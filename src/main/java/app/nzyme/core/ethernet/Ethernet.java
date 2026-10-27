@@ -5,6 +5,7 @@ import app.nzyme.core.ethernet.arp.ARP;
 import app.nzyme.core.ethernet.beacons.Beacons;
 import app.nzyme.core.ethernet.dhcp.DHCP;
 import app.nzyme.core.ethernet.dns.DNS;
+import app.nzyme.core.ethernet.dns.tunnels.DnsTunnels;
 import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.nat.NAT;
 import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
@@ -28,6 +29,7 @@ public class Ethernet {
     private final L4 l4;
     private final TCP tcp;
     private final DNS dns;
+    private final DnsTunnels dnsTunnels;
     private final SSH ssh;
     private final TLS tls;
     private final SOCKS socks;
@@ -49,6 +51,7 @@ public class Ethernet {
         this.l4 = new L4(this);
         this.tcp = new TCP(this);
         this.dns = new DNS(this);
+        this.dnsTunnels = new DnsTunnels(nzyme);
         this.ssh = new SSH(this);
         this.tls = new TLS(this);
         this.socks = new SOCKS(this);
@@ -125,6 +128,10 @@ public class Ethernet {
 
     public Spoofing spoofing() {
         return spoofing;
+    }
+
+    public DnsTunnels dnsTunnels() {
+        return dnsTunnels;
     }
 
     public ICMP icmp() {

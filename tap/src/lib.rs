@@ -12,8 +12,6 @@ mod exit_code;
 #[cfg(feature = "fuzzing")]
 mod metrics;
 #[cfg(feature = "fuzzing")]
-mod system_state;
-#[cfg(feature = "fuzzing")]
 mod logging;
 #[cfg(feature = "fuzzing")]
 mod alerting;

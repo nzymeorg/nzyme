@@ -21,6 +21,7 @@ public enum DetectionType {
     SPOOFING_DHCP_PARAMETERS_CHANGED("DHCP server handing out changed configuration", Subsystem.ETHERNET),
     SPOOFING_NAME_RESOLUTION_POISONING("Name resolution poisoning detected", Subsystem.ETHERNET),
     SPOOFING_DNS_NEW("DNS spoofing detected", Subsystem.ETHERNET),
+    DNS_TUNNEL("DNS tunnel detected", Subsystem.ETHERNET),
 
     ICMP_REDIRECT("ICMP redirect detected", Subsystem.ETHERNET),
     ICMP_TRACEROUTE("Traceroute detected", Subsystem.ETHERNET),

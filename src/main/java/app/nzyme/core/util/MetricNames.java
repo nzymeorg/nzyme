@@ -22,6 +22,7 @@ import app.nzyme.core.ethernet.recon.ReconDetector;
 import app.nzyme.core.ethernet.spoofing.ArpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DnsSpoofingDetector;
+import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelDetector;
 import app.nzyme.core.ethernet.spoofing.NameResolutionSpoofingDetector;
 import app.nzyme.core.bluetooth.sig.BluetoothSigService;
 import app.nzyme.core.context.ContextService;
@@ -87,7 +88,6 @@ public class MetricNames {
     public static final String DNS_STATISTICS_REPORT_PROCESSING_TIMER = name(DNSTable.class, "statistics-report-processing-timing");
     public static final String DNS_PAIRS_REPORT_PROCESSING_TIMER = name(DNSTable.class, "pairs-report-processing-timing");
     public static final String DNS_LOG_REPORT_PROCESSING_TIMER = name(DNSTable.class, "log-report-processing-timing");
-    public static final String DNS_ENTROPY_REPORT_PROCESSING_TIMER = name(DNSTable.class, "entropy-report-processing-timing");
 
     public static final String TCP_TOTAL_REPORT_PROCESSING_TIMER = name(TCPTable.class, "total-report-processing-timing");
     public static final String TCP_SESSIONS_REPORT_PROCESSING_TIMER = name(TCPTable.class, "sessions-report-processing-timing");
@@ -127,6 +127,7 @@ public class MetricNames {
     public static final String SPOOFING_DHCP_DETECTION_RUN_TIMER = name(DhcpSpoofingDetector.class, "detection-run-timing");
     public static final String SPOOFING_NAMERES_DETECTION_RUN_TIMER = name(NameResolutionSpoofingDetector.class, "detection-run-timing");
     public static final String SPOOFING_DNS_DETECTION_RUN_TIMER = name(DnsSpoofingDetector.class, "detection-run-timing");
+    public static final String DNS_TUNNEL_DETECTION_RUN_TIMER = name(DnsTunnelDetector.class, "detection-run-timing");
     public static final String UAV_CONNECT_TYPE_LOOKUP_TIMING = name(Uav.class, "connect-type-lookup-timing");
 
     public static final String MONITOR_EXECUTION_TIMER_BASE = name(MonitorExecutionTaskHandler.class, "execution-timer-");

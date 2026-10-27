@@ -2,11 +2,6 @@ general: {
   role: NODE
   name: mocky-mock
 
-  alerting {
-    clean_after_minutes: 15
-    training_period_seconds: 300
-  }
-
   database_path: nzyme.db
 
   fetch_ouis: true

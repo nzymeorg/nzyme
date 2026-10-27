@@ -137,7 +137,6 @@ pub struct Performance {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Misc {
-    pub training_period_minutes: i32,
     pub context_mac_ip_retention_hours: i32,
     pub context_mac_hostname_retention_hours: i32,
     pub panic_log_file_path: Option<String>
@@ -185,8 +184,7 @@ pub struct ProtocolsUdp {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProtocolsDns {
-    pub pipeline_size: i32,
-    pub entropy_zscore_threshold: f32
+    pub pipeline_size: i32
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -264,11 +262,6 @@ pub fn load(path: String) -> Result<Configuration, Error> {
 
     if doc.general.leader_secret.len() < 64 {
         bail!("Configuration variable `leader_secret` must be at least 64 characters long.");
-    }
-
-    if doc.misc.training_period_minutes < 0 {
-        bail!("Configuration variable `training_period_minutes` must be set to a value greater \
-            or equal to 0.");
     }
 
     if doc.misc.context_mac_ip_retention_hours < 0 {
@@ -415,10 +408,6 @@ pub fn load(path: String) -> Result<Configuration, Error> {
     if doc.protocols.dns.pipeline_size <= 0 {
         bail!("Configuration variable `protocols.dns.pipeline_size` must be set to a value \
             greater than 0.");
-    }
-    if doc.protocols.dns.entropy_zscore_threshold <= 0.0 {
-        bail!("Configuration variable `protocols.dns.entropy_zscore_threshold` must be set to a \
-            value greater than 0.0.");
     }
 
     // ICMP.

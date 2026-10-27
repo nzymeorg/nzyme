@@ -5,7 +5,6 @@ mod configuration;
 mod exit_code;
 mod file_permissions;
 mod metrics;
-mod system_state;
 mod logging;
 mod alerting;
 mod processor_controller;
@@ -34,7 +33,6 @@ use link::leaderlink::Leaderlink;
 use log::{error, info, warn};
 use toml::map::Map;
 use messagebus::bus::Bus;
-use system_state::SystemState;
 use wired::ethernet;
 use crate::context::context_engine::ContextEngine;
 use wireless::dot11::channel_hopper::ChannelHopper;
@@ -181,10 +179,6 @@ fn main() {
 
         exit(exit_code::EX_OK);
     }
-
-    let system_state = Arc::new(
-        SystemState::new(configuration.misc.training_period_minutes as usize).initialize()
-    );
 
     wired::interfaces::print_devices();
 
@@ -575,7 +569,6 @@ fn main() {
         tables.clone(),
         state.clone(),
         context_engine,
-        system_state,
         metrics.clone(),
         configuration
     );

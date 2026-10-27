@@ -220,8 +220,7 @@ pub struct DNSData {
     pub class: DNSClass,
     pub value: Option<String>,
     pub value_etld: Option<String>,
-    pub ttl: Option<u32>,
-    pub entropy: Option<f32>
+    pub ttl: Option<u32>
 }
 
 #[derive(Debug)]

@@ -44,7 +44,7 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
 @Tag(name = "DNS", description = "DNS queries and responses that taps recorded on the Ethernet network, "
-        + "with traffic statistics, client and server pairs and the entropy log of suspicious query names.",
+        + "with traffic statistics and client and server pairs.",
         externalDocs = @ExternalDocumentation(description = "DNS in the Nzyme documentation",
                 url = "https://go.nzyme.org/ethernet-dns"))
 public class DNSResource extends TapDataHandlingResource {
@@ -200,65 +200,6 @@ public class DNSResource extends TapDataHandlingResource {
         }
 
         return Response.ok(ThreeColumnTableHistogramResponse.create(total, true, values)).build();
-    }
-
-    @GET
-    @Path("/global/entropylog")
-    @Operation(operationId = "findDnsEntropyLog", summary = "List DNS entropy log entries",
-            description = "The entropy log records DNS queries whose names have an unusually high character "
-                    + "entropy, which can indicate DNS tunneling or algorithmically generated domain names. Each "
-                    + "entry carries the query, its responses, the measured entropy, the mean entropy and the "
-                    + "resulting z-score. A tap logs an entry when the z-score exceeds the threshold configured in "
-                    + "its own configuration file. Many legitimate queries have high entropy, so review entries "
-                    + "manually. Entries whose transaction can no longer be resolved are skipped, so a page can "
-                    + "hold fewer entries than the total count suggests. Results are paginated.",
-            externalDocs = @ExternalDocumentation(description = "Entropy outliers in the Nzyme documentation",
-                    url = "https://go.nzyme.org/ethernet-dns-entropy"))
-    @ApiResponse(responseCode = "200", description = "Entropy log entries found.",
-            content = @Content(schema = @Schema(implementation = DNSEntropyLogListResponse.class)))
-    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
-    public Response globalEntropyLog(@Parameter(hidden = true) @Context SecurityContext sc,
-                                     @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
-                                     @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
-                                     @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
-                                     @Parameter(description = "Page size.") @QueryParam("limit") int limit,
-                                     @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
-                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
-        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
-
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-
-        long total = nzyme.getEthernet().dns().countAllEntropyLogs(timeRange, taps);
-        List<DNSEntropyLogResponse> logs = Lists.newArrayList();
-
-        // Pull all required information and build response.
-        List<DNSEntropyLogEntry> entropyLogs = nzyme.getEthernet().dns()
-                .findAllEntropyLogs(timeRange, limit, offset, taps);
-
-        nzyme.getDatabase().useHandle(handle -> {
-            for (DNSEntropyLogEntry el : entropyLogs) {
-                Optional<DNSTransaction> transaction = nzyme.getEthernet().dns()
-                        .findTransaction(el.transactionId(), el.timestamp(), taps, handle);
-
-                if (transaction.isEmpty()) {
-                    continue;
-                }
-
-                DNSLogDataResponse query = logToResponse(organizationId, tenantId, transaction.get().query());
-                List<DNSLogDataResponse> responses = Lists.newArrayList();
-                for (DNSLogEntry response : transaction.get().responses()) {
-                    responses.add(logToResponse(organizationId, tenantId, response));
-                }
-
-                logs.add(DNSEntropyLogResponse.create(query, responses, el.entropy(), el.entropyMean(), el.zscore()));
-            }
-        });
-
-        return Response.ok(DNSEntropyLogListResponse.create(total, logs)).build();
     }
 
     @GET

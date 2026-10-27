@@ -3,7 +3,6 @@ use std::net::IpAddr;
 
 use crate::{
     link::payloads::{
-        DNSEntropyLog,
         DnsIpStatisticsReport,
         DnsTableReport
     },
@@ -21,7 +20,6 @@ use crate::wired::types::DNSType;
 pub struct DnsTable {
     leaderlink: Arc<Mutex<Leaderlink>>,
     ips: Mutex<HashMap<IpAddr, DnsStatistics>>,
-    entropy_log: Mutex<Vec<EntropyLog>>,
     metrics: Arc<Mutex<Metrics>>,
     query_log: Mutex<Vec<DNSQueryLog>>,
     response_log: Mutex<Vec<DNSResponseLog>>
@@ -34,15 +32,6 @@ pub struct DnsStatistics {
     response_count: u128,
     response_bytes: u128,
     nxdomain_count: u128
-}
-
-#[derive(Debug)]
-pub struct EntropyLog {
-    transaction_id: u16,
-    entropy: f32,
-    entropy_mean: f32,
-    zscore: f32,
-    timestamp: DateTime<Utc>
 }
 
 #[derive(Debug)]
@@ -82,7 +71,6 @@ impl DnsTable {
         DnsTable {
             leaderlink,
             ips: Mutex::new(HashMap::new()),
-            entropy_log: Mutex::new(Vec::new()),
             query_log: Mutex::new(Vec::new()),
             response_log: Mutex::new(Vec::new()),
             metrics
@@ -280,20 +268,6 @@ impl DnsTable {
 
     }
 
-    pub fn register_exceeded_entropy(&mut self,
-                                     transaction_id: u16,
-                                     entropy: f32,
-                                     zscore: f32,
-                                     entropy_mean: f32,
-                                     timestamp: DateTime<Utc>) {
-        match self.entropy_log.lock() {
-            Ok(mut log) => log.push(
-                EntropyLog { transaction_id, entropy, zscore, entropy_mean, timestamp }
-            ),
-            Err(e) => error!("Could not acquire entropy log mutex: {}", e)
-        }
-    }
-
     pub fn process_report(&self) {
         // Generate JSON.
         let report = match serde_json::to_string(&self.generate_report()) {
@@ -318,7 +292,6 @@ impl DnsTable {
         clear_mutex_hashmap(&self.ips);
         clear_mutex_vector(&self.query_log);
         clear_mutex_vector(&self.response_log);
-        clear_mutex_vector(&self.entropy_log);
     }
 
     #[allow(clippy::too_many_lines)]
@@ -337,22 +310,6 @@ impl DnsTable {
                 }
             },
             Err(e) => error!("Could not acquire DNS IPs table mutex: {}", e)
-        }
-
-        let mut entropy_log = Vec::new();
-        match self.entropy_log.lock() {
-            Ok(x) => {
-                for log in &*x {
-                    entropy_log.push(DNSEntropyLog {
-                        transaction_id: log.transaction_id,
-                        entropy: log.entropy,
-                        zscore: log.zscore,
-                        entropy_mean: log.entropy_mean,
-                        timestamp: log.timestamp
-                    });
-                }
-            },
-            Err(e) => error!("Could not acquire DNS entropy table mutex: {}", e)
         }
 
         let queries = match self.query_log.lock() {
@@ -415,7 +372,6 @@ impl DnsTable {
 
         DnsTableReport {
             ips,
-            entropy_log,
             queries,
             responses
         }
@@ -426,8 +382,6 @@ impl DnsTable {
             Ok(mut metrics) => {
                 metrics.set_gauge("tables.dns.ips.size",
                                   table_helpers::get_mutex_hashmap_size(&self.ips));
-                metrics.set_gauge("tables.dns.entropy_log.size",
-                                  table_helpers::get_mutex_vector_size(&self.entropy_log));
                 metrics.set_gauge("tables.dns.query_log.size",
                                   table_helpers::get_mutex_vector_size(&self.query_log));
                 metrics.set_gauge("tables.dns.response_log.size",
