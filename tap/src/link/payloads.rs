@@ -290,9 +290,10 @@ pub struct DNSLogReport {
     pub server_mac: Option<String>,
     pub client_port: u16,
     pub server_port: u16,
-    pub data_value: String,
+    pub data_value: Option<String>,
     pub data_value_etld: Option<String>,
     pub data_type: String,
+    pub response_code: Option<String>,
     pub timestamp: DateTime<Utc>
 }
 

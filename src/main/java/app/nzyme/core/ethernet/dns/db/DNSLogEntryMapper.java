@@ -24,6 +24,7 @@ public class DNSLogEntryMapper implements RowMapper<DNSLogEntry> {
                 rs.getString("data_value_etld"),
                 rs.getString("data_type"),
                 rs.getString("dns_type"),
+                rs.getString("response_code"),
                 new DateTime(rs.getTimestamp("timestamp")),
                 new DateTime(rs.getTimestamp("created_at"))
         );

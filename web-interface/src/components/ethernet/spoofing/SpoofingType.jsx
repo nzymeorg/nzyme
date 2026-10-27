@@ -5,6 +5,7 @@ export const spoofingTypeToName = (type) => {
     case "ARP": return "ARP Poisoning";
     case "DHCP": return "DHCP Spoofing";
     case "NAME_RESOLUTION": return "Name Resolution Poisoning";
+    case "DNS": return "DNS Spoofing";
     default: return type;
   }
 }

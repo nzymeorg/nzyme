@@ -48,6 +48,19 @@ const prefillFromNameResolutionFinding = (details) => {
   };
 }
 
+const prefillFromDnsFinding = (details) => {
+  const finding = details.finding;
+
+  return {
+    name: "Exclude DNS replies for " + finding.server_address + " from " + finding.spoofer_mac,
+    description: "Created from DNS spoofing finding of resolver " + finding.server_address + " by "
+      + finding.spoofer_mac + ".",
+    types: ["DNS"],
+    address_cidr: finding.server_address,
+    mac: finding.spoofer_mac
+  };
+}
+
 export default function CreateSpoofingExclusionPage() {
 
   usePageTitle("Create Spoofing Exclusion");
@@ -57,8 +70,9 @@ export default function CreateSpoofingExclusionPage() {
   const findingUuid = query.get("finding");
   const dhcpFindingUuid = query.get("dhcp_finding");
   const nameresFindingUuid = query.get("nameres_finding");
+  const dnsFindingUuid = query.get("dns_finding");
 
-  const [initialValues, setInitialValues] = useState(findingUuid || dhcpFindingUuid || nameresFindingUuid ? null : {});
+  const [initialValues, setInitialValues] = useState(findingUuid || dhcpFindingUuid || nameresFindingUuid || dnsFindingUuid ? null : {});
   const [redirect, setRedirect] = useState(false);
 
   useEffect(() => {
@@ -80,8 +94,15 @@ export default function CreateSpoofingExclusionPage() {
       spoofingService.findNameResolutionFinding(nameresFindingUuid, organizationId, tenantId,
         (details) => setInitialValues(prefillFromNameResolutionFinding(details)),
         () => setInitialValues({}));
+      return;
     }
-  }, [findingUuid, dhcpFindingUuid, nameresFindingUuid, organizationId, tenantId]);
+
+    if (dnsFindingUuid) {
+      spoofingService.findDnsFinding(dnsFindingUuid, organizationId, tenantId,
+        (details) => setInitialValues(prefillFromDnsFinding(details)),
+        () => setInitialValues({}));
+    }
+  }, [findingUuid, dhcpFindingUuid, nameresFindingUuid, dnsFindingUuid, organizationId, tenantId]);
 
   const create = (payload, onError) => {
     spoofingService.createExclusion(organizationId, tenantId, payload, () => {

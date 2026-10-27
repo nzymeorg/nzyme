@@ -21,6 +21,7 @@ import ReconScanAlertDetails from "./ethernet/ReconScanAlertDetails";
 import ArpSpoofingAlertDetails from "./ethernet/ArpSpoofingAlertDetails";
 import DhcpSpoofingAlertDetails from "./ethernet/DhcpSpoofingAlertDetails";
 import NameResolutionSpoofingAlertDetails from "./ethernet/NameResolutionSpoofingAlertDetails";
+import DnsSpoofingAlertDetails from "./ethernet/DnsSpoofingAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 
 function AlertDetails(props) {
@@ -82,6 +83,8 @@ function AlertDetails(props) {
       return <DhcpSpoofingAlertDetails alert={alert} />
     case "SPOOFING_NAME_RESOLUTION_POISONING":
       return <NameResolutionSpoofingAlertDetails alert={alert} />
+    case "SPOOFING_DNS_NEW":
+      return <DnsSpoofingAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
       return <IcmpAlertDetails alert={alert} />

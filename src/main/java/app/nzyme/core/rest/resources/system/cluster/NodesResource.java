@@ -281,6 +281,8 @@ public class NodesResource {
                     node.uuid(), MetricExternalName.SPOOFING_DHCP_DETECTION_RUN_TIMER.database_label, handle)));
             timers.put("spoofing_nameres_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.SPOOFING_NAMERES_DETECTION_RUN_TIMER.database_label, handle)));
+            timers.put("spoofing_dns_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.SPOOFING_DNS_DETECTION_RUN_TIMER.database_label, handle)));
 
             // Database connection pool.
             timers.put("database_pool_wait", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(

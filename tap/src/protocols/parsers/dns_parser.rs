@@ -4,7 +4,6 @@ use anyhow::{bail, Result};
 use bitvec::{order::Msb0, view::BitView};
 use byteorder::{BigEndian, ByteOrder};
 use bitreader::BitReader;
-use chrono::Utc;
 use entropy::shannon_entropy;
 use crate::helpers::network::is_ip_address;
 use crate::tracemark;
@@ -33,6 +32,11 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<DNSPacket> {
             tracemark!("Unexpected type flag: {}", e);
             return None;
         }
+    };
+
+    let response_code = match dns_type {
+        DNSType::QueryResponse => Some(response_code_name(udp.payload[3] & 0x0F)),
+        DNSType::Query => None
     };
 
     let question_count = BigEndian::read_u16(&udp.payload[4..6]);
@@ -126,9 +130,28 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<DNSPacket> {
         answer_count,
         queries,
         responses,
+        response_code,
         size,
-        timestamp: Utc::now()
+        timestamp: udp.timestamp
     })
+}
+
+// RFC 1035 and RFC 2136 response codes. Anything else is reported by number.
+fn response_code_name(code: u8) -> String {
+    match code {
+        0 => "NOERROR".to_string(),
+        1 => "FORMERR".to_string(),
+        2 => "SERVFAIL".to_string(),
+        3 => "NXDOMAIN".to_string(),
+        4 => "NOTIMP".to_string(),
+        5 => "REFUSED".to_string(),
+        6 => "YXDOMAIN".to_string(),
+        7 => "YXRRSET".to_string(),
+        8 => "NXRRSET".to_string(),
+        9 => "NOTAUTH".to_string(),
+        10 => "NOTZONE".to_string(),
+        other => format!("RCODE{}", other)
+    }
 }
 
 fn is_pointer(mask: u8) -> bool {

@@ -6,6 +6,7 @@ import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
 import app.nzyme.core.rest.responses.ethernet.spoofing.SpoofingConfigurationResponse;
+import app.nzyme.core.rest.responses.ethernet.spoofing.SpoofingConfigurationSectionResponse;
 import app.nzyme.plugin.RegistryKey;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
@@ -60,7 +61,13 @@ public class SpoofingResource extends TapDataHandlingResource {
             SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD,
             SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS,
             SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS,
-            SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW
+            SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW,
+            SpoofingRegistryKeys.DNS_DETECTION_ENABLED,
+            SpoofingRegistryKeys.DNS_DETECTION_WINDOW_MINUTES,
+            SpoofingRegistryKeys.DNS_OWNER_LOOKBACK_HOURS,
+            SpoofingRegistryKeys.DNS_MINIMUM_FORGED_REPLIES,
+            SpoofingRegistryKeys.DNS_RETENTION_TIME_DAYS,
+            SpoofingRegistryKeys.DNS_ALERT_ON_NEW
     };
 
     @Inject
@@ -70,8 +77,9 @@ public class SpoofingResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "findSpoofingConfiguration", summary = "Get the spoofing detection configuration of a tenant",
-            description = "Returns the spoofing detection settings of the tenant in two groups: detection "
-                    + "parameters and alerting. Requires the ethernet_monitoring_manage feature permission.")
+            description = "Returns the spoofing detection settings of the tenant as one section per detection "
+                    + "type, each with its detection parameters and alerting settings. Requires the "
+                    + "ethernet_monitoring_manage feature permission.")
     @ApiResponse(responseCode = "200", description = "Configuration found.",
             content = @Content(schema = @Schema(implementation = SpoofingConfigurationResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -82,31 +90,63 @@ public class SpoofingResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        List<ConfigurationEntryResponse> detection = Lists.newArrayList();
-        detection.add(booleanEntry(SpoofingRegistryKeys.ARP_DETECTION_ENABLED, "ARP poisoning detection enabled", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.ARP_DETECTION_WINDOW_MINUTES, "ARP poisoning: Detection window (Minutes)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.ARP_OWNER_LOOKBACK_HOURS, "ARP poisoning: Address owner lookback (Hours)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.ARP_MINIMUM_CLAIMS, "ARP poisoning: Minimum claims in window", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS, "ARP poisoning: Finding retention time (Days)", organizationId, tenantId));
-        detection.add(booleanEntry(SpoofingRegistryKeys.DHCP_DETECTION_ENABLED, "DHCP spoofing detection enabled", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "DHCP spoofing: Server learning period (Hours)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, "DHCP spoofing: Detection window (Minutes)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, "DHCP spoofing: Finding retention time (Days)", organizationId, tenantId));
-        detection.add(booleanEntry(SpoofingRegistryKeys.NAMERES_DETECTION_ENABLED, "Name resolution poisoning detection enabled", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_DETECTION_WINDOW_MINUTES, "Name resolution poisoning: Detection window (Minutes)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_LLMNR_NAME_THRESHOLD, "Name resolution poisoning: LLMNR names threshold", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_NBTNS_NAME_THRESHOLD, "Name resolution poisoning: NBT-NS names threshold", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD, "Name resolution poisoning: mDNS names threshold", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS, "Name resolution poisoning: Finding retention time (Days)", organizationId, tenantId));
-        detection.add(numberEntry(SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS, "Name resolution poisoning: Response retention time (Days)", organizationId, tenantId));
+        List<SpoofingConfigurationSectionResponse> sections = Lists.newArrayList();
 
-        List<ConfigurationEntryResponse> alerting = Lists.newArrayList();
-        alerting.add(booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning finding", organizationId, tenantId));
-        alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server", organizationId, tenantId));
-        alerting.add(booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP configuration", organizationId, tenantId));
-        alerting.add(booleanEntry(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, "Alert on name resolution poisoning", organizationId, tenantId));
+        sections.add(SpoofingConfigurationSectionResponse.create("arp", "ARP Poisoning",
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.ARP_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.ARP_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.ARP_OWNER_LOOKBACK_HOURS, "Address owner lookback (Hours)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.ARP_MINIMUM_CLAIMS, "Minimum claims in window", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId)
+                ),
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning finding", organizationId, tenantId)
+                )
+        ));
 
-        return Response.ok(SpoofingConfigurationResponse.create(detection, alerting)).build();
+        sections.add(SpoofingConfigurationSectionResponse.create("dhcp", "DHCP Spoofing",
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.DHCP_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "Server learning period (Hours)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId)
+                ),
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server", organizationId, tenantId),
+                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP configuration", organizationId, tenantId)
+                )
+        ));
+
+        sections.add(SpoofingConfigurationSectionResponse.create("name_resolution", "Name Resolution Poisoning",
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.NAMERES_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_LLMNR_NAME_THRESHOLD, "LLMNR names threshold", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_NBTNS_NAME_THRESHOLD, "NBT-NS names threshold", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD, "mDNS names threshold", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS, "Response retention time (Days)", organizationId, tenantId)
+                ),
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, "Alert on name resolution poisoning", organizationId, tenantId)
+                )
+        ));
+
+        sections.add(SpoofingConfigurationSectionResponse.create("dns", "DNS Spoofing",
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.DNS_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DNS_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DNS_OWNER_LOOKBACK_HOURS, "Resolver owner lookback (Hours)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DNS_MINIMUM_FORGED_REPLIES, "Minimum forged replies in window", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DNS_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId)
+                ),
+                List.of(
+                        booleanEntry(SpoofingRegistryKeys.DNS_ALERT_ON_NEW, "Alert on new DNS spoofing finding", organizationId, tenantId)
+                )
+        ));
+
+        return Response.ok(SpoofingConfigurationResponse.create(sections)).build();
     }
 
     @PUT

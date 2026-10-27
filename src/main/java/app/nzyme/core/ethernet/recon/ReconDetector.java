@@ -1113,6 +1113,7 @@ public class ReconDetector {
         return "WITH queries AS (SELECT q.client_address, q.client_mac, q.server_address, q.tap_uuid, " +
                 "q.transaction_id, q.timestamp, " + REVERSE_NAME_ADDRESS + " AS address, " +
                 "EXISTS (SELECT 1 FROM dns_log r WHERE r.dns_type = 'response' AND r.data_type = 'PTR' " +
+                "AND r.data_value IS NOT NULL " +
                 "AND r.transaction_id = q.transaction_id AND r.client_address = q.client_address " +
                 "AND r.server_address = q.server_address " +
                 "AND r.timestamp >= q.timestamp AND r.timestamp <= q.timestamp + interval '10 seconds') AS answered " +

@@ -1,26 +1,15 @@
-import React, {useEffect, useState} from "react";
-import LoadingSpinner from "../../misc/LoadingSpinner";
+import React from "react";
 import ConfigurationValue from "../../configuration/ConfigurationValue";
 import ConfigurationModal from "../../configuration/modal/ConfigurationModal";
 import SpoofingService from "../../../services/ethernet/SpoofingService";
 
 const spoofingService = new SpoofingService();
 
-export default function SpoofingConfiguration({organizationId, tenantId, section}) {
+export default function SpoofingConfiguration({organizationId, tenantId, entries, setConfig, setRevision}) {
 
-  const [config, setConfig] = useState(null);
-  const [revision, setRevision] = useState(new Date());
-
-  useEffect(() => {
-    setConfig(null);
-    spoofingService.getConfiguration(organizationId, tenantId, setConfig);
-  }, [organizationId, tenantId, revision]);
-
-  if (!config) {
-    return <LoadingSpinner />
+  if (!entries || entries.length === 0) {
+    return null;
   }
-
-  const entries = config[section];
 
   return (
     <table className="table table-sm table-hover table-striped mt-3 mb-0">

@@ -188,6 +188,7 @@ public class NzymeHttpServer {
         resourceConfig.register(SpoofingArpResource.class);
         resourceConfig.register(SpoofingDhcpResource.class);
         resourceConfig.register(SpoofingNameResolutionResource.class);
+        resourceConfig.register(SpoofingDnsResource.class);
         resourceConfig.register(SpoofingExclusionsResource.class);
         resourceConfig.register(IcmpResource.class);
         resourceConfig.register(L4Resource.class);

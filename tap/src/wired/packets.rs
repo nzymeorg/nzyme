@@ -207,6 +207,7 @@ pub struct DNSPacket {
     pub answer_count: u16,
     pub queries: Option<Vec<DNSData>>,
     pub responses: Option<Vec<DNSData>>,
+    pub response_code: Option<String>,
     pub size: u32,
     pub timestamp: DateTime<Utc>
 }

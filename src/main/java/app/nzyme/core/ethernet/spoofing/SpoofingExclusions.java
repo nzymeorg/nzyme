@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
 import app.nzyme.core.util.filters.FilterSql;
@@ -274,6 +275,12 @@ public class SpoofingExclusions {
                 }
             }
 
+            for (DnsSpoofingFindingEntry finding : spoofing.findAllDnsFindingsOfTenant(handle, organizationId, tenantId)) {
+                if (matchesDnsFinding(matcher, finding)) {
+                    spoofing.deleteDnsFindingById(handle, finding.id());
+                }
+            }
+
             return impact;
         });
     }
@@ -290,6 +297,11 @@ public class SpoofingExclusions {
     // For name resolution, the MAC is the responder's MAC and the address is any address the responder answered from.
     public static boolean matchesNameResolutionFinding(SpoofingExclusionMatcher matcher, NameResolutionSpoofingFindingEntry finding) {
         return matchesNameResolutionResponder(matcher, finding.responderAddresses(), finding.responderMac());
+    }
+
+    // For DNS, the address is the impersonated resolver's address and the MAC is the device forging its replies.
+    public static boolean matchesDnsFinding(SpoofingExclusionMatcher matcher, DnsSpoofingFindingEntry finding) {
+        return matcher.matches(SpoofingType.DNS, finding.serverAddress(), finding.spooferMac());
     }
 
     public static boolean matchesNameResolutionResponder(SpoofingExclusionMatcher matcher, Collection<String> addresses, String mac) {
@@ -341,6 +353,16 @@ public class SpoofingExclusions {
             ));
         }
 
+        for (DnsSpoofingFindingEntry finding : spoofing.findAllDnsFindingsOfTenant(handle, organizationId, tenantId)) {
+            if (!matchesDnsFinding(matcher, finding)) {
+                continue;
+            }
+
+            matched.add(new MatchedFinding(
+                    finding.uuid(), SpoofingType.DNS.name(), finding.serverAddress(), finding.spooferMac()
+            ));
+        }
+
         if (matched.isEmpty()) {
             return Impact.empty();
         }
@@ -369,6 +391,18 @@ public class SpoofingExclusions {
         List<SpoofingExclusionEntry> result = Lists.newArrayList();
         for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
             if (matchesDhcpFinding(e.getValue(), finding)) {
+                result.add(e.getKey());
+            }
+        }
+
+        return result;
+    }
+
+    public List<SpoofingExclusionEntry> findMatchingExclusions(DnsSpoofingFindingEntry finding,
+                                                               Map<SpoofingExclusionEntry, SpoofingExclusionMatcher> compiled) {
+        List<SpoofingExclusionEntry> result = Lists.newArrayList();
+        for (Map.Entry<SpoofingExclusionEntry, SpoofingExclusionMatcher> e : compiled.entrySet()) {
+            if (matchesDnsFinding(e.getValue(), finding)) {
                 result.add(e.getKey());
             }
         }

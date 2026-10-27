@@ -193,7 +193,7 @@ public class DNSTable implements DataTable {
                 "server_address_geo_asn_name, server_address_geo_asn_domain, server_address_geo_city, " +
                 "server_address_geo_country_code, server_address_geo_latitude, server_address_geo_longitude, " +
                 "server_address_is_site_local, server_address_is_multicast, server_address_is_loopback, " +
-                "data_value, data_value_etld, data_type, timestamp, created_at) VALUES(:uuid, :tap_uuid, " +
+                "data_value, data_value_etld, data_type, response_code, timestamp, created_at) VALUES(:uuid, :tap_uuid, " +
                 ":transaction_id, :dns_type, :client_address::inet, :client_port, :client_mac, " +
                 ":client_address_geo_asn_number, :client_address_geo_asn_name, :client_address_geo_asn_domain, " +
                 ":client_address_geo_city, :client_address_geo_country_code, :client_address_geo_latitude, " +
@@ -202,7 +202,7 @@ public class DNSTable implements DataTable {
                 ":server_address_geo_asn_number, :server_address_geo_asn_name, :server_address_geo_asn_domain, " +
                 ":server_address_geo_city, :server_address_geo_country_code, :server_address_geo_latitude, " +
                 ":server_address_geo_longitude, :server_address_is_site_local, :server_address_is_multicast, " +
-                ":server_address_is_loopback, :data_value, :data_value_etld, :data_type, :timestamp, NOW())");
+                ":server_address_is_loopback, :data_value, :data_value_etld, :data_type, :response_code, :timestamp, NOW())");
 
         for (DnsLogReport d : queries) {
             InetAddress serverAddress = stringtoInetAddress(d.serverAddress());
@@ -245,6 +245,7 @@ public class DNSTable implements DataTable {
                     .bind("data_value", d.dataValue())
                     .bind("data_value_etld", d.dataValueEtld())
                     .bind("data_type", d.dataType())
+                    .bind("response_code", d.responseCode())
                     .bind("timestamp", d.timestamp())
                     .add();
         }
@@ -290,6 +291,7 @@ public class DNSTable implements DataTable {
                     .bind("data_value", d.dataValue())
                     .bind("data_value_etld", d.dataValueEtld())
                     .bind("data_type", d.dataType())
+                    .bind("response_code", d.responseCode())
                     .bind("timestamp", d.timestamp())
                     .add();
         }

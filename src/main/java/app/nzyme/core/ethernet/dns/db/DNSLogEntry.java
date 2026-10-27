@@ -16,15 +16,19 @@ public abstract class DNSLogEntry {
     public abstract int transactionId();
     public abstract L4AddressData client();
     public abstract L4AddressData server();
+    @Nullable
     public abstract String dataValue();
     @Nullable
     public abstract String dataValueEtld();
     public abstract String dataType();
     public abstract String dnsType();
+
+    @Nullable
+    public abstract String responseCode();
     public abstract DateTime timestamp();
     public abstract DateTime createdAt();
 
-    public static DNSLogEntry create(long id, UUID uuid, UUID tapUUID, int transactionId, L4AddressData client, L4AddressData server, String dataValue, String dataValueEtld, String dataType, String dnsType, DateTime timestamp, DateTime createdAt) {
+    public static DNSLogEntry create(long id, UUID uuid, UUID tapUUID, int transactionId, L4AddressData client, L4AddressData server, String dataValue, String dataValueEtld, String dataType, String dnsType, String responseCode, DateTime timestamp, DateTime createdAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -36,6 +40,7 @@ public abstract class DNSLogEntry {
                 .dataValueEtld(dataValueEtld)
                 .dataType(dataType)
                 .dnsType(dnsType)
+                .responseCode(responseCode)
                 .timestamp(timestamp)
                 .createdAt(createdAt)
                 .build();
@@ -66,6 +71,8 @@ public abstract class DNSLogEntry {
         public abstract Builder dataType(String dataType);
 
         public abstract Builder dnsType(String dnsType);
+
+        public abstract Builder responseCode(String responseCode);
 
         public abstract Builder timestamp(DateTime timestamp);
 

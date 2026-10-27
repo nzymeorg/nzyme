@@ -282,6 +282,10 @@ const ApiRoutes = {
         INDEX: '/ethernet/spoofing/nameres',
         DETAILS: uuid => `/ethernet/spoofing/nameres/show/${uuid}`
       },
+      DNS: {
+        INDEX: '/ethernet/spoofing/dns',
+        DETAILS: uuid => `/ethernet/spoofing/dns/show/${uuid}`
+      },
       SETTINGS: '/ethernet/spoofing/settings',
       EXCLUSIONS: {
         INDEX: '/ethernet/spoofing/exclusions',

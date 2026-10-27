@@ -36,10 +36,14 @@ public abstract class DnsLogReport {
     public abstract String serverMac();
     public abstract int clientPort();
     public abstract int serverPort();
+    @Nullable
     public abstract String dataValue();
     @Nullable
     public abstract String dataValueEtld();
     public abstract String dataType();
+
+    @Nullable
+    public abstract String responseCode();
     public abstract DateTime timestamp();
 
     @JsonCreator
@@ -53,6 +57,7 @@ public abstract class DnsLogReport {
                                       @JsonProperty("data_value") String dataValue,
                                       @JsonProperty("data_value_etld") String dataValueEtld,
                                       @JsonProperty("data_type") String dataType,
+                                      @JsonProperty("response_code") String responseCode,
                                       @JsonProperty("timestamp") DateTime timestamp) {
         return builder()
                 .transactionId(transactionId)
@@ -65,6 +70,7 @@ public abstract class DnsLogReport {
                 .dataValue(dataValue)
                 .dataValueEtld(dataValueEtld)
                 .dataType(dataType)
+                .responseCode(responseCode)
                 .timestamp(timestamp)
                 .build();
     }
@@ -94,6 +100,8 @@ public abstract class DnsLogReport {
         public abstract Builder dataValueEtld(String dataValueEtld);
 
         public abstract Builder dataType(String dataType);
+
+        public abstract Builder responseCode(String responseCode);
 
         public abstract Builder timestamp(DateTime timestamp);
 

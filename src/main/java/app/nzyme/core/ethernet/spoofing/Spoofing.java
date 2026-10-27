@@ -7,6 +7,8 @@ import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingVictimEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntry;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingVictimEntry;
+import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingFindingEntry;
+import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingVictimEntry;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingVictimEntry;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
@@ -165,7 +167,13 @@ public class Spoofing {
                 intValue(SpoofingRegistryKeys.NAMERES_MDNS_NAME_THRESHOLD, organizationId, tenantId),
                 intValue(SpoofingRegistryKeys.NAMERES_RETENTION_TIME_DAYS, organizationId, tenantId),
                 intValue(SpoofingRegistryKeys.NAMERES_RESPONSES_RETENTION_TIME_DAYS, organizationId, tenantId),
-                booleanValue(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, organizationId, tenantId)
+                booleanValue(SpoofingRegistryKeys.NAMERES_ALERT_ON_NEW, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.DNS_DETECTION_ENABLED, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DNS_DETECTION_WINDOW_MINUTES, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DNS_OWNER_LOOKBACK_HOURS, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DNS_MINIMUM_FORGED_REPLIES, organizationId, tenantId),
+                intValue(SpoofingRegistryKeys.DNS_RETENTION_TIME_DAYS, organizationId, tenantId),
+                booleanValue(SpoofingRegistryKeys.DNS_ALERT_ON_NEW, organizationId, tenantId)
         );
     }
 
@@ -1297,7 +1305,7 @@ public class Spoofing {
                         .one()
         );
     }
-    
+
     public List<NameResolutionResponder> findNameResolutionResponders(List<UUID> taps,
                                                                       TimeRange timeRange,
                                                                       int limit,
@@ -1346,6 +1354,287 @@ public class Spoofing {
                             );
                         })
                         .list()
+        );
+    }
+
+    public enum DnsOrderColumn {
+
+        SERVER_ADDRESS("server_address"),
+        SPOOFER_MAC("spoofer_mac"),
+        OWNER_MAC("owner_mac"),
+        FORGED_COUNT("forged_count"),
+        WON_COUNT("won_count"),
+        NAME_COUNT("name_count"),
+        VICTIM_COUNT("victim_count"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        DnsOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
+    public record DnsVictimRecord(String mac, @Nullable String address, List<String> names, long forgedCount,
+                                  long wonCount, long unansweredCount, DateTime firstSeen, DateTime lastSeen) { }
+
+    public long countDnsFindings(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DnsSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM spoofing_dns_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DnsSpoofingFindingEntry> findAllDnsFindings(Filters filters,
+                                                            TimeRange timeRange,
+                                                            DnsOrderColumn orderColumn,
+                                                            OrderDirection orderDirection,
+                                                            int limit,
+                                                            int offset,
+                                                            UUID organizationId,
+                                                            UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DnsSpoofingFindingFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dns_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql() +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(DnsSpoofingFindingEntry.class)
+                        .list()
+        );
+    }
+
+    public List<GenericIntegerHistogramEntry> activeDnsFindingsHistogram(Filters filters,
+                                                                         UUID organizationId,
+                                                                         UUID tenantId,
+                                                                         TimeRange timeRange,
+                                                                         Bucketing.BucketingConfiguration bucketing) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DnsSpoofingFindingFilters("f"));
+
+        String step = "1 " + bucketing.type().getDateTruncName();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.bucket AS bucket, COUNT(f.id)::integer AS value " +
+                                "FROM generate_series(date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                                ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
+                                "LEFT JOIN spoofing_dns_findings f ON f.organization_id = :organization_id " +
+                                "AND f.tenant_id = :tenant_id AND f.first_seen < b.bucket + :step::interval " +
+                                "AND f.last_seen >= b.bucket " + filterFragment.whereSql() +
+                                "GROUP BY b.bucket ORDER BY b.bucket DESC")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindMap(filterFragment.bindings())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("step", step)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public Optional<DnsSpoofingFindingEntry> findDnsFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dns_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(DnsSpoofingFindingEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<DnsSpoofingFindingEntry> findDnsFindingById(Handle handle, long id) {
+        return handle.createQuery("SELECT * FROM spoofing_dns_findings WHERE id = :id")
+                .bind("id", id)
+                .mapTo(DnsSpoofingFindingEntry.class)
+                .findOne();
+    }
+
+    public List<DnsSpoofingFindingEntry> findAllDnsFindingsOfTenant(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT * FROM spoofing_dns_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .mapTo(DnsSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public List<DnsSpoofingFindingEntry> findActiveDnsFindingsOfTenant(Handle handle,
+                                                                       UUID organizationId,
+                                                                       UUID tenantId,
+                                                                       DateTime activeSince) {
+        return handle.createQuery("SELECT * FROM spoofing_dns_findings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id AND last_seen >= :active_since")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("active_since", activeSince)
+                .mapTo(DnsSpoofingFindingEntry.class)
+                .list();
+    }
+
+    public DnsSpoofingFindingEntry createDnsFinding(Handle handle,
+                                                    UUID organizationId,
+                                                    UUID tenantId,
+                                                    String serverAddress,
+                                                    String spooferMac,
+                                                    String ownerMac,
+                                                    DateTime firstSeen,
+                                                    DateTime lastSeen) {
+        return handle.createQuery("INSERT INTO spoofing_dns_findings(uuid, organization_id, tenant_id, " +
+                        "server_address, spoofer_mac, owner_mac, forged_count, won_count, unanswered_count, names, " +
+                        "name_count, answers, victim_count, tap_uuids, first_seen, last_seen, created_at, updated_at) " +
+                        "VALUES(:uuid, :organization_id, :tenant_id, :server_address::inet, :spoofer_mac, :owner_mac, " +
+                        "0, 0, 0, '[]'::jsonb, 0, '[]'::jsonb, 0, '[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) " +
+                        "RETURNING *")
+                .bind("uuid", UUID.randomUUID())
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("server_address", serverAddress)
+                .bind("spoofer_mac", spooferMac)
+                .bind("owner_mac", ownerMac)
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .mapTo(DnsSpoofingFindingEntry.class)
+                .one();
+    }
+
+    public void addDnsFindingActivity(Handle handle,
+                                      long id,
+                                      long forgedCount,
+                                      long wonCount,
+                                      long unansweredCount,
+                                      List<String> names,
+                                      List<String> answers,
+                                      Collection<UUID> existingTaps,
+                                      Collection<UUID> newTaps,
+                                      DateTime lastSeen) {
+        handle.createUpdate("UPDATE spoofing_dns_findings SET forged_count = forged_count + :forged_count, " +
+                        "won_count = won_count + :won_count, " +
+                        "unanswered_count = unanswered_count + :unanswered_count, " +
+                        "names = :names::jsonb, name_count = :name_count, answers = :answers::jsonb, " +
+                        "victim_count = (SELECT COUNT(*) FROM spoofing_dns_victims WHERE finding_id = :id), " +
+                        "tap_uuids = :tap_uuids::jsonb, last_seen = GREATEST(last_seen, :last_seen), " +
+                        "updated_at = NOW() WHERE id = :id")
+                .bind("id", id)
+                .bind("forged_count", forgedCount)
+                .bind("won_count", wonCount)
+                .bind("unanswered_count", unansweredCount)
+                .bind("names", NameResolutionJson.toJson(names))
+                .bind("name_count", names.size())
+                .bind("answers", NameResolutionJson.toJson(answers))
+                .bind("tap_uuids", tapsJson(existingTaps, newTaps))
+                .bind("last_seen", lastSeen)
+                .execute();
+    }
+
+    public void upsertDnsVictims(Handle handle, long findingId, List<DnsVictimRecord> victims) {
+        if (victims.isEmpty()) {
+            return;
+        }
+
+        PreparedBatch batch = handle.prepareBatch("INSERT INTO spoofing_dns_victims(finding_id, mac, address, " +
+                "names, forged_count, won_count, unanswered_count, first_seen, last_seen) VALUES(:finding_id, :mac, " +
+                ":address::inet, :names::jsonb, :forged_count, :won_count, :unanswered_count, :first_seen, :last_seen) " +
+                "ON CONFLICT (finding_id, mac) DO UPDATE SET " +
+                "address = COALESCE(EXCLUDED.address, spoofing_dns_victims.address), " +
+                "names = (SELECT COALESCE(jsonb_agg(n), '[]'::jsonb) FROM (SELECT DISTINCT n " +
+                "FROM jsonb_array_elements(spoofing_dns_victims.names || EXCLUDED.names) n LIMIT 50) x), " +
+                "forged_count = spoofing_dns_victims.forged_count + EXCLUDED.forged_count, " +
+                "won_count = spoofing_dns_victims.won_count + EXCLUDED.won_count, " +
+                "unanswered_count = spoofing_dns_victims.unanswered_count + EXCLUDED.unanswered_count, " +
+                "first_seen = LEAST(spoofing_dns_victims.first_seen, EXCLUDED.first_seen), " +
+                "last_seen = GREATEST(spoofing_dns_victims.last_seen, EXCLUDED.last_seen)");
+
+        for (DnsVictimRecord v : victims) {
+            batch.bind("finding_id", findingId)
+                    .bind("mac", v.mac())
+                    .bind("address", v.address())
+                    .bind("names", NameResolutionJson.toJson(v.names()))
+                    .bind("forged_count", v.forgedCount())
+                    .bind("won_count", v.wonCount())
+                    .bind("unanswered_count", v.unansweredCount())
+                    .bind("first_seen", v.firstSeen())
+                    .bind("last_seen", v.lastSeen())
+                    .add();
+        }
+
+        batch.execute();
+    }
+
+    public List<DnsSpoofingVictimEntry> findDnsVictims(long findingId, int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM spoofing_dns_victims WHERE finding_id = :finding_id " +
+                                "ORDER BY forged_count DESC, mac ASC LIMIT :limit")
+                        .bind("finding_id", findingId)
+                        .bind("limit", limit)
+                        .mapTo(DnsSpoofingVictimEntry.class)
+                        .list()
+        );
+    }
+
+    public void deleteDnsFinding(UUID uuid, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dns_findings WHERE uuid = :uuid " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("uuid", uuid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteDnsFindingById(Handle handle, long id) {
+        handle.createUpdate("DELETE FROM spoofing_dns_findings WHERE id = :id")
+                .bind("id", id)
+                .execute();
+    }
+
+    public int deleteAllDnsFindings(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dns_findings WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void retentionCleanDnsFindings(UUID organizationId, UUID tenantId, DateTime cutoff) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM spoofing_dns_findings WHERE organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id AND last_seen < :cutoff")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", cutoff)
+                        .execute()
         );
     }
 

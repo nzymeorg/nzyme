@@ -7,6 +7,7 @@ const detailsLink = (f) => {
   switch (f.type) {
     case "DHCP": return ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(f.uuid);
     case "NAME_RESOLUTION": return ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.DETAILS(f.uuid);
+    case "DNS": return ApiRoutes.ETHERNET.SPOOFING.DNS.DETAILS(f.uuid);
     default: return ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(f.uuid);
   }
 }
@@ -50,7 +51,7 @@ export default function SpoofingExclusionImpact({impact, compact = false}) {
             <li key={f.uuid}>
               <a href={detailsLink(f)} target="_blank" rel="noreferrer">
                 {spoofingTypeToName(f.type)}
-                {f.type === "NAME_RESOLUTION" ? " by " : f.type === "DHCP" ? " by server " : " of "}
+                {f.type === "NAME_RESOLUTION" ? " by " : f.type === "DHCP" ? " by server " : f.type === "DNS" ? " of resolver " : " of "}
                 <span className="machine-data">{f.type === "NAME_RESOLUTION" ? f.mac : f.address}</span>
               </a>{' '}
               {f.type === "NAME_RESOLUTION" ?

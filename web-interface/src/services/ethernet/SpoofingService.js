@@ -115,6 +115,33 @@ export default class SpoofingService {
     RESTClient.delete(`/ethernet/spoofing/nameres/organization/${organizationId}/tenant/${tenantId}`, successCallback);
   }
 
+  findAllDnsFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
+    RESTClient.get("/ethernet/spoofing/dns", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setFindings(response.data));
+  }
+
+  findActiveDnsFindingsHistogram(organizationId, tenantId, filters, timeRange, setHistogram) {
+    RESTClient.get("/ethernet/spoofing/dns/histogram/active", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange
+    }, (response) => setHistogram(response.data));
+  }
+
+  findDnsFinding(uuid, organizationId, tenantId, setFinding, onError = undefined) {
+    RESTClient.get(`/ethernet/spoofing/dns/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setFinding(response.data), onError);
+  }
+
+  deleteDnsFinding(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/dns/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  deleteAllDnsFindings(organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/spoofing/dns/organization/${organizationId}/tenant/${tenantId}`, successCallback);
+  }
+
   findNameResolutionResponders(organizationId, tenantId, timeRange, limit, offset, setResponders) {
     RESTClient.get("/ethernet/spoofing/nameres/responders", {
       organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, limit: limit, offset: offset

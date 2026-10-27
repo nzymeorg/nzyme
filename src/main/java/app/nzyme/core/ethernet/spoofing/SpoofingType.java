@@ -4,7 +4,8 @@ public enum SpoofingType {
 
     ARP("ARP Poisoning"),
     DHCP("DHCP Spoofing"),
-    NAME_RESOLUTION("Name Resolution Poisoning");
+    NAME_RESOLUTION("Name Resolution Poisoning"),
+    DNS("DNS Spoofing");
 
     private final String humanReadable;
 

@@ -69,9 +69,10 @@ pub struct DNSResponseLog {
     server_mac: Option<String>,
     client_port: u16,
     server_port: u16,
-    response_value: String,
+    response_value: Option<String>,
     response_value_etld: Option<String>,
     data_type: String,
+    response_code: Option<String>,
     timestamp: DateTime<Utc>
 }
 
@@ -168,7 +169,7 @@ impl DnsTable {
             return;
         }
 
-        let is_nxdomain = response.answer_count == 0;
+        let is_nxdomain = response.response_code.as_deref() == Some("NXDOMAIN");
 
         let destination_address = &response.destination_address;
         match self.ips.lock() {
@@ -221,6 +222,7 @@ impl DnsTable {
         // Log.
         match self.response_log.lock() {
             Ok(mut log) => {
+                let mut logged = 0;
                 if let Some(responses) = &response.responses {
                     for response_data in responses {
                         if let Some(response_value) = &response_data.value {
@@ -232,13 +234,45 @@ impl DnsTable {
                                 server_mac: response.source_mac.clone(),
                                 client_port: response.destination_port,
                                 server_port: response.source_port,
-                                response_value: response_value.to_string(),
+                                response_value: Some(response_value.to_string()),
                                 response_value_etld: response_data.value_etld.clone(),
                                 data_type: response_data.dns_type.to_string(),
+                                response_code: response.response_code.clone(),
                                 timestamp: response.timestamp
                             });
+                            logged += 1;
                         }
                     }
+                }
+
+                /*
+                 * A response without any answer we could log (NXDOMAIN, SERVFAIL, REFUSED, or only record
+                 * types we don't render) is still a response. Log it once, with the type that was asked for,
+                 * so that the transaction shows as answered and the response code is kept.
+                 */
+                if logged == 0 {
+                    let data_type = response.queries.as_ref()
+                        .and_then(|q| q.first())
+                        .map(|q| q.dns_type.to_string())
+                        .or_else(|| response.responses.as_ref()
+                            .and_then(|r| r.first())
+                            .map(|r| r.dns_type.to_string()))
+                        .unwrap_or_else(|| "UNKNOWN".to_string());
+
+                    log.push(DNSResponseLog {
+                        transaction_id: response.transaction_id,
+                        client_address: response.destination_address,
+                        server_address: response.source_address,
+                        client_mac: response.destination_mac.clone(),
+                        server_mac: response.source_mac.clone(),
+                        client_port: response.destination_port,
+                        server_port: response.source_port,
+                        response_value: None,
+                        response_value_etld: None,
+                        data_type,
+                        response_code: response.response_code.clone(),
+                        timestamp: response.timestamp
+                    });
                 }
             },
             Err(e) => error!("Could not acquire retro response log mutex: {}", e)
@@ -334,9 +368,10 @@ impl DnsTable {
                         server_mac: r.server_mac.clone(),
                         client_port: r.client_port,
                         server_port: r.server_port,
-                        data_value: r.query_value.clone(),
+                        data_value: Some(r.query_value.clone()),
                         data_value_etld: r.query_value_etld.clone(),
                         data_type: r.data_type.clone(),
+                        response_code: None,
                         timestamp: r.timestamp,
                     });
                 }
@@ -365,6 +400,7 @@ impl DnsTable {
                         data_value: r.response_value.clone(),
                         data_value_etld: r.response_value_etld.clone(),
                         data_type: r.data_type.clone(),
+                        response_code: r.response_code.clone(),
                         timestamp: r.timestamp,
                     });
                 }

@@ -27,8 +27,14 @@ public abstract class SpoofingConfiguration {
     public abstract int nameresRetentionTimeDays();
     public abstract int nameresResponsesRetentionTimeDays();
     public abstract boolean nameresAlertOnNew();
+    public abstract boolean dnsDetectionEnabled();
+    public abstract int dnsDetectionWindowMinutes();
+    public abstract int dnsOwnerLookbackHours();
+    public abstract int dnsMinimumForgedReplies();
+    public abstract int dnsRetentionTimeDays();
+    public abstract boolean dnsAlertOnNew();
 
-    public static SpoofingConfiguration create(boolean arpDetectionEnabled, int arpDetectionWindowMinutes, int arpOwnerLookbackHours, int arpMinimumClaims, int arpRetentionTimeDays, boolean arpAlertOnNew, boolean dhcpDetectionEnabled, int dhcpLearningPeriodHours, int dhcpDetectionWindowMinutes, int dhcpRetentionTimeDays, boolean dhcpAlertOnRogueServer, boolean dhcpAlertOnParametersChanged, boolean nameresDetectionEnabled, int nameresDetectionWindowMinutes, int nameresLlmnrNameThreshold, int nameresNbtnsNameThreshold, int nameresMdnsNameThreshold, int nameresRetentionTimeDays, int nameresResponsesRetentionTimeDays, boolean nameresAlertOnNew) {
+    public static SpoofingConfiguration create(boolean arpDetectionEnabled, int arpDetectionWindowMinutes, int arpOwnerLookbackHours, int arpMinimumClaims, int arpRetentionTimeDays, boolean arpAlertOnNew, boolean dhcpDetectionEnabled, int dhcpLearningPeriodHours, int dhcpDetectionWindowMinutes, int dhcpRetentionTimeDays, boolean dhcpAlertOnRogueServer, boolean dhcpAlertOnParametersChanged, boolean nameresDetectionEnabled, int nameresDetectionWindowMinutes, int nameresLlmnrNameThreshold, int nameresNbtnsNameThreshold, int nameresMdnsNameThreshold, int nameresRetentionTimeDays, int nameresResponsesRetentionTimeDays, boolean nameresAlertOnNew, boolean dnsDetectionEnabled, int dnsDetectionWindowMinutes, int dnsOwnerLookbackHours, int dnsMinimumForgedReplies, int dnsRetentionTimeDays, boolean dnsAlertOnNew) {
         return builder()
                 .arpDetectionEnabled(arpDetectionEnabled)
                 .arpDetectionWindowMinutes(arpDetectionWindowMinutes)
@@ -50,6 +56,12 @@ public abstract class SpoofingConfiguration {
                 .nameresRetentionTimeDays(nameresRetentionTimeDays)
                 .nameresResponsesRetentionTimeDays(nameresResponsesRetentionTimeDays)
                 .nameresAlertOnNew(nameresAlertOnNew)
+                .dnsDetectionEnabled(dnsDetectionEnabled)
+                .dnsDetectionWindowMinutes(dnsDetectionWindowMinutes)
+                .dnsOwnerLookbackHours(dnsOwnerLookbackHours)
+                .dnsMinimumForgedReplies(dnsMinimumForgedReplies)
+                .dnsRetentionTimeDays(dnsRetentionTimeDays)
+                .dnsAlertOnNew(dnsAlertOnNew)
                 .build();
     }
 
@@ -79,6 +91,12 @@ public abstract class SpoofingConfiguration {
         public abstract Builder nameresRetentionTimeDays(int nameresRetentionTimeDays);
         public abstract Builder nameresResponsesRetentionTimeDays(int nameresResponsesRetentionTimeDays);
         public abstract Builder nameresAlertOnNew(boolean nameresAlertOnNew);
+        public abstract Builder dnsDetectionEnabled(boolean dnsDetectionEnabled);
+        public abstract Builder dnsDetectionWindowMinutes(int dnsDetectionWindowMinutes);
+        public abstract Builder dnsOwnerLookbackHours(int dnsOwnerLookbackHours);
+        public abstract Builder dnsMinimumForgedReplies(int dnsMinimumForgedReplies);
+        public abstract Builder dnsRetentionTimeDays(int dnsRetentionTimeDays);
+        public abstract Builder dnsAlertOnNew(boolean dnsAlertOnNew);
         public abstract SpoofingConfiguration build();
     }
 }

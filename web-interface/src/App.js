@@ -188,6 +188,8 @@ import DhcpSpoofingPage from "./components/ethernet/spoofing/DhcpSpoofingPage";
 import DhcpSpoofingFindingDetailsPage from "./components/ethernet/spoofing/DhcpSpoofingFindingDetailsPage";
 import NameResolutionSpoofingPage from "./components/ethernet/spoofing/NameResolutionSpoofingPage";
 import NameResolutionSpoofingFindingDetailsPage from "./components/ethernet/spoofing/NameResolutionSpoofingFindingDetailsPage";
+import DnsSpoofingPage from "./components/ethernet/spoofing/DnsSpoofingPage";
+import DnsSpoofingFindingDetailsPage from "./components/ethernet/spoofing/DnsSpoofingFindingDetailsPage";
 import SpoofingSettingsPage from "./components/ethernet/spoofing/SpoofingSettingsPage";
 import SpoofingExclusionsPage from "./components/ethernet/spoofing/exclusions/SpoofingExclusionsPage";
 import CreateSpoofingExclusionPage from "./components/ethernet/spoofing/exclusions/CreateSpoofingExclusionPage";
@@ -693,6 +695,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(':uuid')} element={<DhcpSpoofingFindingDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.INDEX} element={<NameResolutionSpoofingPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.DETAILS(':uuid')} element={<NameResolutionSpoofingFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.DNS.INDEX} element={<DnsSpoofingPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SPOOFING.DNS.DETAILS(':uuid')} element={<DnsSpoofingFindingDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.SETTINGS} element={<SpoofingSettingsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.INDEX} element={<SpoofingExclusionsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.CREATE} element={<CreateSpoofingExclusionPage />}/>

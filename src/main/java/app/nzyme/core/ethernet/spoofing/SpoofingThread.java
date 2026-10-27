@@ -14,12 +14,14 @@ public class SpoofingThread extends Periodical {
     private final ArpSpoofingDetector arpDetector;
     private final DhcpSpoofingDetector dhcpDetector;
     private final NameResolutionSpoofingDetector nameresDetector;
+    private final DnsSpoofingDetector dnsDetector;
 
     public SpoofingThread(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.arpDetector = new ArpSpoofingDetector(nzyme);
         this.dhcpDetector = new DhcpSpoofingDetector(nzyme);
         this.nameresDetector = new NameResolutionSpoofingDetector(nzyme);
+        this.dnsDetector = new DnsSpoofingDetector(nzyme);
     }
 
     @Override
@@ -43,6 +45,13 @@ public class SpoofingThread extends Periodical {
                 nameresDetector.runForTenant(tenant.organizationUuid(), tenant.uuid());
             } catch (Exception e) {
                 LOG.error("Could not run name resolution spoofing detection for tenant [{}/{}]. Skipping.",
+                        tenant.organizationUuid(), tenant.uuid(), e);
+            }
+
+            try {
+                dnsDetector.runForTenant(tenant.organizationUuid(), tenant.uuid());
+            } catch (Exception e) {
+                LOG.error("Could not run DNS spoofing detection for tenant [{}/{}]. Skipping.",
                         tenant.organizationUuid(), tenant.uuid(), e);
             }
         }

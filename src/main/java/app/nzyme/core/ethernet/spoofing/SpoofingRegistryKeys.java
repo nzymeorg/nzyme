@@ -44,6 +44,18 @@ public class SpoofingRegistryKeys {
     public static final RegistryKey NAMERES_RESPONSES_RETENTION_TIME_DAYS =
             numberKey("ethernet_spoofing_nameres_responses_retention_time_days", 1, 3650, 1);
 
+    // DNS spoofing.
+    public static final RegistryKey DNS_DETECTION_ENABLED =
+            booleanKey("ethernet_spoofing_dns_detection_enabled", true);
+    public static final RegistryKey DNS_DETECTION_WINDOW_MINUTES =
+            numberKey("ethernet_spoofing_dns_detection_window_minutes", 1, 1440, 10);
+    public static final RegistryKey DNS_OWNER_LOOKBACK_HOURS =
+            numberKey("ethernet_spoofing_dns_owner_lookback_hours", 1, 720, 24);
+    public static final RegistryKey DNS_MINIMUM_FORGED_REPLIES =
+            numberKey("ethernet_spoofing_dns_minimum_forged_replies", 1, 100000, 3);
+    public static final RegistryKey DNS_RETENTION_TIME_DAYS =
+            numberKey("ethernet_spoofing_dns_retention_time_days", 1, 3650, 365);
+
     // Alerting.
     public static final RegistryKey ARP_ALERT_ON_NEW = booleanKey("ethernet_spoofing_arp_alert_on_new", true);
     public static final RegistryKey DHCP_ALERT_ON_ROGUE_SERVER =
@@ -52,6 +64,8 @@ public class SpoofingRegistryKeys {
             booleanKey("ethernet_spoofing_dhcp_alert_on_parameters_changed", true);
     public static final RegistryKey NAMERES_ALERT_ON_NEW =
             booleanKey("ethernet_spoofing_nameres_alert_on_new", true);
+    public static final RegistryKey DNS_ALERT_ON_NEW =
+            booleanKey("ethernet_spoofing_dns_alert_on_new", true);
 
     private static RegistryKey booleanKey(String key, boolean defaultValue) {
         return RegistryKey.create(

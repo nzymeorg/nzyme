@@ -10702,4 +10702,114 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="dns_log_response_code" author="lennartkoopmann">
+        <dropNotNullConstraint tableName="dns_log" columnName="data_value" />
+        <addColumn tableName="dns_log">
+            <column name="response_code" type="varchar(16)" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_spoofing_dns_tables" author="lennartkoopmann">
+        <createTable tableName="spoofing_dns_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="server_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="spoofer_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="owner_mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="forged_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="won_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unanswered_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="names" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="name_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="answers" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="victim_count" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" />
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_dns_findings" indexName="spoofing_dns_findings_uuid" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="spoofing_dns_findings" indexName="spoofing_dns_findings_tenant_last_seen">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="spoofing_dns_victims">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="finding_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="spoofing_dns_victims_finding_id" references="spoofing_dns_findings(id)" deleteCascade="true" />
+            </column>
+            <column name="mac" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="address" type="inet" />
+            <column name="names" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="forged_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="won_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="unanswered_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="spoofing_dns_victims" indexName="spoofing_dns_victims_identity" unique="true">
+            <column name="finding_id" />
+            <column name="mac" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

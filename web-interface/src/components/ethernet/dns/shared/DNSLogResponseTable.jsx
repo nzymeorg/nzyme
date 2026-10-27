@@ -1,5 +1,7 @@
 import React, {useContext, useEffect, useState} from "react";
+import moment from "moment";
 import DNSData from "../DNSData";
+import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
 import ETLD from "../../shared/ETLD";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import DNSService from "../../../../services/ethernet/DNSService";
@@ -60,6 +62,9 @@ export default function DNSLogResponseTable(props) {
               <th>Response Type</th>
               <th>Response Value</th>
               <th>Response eTLD</th>
+              <th>Response Code</th>
+              <th>Answered By</th>
+              <th>Time</th>
             </tr>
             </thead>
             <tbody>
@@ -69,6 +74,13 @@ export default function DNSLogResponseTable(props) {
                     <td>{response.data_type}</td>
                     <td title={response.data_value}><DNSData value={response.data_value}/></td>
                     <td title={response.data_value_etld}><ETLD etld={response.data_value_etld}/></td>
+                    <td>{response.response_code ? response.response_code : <span className="text-muted">n/a</span>}</td>
+                    <td>
+                      {response.server && response.server.mac ?
+                        <EthernetMacAddress addressWithContext={response.server.mac} withAssetLink withAssetName />
+                        : <span className="text-muted">Unknown</span>}
+                    </td>
+                    <td title={moment(response.timestamp).format()}>{moment(response.timestamp).format("HH:mm:ss.SSS")}</td>
                   </tr>
               )
             })}

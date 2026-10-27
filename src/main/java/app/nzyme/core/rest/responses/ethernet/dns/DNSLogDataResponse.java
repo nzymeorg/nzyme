@@ -26,6 +26,7 @@ public abstract class DNSLogDataResponse {
     @JsonProperty("server")
     public abstract L4AddressResponse serverAddress();
 
+    @Nullable
     @JsonProperty("data_value")
     public abstract String dataValue();
 
@@ -39,13 +40,17 @@ public abstract class DNSLogDataResponse {
     @JsonProperty("dns_type")
     public abstract String dnsType();
 
+    @Nullable
+    @JsonProperty("response_code")
+    public abstract String responseCode();
+
     @JsonProperty("timestamp")
     public abstract DateTime timestamp();
 
     @JsonProperty("created_at")
     public abstract DateTime createdAt();
 
-    public static DNSLogDataResponse create(UUID uuid, UUID tapUUID, int transactionId, L4AddressResponse clientAddress, L4AddressResponse serverAddress, String dataValue, String dataValueEtld, String dataType, String dnsType, DateTime timestamp, DateTime createdAt) {
+    public static DNSLogDataResponse create(UUID uuid, UUID tapUUID, int transactionId, L4AddressResponse clientAddress, L4AddressResponse serverAddress, String dataValue, String dataValueEtld, String dataType, String dnsType, String responseCode, DateTime timestamp, DateTime createdAt) {
         return builder()
                 .uuid(uuid)
                 .tapUUID(tapUUID)
@@ -56,6 +61,7 @@ public abstract class DNSLogDataResponse {
                 .dataValueEtld(dataValueEtld)
                 .dataType(dataType)
                 .dnsType(dnsType)
+                .responseCode(responseCode)
                 .timestamp(timestamp)
                 .createdAt(createdAt)
                 .build();
@@ -84,6 +90,8 @@ public abstract class DNSLogDataResponse {
         public abstract Builder dataType(String dataType);
 
         public abstract Builder dnsType(String dnsType);
+
+        public abstract Builder responseCode(String responseCode);
 
         public abstract Builder timestamp(DateTime timestamp);
 

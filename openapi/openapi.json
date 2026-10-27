@@ -162,6 +162,9 @@
     "description" : "DHCP spoofing findings and the DHCP servers of a tenant. Every server that answers clients is learned with the configuration it hands out. A server that answers while it is not trusted is a rogue server finding. A trusted server that hands out a gateway, DNS server, domain or subnet mask different from its baseline is a changed configuration finding. Findings carry the clients that accepted a lease from the server. Built from the DHCP transactions of all taps of the tenant.",
     "name" : "Spoofing: DHCP"
   }, {
+    "description" : "DNS spoofing findings of a tenant. A finding is one device (the spoofer) that answered DNS queries sent to a resolver with forged replies carrying the resolver's address, while the device that legitimately delivers the resolver's replies (the owner) was still answering. It carries the names that were spoofed, the addresses they were pointed at, how many forged replies arrived before the real one, and the clients that received them. Findings are built from the DNS transactions recorded by all taps of the tenant.",
+    "name" : "Spoofing: DNS"
+  }, {
     "description" : "Exclusions keep known setups out of spoofing detection. An exclusion is a set of criteria for the spoofing type, the address that is being claimed (address or network) and the MAC address of the device doing the claiming. Every criterion that is set must match. Use them for router redundancy protocols, failover clusters and other setups where an address legitimately has more than one MAC address at a time. An exclusion can also be applied to the existing findings, which deletes them.",
     "name" : "Spoofing Exclusions"
   }, {
@@ -16773,6 +16776,303 @@
         "tags" : [ "Spoofing: DHCP" ]
       }
     },
+    "/api/ethernet/spoofing/dns" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. Results are paginated.",
+        "operationId" : "findDnsSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: server_address, spoofer_mac, owner_mac, forged_count, won_count, name_count, victim_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SERVER_ADDRESS, SPOOFER_MAC, OWNER_MAC, FORGED_COUNT, WON_COUNT, NAME_COUNT, VICTIM_COUNT, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsSpoofingFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List DNS spoofing findings of a tenant",
+        "tags" : [ "Spoofing: DNS" ]
+      }
+    },
+    "/api/ethernet/spoofing/dns/histogram/active" : {
+      "get" : {
+        "description" : "Returns the number of findings of the tenant that were going on per time bucket. Respects the same filters as the findings list. The response is an object that maps each bucket timestamp to a count. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findActiveDnsSpoofingFindingsHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Same fields as the findings list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the number of active DNS spoofing findings over time",
+        "tags" : [ "Spoofing: DNS" ]
+      }
+    },
+    "/api/ethernet/spoofing/dns/organization/{organization_id}/tenant/{tenant_id}" : {
+      "delete" : {
+        "description" : "Deletes every finding of the tenant with all victims. Exclusions and the detection configuration are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteAllDnsSpoofingFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SpoofingFindingsDeletedResponse"
+                }
+              }
+            },
+            "description" : "Findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all DNS spoofing findings of a tenant",
+        "tags" : [ "Spoofing: DNS" ]
+      }
+    },
+    "/api/ethernet/spoofing/dns/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding with its victims. The finding is detected again as a new finding if the device keeps forging replies. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteDnsSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a DNS spoofing finding",
+        "tags" : [ "Spoofing: DNS" ]
+      }
+    },
+    "/api/ethernet/spoofing/dns/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with the names that were spoofed, the addresses they were pointed at, and the clients that received forged replies.",
+        "operationId" : "findDnsSpoofingFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DnsSpoofingFindingDetailsResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DNS spoofing finding",
+        "tags" : [ "Spoofing: DNS" ]
+      }
+    },
     "/api/ethernet/spoofing/exclusions" : {
       "get" : {
         "description" : "Returns the exclusions of the tenant, sorted by name by default. Each exclusion includes which existing findings it currently applies to. Results are paginated.",
@@ -17653,7 +17953,7 @@
     },
     "/api/ethernet/spoofing/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
       "get" : {
-        "description" : "Returns the spoofing detection settings of the tenant in two groups: detection parameters and alerting. Requires the ethernet_monitoring_manage feature permission.",
+        "description" : "Returns the spoofing detection settings of the tenant as one section per detection type, each with its detection parameters and alerting settings. Requires the ethernet_monitoring_manage feature permission.",
         "operationId" : "findSpoofingConfiguration",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -32110,6 +32410,9 @@
           "dns_type" : {
             "type" : "string"
           },
+          "response_code" : {
+            "type" : "string"
+          },
           "server" : {
             "$ref" : "#/components/schemas/L4AddressResponse"
           },
@@ -32687,6 +32990,164 @@
             }
           },
           "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DnsSpoofingFindingDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "finding" : {
+            "$ref" : "#/components/schemas/DnsSpoofingFindingResponse"
+          },
+          "victims" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsSpoofingVictimResponse"
+            }
+          }
+        }
+      },
+      "DnsSpoofingFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "answers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingExclusionReferenceResponse"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "forged_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "names" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "owner_mac" : {
+            "type" : "string"
+          },
+          "owner_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "server_address" : {
+            "type" : "string"
+          },
+          "server_address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "spoofer_mac" : {
+            "type" : "string"
+          },
+          "spoofer_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingTapResponse"
+            }
+          },
+          "unanswered_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "victim_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "won_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DnsSpoofingFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DnsSpoofingFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DnsSpoofingVictimResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "address_data" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "forged_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "names" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "unanswered_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "won_count" : {
             "type" : "integer",
             "format" : "int64"
           }
@@ -37507,6 +37968,17 @@
       "SpoofingConfigurationResponse" : {
         "type" : "object",
         "properties" : {
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingConfigurationSectionResponse"
+            }
+          }
+        }
+      },
+      "SpoofingConfigurationSectionResponse" : {
+        "type" : "object",
+        "properties" : {
           "alerting" : {
             "type" : "array",
             "items" : {
@@ -37518,6 +37990,12 @@
             "items" : {
               "$ref" : "#/components/schemas/ConfigurationEntryResponse"
             }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
           }
         }
       },

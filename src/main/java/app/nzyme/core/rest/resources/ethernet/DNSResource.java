@@ -384,6 +384,7 @@ public class DNSResource extends TapDataHandlingResource {
                 log.dataValueEtld(),
                 log.dataType(),
                 log.dnsType(),
+                log.responseCode(),
                 log.timestamp(),
                 log.createdAt()
         );
