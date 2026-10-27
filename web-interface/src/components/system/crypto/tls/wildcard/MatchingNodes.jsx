@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 
@@ -18,9 +19,9 @@ function MatchingNodes(props) {
         {nodes.sort((a, b) => a.node_name.localeCompare(b.node_name)).map(function (key, i) {
           return (
             <li key={"node" + i}>
-              <a href={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(nodes[i].node_id)}>
+              <Link to={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(nodes[i].node_id)}>
                 {nodes[i].node_name}
-              </a>
+              </Link>
             </li>
           )
         })}

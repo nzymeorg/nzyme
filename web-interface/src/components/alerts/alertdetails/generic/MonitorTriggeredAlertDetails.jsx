@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import numeral from "numeral";
@@ -19,7 +20,7 @@ export default function MonitorTriggeredAlertDetails({ alert }) {
                 <dt>Monitor</dt>
                 <dd>
                   <WithPermission permission={requiredUserPermissionForMonitorWriteAccess(alert.attributes.monitor_type)}>
-                    <a href={ApiRoutes.ALERTS.MONITORS.DETAILS(alert.attributes.monitor_uuid)}>{alert.attributes.monitor_name}</a>
+                    <Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(alert.attributes.monitor_uuid)}>{alert.attributes.monitor_name}</Link>
                   </WithPermission>
                   <WithoutPermission permission={requiredUserPermissionForMonitorWriteAccess(alert.attributes.monitor_type)}>
                     {alert.attributes.monitor_name}

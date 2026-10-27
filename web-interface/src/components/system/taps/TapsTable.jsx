@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react'
 import LoadingSpinner from '../../misc/LoadingSpinner'
 import TapRow from './TapRow'
@@ -14,7 +15,7 @@ function TapsTable(props) {
   if (taps.length === 0) {
     return <div className="alert alert-warning mb-0">
       No nzyme taps configured yet. They are managed in the{' '}
-      <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>authentication section</a> and can also be added
+      <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>authentication section</Link> and can also be added
       directly from this page using the button above.
     </div>
   }

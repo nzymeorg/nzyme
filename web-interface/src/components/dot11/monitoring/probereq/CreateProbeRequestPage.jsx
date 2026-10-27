@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import Dot11Service from "../../../../services/Dot11Service";
@@ -34,9 +34,9 @@ export default function CreateProbeRequestPage() {
           <div className="col-md-7">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>Probe Requests</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>Probe Requests</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">Create</li>
               </ol>
             </nav>
@@ -44,7 +44,7 @@ export default function CreateProbeRequestPage() {
 
           <div className="col-md-5">
             <span className="float-end">
-              <a className="btn btn-primary" href={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>Back</Link>
             </span>
           </div>
         </div>

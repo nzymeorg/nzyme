@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -43,9 +44,9 @@ function TLSWildcardCertificateTable(props) {
                   <ExpirationDate date={certificates[i].expires_at} />
                 </td>
                 <td>
-                  <a href={ApiRoutes.SYSTEM.CRYPTO.TLS.WILDCARD.EDIT(certificates[i].id)}>
+                  <Link to={ApiRoutes.SYSTEM.CRYPTO.TLS.WILDCARD.EDIT(certificates[i].id)}>
                     Manage
-                  </a>
+                  </Link>
                 </td>
               </tr>
           )

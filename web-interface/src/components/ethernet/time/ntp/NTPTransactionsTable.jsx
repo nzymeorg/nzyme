@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import numeral from "numeral";
@@ -108,9 +109,9 @@ export default function NTPTransactionsTable({filters, setFilters, timeRange, re
             return (
               <tr key={i}>
                 <td>
-                  <a href={ApiRoutes.ETHERNET.TIME.NTP.TRANSACTION_DETAILS(tx.transaction_key)} className="machine-data">
+                  <Link to={ApiRoutes.ETHERNET.TIME.NTP.TRANSACTION_DETAILS(tx.transaction_key)} className="machine-data">
                     <FullCopyShortenedId value={tx.transaction_key} />
-                  </a>
+                  </Link>
 
                   <FilterValueIcon setFilters={setFilters}
                                    fields={NTP_FILTER_FIELDS}

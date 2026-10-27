@@ -4,7 +4,7 @@ import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {ASSETS_MENU_ITEMS} from "../AssetsMenuItems";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {useLocation, useParams} from "react-router-dom";
+import {Link, useLocation, useParams} from "react-router-dom";
 import AssetsService from "../../../../services/ethernet/AssetsService";
 import moment from "moment";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
@@ -35,9 +35,7 @@ export default function DHCPTransactionDetailsPage() {
   const { transactionId } = useParams();
   const selectedTaps = tapContext.taps;
 
-  const [transactionTime, ignored] = useState(
-      urlQuery.get("transaction_time") ? urlQuery.get("transaction_time") : null
-  );
+  const transactionTime = urlQuery.get("transaction_time") ? urlQuery.get("transaction_time") : null;
 
   const [tx, setTx] = useState(null);
 
@@ -79,7 +77,7 @@ export default function DHCPTransactionDetailsPage() {
           </div>
 
           <div className="col-md-4 text-end">
-            <a href={ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX} className="btn btn-primary">Back to Transactions</a>
+            <Link to={ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX} className="btn btn-primary">Back to Transactions</Link>
           </div>
         </div>
 

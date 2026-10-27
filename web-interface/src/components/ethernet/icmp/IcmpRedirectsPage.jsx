@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import SectionMenuBar from "../../shared/SectionMenuBar";
@@ -18,7 +18,7 @@ import FullCopyShortenedId from "../../shared/FullCopyShortenedId";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import Filters from "../../shared/filtering/Filters";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ICMP_REDIRECTS_FILTER_FIELDS} from "./IcmpRedirectsFilterFields";
 import {Presets} from "../../shared/timerange/TimeRange";
 import {TapContext} from "../../../App";
@@ -26,9 +26,6 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpRedirectsPage() {
 
@@ -37,11 +34,8 @@ export default function IcmpRedirectsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ICMP_REDIRECTS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ICMP_REDIRECTS_FILTER_FIELDS);
   const [redirects, setRedirects] = useState(null);
   const [orderColumn, setOrderColumn] = useState("last_seen");
   const [orderDirection, setOrderDirection] = useState("DESC");

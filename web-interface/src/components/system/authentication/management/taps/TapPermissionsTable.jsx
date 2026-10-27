@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
@@ -48,10 +49,10 @@ function TapPermissionsTable(props) {
             return (
                 <tr key={"tap-" + i}>
                   <td>
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.DETAILS(
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.DETAILS(
                         organizationId, tenantId, taps.taps[i].uuid)}>
                       {taps.taps[i].name}
-                    </a>
+                    </Link>
                   </td>
                   <td>{taps.taps[i].last_report ? moment(taps.taps[i].last_report).format() : <span className="text-warning">None</span>}</td>
                 </tr>

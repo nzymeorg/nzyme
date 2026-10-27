@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react'
 import FormattedGauge from './FormattedGauge'
 import ApiRoutes from '../../../../../util/ApiRoutes'
@@ -25,9 +26,9 @@ function TapMetricsGauges (props) {
                         <td>{props.gauges[key].metric_name}</td>
                         <td><FormattedGauge name={props.gauges[key].metric_name} value={props.gauges[key].metric_value} /></td>
                         <td>
-                            <a href={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(props.tap.uuid, 'gauge', props.gauges[key].metric_name)}>
+                            <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(props.tap.uuid, 'gauge', props.gauges[key].metric_name)}>
                                 Chart
-                            </a>
+                            </Link>
                         </td>
                     </tr>
               )

@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import Routes from "../../../../../util/ApiRoutes";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
@@ -56,7 +56,7 @@ function OrganizationDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item active" aria-current="page">{organization.name}</li>
@@ -67,14 +67,14 @@ function OrganizationDetailsPage() {
           <div className="col-md-3">
             <span className="float-end">
               {user.is_superadmin ?
-                  <a className="btn btn-secondary" href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</a>
+                  <Link className="btn btn-secondary" to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</Link>
                   : null}{' '}
 
               {user.is_superadmin ?
-                  <a className="btn btn-primary"
-                     href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EDIT(organization.id)}>
+                  <Link className="btn btn-primary"
+                     to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EDIT(organization.id)}>
                     Edit Organization
-                  </a> : null}
+                  </Link> : null}
             </span>
           </div>
         </div>

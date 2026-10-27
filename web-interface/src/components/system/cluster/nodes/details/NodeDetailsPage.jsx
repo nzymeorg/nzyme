@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import ClusterService from "../../../../../services/ClusterService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import NodeInactiveWarning from "./NodeInactiveWarning";
@@ -62,14 +62,14 @@ function NodeDetailsPage() {
           <div className="col-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={Routes.SYSTEM.CLUSTER.INDEX}>Nodes</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.SYSTEM.CLUSTER.INDEX}>Nodes</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">{node.name}</li>
               </ol>
             </nav>
           </div>
 
           <div className="col-2">
-            <a className="btn btn-primary float-end" href={Routes.SYSTEM.CLUSTER.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={Routes.SYSTEM.CLUSTER.INDEX}>Back</Link>
           </div>
 
           <div className="col-md-12">

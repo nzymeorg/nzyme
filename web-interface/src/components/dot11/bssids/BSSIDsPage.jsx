@@ -9,11 +9,10 @@ import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import {Presets} from "../../shared/timerange/TimeRange";
 import Filters from "../../shared/filtering/Filters";
 import {BSSID_FILTER_FIELDS} from "./BssidFilterFields";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
-import useQuery from "../../../util/UseQuery";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import RenderConditionally from "../../misc/RenderConditionally";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 
@@ -25,17 +24,15 @@ function BSSIDsPage() {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
-  const urlQuery = useQuery();
-
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
   const [bssids, setBSSIDs] = useState(null);
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(queryParametersToFilters(urlQuery.get("filters"), BSSID_FILTER_FIELDS));
+  const [filters, setFilters] = useUrlFilters(BSSID_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [orderColumn, setOrderColumn] = useState("signal_strength_average");

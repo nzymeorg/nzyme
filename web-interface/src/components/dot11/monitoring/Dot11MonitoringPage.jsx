@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import MonitoredNetworksTable from "./MonitoredNetworksTable";
@@ -30,9 +31,9 @@ function Dot11MonitoringPage() {
 
               <MonitoredNetworksTable />
 
-              <a href={ApiRoutes.DOT11.MONITORING.CREATE} className="btn btn-secondary btn-sm">
+              <Link to={ApiRoutes.DOT11.MONITORING.CREATE} className="btn btn-secondary btn-sm">
                 Create Monitored Network
-              </a>
+              </Link>
             </div>
           </div>
         </div>

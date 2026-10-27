@@ -7,35 +7,29 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import {TapContext} from "../../../../App";
 import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import DHCPTransactionsTable from "./DHCPTransactionsTable";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import {DHCP_FILTER_FIELDS} from "./DHCPFilterFields";
-import {useLocation} from "react-router-dom";
 import Filters from "../../../shared/filtering/Filters";
 import AssetsService from "../../../../services/ethernet/AssetsService";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import DHCPTransactionsChart from "./DHCPTransactionsChart";
 import usePageTitle from "../../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import onSaveFiltersAsMonitor from "../../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../../misc/RenderConditionally";
 
 const assetsService = new AssetsService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function DHCPTransactionsPage() {
 
   usePageTitle("DHCP Transactions");
 
   const [organizationId, tenantId] = useSelectedTenant();
-
-  const urlQuery = useQuery();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
 
   const [data, setData] = useState(null);
 
@@ -49,9 +43,7 @@ export default function DHCPTransactionsPage() {
 
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(
-      queryParametersToFilters(urlQuery.get("filters"), DHCP_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(DHCP_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   useEffect(() => {

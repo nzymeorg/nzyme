@@ -1,11 +1,10 @@
 import React, {useContext, useEffect, useState} from "react";
 import usePageTitle from "../../../util/UsePageTitle";
 import {TapContext} from "../../../App";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
-import useQuery from "../../../util/UseQuery";
 import {PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS} from "./PortalIntegrityReportsFilterFields";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
@@ -21,12 +20,9 @@ export default function PortalIntegrityPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS)
-  );
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [histogram, setHistogram] = useState(null);

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import moment from "moment";
 import numeral from "numeral";
@@ -75,7 +76,7 @@ export default function TenantMonitorPerformanceTable({monitors, page, setPage, 
           return (
             <tr key={i}>
               <td><MonitorStatusIndicator monitor={m} /></td>
-              <td><a href={ApiRoutes.ALERTS.MONITORS.DETAILS(m.uuid)}>{m.name}</a></td>
+              <td><Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(m.uuid)}>{m.name}</Link></td>
               <td><MonitorType type={m.type} /></td>
               <td>{numeral(m.interval).format("0,0")} {m.interval === 1 ? "Minute" : "Minutes"}</td>
               <td>{time(m.last_run)}</td>

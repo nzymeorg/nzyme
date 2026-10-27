@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import moment from "moment";
@@ -10,12 +11,12 @@ function TenantUsersTableRow(props) {
   return (
       <tr>
         <td>
-          <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.DETAILS(
+          <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.DETAILS(
               user.organization_id,
               user.tenant_id,
               user.id)}>
             {user.name}
-          </a>
+          </Link>
         </td>
         <td>{user.email}</td>
         <td>{user.mfa_disabled ? <span className="text-warning">Disabled</span>

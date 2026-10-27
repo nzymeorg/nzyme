@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 
@@ -30,11 +31,11 @@ function EventSubscriptionsTable(props) {
             return (
                 <tr key={"actionsub-" + i}>
                   <td>
-                    <a href={organizationId
+                    <Link to={organizationId
                         ? ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.ACTIONS.DETAILS(organizationId, sub.action_id)
                         : ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(sub.action_id)}>
                       {sub.action_name}
-                    </a>
+                    </Link>
                   </td>
                   <td title={sub.action_type}>{sub.action_type_human_readable}</td>
                   <td>

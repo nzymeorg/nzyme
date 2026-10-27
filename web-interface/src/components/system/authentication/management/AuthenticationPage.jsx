@@ -3,7 +3,7 @@ import ApiRoutes from "../../../../util/ApiRoutes";
 import OrganizationsTable from "./organizations/OrganizationsTable";
 import GlobalSessions from "./sessions/GlobalSessions";
 import SuperAdminTable from "./users/superadmins/SuperAdminTable";
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import Routes from "../../../../util/ApiRoutes";
 import {UserContext} from "../../../../App";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -27,9 +27,9 @@ function AuthenticationPage() {
           </div>
 
           <div className="col-2">
-            <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SETTINGS} className="btn btn-primary float-end">
+            <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SETTINGS} className="btn btn-primary float-end">
               Settings
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -43,10 +43,10 @@ function AuthenticationPage() {
 
                     <OrganizationsTable />
 
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.CREATE}
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.CREATE}
                        className="btn btn-sm btn-secondary">
                       Create Organization
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -60,10 +60,10 @@ function AuthenticationPage() {
 
                     <SuperAdminTable />
 
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.CREATE}
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.CREATE}
                        className="btn btn-sm btn-secondary">
                       Create Super Administrator
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>

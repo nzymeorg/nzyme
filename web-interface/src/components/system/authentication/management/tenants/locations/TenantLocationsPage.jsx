@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import LoadingSpinner from "../../../../../misc/LoadingSpinner";
 import Routes from "../../../../../../util/ApiRoutes";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
@@ -38,18 +38,18 @@ export default function TenantLocationsPage() {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
               <li className="breadcrumb-item">
-                <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
               </li>
               <li className="breadcrumb-item">Organizations</li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                   {organization.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                   Tenants
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item active" aria-current="page">{tenant.name}</li>
             </ol>
@@ -58,10 +58,10 @@ export default function TenantLocationsPage() {
 
         <div className="col-md-3">
             <span className="float-end">
-              <a className="btn btn-primary"
-                 href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.EDIT(organization.id, tenant.id)}>
+              <Link className="btn btn-primary"
+                 to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.EDIT(organization.id, tenant.id)}>
                 Edit Tenant
-              </a>
+              </Link>
             </span>
         </div>
       </div>
@@ -89,11 +89,11 @@ export default function TenantLocationsPage() {
 
               <LocationsTable organizationId={organization.id} tenantId={tenant.id}/>
 
-              <a
-                href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.CREATE(organization.id, tenant.id)}
+              <Link
+                to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.CREATE(organization.id, tenant.id)}
                 className="btn btn-sm btn-secondary">
                 Create Location
-              </a>
+              </Link>
             </div>
           </div>
         </div>

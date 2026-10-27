@@ -6,13 +6,12 @@ import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import {TapContext} from "../../../../App";
 import {SSH_FILTER_FIELDS} from "./SSHFilterFields";
 import Filters from "../../../shared/filtering/Filters";
-import {useLocation} from "react-router-dom";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import {REMOTE_ACCESS_MENU_ITEMS} from "../RemoteAccessMenuItems";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import usePageTitle from "../../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import SSHActiveSessionsHistogram from "./SSHActiveSessionsHistogram";
 import RTSPTopServersHistogram from "../../streams/rtsp/RTSPTopServersHistogram";
 import RTSPTopClientsHistogram from "../../streams/rtsp/RTSPTopClientsHistogram";
@@ -24,9 +23,6 @@ import onSaveFiltersAsMonitor from "../../../shared/filtering/monitors/SaveMonit
 import RenderConditionally from "../../../misc/RenderConditionally";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function SSHSessionsPage() {
 
@@ -35,12 +31,9 @@ export default function SSHSessionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), SSH_FILTER_FIELDS)
-  );
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(SSH_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [revision, setRevision] = useState(new Date());

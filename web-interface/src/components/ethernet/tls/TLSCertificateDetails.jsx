@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../App";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
@@ -94,9 +95,9 @@ export default function TLSCertificateDetails({ sha256 }) {
     if (data.issuer_certificate) {
       return (
         <span title={c.issuer}>
-          <a href={ApiRoutes.ETHERNET.TLS.CERTIFICATES.DETAILS(data.issuer_certificate.sha256)}>
+          <Link to={ApiRoutes.ETHERNET.TLS.CERTIFICATES.DETAILS(data.issuer_certificate.sha256)}>
             {issuerCommonName(c.issuer)}
-          </a>
+          </Link>
           <span className="text-muted"> ({c.issuer})</span>
         </span>
       )

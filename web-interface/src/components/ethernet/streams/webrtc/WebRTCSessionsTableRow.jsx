@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import InternalAddressOnlyWrapper from "../../shared/InternalAddressOnlyWrapper";
 import WebRTCSessionActiveIndicator from "./WebRTCSessionActiveIndicator";
@@ -41,9 +42,9 @@ export default function WebRTCSessionsTableRow({session, setFilters}) {
         <WebRTCSessionActiveIndicator session={session} />
       </td>
       <td>
-        <a href={ApiRoutes.ETHERNET.STREAMS.WEBRTC.DETAILS(session.negotiation_key_sha256)}>
+        <Link to={ApiRoutes.ETHERNET.STREAMS.WEBRTC.DETAILS(session.negotiation_key_sha256)}>
           <FullCopyShortenedId value={session.negotiation_key_sha256} />
-        </a>
+        </Link>
       </td>
       <td>
         <InternalAddressOnlyWrapper

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
@@ -46,11 +47,11 @@ function TenantsTable(props) {
             return (
                 <tr key={"tenant-" + i}>
                   <td>
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(
                         tenant.organization_id,
                         tenant.id)}>
                       {tenant.name}
-                    </a>
+                    </Link>
                   </td>
                   <td>{tenant.users_count}</td>
                   <td>{tenant.taps_count}</td>

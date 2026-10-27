@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react'
 import LoadingSpinner from '../../misc/LoadingSpinner'
 import ExporterStatus from './ExporterStatus'
@@ -24,7 +25,7 @@ function ExportersTable (props) {
                 <td>Prometheus</td>
                 <td><ExporterStatus status={exporters.prometheus} /></td>
                 <td>
-                    <a href={ApiRoutes.SYSTEM.MONITORING.PROMETHEUS.INDEX}>Configure</a>
+                    <Link to={ApiRoutes.SYSTEM.MONITORING.PROMETHEUS.INDEX}>Configure</Link>
                 </td>
             </tr>
             </tbody>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import {Link, useParams} from 'react-router-dom'
 import ApiRoutes from '../../../../../util/ApiRoutes'
 import TapInactiveWarning from '../TapInactiveWarning'
 import TapsService from '../../../../../services/TapsService'
@@ -37,9 +37,9 @@ function TapMetricsDetailsPage () {
                 <div className="col-md-10">
                     <nav aria-label="breadcrumb">
                         <ol className="breadcrumb">
-                            <li className="breadcrumb-item"><a href={ApiRoutes.SYSTEM.TAPS.INDEX}>Taps</a></li>
+                            <li className="breadcrumb-item"><Link to={ApiRoutes.SYSTEM.TAPS.INDEX}>Taps</Link></li>
                             <li className="breadcrumb-item" aria-current="page">
-                                <a href={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</a>
+                                <Link to={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</Link>
                             </li>
                             <li className="breadcrumb-item" aria-current="page">Metrics</li>
                             <li className="breadcrumb-item active" aria-current="page">{metricName}</li>
@@ -47,7 +47,7 @@ function TapMetricsDetailsPage () {
                     </nav>
                 </div>
                 <div className="col-md-2">
-                    <a className="btn btn-primary float-end" href={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>Back</a>
+                    <Link className="btn btn-primary float-end" to={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>Back</Link>
                 </div>
             </div>
 

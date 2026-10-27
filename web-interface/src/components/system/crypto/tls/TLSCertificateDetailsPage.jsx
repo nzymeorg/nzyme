@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ClusterService from "../../../../services/ClusterService";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import Routes from "../../../../util/ApiRoutes";
@@ -63,7 +63,7 @@ function TLSCertificateDetailsPage() {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</Link></li>
                 <li className="breadcrumb-item">TLS</li>
                 <li className="breadcrumb-item active" aria-current="page">{node.name}</li>
               </ol>
@@ -71,7 +71,7 @@ function TLSCertificateDetailsPage() {
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={Routes.SYSTEM.CRYPTO.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={Routes.SYSTEM.CRYPTO.INDEX}>Back</Link>
           </div>
 
           <div className="col-md-12">

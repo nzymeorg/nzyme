@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import SectionMenuBar from "../../../../shared/SectionMenuBar";
@@ -57,10 +57,10 @@ export default function OrganizationTenantsPage() {
 
                 <TenantsTable organizationId={organization.id}/>
 
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.CREATE(organization.id)}
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.CREATE(organization.id)}
                    className="btn btn-sm btn-secondary">
                   Create Tenant
-                </a>
+                </Link>
               </div>
             </div>
           </div>

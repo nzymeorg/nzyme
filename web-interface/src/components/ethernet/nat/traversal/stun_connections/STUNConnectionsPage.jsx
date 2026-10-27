@@ -1,10 +1,9 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import usePageTitle from "../../../../../util/UsePageTitle";
 import {TapContext} from "../../../../../App";
-import {timeRangeFromURLOrDefault} from "../../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../../shared/timerange/TimeRangeSelector";
 import {Presets} from "../../../../shared/timerange/TimeRange";
-import {queryParametersToFilters} from "../../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../../shared/filtering/useUrlFilters";
 import {disableTapSelector, enableTapSelector} from "../../../../misc/TapSelector";
 import SectionMenuBar from "../../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -20,9 +19,6 @@ import onSaveFiltersAsMonitor from "../../../../shared/filtering/monitors/SaveMo
 import RenderConditionally from "../../../../misc/RenderConditionally";
 import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function STUNConnectionsPage() {
 
@@ -31,13 +27,10 @@ export default function STUNConnectionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
   const selectedTaps = tapContext.taps;
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), STUN_CONNECTIONS_FILTER_FIELDS)
-  );
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(STUN_CONNECTIONS_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [histogram, setHistogram] = useState(null);

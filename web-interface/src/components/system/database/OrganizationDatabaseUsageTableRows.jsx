@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 
 import numeral from "numeral";
@@ -35,9 +36,9 @@ export default function OrganizationDatabaseUsageTableRows(props) {
               <span className="indent-left">
                 <i className="fa-solid fa-arrow-turn-up fa-rotate-90" style={{marginRight: 8}}></i>
                 Organization: {' '}
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(org.organization_id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(org.organization_id)}>
                   {org.organization_name}
-                </a>
+                </Link>
               </span>
             </td>
             <td className="text-muted" title="Data size not available for individual organizations and tenants.">

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import MessageBusMessages from "./messages/MessageBusMessages";
 import Routes from "../../../../util/ApiRoutes";
@@ -14,14 +15,14 @@ function MessagingPage() {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={Routes.SYSTEM.CLUSTER.INDEX}>Cluster &amp; Nodes</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.SYSTEM.CLUSTER.INDEX}>Cluster &amp; Nodes</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">Messaging</li>
               </ol>
             </nav>
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={Routes.SYSTEM.CLUSTER.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={Routes.SYSTEM.CLUSTER.INDEX}>Back</Link>
           </div>
         </div>
 

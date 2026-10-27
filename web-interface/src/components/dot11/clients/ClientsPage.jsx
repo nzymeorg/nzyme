@@ -6,23 +6,19 @@ import ClientHistogram from "./ClientHistogram";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
-import {useLocation} from "react-router-dom";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {CONNECTED_CLIENT_FILTER_FIELDS} from "./ConnectedClientFilterFields";
 import Filters from "../../shared/filtering/Filters";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import {CLIENTS_MENU_ITEMS} from "./ClientsMenuItems";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const dot11Service = new Dot11Service();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 function ClientsPage() {
 
@@ -33,20 +29,16 @@ function ClientsPage() {
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const urlQuery = useQuery();
-
   const [histogram, setHistogram] = useState(null);
   const [clients, setClients] = useState(null);
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
   const [page, setPage] = useState(1);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [orderColumn, setOrderColumn] = useState("last_seen");
   const [orderDirection, setOrderDirection] = useState("DESC");
 
-  const [filters, setFilters] = useState(
-      queryParametersToFilters(urlQuery.get("filters"), CONNECTED_CLIENT_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(CONNECTED_CLIENT_FILTER_FIELDS);
 
   const perPage = 25;
 

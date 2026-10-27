@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../util/UsePageTitle";
 import ApiRoutes from "../../util/ApiRoutes";
@@ -65,10 +65,10 @@ export default function EditMonitorPage() {
       case "DOT11_CLIENT_DISCONNECTED":
         return (
           <ol className="breadcrumb">
-            <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-            <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
-            <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.MONITORS.INDEX}>Monitors</a></li>
-            <li className="breadcrumb-item"><a href={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</a></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.MONITORS.INDEX}>Monitors</Link></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</Link></li>
             <li className="breadcrumb-item active">Edit</li>
           </ol>
         )
@@ -77,8 +77,8 @@ export default function EditMonitorPage() {
           <ol className="breadcrumb">
             <li className="breadcrumb-item">Bluetooth</li>
             <li className="breadcrumb-item">Monitoring</li>
-            <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX}>Monitors</a></li>
-            <li className="breadcrumb-item"><a href={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</a></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX}>Monitors</Link></li>
+            <li className="breadcrumb-item"><Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</Link></li>
             <li className="breadcrumb-item active">Edit</li>
           </ol>
         )
@@ -86,10 +86,10 @@ export default function EditMonitorPage() {
         if (monitorTypeToSubsystem(monitor.type) === "ETHERNET") {
           return (
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
               <li className="breadcrumb-item">Monitoring</li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.MONITORING.MONITORS.INDEX}>Monitors</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.MONITORING.MONITORS.INDEX}>Monitors</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>{monitor.name}</Link></li>
               <li className="breadcrumb-item active">Edit</li>
             </ol>
           )
@@ -133,7 +133,7 @@ export default function EditMonitorPage() {
 
         <div className="col-md-5">
             <span className="float-end">
-              <a className="btn btn-secondary" href={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>Back</a>{' '}
+              <Link className="btn btn-secondary" to={ApiRoutes.ALERTS.MONITORS.DETAILS(monitor.uuid)}>Back</Link>{' '}
             </span>
         </div>
       </div>

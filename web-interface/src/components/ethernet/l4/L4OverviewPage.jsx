@@ -9,7 +9,7 @@ import L4SessionsInternalSessionsChart from "./L4SessionsInternallSessionsChart"
 import L4SessionsInternalBytesChart from "./L4SessionsInternalBytesChart";
 import L4SessionsNumbers from "./L4SessionsNumbers";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import {L4_MENU_ITEMS} from "./L4MenuItems";
@@ -25,7 +25,7 @@ export default function L4OverviewPage() {
 
   const [statistics, setStatistics] = useState(null);
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
   const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import SolutionCounter from "./layout/SolutionCounter";
@@ -9,7 +10,7 @@ function TapClockProcedure(props) {
       <ol className="consequence-solution-procedure">
         <li>
           <SolutionCounter counter="1" /> Identify nzyme taps with unsafe clock drift on the{' '}
-          <a href={ApiRoutes.SYSTEM.TAPS.INDEX}>taps overview</a> page
+          <Link to={ApiRoutes.SYSTEM.TAPS.INDEX}>taps overview</Link> page
         </li>
 
         <li>

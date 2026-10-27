@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import EventActionsService from "../../../../services/EventActionsService";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -59,7 +59,7 @@ function EventSubscriptionDetailsPage() {
           <div className="col-9">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</Link></li>
                 <li className="breadcrumb-item">Subscriptions</li>
                 <li className="breadcrumb-item active" aria-current="page">{eventType.category_name} - {eventType.name}</li>
               </ol>
@@ -68,9 +68,9 @@ function EventSubscriptionDetailsPage() {
 
           <div className="col-3">
             <span className="float-end">
-              <a className="btn btn-secondary" href={ApiRoutes.SYSTEM.EVENTS.INDEX}>
+              <Link className="btn btn-secondary" to={ApiRoutes.SYSTEM.EVENTS.INDEX}>
                 Back
-              </a>
+              </Link>
             </span>
           </div>
         </div>

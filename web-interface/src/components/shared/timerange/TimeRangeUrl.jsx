@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Absolute, Named, Relative } from "./TimeRange";
 
@@ -41,9 +41,7 @@ export function deserializeTimeRange(raw) {
   }
 }
 
-export function timeRangeFromURLOrDefault(defaultRange, key = "timerange") {
-  const queryParams = new URLSearchParams(window.location.search);
-  const raw = queryParams.get("tr_" + key);
+function timeRangeFromRaw(raw, defaultRange, key) {
   if (raw) {
     try {
       const parsed = deserializeTimeRange(JSON.parse(raw));
@@ -53,6 +51,40 @@ export function timeRangeFromURLOrDefault(defaultRange, key = "timerange") {
     }
   }
   return defaultRange;
+}
+
+export function timeRangeFromURLOrDefault(defaultRange, key = "timerange") {
+  const queryParams = new URLSearchParams(window.location.search);
+  return timeRangeFromRaw(queryParams.get("tr_" + key), defaultRange, key);
+}
+
+/*
+ * Time range state that starts from the "tr_<key>" URL query parameter and follows later changes of that parameter.
+ * With client-side navigation the parameter can change while the page stays mounted, so a plain useState initializer
+ * would keep a stale range. The state is only replaced when the URL carries a different range than the current one,
+ * which keeps the URL sync done by useTimeRangeUrlSync from causing a second render.
+ */
+export function useUrlTimeRange(defaultRange, key = "timerange") {
+  const location = useLocation();
+  const raw = new URLSearchParams(location.search).get("tr_" + key);
+
+  const [timeRange, setTimeRange] = useState(() => timeRangeFromRaw(raw, defaultRange, key));
+  const lastRaw = useRef(raw);
+
+  useEffect(() => {
+    if (lastRaw.current === raw) {
+      return;
+    }
+
+    lastRaw.current = raw;
+
+    setTimeRange((current) => {
+      const currentRaw = current ? JSON.stringify(serializeTimeRange(current)) : null;
+      return currentRaw === raw ? current : timeRangeFromRaw(raw, defaultRange, key);
+    });
+  }, [raw]);
+
+  return [timeRange, setTimeRange];
 }
 
 export function useTimeRangeUrlSync(urlKey = "timerange", doNotPersist = false) {

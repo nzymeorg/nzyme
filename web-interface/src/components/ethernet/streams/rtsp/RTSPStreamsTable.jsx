@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../../App";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
@@ -101,9 +102,9 @@ export default function RTSPStreamsTable(props) {
                 <RTSPStreamActiveIndicator stream={stream} />
               </td>
               <td>
-                <a href={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(stream.setup_tcp_session_key)}>
+                <Link to={ApiRoutes.ETHERNET.STREAMS.RTSP.DETAILS(stream.setup_tcp_session_key)}>
                   <FullCopyShortenedId value={stream.setup_tcp_session_key} />
-                </a>
+                </Link>
               </td>
               <td>
                 {stream.stream_l4_type}

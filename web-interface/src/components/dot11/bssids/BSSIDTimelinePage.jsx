@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import {BSSID_MENU_ITEMS} from "./BSSIDMenuItems";
@@ -11,7 +11,7 @@ import TimelinesService from "../../../services/TimelinesService";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
 import Timeline from "../../shared/timelines/Timeline";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import TimelineFilters from "../../shared/timelines/TimelineFilters";
 import TimelineTapTable from "../../shared/timelines/TimelineTapTable";
 import TruncatedList from "../../shared/TruncatedList";
@@ -27,7 +27,7 @@ export default function BSSIDTimelinePage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [bssid, setBSSID] = useState(null);
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_DAYS_7))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_DAYS_7)
 
   const [events, setEvents] = useState(null);
 
@@ -105,8 +105,8 @@ export default function BSSIDTimelinePage() {
         <div className="col-md-10">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</Link></li>
               <li className="breadcrumb-item">{bssid.summary.bssid.address}</li>
               <li className="breadcrumb-item active" aria-current="page">Timeline</li>
             </ol>

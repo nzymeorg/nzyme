@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 
@@ -11,7 +12,7 @@ function TapClockWarning(props) {
       <div className="alert alert-danger">
         <i className="fa-solid fa-triangle-exclamation"></i> The local system clock of this tap appears to be not
         synchronized with world reference time. Please follow instructions in the{' '}
-        <a href={ApiRoutes.SYSTEM.HEALTH.INDEX}>Health Console</a> to fix this issue.
+        <Link to={ApiRoutes.SYSTEM.HEALTH.INDEX}>Health Console</Link> to fix this issue.
       </div>
   )
 

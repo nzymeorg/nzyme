@@ -1,5 +1,5 @@
 import React  from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import usePageTitle from "../../../../util/UsePageTitle";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import FullCopyShortenedId from "../../../shared/FullCopyShortenedId";
@@ -19,15 +19,15 @@ export default function RTSPStreamDetailsPage() {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
               <li className="breadcrumb-item">Streams</li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX}>RTSP Sessions</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX}>RTSP Sessions</Link></li>
               <li className="breadcrumb-item active">{sessionKey}</li>
             </ol>
           </nav>
         </div>
         <div className="col-2">
-          <a href={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX} className="btn btn-primary float-end">
+          <Link to={ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX} className="btn btn-primary float-end">
             Back
-          </a>
+          </Link>
         </div>
       </div>
 

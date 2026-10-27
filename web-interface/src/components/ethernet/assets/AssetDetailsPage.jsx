@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import AssetsService from "../../../services/ethernet/AssetsService";
@@ -73,7 +73,7 @@ export default function AssetDetailsPage() {
         (hostnamesPage-1)*hostnamesPerPage,
         setHostnames
     );
-  }, [organizationId, tenantId, hostnamesTimeRange, hostnamesOrderColumn, hostnamesOrderDirection, hostnamesPage, revision])
+  }, [uuid, organizationId, tenantId, hostnamesTimeRange, hostnamesOrderColumn, hostnamesOrderDirection, hostnamesPage, revision])
 
   useEffect(() => {
     setIpAddresses(null);
@@ -88,7 +88,7 @@ export default function AssetDetailsPage() {
         (ipAddressesPage-1)*ipAddressesPerPage,
         setIpAddresses
     );
-  }, [organizationId, tenantId, ipAddressesTimeRange, ipAddressesOrderColumn, ipAddressesOrderDirection, ipAddressesPage, revision])
+  }, [uuid, organizationId, tenantId, ipAddressesTimeRange, ipAddressesOrderColumn, ipAddressesOrderDirection, ipAddressesPage, revision])
 
   const onDeleteHostname = (e, id) => {
     e.preventDefault();
@@ -130,7 +130,7 @@ export default function AssetDetailsPage() {
       || asset.mac.context.notes.trim().length === 0) {
       return <div className="alert alert-info mb-0">
         This asset has no associated notes. You can add notes on the{' '}
-        <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)}>Asset Context page</a>.
+        <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)}>Asset Context page</Link>.
       </div>
     }
 
@@ -162,9 +162,9 @@ export default function AssetDetailsPage() {
 
           <div className="col-4 text-end">
             {asset.mac && asset.mac.context ?
-              <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)} className="btn btn-secondary me-1">Open Asset Context</a>
+              <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)} className="btn btn-secondary me-1">Open Asset Context</Link>
               : null}
-            <a href={ApiRoutes.ETHERNET.ASSETS.INDEX} className="btn btn-primary">Back to Assets List</a>
+            <Link to={ApiRoutes.ETHERNET.ASSETS.INDEX} className="btn btn-primary">Back to Assets List</Link>
           </div>
         </div>
 

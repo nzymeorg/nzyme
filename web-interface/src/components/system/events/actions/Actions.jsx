@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import EventActionsService from "../../../../services/EventActionsService";
 import ActionsTable from "../shared/ActionsTable";
@@ -24,9 +25,9 @@ function Actions() {
                       page={page}
                       setPage={setPage} />
 
-        <a className="btn btn-secondary btn-sm" href={ApiRoutes.SYSTEM.EVENTS.ACTIONS.CREATE}>
+        <Link className="btn btn-secondary btn-sm" to={ApiRoutes.SYSTEM.EVENTS.ACTIONS.CREATE}>
           Create Action
-        </a>
+        </Link>
       </React.Fragment>
   )
 }

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ClusterService from "../../../../services/ClusterService";
 import NodesTable from "./NodesTable";
@@ -62,9 +63,9 @@ function NodesPage() {
                   you can access details of the inter-node messaging bus and tasks queue.
                 </p>
 
-                <a href={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX} className="btn btn-sm btn-secondary">
+                <Link to={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX} className="btn btn-sm btn-secondary">
                   Open Cluster Messaging Page
-                </a>
+                </Link>
               </div>
             </div>
           </div>

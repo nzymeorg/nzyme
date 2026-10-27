@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, { useEffect, useState } from 'react'
 import Routes from '../../../../util/ApiRoutes'
 import ConfigurationValue from '../../../configuration/ConfigurationValue'
@@ -30,14 +31,14 @@ function PrometheusMetricsPage () {
             <div className="col-md-10">
                 <nav aria-label="breadcrumb">
                     <ol className="breadcrumb">
-                        <li className="breadcrumb-item"><a href={Routes.SYSTEM.MONITORING.INDEX}>Monitoring &amp; Metrics</a></li>
+                        <li className="breadcrumb-item"><Link to={Routes.SYSTEM.MONITORING.INDEX}>Monitoring &amp; Metrics</Link></li>
                         <li className="breadcrumb-item">Exporters</li>
                         <li className="breadcrumb-item active" aria-current="page">Prometheus</li>
                     </ol>
                 </nav>
             </div>
             <div className="col-md-2">
-                <a className="btn btn-primary float-end" href={Routes.SYSTEM.TAPS.INDEX}>Back</a>
+                <Link className="btn btn-primary float-end" to={Routes.SYSTEM.TAPS.INDEX}>Back</Link>
             </div>
 
             <div className="row">

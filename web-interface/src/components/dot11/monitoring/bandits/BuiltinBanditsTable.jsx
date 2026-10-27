@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import Dot11Service from "../../../../services/Dot11Service";
@@ -31,9 +32,9 @@ function BuiltinBanditsTable() {
             return (
                 <tr key={"banditdef-" + i}>
                   <td>
-                    <a href={ApiRoutes.DOT11.MONITORING.BANDITS.BUILTIN_DETAILS(bandit.id)}>
+                    <Link to={ApiRoutes.DOT11.MONITORING.BANDITS.BUILTIN_DETAILS(bandit.id)}>
                       {bandit.name}
-                    </a>
+                    </Link>
                   </td>
                   <td>{bandit.description}</td>
                 </tr>

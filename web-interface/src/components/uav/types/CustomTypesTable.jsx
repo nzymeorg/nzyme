@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Paginator from "../../misc/Paginator";
@@ -57,7 +58,7 @@ export default function CustomTypesTable(props) {
               <td><UavSerialNumberMatch matchType={t.match_type} matchValue={t.match_value} /></td>
 
               <WithPermission permission="uav_monitoring_manage">
-                <td><a href={ApiRoutes.UAV.TYPES.EDIT(t.uuid, t.organization_id, t.tenant_id)}>Edit</a></td>
+                <td><Link to={ApiRoutes.UAV.TYPES.EDIT(t.uuid, t.organization_id, t.tenant_id)}>Edit</Link></td>
                 <td><a href="#" onClick={(e) => deleteType(e, t.uuid)}>Delete</a></td>
               </WithPermission>
             </tr>

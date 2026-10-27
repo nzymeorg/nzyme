@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import SolutionCounter from "./layout/SolutionCounter";
 import Conditional from "./layout/Conditional";
@@ -8,7 +9,7 @@ function MessageFailureProcedure() {
       <ol className="consequence-solution-procedure">
         <li>
           <SolutionCounter counter="1" /> Identify failed message bus messages using
-          the <a href={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX}>Cluster Messaging</a> page.
+          the <Link to={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX}>Cluster Messaging</Link> page.
         </li>
         <li>
           <SolutionCounter counter="2" /> <Conditional text="For each" /> failed message perform:

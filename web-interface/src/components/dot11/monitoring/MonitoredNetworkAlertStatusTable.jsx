@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import MonitoredNetworkSingleAlertStatus from "./MonitoredNetworkSingleAlertStatus";
 import HelpBubble from "../../misc/HelpBubble";
@@ -84,7 +85,7 @@ function MonitoredNetworkAlertStatusTable(props) {
               {renderControls ?
                   <React.Fragment>
                       <td><AlertEnabledTrigger ssid={ssid} parameter="disco_monitor" bumpRevision={bumpRevision}/></td>
-                      <td><a href={ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(ssid.uuid)}>Configure</a></td>
+                      <td><Link to={ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(ssid.uuid)}>Configure</Link></td>
                   </React.Fragment> : null}
           </tr>
           <tr>
@@ -94,7 +95,7 @@ function MonitoredNetworkAlertStatusTable(props) {
               {renderControls ?
                   <React.Fragment>
                       <td><AlertEnabledTrigger ssid={ssid} parameter="similar_ssids" bumpRevision={bumpRevision}/></td>
-                      <td><a href={ApiRoutes.DOT11.MONITORING.SIMILAR_SSID_CONFIGURATION(ssid.uuid)}>Configure</a></td>
+                      <td><Link to={ApiRoutes.DOT11.MONITORING.SIMILAR_SSID_CONFIGURATION(ssid.uuid)}>Configure</Link></td>
                   </React.Fragment> : null}
           </tr>
           <tr>
@@ -106,8 +107,8 @@ function MonitoredNetworkAlertStatusTable(props) {
                   <React.Fragment>
                       <td><AlertEnabledTrigger ssid={ssid} parameter="restricted_ssid_substrings"
                                                bumpRevision={bumpRevision}/></td>
-                      <td><a
-                          href={ApiRoutes.DOT11.MONITORING.RESTRICTED_SUBSTRINGS_CONFIGURATION(ssid.uuid)}>Configure</a>
+                      <td><Link
+                          to={ApiRoutes.DOT11.MONITORING.RESTRICTED_SUBSTRINGS_CONFIGURATION(ssid.uuid)}>Configure</Link>
                       </td>
                   </React.Fragment> : null}
           </tr>
@@ -124,7 +125,7 @@ function MonitoredNetworkAlertStatusTable(props) {
                   <React.Fragment>
                       <td><span className="text-muted">n/a</span></td>
                       <td>
-                          <a href={ApiRoutes.DOT11.MONITORING.CLIENTS_CONFIGURATION(ssid.uuid)}>Configure</a>
+                          <Link to={ApiRoutes.DOT11.MONITORING.CLIENTS_CONFIGURATION(ssid.uuid)}>Configure</Link>
                       </td>
                   </React.Fragment> : null}
           </tr>

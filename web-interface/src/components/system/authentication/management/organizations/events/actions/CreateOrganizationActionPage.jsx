@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import Routes from "../../../../../../../util/ApiRoutes";
 import ApiRoutes from "../../../../../../../util/ApiRoutes";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import AuthenticationManagementService from "../../../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../../../misc/LoadingSpinner";
 import CreateActionProxy from "../../../../../events/shared/forms/CreateActionProxy";
@@ -41,18 +41,18 @@ function CreateOrganizationActionPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                     {organization.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
                     Events &amp; Actions
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">Actions</li>
                 <li className="breadcrumb-item active" aria-current="page">Create</li>
@@ -61,10 +61,10 @@ function CreateOrganizationActionPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-primary float-end"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
+            <Link className="btn btn-primary float-end"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
               Back
-            </a>
+            </Link>
           </div>
         </div>
 

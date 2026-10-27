@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import SolutionCounter from "./layout/SolutionCounter";
@@ -9,7 +10,7 @@ function NodeClockProcedure(props) {
       <ol className="consequence-solution-procedure">
         <li>
           <SolutionCounter counter="1" /> Identify nzyme nodes with unsafe clock drift on the{' '}
-          <a href={ApiRoutes.SYSTEM.CLUSTER.INDEX}>nodes overview</a> page
+          <Link to={ApiRoutes.SYSTEM.CLUSTER.INDEX}>nodes overview</Link> page
         </li>
         <li>
           <SolutionCounter counter="2" /> <Conditional text="if" /> <Indicator text="DB Clock" />{' '}

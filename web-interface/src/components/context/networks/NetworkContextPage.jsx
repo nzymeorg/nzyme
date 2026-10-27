@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import WithPermission from "../../misc/WithPermission";
@@ -34,7 +35,7 @@ export default function NetworksContextPage() {
           <div className="col-md-4 text-end">
             <a href="https://go.nzyme.org/context" className="btn btn-secondary">Help</a>{' '}
             <WithPermission permission="network_context_manage">
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.NETWORKS.CREATE}>Create Context</a>
+              <Link className="btn btn-primary" to={ApiRoutes.CONTEXT.NETWORKS.CREATE}>Create Context</Link>
             </WithPermission>
           </div>
         </div>

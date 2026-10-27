@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -34,7 +35,7 @@ function TLSCertificateTable(props) {
                 <td>{certificates[i].fingerprint.substring(0, 16).match(/.{1,2}/g).join(' ').toUpperCase()}</td>
                 <td><ExpirationDate date={certificates[i].expires_at} /></td>
                 <td>
-                  <a href={ApiRoutes.SYSTEM.CRYPTO.TLS.CERTIFICATE(certificates[i].node_id)}>Manage</a>
+                  <Link to={ApiRoutes.SYSTEM.CRYPTO.TLS.CERTIFICATE(certificates[i].node_id)}>Manage</Link>
                 </td>
               </tr>
           )

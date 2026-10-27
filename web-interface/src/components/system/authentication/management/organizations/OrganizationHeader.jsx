@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext} from "react";
 import Routes from "../../../../../util/ApiRoutes";
 import {UserContext} from "../../../../../App";
@@ -14,7 +15,7 @@ export default function OrganizationHeader(props) {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
               <li className="breadcrumb-item">
-                <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
               </li>
               <li className="breadcrumb-item">Organizations</li>
               <li className="breadcrumb-item active" aria-current="page">{organization.name}</li>
@@ -24,10 +25,10 @@ export default function OrganizationHeader(props) {
         <div className="col-md-3">
             <span className="float-end">
               {user.is_superadmin ?
-                  <a className="btn btn-primary"
-                     href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EDIT(organization.id)}>
+                  <Link className="btn btn-primary"
+                     to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EDIT(organization.id)}>
                     Edit Organization
-                  </a> : null}
+                  </Link> : null}
             </span>
         </div>
       </div>

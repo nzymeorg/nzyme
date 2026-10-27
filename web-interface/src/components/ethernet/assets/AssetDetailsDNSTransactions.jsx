@@ -6,7 +6,7 @@ import {TapContext} from "../../../App";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import DNSTransactionsTable from "../dns/logs/DNSTransactionsTable";
 import ApiRoutes from "../../../util/ApiRoutes";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 
 export default function AssetDetailsDNSTransactions(props) {
 
@@ -22,7 +22,7 @@ export default function AssetDetailsDNSTransactions(props) {
     }]
   };
 
-  const [timeRange, setTimeRange] =  useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "asset_d_dnstx"));
+  const [timeRange, setTimeRange] =  useUrlTimeRange(Presets.RELATIVE_HOURS_24, "asset_d_dnstx");
   const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {

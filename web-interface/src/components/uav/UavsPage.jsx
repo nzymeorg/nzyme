@@ -10,7 +10,7 @@ import UavLiveMap from "./UavLiveMap";
 import ApiRoutes from "../../util/ApiRoutes";
 import {Navigate} from "react-router-dom";
 import usePageTitle from "../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../shared/timerange/TimeRangeSelector";
 
 const uavService = new UavService();
 
@@ -24,7 +24,7 @@ export default function UavsPage() {
   const selectedTaps = tapContext.taps;
 
   const [uavs, setUavs] = useState(null);
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
   const [page, setPage] = useState(1);
   const perPage = 25;
 

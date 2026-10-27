@@ -3,20 +3,16 @@ import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import BluetoothDevicesTable from "./BluetoothDevicesTable";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import Filters from "../../shared/filtering/Filters";
 import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../BluetoothDevicesFilterFields";
-import {useLocation} from "react-router-dom";
 import BluetoothDeviceCountHistogram from "./BluetoothDeviceCountHistogram";
 import BluetoothDeviceManufacturersHistogram from "./BluetoothDeviceManufacturersHistogram";
 import BluetoothDeviceOuisHistogram from "./BluetoothDeviceOuisHistogram";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function BluetoothDevicesPage() {
 
@@ -24,13 +20,11 @@ export default function BluetoothDevicesPage() {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
-  const urlQuery = useQuery();
-
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
 
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(queryParametersToFilters(urlQuery.get("filters"), BLUETOOTH_DEVICES_FILTER_FIELDS));
+  const [filters, setFilters] = useUrlFilters(BLUETOOTH_DEVICES_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   return (

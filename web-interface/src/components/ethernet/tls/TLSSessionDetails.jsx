@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../App";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
@@ -217,10 +218,10 @@ export default function TLSSessionDetails({ sessionKey }) {
                     {session.ja4 ?
                         <React.Fragment>
                           <span className="machine-data">{session.ja4}</span>
-                          <a href={ApiRoutes.ETHERNET.TLS.SESSIONS.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({ja4: [{field: "ja4", operator: "equals", value: session.ja4}]}))}
+                          <Link to={ApiRoutes.ETHERNET.TLS.SESSIONS.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({ja4: [{field: "ja4", operator: "equals", value: session.ja4}]}))}
                              title="Show all sessions with this fingerprint">
                             <i className="fa-brands fa-searchengin filter-value hide-narrow"></i>
-                          </a>
+                          </Link>
                         </React.Fragment>
                         : na("No ClientHello observed.")}
                   </dd>

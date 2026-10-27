@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import {truncate} from "../../../../util/Tools";
@@ -43,7 +44,7 @@ function CustomBanditsTable() {
           {bandits.bandits.map((bandit, i) => {
             return (
                 <tr key={"bandit-" + i}>
-                  <td><a href={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>{bandit.name}</a></td>
+                  <td><Link to={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>{bandit.name}</Link></td>
                   <td>{truncate(bandit.description, 200, true)}</td>
                 </tr>
             )

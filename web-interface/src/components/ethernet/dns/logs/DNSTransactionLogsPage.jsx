@@ -8,19 +8,15 @@ import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import Filters from "../../../shared/filtering/Filters";
 import DNSTransactionCountChart from "./widgets/DNSTransactionCountChart";
 import {DNS_FILTER_FIELDS} from "../DNSFilterFields";
-import {useLocation} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {DNS_MENU_ITEMS} from "../DNSMenuItems";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import usePageTitle from "../../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import onSaveFiltersAsMonitor from "../../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../../misc/RenderConditionally";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function DNSTransactionLogsPage() {
 
@@ -29,10 +25,9 @@ export default function DNSTransactionLogsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(queryParametersToFilters(urlQuery.get("filters"), DNS_FILTER_FIELDS));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(DNS_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
   const [revision, setRevision] = useState(new Date());
 

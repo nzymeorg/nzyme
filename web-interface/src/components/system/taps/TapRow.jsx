@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react'
 import numeral from 'numeral'
 import moment from 'moment'
@@ -18,7 +19,7 @@ function TapsRow (props) {
     return (
       <tr>
         <td>
-          <a href={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</a>
+          <Link to={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</Link>
 
           {tap.active
             ? ''
@@ -44,7 +45,7 @@ function TapsRow (props) {
   } else {
     return (
         <tr>
-          <td><a href={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</a></td>
+          <td><Link to={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</Link></td>
           <td colSpan={7} style={{textAlign: "center"}} title={moment(tap.last_report).format()}>
             <span><i className="fa-solid fa-triangle-exclamation text-danger" title="Node is offline."/></span>{' '}
             Offline.{' '}

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Dot11Service from "../../../services/Dot11Service";
@@ -46,7 +47,7 @@ function MonitoredNetworksTable() {
           {ssids.map(function (ssid, i) {
             return (
               <tr key={"monitoredssid-" + i}>
-                <td><a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</a></td>
+                <td><Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</Link></td>
                 <td><MonitoredNetworkStatus ssid={ssid} /></td>
                 <td title={moment(ssid.created_at)}>
                   {moment(ssid.created_at).fromNow()}

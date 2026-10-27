@@ -1,6 +1,6 @@
 import React, {useContext, useEffect, useState} from "react";
 import usePageTitle from "../../../util/UsePageTitle";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import {TapContext} from "../../../App";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
@@ -116,16 +116,16 @@ export default function PortalIntegrityReportDetailsPage() {
         <div className="col-10">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX}>Portal Integrity</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX}>Portal Integrity</Link></li>
               <li className="breadcrumb-item">Reports</li>
               <li className="breadcrumb-item active" aria-current="page">{uuid}</li>
             </ol>
           </nav>
         </div>
         <div className="col-2">
-          <a href={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} className="btn btn-primary float-end">
+          <Link to={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} className="btn btn-primary float-end">
             Back
-          </a>
+          </Link>
         </div>
       </div>
 

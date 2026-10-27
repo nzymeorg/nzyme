@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import AuthenticationManagementService from "../../../services/AuthenticationManagementService";
 import EventActionsService from "../../../services/EventActionsService";
 import LoadingSpinner from "../../misc/LoadingSpinner";
@@ -67,10 +67,10 @@ function AlertSubscriptionDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.ALERTS.INDEX}>Alerts</a>
+                  <Link to={ApiRoutes.ALERTS.INDEX}>Alerts</Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.ALERTS.SUBSCRIPTIONS.INDEX}>Subscriptions</a>
+                  <Link to={ApiRoutes.ALERTS.SUBSCRIPTIONS.INDEX}>Subscriptions</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">
                   {detectionType.title}
@@ -80,7 +80,7 @@ function AlertSubscriptionDetailsPage() {
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={ApiRoutes.ALERTS.SUBSCRIPTIONS.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={ApiRoutes.ALERTS.SUBSCRIPTIONS.INDEX}>Back</Link>
           </div>
         </div>
 

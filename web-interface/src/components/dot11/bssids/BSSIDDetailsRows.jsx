@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import SignalStrength from "../../shared/SignalStrength";
 import moment from "moment/moment";
@@ -24,7 +25,7 @@ function BSSIDDetailsRows(props) {
       return (
           <tr>
             <td colSpan={COLSPAN} style={{textAlign: "center"}}>
-              <a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(bssid.address)}>Show BSSID Details</a>
+              <Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(bssid.address)}>Show BSSID Details</Link>
             </td>
           </tr>
       )
@@ -50,7 +51,7 @@ function BSSIDDetailsRows(props) {
         <tr>
           <td colSpan={COLSPAN}>
             Only hidden SSIDs.{' '}
-            {hideBSSIDLink ? null : <a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(bssid.address)}>Open BSSID Details</a>}
+            {hideBSSIDLink ? null : <Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(bssid.address)}>Open BSSID Details</Link>}
           </td>
         </tr>
     )
@@ -78,7 +79,7 @@ function BSSIDDetailsRows(props) {
                 return (
                   <tr key={"ssid-" + i}>
                     <td>
-                      <a href={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(bssid.address, ssid.ssid, ssid.frequency)}>{ssid.ssid}</a>{' '}
+                      <Link to={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(bssid.address, ssid.ssid, ssid.frequency)}>{ssid.ssid}</Link>{' '}
                     </td>
                     <td><InfrastructureTypes types={ssid.infrastructure_types} /></td>
                     <td>

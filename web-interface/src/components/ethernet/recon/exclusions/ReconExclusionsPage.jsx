@@ -1,12 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import ReconService from "../../../../services/ethernet/ReconService";
 import {RECON_MENU_ITEMS} from "../ReconMenuItems";
 import {RECON_EXCLUSIONS_FILTER_FIELDS} from "./ReconExclusionsFilterFields";
@@ -16,9 +16,6 @@ import ReconExclusionsTable from "./ReconExclusionsTable";
 
 const reconService = new ReconService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function ReconExclusionsPage() {
 
@@ -27,11 +24,8 @@ export default function ReconExclusionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
   const canEdit = userHasPermission(user, "ethernet_monitoring_manage");
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), RECON_EXCLUSIONS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(RECON_EXCLUSIONS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("name");
   const [orderDirection, setOrderDirection] = useState("ASC");
 

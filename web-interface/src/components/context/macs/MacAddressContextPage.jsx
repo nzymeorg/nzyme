@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useState} from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import MacAddressContextTable from "./MacAddressContextTable";
@@ -34,7 +35,7 @@ function MacAddressContextPage() {
           <div className="col-md-4 text-end">
             <a href="https://go.nzyme.org/context" className="btn btn-secondary">Help</a>{' '}
             <WithPermission permission="mac_context_manage">
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE}>Create Context</a>
+              <Link className="btn btn-primary" to={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE}>Create Context</Link>
             </WithPermission>
           </div>
         </div>

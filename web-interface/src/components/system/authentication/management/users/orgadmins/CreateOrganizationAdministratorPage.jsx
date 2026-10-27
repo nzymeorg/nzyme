@@ -3,7 +3,7 @@ import React, {useEffect, useState} from "react";
 import {toast} from "react-toastify";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import CreateUserForm from "../shared/CreateUserForm";
 import LoadingSpinner from "../../../../../misc/LoadingSpinner";
 import usePageTitle from "../../../../../../util/UsePageTitle";
@@ -53,18 +53,18 @@ function CreateOrganizationAdministratorPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                     {organization.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS_PAGE(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS_PAGE(organization.id)}>
                     Organization Administrators
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Create</li>
               </ol>
@@ -72,10 +72,10 @@ function CreateOrganizationAdministratorPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS_PAGE(organization.id)}>
+            <Link className="btn btn-secondary float-end"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS_PAGE(organization.id)}>
               Back
-            </a>
+            </Link>
           </div>
 
           <div className="col-12">

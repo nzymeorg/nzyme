@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import Routes from "../../../../../util/ApiRoutes";
@@ -125,28 +125,28 @@ function TenantUserDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                     {organization.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                     Tenants
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
                   {tenant.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.USERS_PAGE(organization.id, tenant.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.USERS_PAGE(organization.id, tenant.id)}>
                     Users
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">{user.email}</li>
               </ol>
@@ -155,13 +155,13 @@ function TenantUserDetailsPage() {
 
           <div className="col-md-3">
             <span className="float-end">
-              <a className="btn btn-secondary"
-                 href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.USERS_PAGE(organization.id, tenant.id)}>
+              <Link className="btn btn-secondary"
+                 to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.USERS_PAGE(organization.id, tenant.id)}>
                 Back
-              </a>{' '}
-              <a className="btn btn-primary" href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.EDIT(organization.id, tenant.id, user.id)}>
+              </Link>{' '}
+              <Link className="btn btn-primary" to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.EDIT(organization.id, tenant.id, user.id)}>
                 Edit User
-              </a>
+              </Link>
             </span>
           </div>
         </div>

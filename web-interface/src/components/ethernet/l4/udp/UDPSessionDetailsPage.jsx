@@ -1,4 +1,4 @@
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import React, {useContext, useEffect, useState} from "react";
@@ -39,9 +39,9 @@ export default function UDPSessionDetailsPage() {
           <div className="col-md-12">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
                 <li className="breadcrumb-item">TCP/UDP</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.L4.SESSIONS}>Sessions</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.L4.SESSIONS}>Sessions</Link></li>
                 <li className="breadcrumb-item">UDP</li>
                 <li className="breadcrumb-item active" aria-current="page">{sessionKey}</li>
               </ol>

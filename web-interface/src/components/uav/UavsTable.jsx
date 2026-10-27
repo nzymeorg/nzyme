@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext} from "react";
 import {TapContext} from "../../App";
 import LoadingSpinner from "../misc/LoadingSpinner";
@@ -64,7 +65,7 @@ export default function UavsTable(props) {
             return (
               <tr key={i}>
                 <td><UavActiveIndicator active={uav.is_active} /></td>
-                <td><a href={ApiRoutes.UAV.DETAILS(uav.identifier)}>{uav.identifier.substring(0, 7)}</a></td>
+                <td><Link to={ApiRoutes.UAV.DETAILS(uav.identifier)}>{uav.identifier.substring(0, 7)}</Link></td>
                 <td><Designation designation={uav.designation} /></td>
                 <td><UavClassification classification={uav.classification} /></td>
                 <td><UavDetectionSource source={uav.detection_source} /></td>

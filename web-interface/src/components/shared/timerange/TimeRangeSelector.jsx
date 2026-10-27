@@ -4,7 +4,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {useApplyTimeRange} from "./TimeRangeUrl";
 
-export {deserializeTimeRange, timeRangeFromURLOrDefault} from "./TimeRangeUrl";
+export {deserializeTimeRange, timeRangeFromURLOrDefault, useUrlTimeRange} from "./TimeRangeUrl";
 
 export default function TimeRangeSelector(props) {
 

@@ -1,4 +1,4 @@
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import NTPTransactionDetails from "./NTPTransactionDetails";
@@ -16,9 +16,9 @@ export default function NTPTransactionDetailsPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
               <li className="breadcrumb-item">Time</li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.TIME.NTP.INDEX}>NTP Transactions</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.TIME.NTP.INDEX}>NTP Transactions</Link></li>
               <li className="breadcrumb-item active" aria-current="page">{transactionId}</li>
             </ol>
           </nav>

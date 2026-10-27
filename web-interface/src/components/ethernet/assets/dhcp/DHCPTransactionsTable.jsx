@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import Paginator from "../../../misc/Paginator";
@@ -69,9 +70,9 @@ export default function DHCPTransactionsTable(props) {
             return (
                 <tr key={i}>
                   <td>
-                    <a href={ApiRoutes.ETHERNET.ASSETS.DHCP.TRANSACTION_DETAILS(t.transaction_id) + "?transaction_time=" + encodeURIComponent(t.first_packet)}>
+                    <Link to={ApiRoutes.ETHERNET.ASSETS.DHCP.TRANSACTION_DETAILS(t.transaction_id) + "?transaction_time=" + encodeURIComponent(t.first_packet)}>
                       {moment(t.first_packet).format()}
-                    </a>
+                    </Link>
                   </td>
                   <td>
                     {t.transaction_type}

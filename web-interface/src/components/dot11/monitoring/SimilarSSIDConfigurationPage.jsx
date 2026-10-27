@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import Dot11Service from "../../../services/Dot11Service";
 import ApiRoutes from "../../../util/ApiRoutes";
 import LoadingSpinner from "../../misc/LoadingSpinner";
@@ -53,18 +53,18 @@ function SimilarSSIDConfigurationPage() {
           <div className="col-md-7">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
                 <li className="breadcrumb-item">Monitored Networks</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</a>
+                  <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Similar SSID Monitor</li>
               </ol>
             </nav>
           </div>
           <div className="col-md-5">
-            <a className="btn btn-primary float-end" href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Back</a>
+            <Link className="btn btn-primary float-end" to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Back</Link>
           </div>
         </div>
 

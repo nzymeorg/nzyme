@@ -1,12 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import SectionMenuBar from "../../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import usePageTitle from "../../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import Filters from "../../../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../../shared/filtering/useUrlFilters";
 import DnsTunnelsService from "../../../../../services/ethernet/DnsTunnelsService";
 import {DNS_MENU_ITEMS} from "../../DNSMenuItems";
 import {DNS_TUNNEL_EXCLUSIONS_FILTER_FIELDS} from "./DnsTunnelExclusionsFilterFields";
@@ -16,9 +16,6 @@ import DnsTunnelExclusionsTable from "./DnsTunnelExclusionsTable";
 
 const dnsTunnelsService = new DnsTunnelsService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function DnsTunnelExclusionsPage() {
 
@@ -27,11 +24,8 @@ export default function DnsTunnelExclusionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
   const canEdit = userHasPermission(user, "ethernet_monitoring_manage");
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), DNS_TUNNEL_EXCLUSIONS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(DNS_TUNNEL_EXCLUSIONS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("name");
   const [orderDirection, setOrderDirection] = useState("ASC");
 

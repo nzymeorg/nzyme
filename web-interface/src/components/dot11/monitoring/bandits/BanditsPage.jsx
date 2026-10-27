@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import BuiltinBanditsTable from "./BuiltinBanditsTable";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
@@ -67,10 +68,10 @@ export default function BanditsPage() {
 
                 <CustomBanditsTable />
 
-                <a href={ApiRoutes.DOT11.MONITORING.BANDITS.CREATE}
+                <Link to={ApiRoutes.DOT11.MONITORING.BANDITS.CREATE}
                    className="btn btn-sm btn-secondary">
                   Create Custom Bandit
-                </a>
+                </Link>
               </div>
             </div>
           </div>

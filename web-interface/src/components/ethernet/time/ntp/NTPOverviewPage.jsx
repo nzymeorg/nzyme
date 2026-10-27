@@ -5,9 +5,8 @@ import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {TIME_MENU_ITEMS} from "../TimeMenuItems";
 import {Presets} from "../../../shared/timerange/TimeRange";
-import {useLocation} from "react-router-dom";
 import TimeService from "../../../../services/ethernet/TimeService";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import {NTP_FILTER_FIELDS} from "./NTPFilterFields";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import NTPTransactionsTable from "./NTPTransactionsTable";
@@ -16,36 +15,29 @@ import NTPTransactionsHistogram from "./NTPTransactionsHistogram";
 import NTPClientRequestResponseRatioHistogram from "./NTPClientRequestResponseRatioHistogram";
 import NTPTopServersHistogram from "./NTPTopServersHistogram";
 import usePageTitle from "../../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import onSaveFiltersAsMonitor from "../../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../../misc/RenderConditionally";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 
 const timeService = new TimeService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export function NTPOverviewPage() {
 
   usePageTitle("NTP Transactions");
 
   const [organizationId, tenantId] = useSelectedTenant();
-
-  const urlQuery = useQuery();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
 
   const [transactionsHistogram, setTransactionsHistogram] = useState(null);
 
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), NTP_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(NTP_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   useEffect(() => {

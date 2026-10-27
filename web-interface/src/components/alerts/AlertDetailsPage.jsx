@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import DetectionAlertsService from "../../services/DetectionAlertsService";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import ApiRoutes from "../../util/ApiRoutes";
@@ -71,7 +71,7 @@ function AlertDetailsPage() {
           <div className="col-md-8">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.ALERTS.INDEX}>Alerts</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ALERTS.INDEX}>Alerts</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">{alert.id}</li>
               </ol>
             </nav>
@@ -83,7 +83,7 @@ function AlertDetailsPage() {
                 <a className="btn btn-secondary" href="" onClick={markAsResolved}>Mark as Resolved</a>{' '}
                 <a className="btn btn-danger" href="" onClick={deleteAlert}>Delete</a>{' '}
               </WithPermission>
-              <a className="btn btn-primary" href={ApiRoutes.ALERTS.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.ALERTS.INDEX}>Back</Link>
             </span>
           </div>
 

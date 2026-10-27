@@ -1,5 +1,4 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import {TapContext} from "../../../App";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
@@ -7,10 +6,10 @@ import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import IcmpService from "../../../services/ethernet/IcmpService";
 import {ICMP_MENU_ITEMS} from "./IcmpMenuItems";
 import {ICMP_FILTER_FIELDS} from "./IcmpFilterFields";
@@ -21,21 +20,17 @@ import IcmpTrafficTable from "./IcmpTrafficTable";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpTrafficPage() {
 
   usePageTitle("ICMP Traffic");
 
   const [organizationId, tenantId] = useSelectedTenant();
-  const urlQuery = useQuery();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
-  const [filters, setFilters] = useState(queryParametersToFilters(urlQuery.get("filters"), ICMP_FILTER_FIELDS));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
+  const [filters, setFilters] = useUrlFilters(ICMP_FILTER_FIELDS);
 
   const [statistics, setStatistics] = useState(null);
   const [packets, setPackets] = useState(null);

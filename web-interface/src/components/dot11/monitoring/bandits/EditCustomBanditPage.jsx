@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import Dot11Service from "../../../../services/Dot11Service";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import CustomBanditForm from "./CustomBanditForm";
@@ -43,14 +43,14 @@ function EditCustomBanditPage() {
           <div className="col-md-7">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.BANDITS.INDEX}>Bandits</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.BANDITS.INDEX}>Bandits</Link></li>
                 <li className="breadcrumb-item">Custom</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>
+                  <Link to={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>
                     {bandit.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Edit</li>
               </ol>
@@ -59,9 +59,9 @@ function EditCustomBanditPage() {
 
           <div className="col-md-5">
             <span className="float-end">
-              <a className="btn btn-secondary" href={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>
+              <Link className="btn btn-secondary" to={ApiRoutes.DOT11.MONITORING.BANDITS.CUSTOM_DETAILS(bandit.id)}>
                 Back
-              </a>
+              </Link>
             </span>
           </div>
         </div>

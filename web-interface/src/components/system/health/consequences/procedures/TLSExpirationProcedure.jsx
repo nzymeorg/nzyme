@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import SolutionCounter from "./layout/SolutionCounter";
 import Conditional from "./layout/Conditional";
@@ -8,7 +9,7 @@ function TLSExpirationProcedure(props) {
       <ol className="consequence-solution-procedure">
         <li>
           <SolutionCounter counter="1" /> Identify nzyme nodes with expiring or expired TLS certificates using
-          the <a href={ApiRoutes.SYSTEM.CRYPTO.INDEX}>Keys &amp; Certificates</a> page.
+          the <Link to={ApiRoutes.SYSTEM.CRYPTO.INDEX}>Keys &amp; Certificates</Link> page.
         </li>
         <li>
           <SolutionCounter counter="2" /> <Conditional text="For each" /> node with expiring or expired TLS

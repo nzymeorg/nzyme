@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../../../../../misc/LoadingSpinner";
 import Paginator from "../../../../../../misc/Paginator";
@@ -55,9 +56,9 @@ function FloorsTable(props) {
                 <tr key={i}>
                   <td>{floors.floors[i].number}</td>
                   <td>
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.FLOORS.DETAILS(organizationId, tenantId, locationId, floors.floors[i].id)}>
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.FLOORS.DETAILS(organizationId, tenantId, locationId, floors.floors[i].id)}>
                       {floors.floors[i].name}
-                    </a>
+                    </Link>
                   </td>
                   <td>
                     {floors.floors[i].has_floor_plan ? <span><i className="fa-solid fa-circle-check text-success"></i> Yes</span>

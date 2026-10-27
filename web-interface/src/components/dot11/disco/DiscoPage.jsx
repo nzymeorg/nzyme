@@ -10,7 +10,7 @@ import {TapContext} from "../../../App";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 
 export const MonitoredNetworkContext = createContext(null);
 
@@ -26,13 +26,17 @@ function DiscoPage() {
 
   const urlQuery = useQuery();
 
-  const [monitoredNetwork, setMonitoredNetwork] = useState(
-      urlQuery.get("monitored-network-id") ? urlQuery.get("monitored-network-id") : ""
-  );
+  const urlMonitoredNetwork = urlQuery.get("monitored-network-id") ? urlQuery.get("monitored-network-id") : "";
+  const [monitoredNetwork, setMonitoredNetwork] = useState(urlMonitoredNetwork);
 
-  const [discoHistogramTimeRange, setDiscoHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disco"));
-  const [deauthHistogramTimeRange, setDeauthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "deauth"));
-  const [disassocHistogramTimeRange, setDisassocHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disassoc"));
+  // Follow the URL parameter when navigation changes it while this page stays mounted.
+  useEffect(() => {
+    setMonitoredNetwork(urlMonitoredNetwork);
+  }, [urlMonitoredNetwork]);
+
+  const [discoHistogramTimeRange, setDiscoHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disco");
+  const [deauthHistogramTimeRange, setDeauthHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "deauth");
+  const [disassocHistogramTimeRange, setDisassocHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disassoc");
   const [pairsTimeRange, setPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [sendersTimeRange, setSendersTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [receiversTimeRange, setReceiversTimeRange] = useState(Presets.RELATIVE_HOURS_24);

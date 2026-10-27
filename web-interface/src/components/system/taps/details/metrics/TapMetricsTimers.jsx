@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react'
 import numeral from "numeral";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -29,9 +30,9 @@ function TapMetricsTimers (props) {
                 <td>{numeral(timers[key].mean).format("0,0.0")} &#956;s</td>
                 <td>{numeral(timers[key].p99).format("0,0.0")} &#956;s</td>
                 <td>
-                  <a href={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(props.tap.uuid, "timer", timers[key].metric_name)}>
+                  <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(props.tap.uuid, "timer", timers[key].metric_name)}>
                     Chart
-                  </a>
+                  </Link>
                 </td>
               </tr>
           )

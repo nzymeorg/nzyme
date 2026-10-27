@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import Routes from "../../../../../util/ApiRoutes";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import {toast} from "react-toastify";
@@ -49,28 +49,28 @@ function CreateTapPermissionPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                     {organization.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                     Tenants
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
                   {tenant.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.TAPS_PAGE(organization.id, tenant.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.TAPS_PAGE(organization.id, tenant.id)}>
                     Taps
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Create Tap</li>
               </ol>
@@ -78,10 +78,10 @@ function CreateTapPermissionPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end"
-               href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.TAPS_PAGE(organization.id, tenant.id)}>
+            <Link className="btn btn-secondary float-end"
+               to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.TAPS_PAGE(organization.id, tenant.id)}>
               Back
-            </a>
+            </Link>
           </div>
 
           <div className="col-12">

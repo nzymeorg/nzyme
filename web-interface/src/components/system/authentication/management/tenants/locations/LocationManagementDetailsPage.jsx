@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import LoadingSpinner from "../../../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
 import moment from "moment";
@@ -86,28 +86,28 @@ function LocationManagementDetailsPage() {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
               </li>
               <li className="breadcrumb-item">Organizations</li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                   {organization.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                   Tenants
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
                 {tenant.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
                   Locations
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item active" aria-current="page">{location.name}</li>
             </ol>
@@ -116,14 +116,14 @@ function LocationManagementDetailsPage() {
 
         <div className="col-md-3">
           <span className="float-end">
-            <a className="btn btn-secondary"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
+            <Link className="btn btn-secondary"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
               Back
-            </a>{' '}
-            <a className="btn btn-primary"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.EDIT(organization.id, tenant.id, location.id)}>
+            </Link>{' '}
+            <Link className="btn btn-primary"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.EDIT(organization.id, tenant.id, location.id)}>
                 Edit Location
-            </a>
+            </Link>
           </span>
         </div>
 
@@ -186,9 +186,9 @@ function LocationManagementDetailsPage() {
 
                     <FloorsTable organizationId={organizationId} tenantId={tenantId} locationId={locationId} />
 
-                    <a className="btn btn-sm btn-secondary" href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.FLOORS.CREATE(organization.id, tenant.id, location.id)}>
+                    <Link className="btn btn-sm btn-secondary" to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.FLOORS.CREATE(organization.id, tenant.id, location.id)}>
                       Create Floor
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>

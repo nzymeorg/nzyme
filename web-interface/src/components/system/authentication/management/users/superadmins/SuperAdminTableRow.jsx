@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import moment from "moment";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
@@ -10,9 +11,9 @@ function SuperAdminTableRow(props) {
   return (
       <tr>
         <td>
-          <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(user.id)}>
+          <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(user.id)}>
           {user.name}
-          </a>
+          </Link>
         </td>
         <td>{user.email}</td>
         <td>{numeral(user.api_keys).format("0,0")}</td>

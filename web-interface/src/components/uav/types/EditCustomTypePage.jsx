@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import {toast} from "react-toastify";
 import Routes from "../../../util/ApiRoutes";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
@@ -50,7 +50,7 @@ export default function EditCustomTypePage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">UAVs</li>
-                <li className="breadcrumb-item"><a href={Routes.UAV.TYPES.INDEX}>Types</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.UAV.TYPES.INDEX}>Types</Link></li>
                 <li className="breadcrumb-item">Custom Types</li>
                 <li className="breadcrumb-item">{type.name}</li>
                 <li className="breadcrumb-item active">Edit</li>
@@ -59,9 +59,9 @@ export default function EditCustomTypePage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end" href={Routes.UAV.TYPES.INDEX}>
+            <Link className="btn btn-secondary float-end" to={Routes.UAV.TYPES.INDEX}>
               Back
-            </a>
+            </Link>
           </div>
         </div>
 

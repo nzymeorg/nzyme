@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import moment from "moment";
@@ -16,9 +17,9 @@ export default function EnvironmentalSevereAlertDetails({ alert }) {
                 <dd>{alert.attributes.headline}</dd>
                 <dt>Location</dt>
                 <dd>
-                  <a href={ApiRoutes.LOCATIONS.DETAILS(alert.attributes.location_uuid)}>
+                  <Link to={ApiRoutes.LOCATIONS.DETAILS(alert.attributes.location_uuid)}>
                     {alert.attributes.location_name}
-                  </a>
+                  </Link>
                 </dd>
                 <dt>Sender</dt>
                 <dd>{alert.attributes.sender}</dd>

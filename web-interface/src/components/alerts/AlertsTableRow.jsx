@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 
 import moment from "moment";
@@ -26,7 +27,7 @@ function AlertsTableRow(props) {
         <td>
           <AlertActiveIndicator active={alert.is_active} />
         </td>
-        <td><a href={ApiRoutes.ALERTS.DETAILS(alert.id)}>{alert.details}</a></td>
+        <td><Link to={ApiRoutes.ALERTS.DETAILS(alert.id)}>{alert.details}</Link></td>
         <td>{alert.detection_type}</td>
         <td><Subsystem subsystem={alert.subsystem} /></td>
         <td>{moment(alert.created_at).format()}</td>

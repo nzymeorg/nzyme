@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import EventActionsService from "../../../../services/EventActionsService";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -37,10 +37,10 @@ function EditActionPage() {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</Link></li>
                 <li className="breadcrumb-item">Actions</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(action.id)}>{action.name}</a>
+                  <Link to={ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(action.id)}>{action.name}</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Edit</li>
               </ol>
@@ -48,8 +48,8 @@ function EditActionPage() {
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end"
-               href={ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(action.id)}>Back</a>
+            <Link className="btn btn-primary float-end"
+               to={ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(action.id)}>Back</Link>
           </div>
 
           <div className="col-md-12">

@@ -1,5 +1,4 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import {toast} from "react-toastify";
@@ -9,7 +8,7 @@ import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import Filters from "../../shared/filtering/Filters";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import SpoofingService from "../../../services/ethernet/SpoofingService";
 import {SPOOFING_MENU_ITEMS} from "./SpoofingMenuItems";
 import {DHCP_SPOOFING_FILTER_FIELDS} from "./DhcpSpoofingFilterFields";
@@ -22,9 +21,6 @@ import {userHasPermission} from "../../../util/Tools";
 
 const spoofingService = new SpoofingService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function DhcpSpoofingPage() {
 
@@ -33,11 +29,8 @@ export default function DhcpSpoofingPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
   const canManage = userHasPermission(user, "ethernet_monitoring_manage");
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), DHCP_SPOOFING_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(DHCP_SPOOFING_FILTER_FIELDS);
 
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [orderColumn, setOrderColumn] = useState("last_seen");

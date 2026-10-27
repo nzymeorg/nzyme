@@ -4,12 +4,11 @@ import {Presets} from "../../shared/timerange/TimeRange";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {TapContext} from "../../../App";
 import Filters from "../../shared/filtering/Filters";
-import {useLocation} from "react-router-dom";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import {TLS_MENU_ITEMS} from "./TLSMenuItems";
 import {TLS_SESSION_FILTER_FIELDS} from "./TLSSessionFilterFields";
 import TLSSessionsTable from "./TLSSessionsTable";
@@ -19,9 +18,6 @@ import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorC
 import RenderConditionally from "../../misc/RenderConditionally";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function TLSSessionsPage() {
 
@@ -30,12 +26,9 @@ export default function TLSSessionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), TLS_SESSION_FILTER_FIELDS)
-  );
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(TLS_SESSION_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [revision, setRevision] = useState(new Date());

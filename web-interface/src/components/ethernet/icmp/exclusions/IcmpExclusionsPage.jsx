@@ -1,12 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import IcmpService from "../../../../services/ethernet/IcmpService";
 import {ICMP_MENU_ITEMS} from "../IcmpMenuItems";
 import {ICMP_EXCLUSIONS_FILTER_FIELDS} from "./IcmpExclusionsFilterFields";
@@ -16,9 +16,6 @@ import IcmpExclusionsTable from "./IcmpExclusionsTable";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpExclusionsPage() {
 
@@ -27,11 +24,8 @@ export default function IcmpExclusionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
   const canEdit = userHasPermission(user, "ethernet_monitoring_manage");
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ICMP_EXCLUSIONS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ICMP_EXCLUSIONS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("name");
   const [orderDirection, setOrderDirection] = useState("ASC");
 

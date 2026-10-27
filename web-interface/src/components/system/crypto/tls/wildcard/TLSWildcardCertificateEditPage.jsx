@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import Routes from "../../../../../util/ApiRoutes";
 import CryptoService from "../../../../../services/CryptoService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
@@ -110,7 +110,7 @@ function TLSWildcardCertificateEditPage(props) {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</Link></li>
                 <li className="breadcrumb-item">TLS</li>
                 <li className="breadcrumb-item active" aria-current="page">Wildcard Certificate #{certificate.id}</li>
               </ol>
@@ -118,7 +118,7 @@ function TLSWildcardCertificateEditPage(props) {
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={Routes.SYSTEM.CRYPTO.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={Routes.SYSTEM.CRYPTO.INDEX}>Back</Link>
           </div>
 
           <div className="col-md-12">

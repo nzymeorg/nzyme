@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import Paginator from "../../../misc/Paginator";
@@ -39,9 +40,9 @@ export default function ProbeRequestsTable(props) {
                   <td>{ssid.notes ? <span title={ssid.notes} className="cursor-help">{truncate(ssid.notes, 125, true)}</span>
                       : <span className="text-muted">None</span>}</td>
                   <td>
-                    <a href={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.EDIT(ssid.id)}>
+                    <Link to={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.EDIT(ssid.id)}>
                       Edit
-                    </a>
+                    </Link>
                   </td>
                   <td><a href="#" onClick={(e) => onDelete(e, ssid.id)}>Delete</a></td>
                 </tr>

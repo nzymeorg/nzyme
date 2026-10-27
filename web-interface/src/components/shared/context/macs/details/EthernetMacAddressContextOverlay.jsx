@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import WithPermission from "../../../../misc/WithPermission";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -34,10 +35,10 @@ export default function EthernetMacAddressContextOverlay(props) {
 
     return (
         <React.Fragment>
-          <a href={ApiRoutes.ETHERNET.ASSETS.DETAILS(assetId)}
+          <Link to={ApiRoutes.ETHERNET.ASSETS.DETAILS(assetId)}
              className="btn btn-sm btn-outline-primary">
             Open Asset Page
-          </a>{' '}
+          </Link>{' '}
         </React.Fragment>
     )
   }
@@ -70,10 +71,10 @@ export default function EthernetMacAddressContextOverlay(props) {
             {assetLink()}
 
             <WithPermission permission="mac_context_manage">
-              <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
+              <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
                  className="btn btn-sm btn-outline-secondary">
                 Add Context
-              </a>
+              </Link>
             </WithPermission>
           </div>
         </React.Fragment>
@@ -111,10 +112,10 @@ export default function EthernetMacAddressContextOverlay(props) {
         <div className="context-overlay-actions">
           {assetLink()}
 
-          <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
+          <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
              className="btn btn-sm btn-outline-primary">
             Context Details
-          </a>
+          </Link>
         </div>
       </React.Fragment>
   )

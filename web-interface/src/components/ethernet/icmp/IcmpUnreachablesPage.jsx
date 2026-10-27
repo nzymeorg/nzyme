@@ -1,5 +1,4 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import SectionMenuBar from "../../shared/SectionMenuBar";
@@ -16,7 +15,7 @@ import L4Address from "../shared/L4Address";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import Filters from "../../shared/filtering/Filters";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ICMP_UNREACHABLES_FILTER_FIELDS} from "./IcmpUnreachablesFilterFields";
 import IcmpUnreachablesHistogram from "./IcmpUnreachablesHistogram";
 import IcmpUnreachableBreakdownHistogram from "./IcmpUnreachableBreakdownHistogram";
@@ -27,9 +26,6 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpUnreachablesPage() {
 
@@ -38,11 +34,8 @@ export default function IcmpUnreachablesPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ICMP_UNREACHABLES_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ICMP_UNREACHABLES_FILTER_FIELDS);
   const [unreachables, setUnreachables] = useState(null);
   const [orderColumn, setOrderColumn] = useState("packet_count");
   const [orderDirection, setOrderDirection] = useState("DESC");

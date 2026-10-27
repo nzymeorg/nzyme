@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../../misc/LoadingSpinner";
@@ -63,11 +63,11 @@ function EditSuperAdminPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Super Administrators</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>{user.email}</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>{user.email}</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">
                   Edit
@@ -78,10 +78,10 @@ function EditSuperAdminPage() {
 
           <div className="col-3">
               <span className="float-end">
-                <a className="btn btn-secondary"
-                   href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>
+                <Link className="btn btn-secondary"
+                   to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>
                   Back
-                </a>
+                </Link>
               </span>
           </div>
         </div>

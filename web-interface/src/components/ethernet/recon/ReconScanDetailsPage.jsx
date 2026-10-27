@@ -18,16 +18,13 @@ import ReconScanFindings from "./ReconScanFindings";
 import ReconScanTimeline from "./ReconScanTimeline";
 import ReconScanTargetBreakdown from "./ReconScanTargetBreakdown";
 import Filters from "../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {RECON_SCAN_TARGETS_FILTER_FIELDS} from "./ReconScanTargetsFilterFields";
 import L4Address from "../shared/L4Address";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 
 const reconService = new ReconService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function ReconScanDetailsPage() {
 
@@ -40,12 +37,8 @@ export default function ReconScanDetailsPage() {
   const [scan, setScan] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [redirect, setRedirect] = useState(false);
-
-  const urlQuery = useQuery();
   const location = useLocation();
-  const [targetsFilters, setTargetsFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), RECON_SCAN_TARGETS_FILTER_FIELDS)
-  );
+  const [targetsFilters, setTargetsFilters] = useUrlFilters(RECON_SCAN_TARGETS_FILTER_FIELDS);
   const [targets, setTargets] = useState(null);
   const [targetsOrderColumn, setTargetsOrderColumn] = useState("outcome");
   const [targetsOrderDirection, setTargetsOrderDirection] = useState("DESC");

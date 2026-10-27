@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 
@@ -10,21 +11,21 @@ function UserDetailsAdminLink(props) {
 
   if (!organizationId && !tenantId) {
     // Superadmin.
-    return <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>
+    return <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.SUPERADMINS.DETAILS(userId)}>
       {email}
-    </a>
+    </Link>
   }
 
   if (organizationId && !tenantId) {
     // Org admin.
-    return <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS.DETAILS(organizationId, userId)}>
+    return <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS.DETAILS(organizationId, userId)}>
       {email}
-    </a>  }
+    </Link>  }
 
   // Tenant User.
-  return <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.DETAILS(organizationId, tenantId, userId)}>
+  return <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.USERS.DETAILS(organizationId, tenantId, userId)}>
     {email}
-  </a>
+  </Link>
 
 }
 

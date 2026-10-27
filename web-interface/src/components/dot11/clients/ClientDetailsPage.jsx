@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../util/ApiRoutes";
 import Dot11Service from "../../../services/Dot11Service";
 import LoadingSpinner from "../../misc/LoadingSpinner";
@@ -22,7 +22,7 @@ import TransparentIpAddressTable from "../../shared/context/transparent/Transpar
 import TransparentHostnamesTable from "../../shared/context/transparent/TransparentHostnamesTable";
 import {singleTapSelected} from "../../../util/Tools";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -43,14 +43,14 @@ function ClientDetailsPage() {
   const [trilaterationError, setTrilaterationError] = useState(null);
   const [trilaterationRevision, setTrilaterationRevision] = useState(0);
 
-  const [frameCountHistogramTimeRange, setFrameCountHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "frame_count"));
+  const [frameCountHistogramTimeRange, setFrameCountHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "frame_count");
   const [frameCountHistogramType, setFrameCountHistogramType] = useState("total_frames")
   const [frameCountHistogram, setFrameCountHistogram] = useState(null);
 
-  const [connectedSignalStrengthHistogramTimeRange, setConnectedSignalStrengthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "c_ss"));
+  const [connectedSignalStrengthHistogramTimeRange, setConnectedSignalStrengthHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "c_ss");
   const [connectedSignalStrengthHistogram, setConnectedSignalStrengthHistogram] = useState(null);
 
-  const [disconnectedSignalStrengthHistogramTimeRange, setDisconnectedSignalStrengthHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "d_ss"));
+  const [disconnectedSignalStrengthHistogramTimeRange, setDisconnectedSignalStrengthHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "d_ss");
   const [disconnectedSignalStrengthHistogram, setDisconnectedSignalStrengthHistogram] = useState(null);
 
   usePageTitle(client ? `WiFi Client: ${client.mac.address}` : "WiFi Client Details");
@@ -58,7 +58,7 @@ function ClientDetailsPage() {
   useEffect(() => {
     setClient(null);
     dot11Service.findMergedConnectedOrDisconnectedClient(macParam, selectedTaps, setClient);
-  }, [selectedTaps]);
+  }, [macParam, selectedTaps]);
 
   useEffect(() => {
     setTrilaterationResult(null);
@@ -124,15 +124,15 @@ function ClientDetailsPage() {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.CLIENTS.INDEX}>Clients</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.CLIENTS.INDEX}>Clients</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">{client.mac.address}</li>
               </ol>
             </nav>
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={ApiRoutes.DOT11.CLIENTS.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={ApiRoutes.DOT11.CLIENTS.INDEX}>Back</Link>
           </div>
 
           <div className="col-md-12">

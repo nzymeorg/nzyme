@@ -1,6 +1,6 @@
 import React, {useContext, useEffect, useState} from "react";
 import usePageTitle from "../../../../../util/UsePageTitle";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import {TapContext} from "../../../../../App";
@@ -200,16 +200,16 @@ export default function STUNConnectionDetailsPage() {
         <div className="col-10">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX}>STUN Connections</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX}>STUN Connections</Link></li>
               <li className="breadcrumb-item">Connections</li>
               <li className="breadcrumb-item active" aria-current="page">{negotiationKey}</li>
             </ol>
           </nav>
         </div>
         <div className="col-2">
-          <a href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX} className="btn btn-primary float-end">
+          <Link to={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX} className="btn btn-primary float-end">
             Back
-          </a>
+          </Link>
         </div>
       </div>
 

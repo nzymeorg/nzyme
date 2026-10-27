@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
@@ -38,9 +39,9 @@ function OrganizationsTable() {
             return (
                 <tr key={"org-" + i}>
                   <td>
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organizations.organizations[i].id)}>
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organizations.organizations[i].id)}>
                       {organizations.organizations[i].name}
-                    </a>
+                    </Link>
                   </td>
                   <td>{organizations.organizations[i].tenants_count}</td>
                   <td>{organizations.organizations[i].users_count}</td>

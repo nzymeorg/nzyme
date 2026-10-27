@@ -1,5 +1,4 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
@@ -7,7 +6,7 @@ import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import Filters from "../../shared/filtering/Filters";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import ReconService from "../../../services/ethernet/ReconService";
 import {RECON_MENU_ITEMS} from "./ReconMenuItems";
 import {RECON_SCANS_FILTER_FIELDS} from "./ReconScansFilterFields";
@@ -19,9 +18,6 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const reconService = new ReconService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function ReconFingerprintingPage() {
 
@@ -30,11 +26,8 @@ export default function ReconFingerprintingPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), RECON_SCANS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(RECON_SCANS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("last_seen");
   const [orderDirection, setOrderDirection] = useState("DESC");
 

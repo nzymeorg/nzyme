@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import moment from "moment";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
@@ -11,9 +12,9 @@ function OrganizationAdminTableRow(props) {
   return (
       <tr>
         <td>
-          <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS.DETAILS(organization.id, user.id)}>
+          <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.ADMINS.DETAILS(organization.id, user.id)}>
             {user.name}
-          </a>
+          </Link>
         </td>
         <td>{user.email}</td>
         <td>{user.mfa_disabled ? <span className="text-warning">Disabled</span>

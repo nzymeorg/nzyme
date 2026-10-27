@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import Routes from "../../../../../util/ApiRoutes";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import {toast} from "react-toastify";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import TenantForm from "./TenantForm";
@@ -49,15 +49,15 @@ function CreateTenantPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>{organization.name}</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>{organization.name}</Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                     Tenants
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Create</li>
               </ol>
@@ -65,10 +65,10 @@ function CreateTenantPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end"
-               href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+            <Link className="btn btn-secondary float-end"
+               to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
               Back
-            </a>
+            </Link>
           </div>
 
           <div className="col-12">

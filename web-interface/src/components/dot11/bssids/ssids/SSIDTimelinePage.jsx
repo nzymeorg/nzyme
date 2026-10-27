@@ -1,9 +1,9 @@
 import React, {useEffect, useState} from "react";
 import Dot11Service from "../../../../services/Dot11Service";
 import TimelinesService from "../../../../services/TimelinesService";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import {Presets} from "../../../shared/timerange/TimeRange";
 import usePageTitle from "../../../../util/UsePageTitle";
 import {toast} from "react-toastify";
@@ -28,7 +28,7 @@ export default function SSIDTimelinePage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [ssid, setSSID] = useState(null);
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_DAYS_7))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_DAYS_7)
 
   const [events, setEvents] = useState(null);
 
@@ -107,11 +107,11 @@ export default function SSIDTimelinePage() {
         <div className="col-md-10">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</Link></li>
               <li className="breadcrumb-item">{ssid.bssid.address}</li>
               <li className="breadcrumb-item">SSIDs</li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(ssid.bssid.address, ssid.ssid, frequencyParam)}>{ssid.ssid}</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(ssid.bssid.address, ssid.ssid, frequencyParam)}>{ssid.ssid}</Link></li>
               <li className="breadcrumb-item active">Timeline</li>
             </ol>
           </nav>

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import {TapContext} from "../../../App";
@@ -71,9 +72,9 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
           return (
             <tr key={i}>
               <td>
-                <a href={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(r.uuid)}>
+                <Link to={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(r.uuid)}>
                   <FullCopyShortenedId value={r.uuid} />
-                </a>
+                </Link>
               </td>
               <td>{r.probe_name}</td>
               <td>{r.control_url}</td>

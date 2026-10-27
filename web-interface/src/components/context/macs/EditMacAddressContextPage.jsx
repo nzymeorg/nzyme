@@ -1,4 +1,4 @@
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import ContextService from "../../../services/ContextService";
@@ -50,11 +50,11 @@ function MacAddressContextDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</Link></li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
+                  <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
                     {context.mac_address}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item active">Edit</li>
               </ol>
@@ -71,10 +71,10 @@ function MacAddressContextDetailsPage() {
 
           <div className="col-md-4">
             <span className="float-end">
-              <a className="btn btn-primary"
-                 href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
+              <Link className="btn btn-primary"
+                 to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(context.uuid)}>
                 Back
-              </a>
+              </Link>
             </span>
           </div>
         </div>

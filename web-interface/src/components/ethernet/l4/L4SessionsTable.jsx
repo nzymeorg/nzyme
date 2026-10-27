@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useState} from "react";
 import ColumnSorting from "../../shared/ColumnSorting";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
@@ -87,13 +88,13 @@ export default function L4SessionsTable(props) {
   const sessionLink = (sessionId, startTime, type) => {
     switch (type) {
       case "TCP":
-        return <a href={ApiRoutes.ETHERNET.L4.TCP.SESSION_DETAILS(sessionId, startTime)} className="machine-data">
+        return <Link to={ApiRoutes.ETHERNET.L4.TCP.SESSION_DETAILS(sessionId, startTime)} className="machine-data">
           <FullCopyShortenedId value={sessionId} />
-        </a>
+        </Link>
       case "UDP":
-        return <a href={ApiRoutes.ETHERNET.L4.UDP.SESSION_DETAILS(sessionId, startTime)} className="machine-data">
+        return <Link to={ApiRoutes.ETHERNET.L4.UDP.SESSION_DETAILS(sessionId, startTime)} className="machine-data">
           <FullCopyShortenedId value={sessionId} />
-        </a>
+        </Link>
     }
   }
 

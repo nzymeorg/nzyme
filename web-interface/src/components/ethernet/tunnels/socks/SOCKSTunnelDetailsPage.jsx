@@ -1,5 +1,5 @@
 import React from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import SOCKSTunnelDetails from "./SOCKSTunnelDetails";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -16,9 +16,9 @@ export default function SOCKSTunnelDetailsPage() {
           <div className="col-md-12">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
                 <li className="breadcrumb-item">Tunnels</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX}>SOCKS Tunnels</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX}>SOCKS Tunnels</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">{sessionId}</li>
               </ol>
             </nav>

@@ -3,7 +3,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import Dot11Service from "../../../services/Dot11Service";
 import SSIDSuggestions from "./SSIDSuggestions";
 import LoadingSpinner from "../../misc/LoadingSpinner";
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
 
@@ -57,15 +57,15 @@ function CreateMonitoredNetworkPage() {
           <div className="col-md-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">Create Monitored Network</li>
               </ol>
             </nav>
           </div>
 
           <div className="col-md-2">
-            <a className="btn btn-primary float-end" href={ApiRoutes.DOT11.MONITORING.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={ApiRoutes.DOT11.MONITORING.INDEX}>Back</Link>
           </div>
 
           <div className="row">

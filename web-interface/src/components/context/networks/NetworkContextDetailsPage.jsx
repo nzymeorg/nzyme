@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import WithPermission from "../../misc/WithPermission";
 import ApiRoutes from "../../../util/ApiRoutes";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import ContextService from "../../../services/ContextService";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import {toast} from "react-toastify";
@@ -66,7 +66,7 @@ export default function NetworkContextDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</Link></li>
                 <li className="breadcrumb-item active">{context.cidr}</li>
               </ol>
             </nav>
@@ -84,12 +84,12 @@ export default function NetworkContextDetailsPage() {
             <span className="float-end">
               <WithPermission permission="network_context_manage">
                 <button className="btn btn-danger" onClick={onDelete} disabled={deleting}>{deleting ? "Please wait ..." : "Delete"}</button>&nbsp;
-                <a className="btn btn-secondary"
-                   href={ApiRoutes.CONTEXT.NETWORKS.EDIT(context.uuid)}>
+                <Link className="btn btn-secondary"
+                   to={ApiRoutes.CONTEXT.NETWORKS.EDIT(context.uuid)}>
                   Edit
-                </a>&nbsp;
+                </Link>&nbsp;
               </WithPermission>
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Back</Link>
             </span>
           </div>
         </div>

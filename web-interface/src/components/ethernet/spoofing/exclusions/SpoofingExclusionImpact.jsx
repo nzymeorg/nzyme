@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -49,11 +50,11 @@ export default function SpoofingExclusionImpact({impact, compact = false}) {
         {impact.findings.map((f) => {
           return (
             <li key={f.uuid}>
-              <a href={detailsLink(f)} target="_blank" rel="noreferrer">
+              <Link to={detailsLink(f)} target="_blank" rel="noreferrer">
                 {spoofingTypeToName(f.type)}
                 {f.type === "NAME_RESOLUTION" ? " by " : f.type === "DHCP" ? " by server " : f.type === "DNS" ? " of resolver " : " of "}
                 <span className="machine-data">{f.type === "NAME_RESOLUTION" ? f.mac : f.address}</span>
-              </a>{' '}
+              </Link>{' '}
               {f.type === "NAME_RESOLUTION" ?
                 (f.address ? <span className="text-muted">(<span className="machine-data">{f.address}</span>)</span> : null)
                 : <span className="text-muted">({f.type === "DHCP" ? "MAC" : "by"} <span className="machine-data">{f.mac}</span>)</span>}

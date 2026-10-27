@@ -54,43 +54,54 @@ export default function LatLonMap(props) {
   }
 
   useEffect(() => {
-    if (!map) {
-      setMap(L.map("tap-location-map", {
-        scrollWheelZoom: true,
-        fullscreenControl: true
-      }));
+    const newMap = L.map("tap-location-map", {
+      scrollWheelZoom: true,
+      fullscreenControl: true
+    });
+
+    newMap.attributionControl.setPrefix("");
+
+    // Makes the bounds a hard edge.
+    newMap.setMaxBounds([[-90, -180], [90, 180]]);
+    newMap.options.maxBoundsViscosity = 1.0;
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(newMap);
+
+    newMap.on('zoomend', () => setZoomLevel(newMap.getZoom()));
+
+    setMap(newMap);
+
+    return () => {
+      newMap.remove();
     }
   }, []);
 
   useEffect(() => {
     if (map) {
-      map.attributionControl.setPrefix("");
-
-      // Makes the bounds a hard edge.
-      map.setMaxBounds([[-90, -180], [90, 180]]);
-      map.options.maxBoundsViscosity = 1.0;
-
       if (latitude && longitude) {
         map.setView(latLng(latitude, longitude), zoomLevel)
         placeMarker(latLng(latitude, longitude));
       } else {
         map.setView([0, 0], zoomLevel)
       }
-
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      }).addTo(map);
-
-      map.on('zoomend', function() {
-        setZoomLevel(map.getZoom());
-      });
-
-      if (editMode) {
-        map.on("click", (e) => placeMarker(e.latlng));
-      }
     }
   }, [map, latitude, longitude])
+
+  useEffect(() => {
+    if (!map || !editMode) {
+      return;
+    }
+
+    const onClick = (e) => placeMarker(e.latlng);
+    map.on("click", onClick);
+
+    return () => {
+      map.off("click", onClick);
+    }
+  }, [map, editMode])
 
   useEffect(() => {
     if (map) {

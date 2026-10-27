@@ -1,6 +1,6 @@
 import React, {useContext, useEffect, useState} from "react";
 import {TapContext, UserContext} from "../../App";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import UavService from "../../services/UavService";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import ApiRoutes from "../../util/ApiRoutes";
@@ -125,7 +125,7 @@ export default function UavDetailsPage() {
         <div className="col-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.UAV.INDEX}>UAVs</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.UAV.INDEX}>UAVs</Link></li>
               <li className="breadcrumb-item">{uav.summary.identifier.substring(0, 7)}</li>
               <li className="breadcrumb-item active" aria-current="page">Details</li>
             </ol>

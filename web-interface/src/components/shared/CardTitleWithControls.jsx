@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useState} from "react";
 import TimeRangeSelector from "./timerange/TimeRangeSelector";
 import AppliedTimeRange from "./timerange/AppliedTimeRange";
@@ -92,9 +93,9 @@ function CardTitleWithControls(props) {
     }
 
     return (
-      <a href={internalLink} className="card-title-option" title="Navigate">
+      <Link to={internalLink} className="card-title-option" title="Navigate">
         <i className="fa-solid fa-diamond-turn-right"></i>
-      </a>
+      </Link>
     )
   }
 

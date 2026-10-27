@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import L4Address from "../shared/L4Address";
 import GenericConnectionStatus from "../shared/GenericConnectionStatus";
@@ -53,10 +54,10 @@ export default function TLSSessionsTableRow(props) {
 
     return (
       <React.Fragment>
-        <a href={ApiRoutes.ETHERNET.TLS.CERTIFICATES.DETAILS(session.server_leaf_sha256)}
+        <Link to={ApiRoutes.ETHERNET.TLS.CERTIFICATES.DETAILS(session.server_leaf_sha256)}
            title={(session.server_leaf_common_name ? session.server_leaf_common_name + "\n" : "") + "SHA-256: " + session.server_leaf_sha256 + (session.server_leaf_issuer ? "\nIssuer: " + session.server_leaf_issuer : "")}>
           <FullCopy shortValue={name} fullValue={session.server_leaf_sha256} />
-        </a>
+        </Link>
         {filterIcon("leaf_fingerprint", session.server_leaf_sha256)}
       </React.Fragment>
     )

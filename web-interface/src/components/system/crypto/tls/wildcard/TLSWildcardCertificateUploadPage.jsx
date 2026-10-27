@@ -4,7 +4,7 @@ import TLSCertificateHelp from "../TLSCertificateHelp";
 import TLSCertificateUploadForm from "../form/TLSCertificateUploadForm";
 import CryptoService from "../../../../../services/CryptoService";
 import {toast} from "react-toastify";
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import MatchingNodesTestResult from "./MatchingNodesTestResult";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
 import usePageTitle from "../../../../../util/UsePageTitle";
@@ -68,7 +68,7 @@ function TLSWildcardCertificateUploadPage() {
           <div className="col-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</a></li>
+                <li className="breadcrumb-item"><Link to={Routes.SYSTEM.CRYPTO.INDEX}>Crypto</Link></li>
                 <li className="breadcrumb-item">TLS</li>
                 <li className="breadcrumb-item active" aria-current="page">Upload TLS Wildcard Certificate</li>
               </ol>
@@ -76,7 +76,7 @@ function TLSWildcardCertificateUploadPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-primary float-end" href={Routes.SYSTEM.CRYPTO.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={Routes.SYSTEM.CRYPTO.INDEX}>Back</Link>
           </div>
 
           <div className="col-12">

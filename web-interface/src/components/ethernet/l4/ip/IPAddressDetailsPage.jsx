@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
@@ -108,7 +108,7 @@ export default function IPAddressDetailsPage() {
                 <td title={moment(a.first_seen).format()}>{moment(a.first_seen).fromNow()}</td>
                 <td title={moment(a.last_seen).format()}>{moment(a.last_seen).fromNow()}</td>
                 <td>
-                  <a href={ApiRoutes.ETHERNET.L4.SESSIONS + "?filters=" + JSON.stringify(l4Filters)}>Show TCP/UDP Connections</a>
+                  <Link to={ApiRoutes.ETHERNET.L4.SESSIONS + "?filters=" + JSON.stringify(l4Filters)}>Show TCP/UDP Connections</Link>
                 </td>
               </tr>
             )
@@ -140,7 +140,7 @@ export default function IPAddressDetailsPage() {
         {address.context.map((c, i) => {
           return <tr key={i}>
             <td>
-              <a href={ApiRoutes.CONTEXT.NETWORKS.SHOW(c.uuid)} className="machine-data">{c.cidr}</a>
+              <Link to={ApiRoutes.CONTEXT.NETWORKS.SHOW(c.uuid)} className="machine-data">{c.cidr}</Link>
             </td>
             <td>
               {c.name ? <span className="context-name context-name-network">{c.name}</span>
@@ -165,7 +165,7 @@ export default function IPAddressDetailsPage() {
           <div className="col-md-12">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
                 <li className="breadcrumb-item">IP</li>
                 <li className="breadcrumb-item">Addresses</li>
                 <li className="breadcrumb-item active" aria-current="page">{address.address}</li>
@@ -264,10 +264,10 @@ export default function IPAddressDetailsPage() {
                 {networkContextTable()}
 
                 <WithPermission permission="network_context_manage">
-                  <a href={ApiRoutes.CONTEXT.NETWORKS.CREATE + "?cidr=" + encodeURIComponent(address.address)}
+                  <Link to={ApiRoutes.CONTEXT.NETWORKS.CREATE + "?cidr=" + encodeURIComponent(address.address)}
                      className="btn btn-secondary mt-2">
                     Add Context
-                  </a>
+                  </Link>
                 </WithPermission>
               </div>
             </div>

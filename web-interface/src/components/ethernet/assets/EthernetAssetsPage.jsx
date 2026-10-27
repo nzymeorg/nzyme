@@ -7,23 +7,19 @@ import {ASSETS_MENU_ITEMS} from "./AssetsMenuItems";
 import AssetsService from "../../../services/ethernet/AssetsService";
 import AssetsTable from "./AssetsTable";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
-import {useLocation} from "react-router-dom";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ASSET_FILTER_FIELDS} from "./AssetFilterFields";
 import Filters from "../../shared/filtering/Filters";
 import ActiveAssetsHistogram from "./ActiveAssetsHistogram";
 import LatestAssetsHistogram from "./LatestAssetsHistogram";
 import DisappearedAssetsHistogram from "./DisappearedAssetsHistogram";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../misc/RenderConditionally";
 
 const assetsService = new AssetsService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function EthernetAssetsPage() {
 
@@ -31,9 +27,7 @@ export default function EthernetAssetsPage() {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
-  const urlQuery = useQuery();
-
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
 
   const [assets, setAssets] = useState(null);
   const [page, setPage] = useState(1);
@@ -44,9 +38,7 @@ export default function EthernetAssetsPage() {
 
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ASSET_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ASSET_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   useEffect(() => {

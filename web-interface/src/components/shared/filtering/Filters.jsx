@@ -820,7 +820,13 @@ export default function Filters(props) {
   const [showApplyExistingMonitorDialog, setShowApplyExistingMonitorDialog] = useState(false);
   const [showUrlAppliedFilterHint, setShowUrlAppliedFilterHint] = useState(false);
 
-  const [urlRequestedMonitor, setUrlRequestedMonitor] = useState(urlQuery.get("monitor"));
+  const urlMonitor = urlQuery.get("monitor");
+  const [urlRequestedMonitor, setUrlRequestedMonitor] = useState(urlMonitor);
+
+  // Follow the URL parameter when navigation changes it while the page stays mounted.
+  useEffect(() => {
+    setUrlRequestedMonitor(urlMonitor);
+  }, [urlMonitor]);
   const [appliedMonitor, setAppliedMonitor] = useState(null);
   const [showMonitorClearedHint, setShowMonitorClearedHint] = useState(false);
 

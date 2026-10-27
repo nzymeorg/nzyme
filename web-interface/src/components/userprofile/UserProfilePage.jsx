@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useState} from "react";
 import UserProfile from "./UserProfile";
 import MfaRecoveryCodes from "./MfaRecoveryCodes";
@@ -63,9 +64,9 @@ function UserProfilePage(props) {
 
                     <UserProfile/>
 
-                    <a className="btn btn-sm btn-secondary mt-2" href={ApiRoutes.USERPROFILE.PASSWORD}>
+                    <Link className="btn btn-sm btn-secondary mt-2" to={ApiRoutes.USERPROFILE.PASSWORD}>
                       Change Password
-                    </a>
+                    </Link>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import SolutionCounter from "./layout/SolutionCounter";
 import Conditional from "./layout/Conditional";
@@ -9,7 +10,7 @@ function MessageStuckProcedure() {
       <ol className="consequence-solution-procedure">
         <li>
           <SolutionCounter counter="1" /> Identify stuck message bus messages using
-          the <a href={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX}>Cluster Messaging</a> page. A message is considered stuck
+          the <Link to={ApiRoutes.SYSTEM.CLUSTER.MESSAGING.INDEX}>Cluster Messaging</Link> page. A message is considered stuck
           if it has been acknowledged but did not report a success or failure result.
         </li>
         <li>

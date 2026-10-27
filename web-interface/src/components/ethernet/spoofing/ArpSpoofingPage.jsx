@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
@@ -7,7 +6,7 @@ import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import Filters from "../../shared/filtering/Filters";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import SpoofingService from "../../../services/ethernet/SpoofingService";
 import {SPOOFING_MENU_ITEMS} from "./SpoofingMenuItems";
 import {ARP_SPOOFING_FILTER_FIELDS} from "./ArpSpoofingFilterFields";
@@ -17,20 +16,14 @@ import {Presets} from "../../shared/timerange/TimeRange";
 
 const spoofingService = new SpoofingService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function ArpSpoofingPage() {
 
   usePageTitle("Ethernet ARP Poisoning");
 
   const [organizationId, tenantId] = useSelectedTenant();
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ARP_SPOOFING_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ARP_SPOOFING_FILTER_FIELDS);
 
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [orderColumn, setOrderColumn] = useState("last_seen");

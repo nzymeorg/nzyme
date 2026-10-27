@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../misc/LoadingSpinner";
@@ -74,7 +75,7 @@ export default function LocationsTable() {
       <tbody>
       {locations.map((l, i) => {
         return <tr key={i}>
-          <td><a href={ApiRoutes.LOCATIONS.DETAILS(l.id)}>{l.name}</a></td>
+          <td><Link to={ApiRoutes.LOCATIONS.DETAILS(l.id)}>{l.name}</Link></td>
           <td>{numeral(l.tap_count).format("0,0")}</td>
           <td>{renderAlertCount(l.alert_count)}</td>
           <td>

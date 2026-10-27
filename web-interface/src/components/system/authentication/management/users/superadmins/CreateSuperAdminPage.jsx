@@ -3,7 +3,7 @@ import React, {useState} from "react";
 import {toast} from "react-toastify";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
 import ApiRoutes from "../../../../../../util/ApiRoutes";
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import CreateUserForm from "../shared/CreateUserForm";
 import EditSuperAdminPage from "./EditSuperAdminPage";
 import usePageTitle from "../../../../../../util/UsePageTitle";
@@ -41,7 +41,7 @@ function CreateTenantUserPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Super Administrators</li>
                 <li className="breadcrumb-item active" aria-current="page">Create Super Administrator</li>
@@ -50,10 +50,10 @@ function CreateTenantUserPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>
+            <Link className="btn btn-secondary float-end"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>
               Back
-            </a>
+            </Link>
           </div>
 
           <div className="col-12">

@@ -1,5 +1,5 @@
 import React, {useState} from "react";
-import {Navigate, Routes} from "react-router-dom";
+import {Link, Navigate, Routes} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import CreateActionSelect from "../shared/forms/CreateActionSelect";
 import CreateActionProxy from "../shared/forms/CreateActionProxy";
@@ -24,7 +24,7 @@ function CreateActionPage() {
           <div className="col-10">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.SYSTEM.EVENTS.INDEX}>Events &amp; Actions</Link></li>
                 <li className="breadcrumb-item">Actions</li>
                 <li className="breadcrumb-item active" aria-current="page">Create</li>
               </ol>
@@ -32,7 +32,7 @@ function CreateActionPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-primary float-end" href={ApiRoutes.SYSTEM.EVENTS.INDEX}>Back</a>
+            <Link className="btn btn-primary float-end" to={ApiRoutes.SYSTEM.EVENTS.INDEX}>Back</Link>
           </div>
         </div>
 

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import SolutionCounter from "./layout/SolutionCounter";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -7,7 +8,7 @@ function TapThroughputProcedure(props) {
   return (
       <ol className="consequence-solution-procedure">
         <li>
-          <SolutionCounter counter="1" /> Use the <a href={ApiRoutes.SYSTEM.TAPS.INDEX}>taps overview page</a> to
+          <SolutionCounter counter="1" /> Use the <Link to={ApiRoutes.SYSTEM.TAPS.INDEX}>taps overview page</Link> to
           identify taps that do not report any throughput.
         </li>
         <li>

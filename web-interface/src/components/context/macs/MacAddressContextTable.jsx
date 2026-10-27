@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import Paginator from "../../misc/Paginator";
 import ContextService from "../../../services/ContextService";
@@ -52,9 +53,9 @@ function MacAddressContextTable({addressFilter, addressFilterRevision}) {
             return (
                 <tr key={i}>
                   <td>
-                    <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(m.uuid)}>
+                    <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(m.uuid)}>
                       {m.mac_address}
-                    </a>{' '}
+                    </Link>{' '}
 
                     {m.mac_address_is_randomized ?
                         <i className="fa-solid fa-triangle-exclamation text-danger cursor-help"

@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, { useEffect, useState } from 'react'
 import TapsService from '../../../services/TapsService'
 import TapsTable from './TapsTable'
@@ -26,10 +27,10 @@ function TapsPage () {
           <h1>Taps</h1>
         </div>
         <div className="col-md-2">
-          <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.CREATE(organizationId, tenantId)}
+          <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.CREATE(organizationId, tenantId)}
              className="btn btn-primary float-end">
             Add Tap
-          </a>
+          </Link>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import Dot11Service from "../../../../services/Dot11Service";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -70,11 +70,11 @@ export default function MonitoredClientsConfigurationPage() {
           <div className="col-md-7">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.MONITORING.INDEX}>Monitoring</Link></li>
                 <li className="breadcrumb-item">Monitored Networks</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</a>
+                  <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>{ssid.ssid}</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Allowed Clients</li>
               </ol>
@@ -83,7 +83,7 @@ export default function MonitoredClientsConfigurationPage() {
           <div className="col-md-5">
             <span className="float-end">
               <a className="btn btn-secondary" href="https://go.nzyme.org/wifi-client-monitoring">Help</a>&nbsp;
-              <a className="btn btn-primary" href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Back</Link>
             </span>
           </div>
         </div>

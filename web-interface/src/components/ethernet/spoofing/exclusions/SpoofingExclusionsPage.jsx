@@ -1,12 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import SpoofingService from "../../../../services/ethernet/SpoofingService";
 import {SPOOFING_MENU_ITEMS} from "../SpoofingMenuItems";
 import {SPOOFING_EXCLUSIONS_FILTER_FIELDS} from "./SpoofingExclusionsFilterFields";
@@ -16,9 +16,6 @@ import SpoofingExclusionsTable from "./SpoofingExclusionsTable";
 
 const spoofingService = new SpoofingService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function SpoofingExclusionsPage() {
 
@@ -27,11 +24,8 @@ export default function SpoofingExclusionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
   const canEdit = userHasPermission(user, "ethernet_monitoring_manage");
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), SPOOFING_EXCLUSIONS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(SPOOFING_EXCLUSIONS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("name");
   const [orderDirection, setOrderDirection] = useState("ASC");
 

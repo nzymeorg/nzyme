@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../util/ApiRoutes";
 import Dot11Service from "../../../services/Dot11Service";
 import {TapContext} from "../../../App";
@@ -25,7 +25,7 @@ import usePageTitle from "../../../util/UsePageTitle";
 import {BSSID_MENU_ITEMS} from "./BSSIDMenuItems";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {toast} from "react-toastify";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -41,8 +41,8 @@ function BSSIDDetailsPage() {
 
   const [ssidsTimeRange, setSsidsTimeRange] = useState(Presets.ALL_TIME);
   const [signalWaterfallTimeRange, setSignalWaterfallTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [advertisementsBeaconTimeRange, setAdvertisementsBeaconTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "beacon_advertisements"));
-  const [advertisementsProbeRespTimeRange, setAdvertisementsProbeRespTimeRange] =useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "proberesp_advertisements"));
+  const [advertisementsBeaconTimeRange, setAdvertisementsBeaconTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "beacon_advertisements");
+  const [advertisementsProbeRespTimeRange, setAdvertisementsProbeRespTimeRange] =useUrlTimeRange(Presets.RELATIVE_HOURS_24, "proberesp_advertisements");
   const [activeChannelsTimeRange, setActiveChannelsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoFramesTimeRange, setDiscoFramesTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoPairsTimeRange, setDiscoPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
@@ -165,8 +165,8 @@ function BSSIDDetailsPage() {
           <div className="col-md-12">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</Link></li>
                 <li className="breadcrumb-item">{bssid.summary.bssid.address}</li>
                 <li className="breadcrumb-item active" aria-current="page">Details</li>
               </ol>

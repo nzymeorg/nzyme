@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import BluetoothService from "../../../services/BluetoothService";
 import {TapContext} from "../../../App";
@@ -15,7 +15,7 @@ import TapBasedSignalStrengthTable from "../../shared/TapBasedSignalStrengthTabl
 import {BluetoothDeviceSignalStrengthHistogram} from "./BluetoothDeviceSignalStrengthHistogram";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 const btService = new BluetoothService();
@@ -33,8 +33,8 @@ export default function BluetoothDeviceDetailsPage() {
   const [rssiHistogram, setRssiHistogram] = useState(null);
   const [tapRssis, setTapRssis] = useState(null);
 
-  const [rssiHistogramTimerange, setRssiHistogramTimerange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "rssi"));
-  const [tapRssiTimerange, setTapRssiTimerange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_MINUTES_15, "tap_rssi"));
+  const [rssiHistogramTimerange, setRssiHistogramTimerange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "rssi");
+  const [tapRssiTimerange, setTapRssiTimerange] = useUrlTimeRange(Presets.RELATIVE_MINUTES_15, "tap_rssi");
 
   const [revision, setRevision] = useState(new Date());
 
@@ -84,7 +84,7 @@ export default function BluetoothDeviceDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Bluetooth</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.BLUETOOTH.DEVICES.INDEX}>Devices</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.BLUETOOTH.DEVICES.INDEX}>Devices</Link></li>
                 <li className="breadcrumb-item">{device.device.mac.address}</li>
                 <li className="breadcrumb-item active" aria-current="page">Details</li>
               </ol>

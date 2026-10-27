@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import DetectionAlertsService from "../../../services/DetectionAlertsService";
@@ -41,9 +42,9 @@ function AlertSubscriptionsTable() {
             return (
                 <tr key={"at-" + i}>
                   <td>
-                    <a href={ApiRoutes.ALERTS.SUBSCRIPTIONS.DETAILS(type.name.toLowerCase())}>
+                    <Link to={ApiRoutes.ALERTS.SUBSCRIPTIONS.DETAILS(type.name.toLowerCase())}>
                       {type.title}
-                    </a>
+                    </Link>
                   </td>
                   <td><Subsystem subsystem={type.subsystem} /></td>
                   <td>{type.subscriptions.length}</td>

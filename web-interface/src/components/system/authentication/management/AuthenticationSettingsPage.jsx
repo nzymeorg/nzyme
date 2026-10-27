@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import AuthenticationSettings from "./AuthenticationSettings";
@@ -13,7 +14,7 @@ function AuthenticationSettingsPage() {
           <div className="col-8">
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
-                <li className="breadcrumb-item"><a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication</Link></li>
                 <li className="breadcrumb-item active" aria-current="page">Settings</li>
               </ol>
             </nav>
@@ -21,7 +22,7 @@ function AuthenticationSettingsPage() {
 
           <div className="col-4">
             <span className="float-end">
-              <a className="btn btn-primary" href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</Link>
             </span>
           </div>
 

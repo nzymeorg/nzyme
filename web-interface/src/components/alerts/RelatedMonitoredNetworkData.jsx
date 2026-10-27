@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import ApiRoutes from "../../util/ApiRoutes";
@@ -15,9 +16,9 @@ function RelatedMonitoredNetworkData(props) {
         <dl className="mb-0">
           <dt>Monitored Network</dt>
           <dd>
-            <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>
+            <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(ssid.uuid)}>
               {ssid.ssid}
-            </a>
+            </Link>
           </dd>
         </dl>
       </React.Fragment>

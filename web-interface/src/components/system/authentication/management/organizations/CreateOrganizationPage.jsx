@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import Routes from "../../../../../util/ApiRoutes";
 import OrganizationForm from "./OrganizationForm";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
-import {Navigate} from "react-router-dom";
+import {Link, Navigate} from "react-router-dom";
 import {toast} from "react-toastify";
 import usePageTitle from "../../../../../util/UsePageTitle";
 
@@ -32,7 +32,7 @@ function CreateOrganizationPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Create Organization</li>
               </ol>
@@ -40,7 +40,7 @@ function CreateOrganizationPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-secondary float-end" href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</a>
+            <Link className="btn btn-secondary float-end" to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Back</Link>
           </div>
 
           <div className="col-12">

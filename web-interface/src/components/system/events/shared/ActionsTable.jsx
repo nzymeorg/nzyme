@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -37,11 +38,11 @@ function ActionsTable(props) {
             return (
                 <tr key={"eventaction-" + i}>
                   <td>
-                    <a href={organizationId
+                    <Link to={organizationId
                         ? ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.ACTIONS.DETAILS(organizationId, action.id)
                         : ApiRoutes.SYSTEM.EVENTS.ACTIONS.DETAILS(action.id) }>
                       {action.name}
-                    </a>
+                    </Link>
                   </td>
                   <td title={action.action_type}>
                     {action.action_type_human_readable}

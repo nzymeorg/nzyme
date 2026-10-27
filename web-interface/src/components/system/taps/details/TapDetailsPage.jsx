@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import TapsService from '../../../../services/TapsService'
-import {useParams} from 'react-router-dom'
+import {Link, useParams} from 'react-router-dom'
 import LoadingSpinner from '../../../misc/LoadingSpinner'
 import moment from 'moment'
 import Routes from '../../../../util/ApiRoutes'
@@ -53,7 +53,7 @@ function TapDetailsPage () {
         <div className="col-md-8">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={Routes.SYSTEM.TAPS.INDEX}>Taps</a></li>
+              <li className="breadcrumb-item"><Link to={Routes.SYSTEM.TAPS.INDEX}>Taps</Link></li>
               <li className="breadcrumb-item active" aria-current="page">{tap.name}</li>
             </ol>
           </nav>
@@ -61,11 +61,11 @@ function TapDetailsPage () {
 
         <div className="col-md-4">
           <span className="float-end">
-            <a className="btn btn-secondary" href={Routes.SYSTEM.TAPS.INDEX}>Back</a>
+            <Link className="btn btn-secondary" to={Routes.SYSTEM.TAPS.INDEX}>Back</Link>
             {' '}
-            <a className="btn btn-primary" href={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.DETAILS(tap.organization_id, tap.tenant_id, tap.uuid)}>
+            <Link className="btn btn-primary" to={Routes.SYSTEM.AUTHENTICATION.MANAGEMENT.TAPS.DETAILS(tap.organization_id, tap.tenant_id, tap.uuid)}>
               Tap Details &amp; Keys
-            </a>
+            </Link>
           </span>
         </div>
       </div>

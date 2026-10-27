@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import AuthenticationManagementService from "../../../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../../../misc/LoadingSpinner";
 import ApiRoutes from "../../../../../../../util/ApiRoutes";
@@ -53,34 +53,34 @@ function CreateFloorPage() {
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
               </li>
               <li className="breadcrumb-item">Organizations</li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                   {organization.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.TENANTS_PAGE(organization.id)}>
                   Tenants
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(organization.id, tenant.id)}>
                 {tenant.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
+                <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS_PAGE(organization.id, tenant.id)}>
                   Locations
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">
-                <a
-                  href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organization.id, tenant.id, location.id)}>
+                <Link
+                  to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organization.id, tenant.id, location.id)}>
                   {location.name}
-                </a>
+                </Link>
               </li>
               <li className="breadcrumb-item">Floors</li>
               <li className="breadcrumb-item active" aria-current="page">Create Floor</li>
@@ -90,10 +90,10 @@ function CreateFloorPage() {
 
         <div className="col-md-3">
           <span className="float-end">
-            <a className="btn btn-secondary"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organization.id, tenant.id, location.id)}>
+            <Link className="btn btn-secondary"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organization.id, tenant.id, location.id)}>
               Back
-            </a>
+            </Link>
           </span>
         </div>
 

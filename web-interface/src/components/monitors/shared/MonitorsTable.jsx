@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import Paginator from "../../misc/Paginator";
@@ -69,7 +70,7 @@ export default function MonitorsTable({monitors, page, setPage, perPage, onApply
               <td><MonitorStatusIndicator monitor={m} /></td>
               <td>
                 {onApplyMonitor ?
-                  <span>{m.name}</span> : <a href={ApiRoutes.ALERTS.MONITORS.DETAILS(m.uuid)}>{m.name}</a>}
+                  <span>{m.name}</span> : <Link to={ApiRoutes.ALERTS.MONITORS.DETAILS(m.uuid)}>{m.name}</Link>}
                 {" "}{filterIcon("name", m.name)}
               </td>
               {showType ? <td><MonitorType type={m.type} /> {filterIcon("type", m.type)}</td> : null}
@@ -78,7 +79,7 @@ export default function MonitorsTable({monitors, page, setPage, perPage, onApply
               <td title={moment(m.created_at).format()}>{moment(m.created_at).fromNow()}</td>
               {onApplyMonitor ?
                 <td><a href="#" onClick={(e) => {e.preventDefault(); onApplyMonitor(m); }}>Apply</a></td> :
-                <td><a href={monitorTypeToSearchLink(m)}>Replay</a></td> }
+                <td><Link to={monitorTypeToSearchLink(m)}>Replay</Link></td> }
             </tr>
           )
         })}

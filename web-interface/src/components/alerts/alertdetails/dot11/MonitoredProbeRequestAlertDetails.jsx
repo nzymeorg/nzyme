@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from 'react';
 import AutomaticDot11MacAddressLink from "../../../shared/context/macs/AutomaticDot11MacAddressLink";
 import {CLIENT} from "../../../shared/context/macs/Dot11MacAddressType";
@@ -19,7 +20,7 @@ export default function MonitoredProbeRequestAlertDetails(props) {
                 <dl>
                   <dt>SSID</dt>
                   <WithPermission permission="dot11_monitoring_manage">
-                    <dd><a href={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>{alert.attributes.ssid}</a></dd>
+                    <dd><Link to={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX}>{alert.attributes.ssid}</Link></dd>
                   </WithPermission>
 
                   <WithoutPermission permission="dot11_monitoring_manage">

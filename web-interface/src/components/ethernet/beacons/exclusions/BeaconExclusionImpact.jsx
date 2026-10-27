@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -44,7 +45,7 @@ export default function BeaconExclusionImpact({impact, compact = false}) {
         {impact.beacons.map((b) => {
           return (
             <li key={b.uuid}>
-              <a href={ApiRoutes.ETHERNET.BEACONS.DETAILS(b.uuid)} target="_blank" rel="noreferrer">{b.name}</a>{' '}
+              <Link to={ApiRoutes.ETHERNET.BEACONS.DETAILS(b.uuid)} target="_blank" rel="noreferrer">{b.name}</Link>{' '}
               <span className="text-muted">
                 ({b.type} to <span className="machine-data">{b.destination}</span>
                 {b.complete ? "" : ", " + b.matching_sources + " of " + b.total_sources + " devices"})

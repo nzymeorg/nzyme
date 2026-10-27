@@ -2,8 +2,7 @@ import React, {useState} from "react";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
-import {useLocation} from "react-router-dom";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import L4SessionsTable from "./L4SessionsTable";
 import {L4_SESSIONS_FILTER_FIELDS} from "./L4SessionFilterFields";
 import L4SessionsLeastCommonNonEphemeralDestinationPortsHistogram from "./L4SessionsLeastCommonNonEphemeralDestinationPortsHistogram";
@@ -11,7 +10,7 @@ import L4SessionsTopDestinationPortsHistogram from "./L4SessionsTopDestinationPo
 import L4SessionsTopTrafficSourceAddressesHistogram from "./L4SessionsTopTrafficSourceAddressesHistogram";
 import L4SessionsTopTrafficDestinationAddressesHistogram from "./L4SessionsTopTrafficDestinationAddressesHistogram";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
 import {L4_MENU_ITEMS} from "./L4MenuItems";
@@ -19,9 +18,6 @@ import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorC
 import RenderConditionally from "../../misc/RenderConditionally";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function L4SessionsPage() {
 
@@ -29,14 +25,10 @@ export default function L4SessionsPage() {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
-  const urlQuery = useQuery();
-
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24));
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
   const [revision, setRevision] = useState(new Date());
 
-  const [filters, setFilters] = useState(
-      queryParametersToFilters(urlQuery.get("filters"), L4_SESSIONS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(L4_SESSIONS_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   return (

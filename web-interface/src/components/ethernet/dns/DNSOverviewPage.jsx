@@ -11,7 +11,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {DNS_MENU_ITEMS} from "./DNSMenuItems";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 
 function byteConversion (x) {
   return x / 1024
@@ -30,9 +30,9 @@ function DNSOverviewPage () {
   const [responseStats, setResponseStats] = useState(null);
   const [nxdomainStats, setNxdomainStats] = useState(null);
 
-  const [queryStatsTimeRange, setQueryStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_query_traffic"));
-  const [responseStatsTimeRange, setResponseStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_resp_traffic"));
-  const [nxdomainStatsTimeRange, setNxdomainStatsTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "tr_nxdomain_traffic"));
+  const [queryStatsTimeRange, setQueryStatsTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "tr_query_traffic");
+  const [responseStatsTimeRange, setResponseStatsTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "tr_resp_traffic");
+  const [nxdomainStatsTimeRange, setNxdomainStatsTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "tr_nxdomain_traffic");
   const [contactAttemptsTimeRange, setContactAttemptsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
   useEffect(() => {

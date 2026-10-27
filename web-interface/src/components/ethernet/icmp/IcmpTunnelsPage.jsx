@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import SectionMenuBar from "../../shared/SectionMenuBar";
@@ -17,7 +17,7 @@ import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import FullCopyShortenedId from "../../shared/FullCopyShortenedId";
 import Filters from "../../shared/filtering/Filters";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ICMP_TUNNELS_FILTER_FIELDS} from "./IcmpTunnelsFilterFields";
 import IcmpTunnelsHistogram from "./IcmpTunnelsHistogram";
 import IcmpTunnelBreakdownHistogram from "./IcmpTunnelBreakdownHistogram";
@@ -27,9 +27,6 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpTunnelsPage() {
 
@@ -38,11 +35,8 @@ export default function IcmpTunnelsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ICMP_TUNNELS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ICMP_TUNNELS_FILTER_FIELDS);
   const [tunnels, setTunnels] = useState(null);
   const [orderColumn, setOrderColumn] = useState("max_payload_bytes");
   const [orderDirection, setOrderDirection] = useState("DESC");

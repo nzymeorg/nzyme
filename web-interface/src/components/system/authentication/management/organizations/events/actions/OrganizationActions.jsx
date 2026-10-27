@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ApiRoutes from "../../../../../../../util/ApiRoutes";
 import EventActionsService from "../../../../../../../services/EventActionsService";
@@ -27,10 +28,10 @@ function OrganizationActions(props) {
                       page={page}
                       setPage={setPage} />
 
-        <a className="btn btn-secondary btn-sm"
-           href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.ACTIONS.CREATE(organizationId)}>
+        <Link className="btn btn-secondary btn-sm"
+           to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.ACTIONS.CREATE(organizationId)}>
           Create Action
-        </a>
+        </Link>
       </React.Fragment>
   )
 

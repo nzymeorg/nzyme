@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import Subsystem from "../../../../misc/Subsystem";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -25,7 +26,7 @@ function DetectionSubscriptionsOfActionTable(props) {
               <tr key={"eventtype-" + i}>
                 <td>
                   { type.event === "WILDCARD" ? type.event :
-                    <a href={ApiRoutes.ALERTS.SUBSCRIPTIONS.DETAILS(type.event)}>{type.event}</a>
+                    <Link to={ApiRoutes.ALERTS.SUBSCRIPTIONS.DETAILS(type.event)}>{type.event}</Link>
                   }
                 </td>
                 <td>{type.title}</td>

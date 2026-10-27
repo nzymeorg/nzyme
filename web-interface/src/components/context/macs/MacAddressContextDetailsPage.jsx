@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import WithPermission from "../../misc/WithPermission";
 import ApiRoutes from "../../../util/ApiRoutes";
-import {Navigate, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import ContextService from "../../../services/ContextService";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import {toast} from "react-toastify";
@@ -60,7 +60,7 @@ function MacAddressContextDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
-                <li className="breadcrumb-item"><a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</a></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>MAC Addresses</Link></li>
                 <li className="breadcrumb-item active">{context.mac_address}</li>
               </ol>
             </nav>
@@ -83,12 +83,12 @@ function MacAddressContextDetailsPage() {
             <span className="float-end">
               <WithPermission permission="mac_context_manage">
                 <button className="btn btn-danger" onClick={onDelete} disabled={deleting}>{deleting ? "Please wait ..." : "Delete"}</button>&nbsp;
-                <a className="btn btn-secondary"
-                   href={ApiRoutes.CONTEXT.MAC_ADDRESSES.EDIT(context.uuid)}>
+                <Link className="btn btn-secondary"
+                   to={ApiRoutes.CONTEXT.MAC_ADDRESSES.EDIT(context.uuid)}>
                   Edit
-                </a>&nbsp;
+                </Link>&nbsp;
               </WithPermission>
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.CONTEXT.MAC_ADDRESSES.INDEX}>Back</Link>
             </span>
           </div>
         </div>

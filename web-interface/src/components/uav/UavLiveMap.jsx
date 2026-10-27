@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useEffect} from "react";
 
 import 'leaflet/dist/leaflet.css';
 import * as L from 'leaflet';
@@ -20,14 +20,6 @@ export default function UavLiveMap(props) {
   const onRefresh = props.onRefresh;
   const onUavClick = props.onUavClick;
 
-  const [map, setMap] = useState(null);
-  const [mapInitialized, setMapInitialized] = useState(false);
-
-  useEffect(() => {
-    setMap(null);
-    setMapInitialized(false);
-  }, [uavs])
-
   const uavIcon = L.icon({
     iconUrl: window.appConfig.assetsUri + 'static/uav/uav.png',
     iconSize: [30, 30],
@@ -41,58 +33,59 @@ export default function UavLiveMap(props) {
   }
 
   useEffect(() => {
-    if (uavs !== null && uavs.uavs.length > 0 && !mapInitialized) {
-      setMap(L.map("uav-tactical-map", {
-        scrollWheelZoom: false,
-        fullscreenControl: true,
-        fullscreenControlOptions: {
-          position: "topleft"
-        }
-      }));
-
-      setMapInitialized(true);
+    if (uavs === null || uavs.uavs.length === 0) {
+      return;
     }
-  }, [uavs]);
 
-  useEffect(() => {
-    if (mapInitialized) {
-      map.invalidateSize(true);
-      map.attributionControl.setPrefix("");
+    const map = L.map("uav-tactical-map", {
+      scrollWheelZoom: false,
+      fullscreenControl: true,
+      fullscreenControlOptions: {
+        position: "topleft"
+      }
+    });
 
-      map.setView([uavs.map_center.latitude, uavs.map_center.longitude], uavs.map_center.zoom)
+    map.invalidateSize(true);
+    map.attributionControl.setPrefix("");
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    map.setView([uavs.map_center.latitude, uavs.map_center.longitude], uavs.map_center.zoom)
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    if (onRefresh) {
+      L.easyButton({
+        states: [{
+          stateName: "refresh",
+          icon: '<i class="fa-solid fa-refresh"></i>',
+          title: "Refresh",
+          onClick: onRefresh
+        }]
+      }).addTo(map);
+    }
+
+    // Paint each UAV on map.
+    for (const uav of uavs.uavs) {
+      const uavMarker = L.marker(latLng(uav.latitude, uav.longitude), {
+        icon: uavIcon,
+        draggable: false,
+        autoPan: true
       }).addTo(map);
 
-      if (onRefresh) {
-        L.easyButton({
-          states: [{
-            stateName: "refresh",
-            icon: '<i class="fa-solid fa-refresh"></i>',
-            title: "Refresh",
-            onClick: onRefresh
-          }]
-        }).addTo(map);
-      }
+      uavMarker.bindTooltip(uavTooltip(uav));
 
-      // Paint each UAV on map.
-      for (const uav of uavs.uavs) {
-        const uavMarker = L.marker(latLng(uav.latitude, uav.longitude), {
-          icon: uavIcon,
-          draggable: false,
-          autoPan: true
-        }).addTo(map);
-
-        uavMarker.bindTooltip(uavTooltip(uav));
-
-        uavMarker.on('click', () => {
-          onUavClick(uav);
-        });
-      }
+      uavMarker.on('click', () => {
+        onUavClick(uav);
+      });
     }
-  }, [mapInitialized])
+
+    // Tears down the map and all of its handlers when the UAV set changes or the component unmounts.
+    return () => {
+      map.remove();
+    }
+  }, [uavs])
 
   if (uavs === null) {
     return <GenericWidgetLoadingSpinner height={containerHeight} />

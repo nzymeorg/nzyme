@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import ApiRoutes from "../../../util/ApiRoutes";
 import ContextService from "../../../services/ContextService";
 import {toast} from "react-toastify";
-import {Navigate, useLocation} from "react-router-dom";
+import {Link, Navigate, useLocation} from "react-router-dom";
 import usePageTitle from "../../../util/UsePageTitle";
 import NetworkContextForm from "./NetworkContextForm";
 
@@ -21,9 +21,7 @@ export default function CreateNetworkContextPage() {
 
   const [errorMessage, setErrorMessage] = useState(null);
 
-  const [passedCidr, ignored] = useState(
-      urlQuery.get("cidr") ? urlQuery.get("cidr") : ""
-  );
+  const passedCidr = urlQuery.get("cidr") ? urlQuery.get("cidr") : "";
 
   const onSubmit = (cidr, name, description, notes, organizationId, tenantId, onComplete) => {
     contextService.createNetworkContext(
@@ -58,7 +56,7 @@ export default function CreateNetworkContextPage() {
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">Context</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</a>
+                  <Link to={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Networks</Link>
                 </li>
                 <li className="breadcrumb-item active">Create</li>
               </ol>
@@ -75,7 +73,7 @@ export default function CreateNetworkContextPage() {
 
           <div className="col-md-4">
             <span className="float-end">
-              <a className="btn btn-primary" href={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Back</a>
+              <Link className="btn btn-primary" to={ApiRoutes.CONTEXT.NETWORKS.INDEX}>Back</Link>
             </span>
           </div>
         </div>

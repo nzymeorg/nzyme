@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import Paginator from "../../../../misc/Paginator";
 import LoadingSpinner from "../../../../misc/LoadingSpinner";
@@ -34,7 +35,7 @@ function EventTypesTable(props) {
                   <td title={type.id}>{type.name}</td>
                   <td>{type.subscriptions.length}</td>
                   <td>
-                    <a href={organizationId ? ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.SUBSCRIPTIONS.DETAILS(organizationId, type.id.toLowerCase()) : ApiRoutes.SYSTEM.EVENTS.SUBSCRIPTIONS.DETAILS(type.id.toLowerCase())}>Manage</a>
+                    <Link to={organizationId ? ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.SUBSCRIPTIONS.DETAILS(organizationId, type.id.toLowerCase()) : ApiRoutes.SYSTEM.EVENTS.SUBSCRIPTIONS.DETAILS(type.id.toLowerCase())}>Manage</Link>
                   </td>
                 </tr>
             )

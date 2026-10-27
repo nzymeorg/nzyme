@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
@@ -10,25 +9,19 @@ import MonitorsService from "../../../services/MonitorsService";
 import MonitorsTable from "../../monitors/shared/MonitorsTable";
 import Filters from "../../shared/filtering/Filters";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ETHERNET_MONITORS_FILTER_FIELDS} from "./EthernetMonitorsFilterFields";
 
 const monitorsService = new MonitorsService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function EthernetMonitorsPage() {
 
   usePageTitle("Ethernet Monitors");
 
   const [organizationId, tenantId] = useSelectedTenant();
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ETHERNET_MONITORS_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ETHERNET_MONITORS_FILTER_FIELDS);
   const [orderColumn, setOrderColumn] = useState("name");
   const [orderDirection, setOrderDirection] = useState("ASC");
 

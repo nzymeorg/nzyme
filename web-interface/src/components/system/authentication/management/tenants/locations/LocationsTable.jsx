@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import AuthenticationManagementService from "../../../../../../services/AuthenticationManagementService";
 import LoadingSpinner from "../../../../../misc/LoadingSpinner";
@@ -50,9 +51,9 @@ function LocationsTable(props) {
             return (
                 <tr key={i}>
                   <td>
-                    <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organizationId, tenantId, locations.locations[i].id)}>
+                    <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.LOCATIONS.DETAILS(organizationId, tenantId, locations.locations[i].id)}>
                       {locations.locations[i].name}
-                    </a>
+                    </Link>
                   </td>
                   <td>{numeral(locations.locations[i].floor_count).format("0,0")}</td>
                   <td>{numeral(locations.locations[i].tap_count).format("0,0")}</td>

@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import Dot11Service from "../../../../services/Dot11Service";
@@ -27,7 +27,7 @@ import usePageTitle from "../../../../util/UsePageTitle";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {BSSID_MENU_ITEMS} from "../BSSIDMenuItems";
 import {SSID_MENU_ITEMS} from "./SSIDMenuItems";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeUrl";
 
 const dot11Service = new Dot11Service();
 
@@ -46,17 +46,23 @@ function SSIDDetailsPage() {
   const [ssid, setSSID] = useState(null);
 
   const [advertisementHistogramType, setHistogramAdvertisementType] = useState("beacon_count");
-  const [advertisementHistogramTimeRange, setAdvertisementHistogramTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "ssid_advertisements"));
+  const [advertisementHistogramTimeRange, setAdvertisementHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "ssid_advertisements");
   const [channelUsageHistogramTimeRange, setChannelUsageHistogramTimeRange] = useState(Presets.RELATIVE_MINUTES_15);
   const [signalWaterfallTimeRange, setSignalWaterfallTimeRange] = useState(Presets.RELATIVE_HOURS_24);
 
-  const [discoActivityTimeRange, setDiscoActivityTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24, "disco_activity"));
+  const [discoActivityTimeRange, setDiscoActivityTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disco_activity");
 
   usePageTitle(ssid ? `SSID: ${ssid.ssid}` : "SSID Details");
 
   useEffect(() => {
+    setSSID(null);
     dot11Service.findSSIDOfBSSID(bssidParam, ssidParam, ssidTimeRange, selectedTaps, (response) => setSSID(response.data));
-  }, [selectedTaps])
+  }, [bssidParam, ssidParam, selectedTaps])
+
+  // The route parameter changes without a remount when navigating between SSIDs.
+  useEffect(() => {
+    setSelectedFrequency(parseInt(frequencyParam, 10));
+  }, [frequencyParam]);
 
   useEffect(() => {
     enableTapSelector(tapContext);
@@ -85,8 +91,8 @@ function SSIDDetailsPage() {
         <div className="col-md-12">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.OVERVIEW}>WiFi</a></li>
-              <li className="breadcrumb-item"><a href={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}>Access Points</Link></li>
               <li className="breadcrumb-item">{ssid.bssid.address}</li>
               <li className="breadcrumb-item">SSIDs</li>
               <li className="breadcrumb-item active" aria-current="page">{ssid.ssid}</li>

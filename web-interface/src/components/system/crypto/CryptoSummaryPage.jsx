@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, { useEffect, useState } from 'react'
 import PGPKeyTable from './pgp/PGPKeyTable'
 import PGPMetrics from './pgp/PGPMetrics'
@@ -88,9 +89,9 @@ function CryptoSummaryPage () {
                       <TLSWildcardCertificateTable crypto={crypto} />
 
                       <div className="mt-3">
-                        <a href={ApiRoutes.SYSTEM.CRYPTO.TLS.WILDCARD.UPLOAD} className="btn btn-sm btn-primary">
+                        <Link to={ApiRoutes.SYSTEM.CRYPTO.TLS.WILDCARD.UPLOAD} className="btn btn-sm btn-primary">
                           Upload Wildcard Certificate
-                        </a>
+                        </Link>
                       </div>
                     </div>
                   </div>

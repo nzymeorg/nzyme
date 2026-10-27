@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ContextService from "../../../../../services/ContextService";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -47,9 +48,9 @@ function Dot11MacAddressContextOverlay(props) {
               Yes ({truncate(network.name, 22, false)}){' '}
 
               <WithPermission permission="dot11_monitoring_manage">
-                <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(network.uuid)} title="Open Monitored Network Details">
+                <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(network.uuid)} title="Open Monitored Network Details">
                   <i className="fa-solid fa-link"></i>
-                </a>
+                </Link>
               </WithPermission>
             </React.Fragment>
         )
@@ -74,7 +75,7 @@ function Dot11MacAddressContextOverlay(props) {
         return null;
     }
 
-    return <a href={href} className="btn btn-sm btn-outline-secondary">Device Details</a>
+    return <Link to={href} className="btn btn-sm btn-outline-secondary">Device Details</Link>
   }
 
   if (!ctx) {
@@ -121,10 +122,10 @@ function Dot11MacAddressContextOverlay(props) {
 
           <div className="context-overlay-actions">
             <WithPermission permission="mac_context_manage">
-              <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
+              <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
                  className="btn btn-sm btn-outline-primary">
                 Add Context
-              </a>{' '}
+              </Link>{' '}
             </WithPermission>
             {typeDetailsLink(ctx.context_type, address)}
           </div>
@@ -165,10 +166,10 @@ function Dot11MacAddressContextOverlay(props) {
         </div>
 
         <div className="context-overlay-actions">
-          <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
+          <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
              className="btn btn-sm btn-outline-primary">
             Context Details
-          </a>{' '}
+          </Link>{' '}
           {typeDetailsLink(ctx.context_type, address)}{' '}
         </div>
       </React.Fragment>

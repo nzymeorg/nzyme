@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 
 import numeral from "numeral";
@@ -34,9 +35,9 @@ export default function TenantDatabaseUsageTableRows(props) {
             <span className="indent-left-2">
               <i className="fa-solid fa-arrow-turn-up fa-rotate-90" style={{marginRight: 8}}></i>
               Tenant: {' '}
-              <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(tenant.organization_id, tenant.tenant_id)}>
+              <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DETAILS(tenant.organization_id, tenant.tenant_id)}>
                 {tenant.tenant_name}
-              </a>
+              </Link>
             </span>
           </td>
           {skipSizeColumns ? null : <td className="text-muted" title="Data size not available for individual organizations and tenants.">n/a</td> }

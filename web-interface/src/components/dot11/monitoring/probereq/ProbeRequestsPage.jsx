@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from 'react';
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -87,10 +88,10 @@ export default function ProbeRequestsPage() {
                                     perPage={perPage} />
 
 
-                <a href={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.CREATE}
+                <Link to={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.CREATE}
                    className="btn btn-sm btn-secondary">
                   Create Monitored Probe Request
-                </a>
+                </Link>
 
               </div>
             </div>

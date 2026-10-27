@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from "react";
-import {useLocation} from "react-router-dom";
 import numeral from "numeral";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import ApiRoutes from "../../../util/ApiRoutes";
@@ -8,6 +7,7 @@ import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
 import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import ReconService from "../../../services/ethernet/ReconService";
 import {RECON_MENU_ITEMS} from "./ReconMenuItems";
 import {RECON_PROBED_HOSTS_DEFAULT_FILTERS, RECON_PROBED_HOSTS_FILTER_FIELDS} from "./ReconProbedHostsFilterFields";
@@ -16,22 +16,15 @@ import {Presets} from "../../shared/timerange/TimeRange";
 
 const reconService = new ReconService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
-
 export default function ReconProbedHostsPage() {
 
   usePageTitle("Ethernet Recon Probed Hosts");
 
   const [organizationId, tenantId] = useSelectedTenant();
-  const urlQuery = useQuery();
-
   // The default filters apply unless the URL carries its own set, which is also how a cleared filter set is kept.
-  const [filters, setFilters] = useState(
-    urlQuery.has("filters")
-      ? queryParametersToFilters(urlQuery.get("filters"), RECON_PROBED_HOSTS_FILTER_FIELDS)
-      : queryParametersToFilters(JSON.stringify(RECON_PROBED_HOSTS_DEFAULT_FILTERS), RECON_PROBED_HOSTS_FILTER_FIELDS)
+  const [filters, setFilters] = useUrlFilters(
+    RECON_PROBED_HOSTS_FILTER_FIELDS,
+    queryParametersToFilters(JSON.stringify(RECON_PROBED_HOSTS_DEFAULT_FILTERS), RECON_PROBED_HOSTS_FILTER_FIELDS)
   );
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [includeScanners, setIncludeScanners] = useState(false);

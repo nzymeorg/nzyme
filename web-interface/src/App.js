@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom'
 
 import NavigationBar from './components/layout/NavigationBar'
+import ScrollToTop from './components/layout/ScrollToTop'
 import OverviewPage from './components/overview/OverviewPage'
 import NotConnectedPage from './components/misc/NotConnectedPage'
 import NotFoundPage from './components/misc/NotFoundPage'
@@ -498,6 +499,7 @@ function App() {
       // Connected, authenticated and MFA'd. Tenant and Org selected. Show full interface.
       return (
           <Router>
+            <ScrollToTop />
             <DarkMode enabled={darkModeEnabled} />
 
             <div className="nzyme d-flex">

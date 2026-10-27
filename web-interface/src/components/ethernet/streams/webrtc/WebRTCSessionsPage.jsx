@@ -1,10 +1,9 @@
-import {useLocation} from "react-router-dom";
 import usePageTitle from "../../../../util/UsePageTitle";
 import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../../App";
-import {timeRangeFromURLOrDefault} from "../../../shared/timerange/TimeRangeUrl";
+import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeUrl";
 import {Presets} from "../../../shared/timerange/TimeRange";
-import {queryParametersToFilters} from "../../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {STREAMS_MENU_ITEMS} from "../StreamsMenuItems";
@@ -19,9 +18,6 @@ import onSaveFiltersAsMonitor from "../../../shared/filtering/monitors/SaveMonit
 import RenderConditionally from "../../../misc/RenderConditionally";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function WebRTCSessionsPage() {
 
@@ -30,12 +26,9 @@ export default function WebRTCSessionsPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const tapContext = useContext(TapContext);
-  const urlQuery = useQuery();
 
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), WEBRTC_FILTER_FIELDS)
-  );
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
+  const [filters, setFilters] = useUrlFilters(WEBRTC_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
 
   const [revision, setRevision] = useState(new Date());

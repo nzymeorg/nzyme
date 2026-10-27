@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useContext, useEffect, useRef, useState} from "react";
 import UserProfileService from "../../services/UserProfileService";
 import Routes from "../../util/ApiRoutes";
@@ -92,7 +93,7 @@ function ChangeOwnPasswordPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={Routes.USERPROFILE.PROFILE}>Your Profile</a>
+                  <Link to={Routes.USERPROFILE.PROFILE}>Your Profile</Link>
                 </li>
                 <li className="breadcrumb-item active" aria-current="page">Change your password</li>
               </ol>

@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, Navigate, useLocation, useParams} from "react-router-dom";
+import {Link, Navigate, useParams} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import {toast} from "react-toastify";
@@ -21,7 +21,7 @@ import BeaconCheckinsTable from "./BeaconCheckinsTable";
 import BeaconEnrichment from "./BeaconEnrichment";
 import BeaconCheckinScatterCharts from "./BeaconCheckinScatterCharts";
 import Filters from "../../shared/filtering/Filters";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {BEACON_CHECKINS_FILTER_FIELDS} from "./BeaconCheckinsFilterFields";
 import BeaconNotes from "./BeaconNotes";
 import BeaconDestinationConnectionsTable from "./BeaconDestinationConnectionsTable";
@@ -29,9 +29,6 @@ import L4Address from "../shared/L4Address";
 
 const beaconsService = new BeaconsService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function BeaconDetailsPage() {
 
@@ -50,11 +47,7 @@ export default function BeaconDetailsPage() {
   const [sourcesOrderDirection, setSourcesOrderDirection] = useState("DESC");
   const [sourcesPage, setSourcesPage] = useState(1);
   const sourcesPerPage = 15;
-
-  const urlQuery = useQuery();
-  const [checkinsFilters, setCheckinsFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), BEACON_CHECKINS_FILTER_FIELDS)
-  );
+  const [checkinsFilters, setCheckinsFilters] = useUrlFilters(BEACON_CHECKINS_FILTER_FIELDS);
 
   const [timeRange, setTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [points, setPoints] = useState(null);

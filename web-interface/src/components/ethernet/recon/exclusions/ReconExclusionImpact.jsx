@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -40,12 +41,12 @@ export default function ReconExclusionImpact({impact, compact = false}) {
         {impact.scans.map((s) => {
           return (
             <li key={s.uuid}>
-              <a href={s.type === "OS_FINGERPRINTING"
+              <Link to={s.type === "OS_FINGERPRINTING"
                    ? ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(s.uuid)
                    : ApiRoutes.ETHERNET.RECON.SCANS.DETAILS(s.uuid)}
                  target="_blank" rel="noreferrer">
                 {reconScanTypeToName(s.type)} from <span className="machine-data">{s.source}</span>
-              </a>{' '}
+              </Link>{' '}
               <span className="text-muted">(against <span className="machine-data">{s.target}</span>)</span>
             </li>
           )

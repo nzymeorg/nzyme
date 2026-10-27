@@ -1,5 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
-import {Link, useLocation} from "react-router-dom";
+import {Link} from "react-router-dom";
 import numeral from "numeral";
 import moment from "moment";
 import SectionMenuBar from "../../shared/SectionMenuBar";
@@ -17,7 +17,7 @@ import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import FullCopyShortenedId from "../../shared/FullCopyShortenedId";
 import Filters from "../../shared/filtering/Filters";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {ICMP_TRACEROUTES_FILTER_FIELDS} from "./IcmpTraceroutesFilterFields";
 import IcmpTraceroutesHistogram from "./IcmpTraceroutesHistogram";
 import IcmpTracerouteBreakdownHistogram from "./IcmpTracerouteBreakdownHistogram";
@@ -27,9 +27,6 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 
 const icmpService = new IcmpService();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 export default function IcmpTraceroutesPage() {
 
@@ -38,11 +35,8 @@ export default function IcmpTraceroutesPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
-  const urlQuery = useQuery();
 
-  const [filters, setFilters] = useState(
-    queryParametersToFilters(urlQuery.get("filters"), ICMP_TRACEROUTES_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(ICMP_TRACEROUTES_FILTER_FIELDS);
   const [traceroutes, setTraceroutes] = useState(null);
   const [orderColumn, setOrderColumn] = useState("last_seen");
   const [orderDirection, setOrderDirection] = useState("DESC");

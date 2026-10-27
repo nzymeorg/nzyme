@@ -1,4 +1,5 @@
 import React, {useState} from "react";
+import {Link} from "react-router-dom";
 import ContextOverlayVisibilityWrapper from "../ContextOverlayVisibilityWrapper";
 import Dot11MacAddressType from "./Dot11MacAddressType";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -36,10 +37,12 @@ function MacAddress(props) {
       computedHref = ApiRoutes.ETHERNET.ASSETS.DETAILS(addressWithContext.asset_id);
     }
 
-    if (computedHref || onClick) {
-      return <a href={computedHref ? computedHref : "#"}
-                onClick={onClick ? onClick : () => {}}
-                className={highlighted ? "highlighted" : null}>{address}</a>
+    if (computedHref) {
+      return <Link to={computedHref}
+                   onClick={onClick ? onClick : () => {}}
+                   className={highlighted ? "highlighted" : null}>{address}</Link>
+    } else if (onClick) {
+      return <a href="#" onClick={onClick} className={highlighted ? "highlighted" : null}>{address}</a>
     } else {
       return <span style={{cursor: "help"}} className={highlighted ? "highlighted" : null}>{address}</span>;
     }

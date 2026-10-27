@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import WithPermission from "../../misc/WithPermission";
@@ -88,9 +89,9 @@ export default function UavTypesPage() {
                                 perPage={customTypesPerPage} />
 
               <WithPermission permission="uav_monitoring_manage">
-                <a href={ApiRoutes.UAV.TYPES.CREATE} className="btn btn-sm btn-secondary mt-3">
+                <Link to={ApiRoutes.UAV.TYPES.CREATE} className="btn btn-sm btn-secondary mt-3">
                   Create Custom Type
-                </a>
+                </Link>
               </WithPermission>
             </div>
           </div>

@@ -7,23 +7,19 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import HelpBubble from "../../misc/HelpBubble";
-import {useLocation} from "react-router-dom";
-import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import Filters from "../../shared/filtering/Filters";
 import {DISCONNECTED_CLIENT_FILTER_FIELDS} from "./DisconnectedClientFilterFields";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {CLIENTS_MENU_ITEMS} from "./ClientsMenuItems";
 import ApiRoutes from "../../../util/ApiRoutes";
 import usePageTitle from "../../../util/UsePageTitle";
-import {timeRangeFromURLOrDefault} from "../../shared/timerange/TimeRangeSelector";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 
 const dot11Service = new Dot11Service();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
 
 function ClientsPage() {
 
@@ -34,12 +30,10 @@ function ClientsPage() {
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
 
-  const urlQuery = useQuery();
-
   const [histogram, setHistogram] = useState(null);
 
   const [clients, setClients] = useState(null);
-  const [timeRange, setTimeRange] = useState(() => timeRangeFromURLOrDefault(Presets.RELATIVE_HOURS_24))
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24)
   const [page, setPage] = useState(1);
 
   const [monitorsReady, setMonitorsReady] = useState(false);
@@ -49,9 +43,7 @@ function ClientsPage() {
 
   const [skipRandomized, setSkipRandomized] = useState(true);
 
-  const [filters, setFilters] = useState(
-      queryParametersToFilters(urlQuery.get("filters"), DISCONNECTED_CLIENT_FILTER_FIELDS)
-  );
+  const [filters, setFilters] = useUrlFilters(DISCONNECTED_CLIENT_FILTER_FIELDS);
 
   const perPage = 25;
 

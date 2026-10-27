@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import STUNConnectionSuccessIndicator from "./STUNConnectionSuccessIndicator";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -31,9 +32,9 @@ export default function STUNConnectionsTableRow({connection, setFilters}) {
     <tr>
       <td><STUNConnectionSuccessIndicator successful={connection.successful} /></td>
       <td>
-        <a href={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.DETAILS(connection.negotiation_key_sha256)}>
+        <Link to={ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.DETAILS(connection.negotiation_key_sha256)}>
           <FullCopyShortenedId value={connection.negotiation_key_sha256} />
-        </a>
+        </Link>
       </td>
       <td>
         <InternalAddressOnlyWrapper

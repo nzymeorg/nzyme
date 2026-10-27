@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import LoadingSpinner from "../../../../../../misc/LoadingSpinner";
 import AuthenticationManagementService from "../../../../../../../services/AuthenticationManagementService";
 import ApiRoutes from "../../../../../../../util/ApiRoutes";
@@ -67,18 +67,18 @@ function OrganizationEventSubscriptionDetailsPage() {
             <nav aria-label="breadcrumb">
               <ol className="breadcrumb">
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</a>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>Authentication &amp; Authorization</Link>
                 </li>
                 <li className="breadcrumb-item">Organizations</li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.DETAILS(organization.id)}>
                     {organization.name}
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">
-                  <a href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
+                  <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
                     Events &amp; Actions
-                  </a>
+                  </Link>
                 </li>
                 <li className="breadcrumb-item">Subscriptions</li>
                 <li className="breadcrumb-item active" aria-current="page">
@@ -89,10 +89,10 @@ function OrganizationEventSubscriptionDetailsPage() {
           </div>
 
           <div className="col-2">
-            <a className="btn btn-primary float-end"
-               href={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
+            <Link className="btn btn-primary float-end"
+               to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS_PAGE(organization.id)}>
               Back
-            </a>
+            </Link>
           </div>
         </div>
 

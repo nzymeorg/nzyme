@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import WithPermission from "../../../misc/WithPermission";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -20,9 +21,9 @@ export default function UnapprovedClientAlertDetails(props) {
 
                 <WithPermission permission="dot11_monitoring_manage">
                   <dd>
-                    <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(alert.dot11_monitored_network_id)}>
+                    <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(alert.dot11_monitored_network_id)}>
                       {alert.attributes.monitored_network}
-                    </a>
+                    </Link>
                   </dd>
                 </WithPermission>
 

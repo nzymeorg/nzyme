@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import Paginator from "../../misc/Paginator";
 import ContextService from "../../../services/ContextService";
@@ -47,7 +48,7 @@ export default function NetworkContextTable({addressFilter, addressFilterRevisio
           {context.networks.map((n, i) => {
             return (
                 <tr key={i}>
-                  <td><a href={ApiRoutes.CONTEXT.NETWORKS.SHOW(n.uuid)}>{n.cidr}</a></td>
+                  <td><Link to={ApiRoutes.CONTEXT.NETWORKS.SHOW(n.uuid)}>{n.cidr}</Link></td>
                   <td>{n.name ? n.name : <span className="text-muted">n/a</span>}</td>
                   <td>{n.description ? n.description : <span className="text-muted">n/a</span>}</td>
                 </tr>

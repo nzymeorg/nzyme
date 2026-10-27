@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 
 import numeral from "numeral";
@@ -13,9 +14,9 @@ function NodeRow(props) {
     return (
         <tr>
           <td>
-            <a href={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>
+            <Link to={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>
               {node.name}
-            </a>
+            </Link>
             {' '}
             {node.is_ephemeral ? <i className="fa-regular fa-clock" title="Ephemeral Node" /> : null}
           </td>
@@ -39,7 +40,7 @@ function NodeRow(props) {
       if (node.deleted) {
         return (
             <tr>
-              <td><a href={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>{node.name}</a></td>
+              <td><Link to={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>{node.name}</Link></td>
               <td colSpan={6} style={{textAlign: "center"}} title={moment(node.last_seen).format()}>
                 <span><i className="fa-solid fa-triangle-exclamation text-danger" title="Node is offline."/></span>{' '}
                 Node has been manually deleted and will expire automatically if not brought back online.
@@ -49,7 +50,7 @@ function NodeRow(props) {
       } else {
         return (
             <tr>
-              <td><a href={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>{node.name}</a></td>
+              <td><Link to={ApiRoutes.SYSTEM.CLUSTER.NODES.DETAILS(node.uuid)}>{node.name}</Link></td>
               <td colSpan={6} style={{textAlign: "center"}} title={moment(node.last_seen).format()}>
                 <span><i className="fa-solid fa-triangle-exclamation text-danger" title="Node is offline."/></span>{' '}
                 Last seen {moment(node.last_seen).fromNow()} and will expire automatically if not brought back online.

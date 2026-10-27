@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import ApiRoutes from "../../../../util/ApiRoutes";
 
@@ -7,7 +8,7 @@ function SSIDMonitoringDetailsLink(props) {
   const uuid = props.uuid;
 
   if (show) {
-    return <a href={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Open Monitoring Details</a>
+    return <Link to={ApiRoutes.DOT11.MONITORING.SSID_DETAILS(uuid)}>Open Monitoring Details</Link>
   } else {
     return null;
   }

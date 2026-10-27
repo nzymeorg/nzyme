@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React, {useEffect, useState} from "react";
 import ContextService from "../../../../../services/ContextService";
 import ApiRoutes from "../../../../../util/ApiRoutes";
@@ -57,10 +58,10 @@ function BluetoothMacAddressContextOverlay(props) {
 
           <div className="context-overlay-actions">
             <WithPermission permission="mac_context_manage">
-              <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
+              <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.CREATE + "?address=" + encodeURIComponent(address)}
                  className="btn btn-sm btn-outline-primary">
                 Add Context
-              </a>{' '}
+              </Link>{' '}
             </WithPermission>
           </div>
         </React.Fragment>
@@ -92,10 +93,10 @@ function BluetoothMacAddressContextOverlay(props) {
         </div>
 
         <div className="context-overlay-actions">
-          <a href={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
+          <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(ctx.context.uuid)}
              className="btn btn-sm btn-outline-primary">
             Context Details
-          </a>
+          </Link>
         </div>
       </React.Fragment>
   )

@@ -1,6 +1,6 @@
 import React, {useContext, useEffect, useState} from "react";
 import usePageTitle from "../../../../util/UsePageTitle";
-import {useParams} from "react-router-dom";
+import {Link, useParams} from "react-router-dom";
 import {TapContext} from "../../../../App";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
@@ -148,16 +148,16 @@ export default function WebRTCSessionDetailsPage() {
         <div className="col-10">
           <nav aria-label="breadcrumb">
             <ol className="breadcrumb">
-              <li className="breadcrumb-item"><a href={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX}>WebRTC Streams</a></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX}>WebRTC Streams</Link></li>
               <li className="breadcrumb-item">Sessions</li>
               <li className="breadcrumb-item active" aria-current="page">{negotiationKey}</li>
             </ol>
           </nav>
         </div>
         <div className="col-2">
-          <a href={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX} className="btn btn-primary float-end">
+          <Link to={ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX} className="btn btn-primary float-end">
             Back
-          </a>
+          </Link>
         </div>
       </div>
 

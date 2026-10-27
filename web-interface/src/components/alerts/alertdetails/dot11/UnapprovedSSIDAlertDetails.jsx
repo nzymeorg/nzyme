@@ -1,3 +1,4 @@
+import {Link} from "react-router-dom";
 import React from "react";
 import WithPermission from "../../../misc/WithPermission";
 import WithoutPermission from "../../../misc/WithoutPermission";
@@ -18,7 +19,7 @@ export default function UnapprovedSSIDAlertDetails(props) {
                   <dt>SSID</dt>
 
                   <WithPermission permission="dot11_monitoring_manage">
-                    <dd><a href={ApiRoutes.DOT11.MONITORING.SSIDS.INDEX}>{alert.attributes.ssid}</a></dd>
+                    <dd><Link to={ApiRoutes.DOT11.MONITORING.SSIDS.INDEX}>{alert.attributes.ssid}</Link></dd>
                   </WithPermission>
 
                   <WithoutPermission permission="dot11_monitoring_manage">

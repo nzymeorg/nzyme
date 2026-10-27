@@ -50,7 +50,7 @@ export default function AssetsTable(props) {
         <table className="table table-sm table-hover table-striped mb-4 mt-3">
           <thead>
           <tr>
-            <th style={{width: 170}}>MAC Address {columnSorting("mac")}</th>
+            <th style={{width: 185}}>MAC Address {columnSorting("mac")}</th>
             <th>OUI</th>
             <th>Active</th>
             <th>Name</th>
@@ -67,10 +67,21 @@ export default function AssetsTable(props) {
                   <td>
                     <EthernetMacAddress addressWithContext={a.mac}
                                         href={ApiRoutes.ETHERNET.ASSETS.DETAILS(a.uuid)}
-                                        hideActiveIndicator={true} />
+                                        hideActiveIndicator={true}
+                                        filterElement={<FilterValueIcon setFilters={setFilters}
+                                                                        fields={ASSET_FILTER_FIELDS}
+                                                                        field="mac"
+                                                                        value={a.mac.address} />} />
                   </td>
                   <td>{a.oui ? truncate(a.oui, 30, false) : <span className="text-muted">Unknown</span>}</td>
-                  <td><AssetActiveIndicator active={a.is_active} /></td>
+                  <td>
+                    <AssetActiveIndicator active={a.is_active}
+                                          filterElement={a.is_active == null ? null :
+                                            <FilterValueIcon setFilters={setFilters}
+                                                             fields={ASSET_FILTER_FIELDS}
+                                                             field="is_active"
+                                                             value={a.is_active ? "true" : "false"} />} />
+                  </td>
                   <td>{a.name ? <span className="context-name context-name-asset">{a.name}</span> : <span className="text-muted">None</span>}</td>
                   <td>
                     <AssetHostnames hostnames={a.hostnames}
