@@ -373,6 +373,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SSH_TOTAL_REPORT_PROCESSING_TIMER));
             writeTimer(MetricExternalName.REPORT_PROCESSING_SOCKS_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.SOCKS_TOTAL_REPORT_PROCESSING_TIMER));
+            writeTimer(MetricExternalName.REPORT_PROCESSING_VPN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.VPN_TOTAL_REPORT_PROCESSING_TIMER));
 
             writeTimer(MetricExternalName.BEACON_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.BEACON_DETECTION_RUN_TIMER));

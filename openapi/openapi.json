@@ -194,6 +194,13 @@
     "description" : "Time synchronization traffic that Nzyme taps observed on the network. This currently covers NTP transactions, including the exchanged timestamps and the resulting clock offset.",
     "name" : "Time"
   }, {
+    "description" : "WireGuard and OpenVPN tunnels that Nzyme taps observed on the network, including the tunnel endpoints, the transport, whether the handshake was observed and the tunneled bytes. Each tunnel is tracked over its lifetime across all underlying TCP sessions or UDP conversations between the same endpoints.",
+    "externalDocs" : {
+      "description" : "VPN tunnels in the Nzyme documentation",
+      "url" : "https://go.nzyme.org/ethernet-vpn"
+    },
+    "name" : "VPN"
+  }, {
     "description" : "WebRTC sessions that Nzyme taps observed on the network. WebRTC carries live audio and video and the data channels of browser and app based calls, screen shares and remote control tools. Nzyme recognizes a session when a STUN negotiation also carries RTP or DTLS, and reports what the connection is carrying rather than how it was established.",
     "externalDocs" : {
       "description" : "WebRTC in the Nzyme documentation",
@@ -21279,6 +21286,631 @@
         "tags" : [ "TLS" ]
       }
     },
+    "/api/ethernet/vpn/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the VPN connection settings of the tenant. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "findVpnConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VpnConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the VPN connection settings of a tenant",
+        "tags" : [ "VPN" ]
+      },
+      "put" : {
+        "description" : "Updates one or more VPN connection settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateVpnConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains an unknown key, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the VPN connection settings of a tenant",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/organization/{organization_id}/tenant/{tenant_id}/display" : {
+      "get" : {
+        "description" : "Returns the settings every user needs to render the VPN connections page, such as whether Tailscale connections are hidden by a default filter.",
+        "operationId" : "findVpnDisplaySettings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VpnDisplaySettingsResponse"
+                }
+              }
+            },
+            "description" : "Settings found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the VPN connection display settings of a tenant",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels" : {
+      "get" : {
+        "description" : "Returns all VPN tunnels observed in the time range, newest established first by default. Each tunnel carries the VPN type, the transport protocol, the handshake status and the message types observed.",
+        "operationId" : "findVpnTunnels",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VpnTunnelsListResponse"
+                }
+              }
+            },
+            "description" : "Tunnels found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List VPN tunnels",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels/active/histogram" : {
+      "get" : {
+        "description" : "Returns the number of VPN tunnels that were active in each bucket of the time range. The bucket size is chosen automatically based on the length of the time range.",
+        "operationId" : "findVpnActiveTunnelsHistogram",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NumericHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          }
+        },
+        "summary" : "Get histogram of active VPN tunnels",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels/clients/top/histogram" : {
+      "get" : {
+        "description" : "Returns the client addresses with the most VPN tunnels in the time range, together with the tunnel count and the number of tunneled bytes.",
+        "operationId" : "findVpnTopClients",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top VPN clients",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels/l4/{l4_type}/{session_key}" : {
+      "get" : {
+        "description" : "Returns the VPN tunnel that a TCP session or UDP conversation belongs to. A tunnel is keyed by its first underlying session, but UDP tunnels are usually carried by a chain of conversations between the same endpoints. Later conversations are matched by endpoints and time overlap.",
+        "operationId" : "findVpnTunnelOfL4Session",
+        "parameters" : [ {
+          "description" : "L4 type of the session, TCP or UDP.",
+          "in" : "path",
+          "name" : "l4_type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Session key of the L4 session.",
+          "in" : "path",
+          "name" : "session_key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Start time of the L4 session in ISO 8601 format.",
+          "in" : "query",
+          "name" : "start_time",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VpnTunnelDetailsResponse"
+                }
+              }
+            },
+            "description" : "Tunnel found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The L4 type or start time is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tunnel not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the VPN tunnel of an L4 session",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels/servers/top/histogram" : {
+      "get" : {
+        "description" : "Returns the VPN server addresses with the most tunnels in the time range, together with the tunnel count and the number of tunneled bytes.",
+        "operationId" : "findVpnTopServers",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top VPN servers",
+        "tags" : [ "VPN" ]
+      }
+    },
+    "/api/ethernet/vpn/tunnels/show/{session_key}" : {
+      "get" : {
+        "description" : "Returns a single VPN tunnel by its session key.",
+        "operationId" : "findVpnTunnel",
+        "parameters" : [ {
+          "description" : "Session key of the tunnel.",
+          "in" : "path",
+          "name" : "session_key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VpnTunnelDetailsResponse"
+                }
+              }
+            },
+            "description" : "Tunnel found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tunnel not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a VPN tunnel",
+        "tags" : [ "VPN" ]
+      }
+    },
     "/api/ethernet/webrtc/sessions" : {
       "get" : {
         "description" : "Returns all WebRTC sessions observed in the time range, newest initiated first by default. Each session reports whether it carries RTP, DTLS, audio and video, and the audio or video classification of a stream is a best effort guess from traffic characteristics. Sub sessions and the STUN negotiation are only included in the single session endpoint.",
@@ -21986,7 +22618,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         }, {
           "description" : "Organization UUID.",
@@ -22060,7 +22692,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         } ],
         "requestBody" : {
@@ -42282,6 +42914,104 @@
           },
           "version" : {
             "type" : "string"
+          }
+        }
+      },
+      "VpnConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          }
+        }
+      },
+      "VpnDisplaySettingsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclude_tailscale_by_default" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "VpnTunnelDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "client" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "connection_status" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "duration_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "established_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "handshake_status" : {
+            "type" : "string"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "message_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "most_recent_segment_time" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "server" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "server_name" : {
+            "type" : "string"
+          },
+          "session_key" : {
+            "type" : "string"
+          },
+          "terminated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tunneled_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "vpn_type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "VpnTunnelsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tunnels" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/VpnTunnelDetailsResponse"
+            }
           }
         }
       },

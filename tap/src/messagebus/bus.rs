@@ -6,7 +6,7 @@ use log::{debug, error};
 use crate::metrics::Metrics;
 use crate::wireless::bluetooth::bluetooth_device_advertisement::BluetoothDeviceAdvertisement;
 use crate::configuration::Configuration;
-use crate::wired::packets::{Dhcpv4Packet, NtpPacket, RtspStream, SocksTunnel, SshSession, IcmpPacket};
+use crate::wired::packets::{Dhcpv4Packet, NtpPacket, RtspStream, SocksTunnel, SshSession, IcmpPacket, VpnTunnel};
 use crate::messagebus::channel_names::{BluetoothChannelName, Dot11ChannelName, GenericChannelName, WiredChannelName};
 use crate::protocols::detection::taggers::remoteid::messages::UavRemoteIdMessage;
 use crate::protocols::parsers::stun_tagger::StunFlow;
@@ -45,6 +45,7 @@ pub struct Bus {
     pub rtsp_pipeline: NzymeChannel<RtspStream>,
     pub stun_pipeline: NzymeChannel<StunFlow>,
     pub webrtc_pipeline: NzymeChannel<WebRtcConversation>,
+    pub vpn_pipeline: NzymeChannel<VpnTunnel>,
 
     pub uav_remote_id_pipeline: NzymeChannel<UavRemoteIdMessage>
 }
@@ -129,6 +130,8 @@ impl Bus<> {
             bounded(configuration.protocols.stun.pipeline_size as usize);
         let (webrtc_pipeline_sender, webrtc_pipeline_receiver) =
             bounded(configuration.protocols.webrtc.pipeline_size as usize);
+        let (vpn_pipeline_sender, vpn_pipeline_receiver) =
+            bounded(configuration.protocols.vpn.pipeline_size as usize);
 
         let (uav_remote_id_sender, uav_remote_id_receiver) =
             bounded(configuration.protocols.uav_remote_id.pipeline_size as usize);
@@ -270,6 +273,14 @@ impl Bus<> {
                     name: WiredChannelName::WebRtcPipeline.to_string()
                 }),
                 receiver: Arc::new(webrtc_pipeline_receiver),
+            },
+            vpn_pipeline: NzymeChannel {
+                sender: Mutex::new(NzymeChannelSender {
+                    metrics: metrics.clone(),
+                    sender: vpn_pipeline_sender,
+                    name: WiredChannelName::VpnPipeline.to_string()
+                }),
+                receiver: Arc::new(vpn_pipeline_receiver),
             },
             uav_remote_id_pipeline: NzymeChannel {
                 sender: Mutex::new(NzymeChannelSender {

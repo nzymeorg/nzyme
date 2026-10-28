@@ -34,7 +34,7 @@ public class BeaconDetector {
     private static final Logger LOG = LogManager.getLogger(BeaconDetector.class);
 
     private static final List<String> EXCLUDED_L4_TAGS = List.of(
-            "TLS", "SOCKS", "DNS", "NTP", "STUN", "TURN", "DHCP4", "RTP", "WebRTC", "DTLS"
+            "TLS", "SOCKS", "DNS", "NTP", "STUN", "TURN", "DHCP4", "RTP", "WebRTC", "DTLS", "WireGuard", "OpenVPN", "DERP"
     );
 
     private static final Duration MAXIMUM_COLLAPSE_WINDOW = Duration.standardSeconds(5);

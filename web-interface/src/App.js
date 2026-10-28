@@ -123,6 +123,7 @@ import EditFloorPage from "./components/system/authentication/management/tenants
 import LookAndFeelPage from "./components/system/lookandfeel/LookAndFeelPage";
 import IPAddressDetailsPage from "./components/ethernet/l4/ip/IPAddressDetailsPage";
 import SOCKSTunnelsPage from "./components/ethernet/tunnels/socks/SOCKSTunnelsPage";
+import VPNTunnelsPage from "./components/ethernet/tunnels/vpn/VPNTunnelsPage";
 import SSHSessionsPage from "./components/ethernet/remote/ssh/SSHSessionsPage";
 import TLSSessionsPage from "./components/ethernet/tls/TLSSessionsPage";
 import TLSCertificatesPage from "./components/ethernet/tls/TLSCertificatesPage";
@@ -132,6 +133,8 @@ import DNSTransactionLogsPage from "./components/ethernet/dns/logs/DNSTransactio
 import ConnectPage from "./components/system/connect/ConnectPage";
 import BluetoothDevicesPage from "./components/bluetooth/devices/BluetoothDevicesPage";
 import SOCKSTunnelDetailsPage from "./components/ethernet/tunnels/socks/SOCKSTunnelDetailsPage";
+import VPNTunnelDetailsPage from "./components/ethernet/tunnels/vpn/VPNTunnelDetailsPage";
+import VPNSettingsPage from "./components/ethernet/tunnels/vpn/VPNSettingsPage";
 import DnsTunnelsPage from "./components/ethernet/dns/tunnels/DnsTunnelsPage";
 import DnsTunnelFindingDetailsPage from "./components/ethernet/dns/tunnels/DnsTunnelFindingDetailsPage";
 import DnsTunnelSettingsPage from "./components/ethernet/dns/tunnels/DnsTunnelSettingsPage";
@@ -659,6 +662,9 @@ function App() {
                                 { /* Ethernet/Tunnels. */}
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX} element={<SOCKSTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.SOCKS.TUNNEL_DETAILS(':sessionId')} element={<SOCKSTunnelDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX} element={<VPNTunnelsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.TUNNEL_DETAILS(':sessionId')} element={<VPNTunnelDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.SETTINGS} element={<VPNSettingsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.INDEX} element={<DnsTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.DETAILS(':uuid')} element={<DnsTunnelFindingDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.SETTINGS} element={<DnsTunnelSettingsPage />}/>

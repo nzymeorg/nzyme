@@ -10943,4 +10943,214 @@
         </createIndex>
     </changeSet>
 
+    <!--
+        The vpn_tunnels table intentionally stores its own endpoint columns (MACs, addresses, ports, address
+        flags and geo data) instead of joining l4_sessions like socks_tunnels, ssh_sessions or rtsp_streams do.
+
+        Reasons:
+          * A VPN tunnel over UDP is split by the tap into a new UDP conversation after a few seconds of
+            silence, so one tunnel maps to many l4_sessions rows. The tunnel session_key only matches the
+            first conversation. (untimed_session_key matches all of them.)
+          * Tunnels are long-lived. The first l4_sessions row is cleaned up or retention-expired long before
+            the tunnel ends, which would leave the tunnel without a join partner.
+          * The tap re-orients client and server once it observes a handshake. The corresponding l4_sessions
+            row keeps the first sender as source, so a join could label the two sides backwards.
+          * Asset pages and the top clients/servers histograms filter and group by MAC and address directly.
+
+        Rows are identified by (tap_uuid, session_key) and upserted by the report processor as the tap keeps
+        reporting the merged tunnel state.
+    -->
+    <changeSet id="add_vpn_tunnels" author="lennartkoopmann">
+        <createTable tableName="vpn_tunnels">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="session_key" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="untimed_session_key" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="l4_type" type="varchar(3)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="vpn_type" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="handshake_status" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="message_types" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="provider" type="varchar(32)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="server_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="details" type="jsonb" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="connection_status" type="varchar(24)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tunneled_bytes" type="bigint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_mac" type="varchar(17)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_is_site_local" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_is_loopback" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_is_multicast" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_geo_asn_number" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_asn_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_asn_domain" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_city" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_country_code" type="varchar(2)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_latitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_longitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_mac" type="varchar(17)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_is_site_local" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_is_loopback" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_is_multicast" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_geo_asn_number" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_asn_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_asn_domain" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_city" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_country_code" type="varchar(2)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_latitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_longitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="established_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="terminated_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="most_recent_segment_time" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="vpn_tunnels"
+                             columnNames="tap_uuid, session_key"
+                             constraintName="vpn_tunnels_unique_session_key" />
+        <createIndex tableName="vpn_tunnels" indexName="vpn_tunnels_lookup_timestamp">
+            <column name="most_recent_segment_time" />
+        </createIndex>
+        <createIndex tableName="vpn_tunnels" indexName="vpn_tunnels_lookup_untimed_session_key">
+            <column name="untimed_session_key" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

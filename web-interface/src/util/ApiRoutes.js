@@ -188,6 +188,11 @@ const ApiRoutes = {
       SOCKS: {
         INDEX: '/ethernet/tunnels/socks',
         TUNNEL_DETAILS: sessionId => `/ethernet/tunnels/socks/tunnels/show/${sessionId}`
+      },
+      VPN: {
+        INDEX: '/ethernet/tunnels/vpn',
+        TUNNEL_DETAILS: sessionId => `/ethernet/tunnels/vpn/tunnels/show/${sessionId}`,
+        SETTINGS: '/ethernet/tunnels/vpn/settings'
       }
     },
     REMOTE: {

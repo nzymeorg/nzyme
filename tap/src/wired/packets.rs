@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
 use std::net::IpAddr;
 use std::sync::Mutex;
@@ -380,6 +380,92 @@ impl SshSession {
         size += mem::size_of::<DateTime<Utc>>() as u32 * self.terminated_at.is_some() as u32;
 
         // Strings (source_mac, destination_mac)
+        if let Some(source_mac) = &self.source_mac {
+            size += source_mac.len() as u32
+        }
+        if let Some(destination_mac) = &self.destination_mac {
+            size += destination_mac.len() as u32
+        }
+
+        size
+    }
+
+}
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+pub enum VpnType {
+    WireGuard,
+    OpenVPN,
+    // Tailscale relay protocol: WireGuard carried over TLS to a DERP server.
+    DERP
+}
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+pub enum VpnTransport {
+    TCP,
+    UDP
+}
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum VpnHandshakeStatus {
+    NotObserved,
+    Partial,
+    Complete
+}
+
+#[derive(Debug, Clone)]
+pub struct VpnTunnel {
+    pub vpn_type: VpnType,
+    pub transport: VpnTransport,
+    pub handshake_status: VpnHandshakeStatus,
+    pub message_types: Vec<String>,
+    pub provider: Option<String>,
+    pub server_name: Option<String>,
+    pub details: BTreeMap<String, String>,
+    pub initiation_ids: Vec<u64>,
+    pub response_to_ids: Vec<u64>,
+    pub connection_status: GenericConnectionStatus,
+    pub session_key: L4Key,
+    pub conversation_start_time: DateTime<Utc>,
+    pub conversation_bytes: u64,
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub terminated_at: Option<DateTime<Utc>>,
+    pub most_recent_segment_time: DateTime<Utc>
+}
+
+impl VpnTunnel {
+
+    pub fn estimate_struct_size(&self) -> u32 {
+        let mut size = mem::size_of::<VpnType>() as u32
+            + mem::size_of::<VpnTransport>() as u32
+            + mem::size_of::<VpnHandshakeStatus>() as u32
+            + mem::size_of::<GenericConnectionStatus>() as u32
+            + mem::size_of::<L4Key>() as u32
+            + mem::size_of::<u64>() as u32
+            + mem::size_of::<u16>() as u32 * 2
+            + mem::size_of::<IpAddr>() as u32 * 2
+            + mem::size_of::<DateTime<Utc>>() as u32 * 2;
+
+        size += mem::size_of::<DateTime<Utc>>() as u32 * self.terminated_at.is_some() as u32;
+
+        for t in &self.message_types {
+            size += t.len() as u32;
+        }
+        if let Some(provider) = &self.provider {
+            size += provider.len() as u32
+        }
+        if let Some(server_name) = &self.server_name {
+            size += server_name.len() as u32
+        }
+        for (k, v) in &self.details {
+            size += (k.len() + v.len()) as u32;
+        }
+        size += mem::size_of::<u64>() as u32 * (self.initiation_ids.len() + self.response_to_ids.len()) as u32;
         if let Some(source_mac) = &self.source_mac {
             size += source_mac.len() as u32
         }

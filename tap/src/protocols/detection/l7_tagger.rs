@@ -3,7 +3,7 @@ use std::panic;
 use std::sync::{Arc, Mutex, MutexGuard};
 use log::{debug, error};
 use strum_macros::Display;
-use crate::protocols::detection::l7_tagger::L7Tag::{HTTP, Unencrypted, SOCKS, SSH, RTSP, STUN, TURN, RTP, DTLS, TLS};
+use crate::protocols::detection::l7_tagger::L7Tag::{HTTP, Unencrypted, SOCKS, SSH, RTSP, STUN, TURN, RTP, DTLS, TLS, OpenVPN, WireGuard, DERP};
 use chrono::{DateTime, Utc};
 use crate::state::tables::tcp_table::{TcpSession, TcpSessionState};
 use crate::protocols::parsers::l4_key::L4Key;
@@ -11,7 +11,7 @@ use crate::helpers::timer::{record_timer, Timer};
 use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::metrics::Metrics;
-use crate::protocols::detection::taggers::network_protocols::{http_tagger, rtsp_tagger, socks_tagger, ssh_tagger, tls_tagger};
+use crate::protocols::detection::taggers::network_protocols::{derp_tagger, http_tagger, openvpn_tagger, rtsp_tagger, socks_tagger, ssh_tagger, tls_tagger, vpn_tagger_tools, wireguard_tagger};
 use crate::protocols::detection::taggers::tunnel_payload::TunnelPayload;
 use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
 use crate::protocols::parsers::{dtls_tagger, rtp_tagger, stun_tagger};
@@ -20,6 +20,7 @@ use crate::state::tables::udp_table::UdpConversation;
 use crate::to_pipeline;
 use crate::wired::ethernet::types::tls_session::TlsSession;
 use crate::wired::ethernet::types::webrtc_conversation::WebRtcConversation;
+use crate::wired::packets::VpnType;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Display, PartialEq, Clone, Hash, Eq)]
@@ -42,7 +43,10 @@ pub enum L7Tag {
     TURN,
     RTP,
     DTLS,
-    WebRTC
+    WebRTC,
+    WireGuard,
+    OpenVPN,
+    DERP
 }
 
 /*
@@ -236,6 +240,7 @@ const TCP_APPLICATION_TAGGERS: &[TaggerEntry<ApplicationTagger>] = &[
     TaggerEntry { name: "tls",  tag: tag_tls },
     TaggerEntry { name: "ssh",  tag: tag_ssh },
     TaggerEntry { name: "stun", tag: tag_stun },
+    TaggerEntry { name: "openvpn", tag: tag_openvpn },
     TaggerEntry { name: "http", tag: tag_http },
     TaggerEntry { name: "rtsp", tag: tag_rtsp },
 ];
@@ -311,6 +316,10 @@ fn tag_socks(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Tunne
 
 fn tag_tls(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Vec<L7Tag>> {
     let handshake = tls_tagger::tag(cts, stc)?;
+
+    // Tailscale DERP relay connections are TLS sessions to known relay hostnames.
+    let derp = derp_tagger::tag_tcp(&handshake, context.session);
+
     let tls = TlsSession::build(handshake, context.session);
 
     let len = tls.estimate_struct_size();
@@ -321,7 +330,20 @@ fn tag_tls(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Vec<L7T
         len
     );
 
-    Some(vec![TLS])
+    match derp {
+        Some(tunnel) => {
+            let len = tunnel.estimate_struct_size();
+            to_pipeline!(
+                WiredChannelName::VpnPipeline,
+                context.bus.vpn_pipeline.sender,
+                Arc::new(tunnel),
+                len
+            );
+
+            Some(vec![TLS, DERP])
+        },
+        None => Some(vec![TLS])
+    }
 }
 
 fn tag_ssh(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Vec<L7Tag>> {
@@ -355,6 +377,20 @@ fn tag_stun(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Vec<L7
     );
 
     Some(tags)
+}
+
+fn tag_openvpn(cts: &[u8], stc: &[u8], context: &TcpTaggerContext) -> Option<Vec<L7Tag>> {
+    let tunnel = openvpn_tagger::tag_tcp(cts, stc, context.session)?;
+
+    let len = tunnel.estimate_struct_size();
+    to_pipeline!(
+        WiredChannelName::VpnPipeline,
+        context.bus.vpn_pipeline.sender,
+        Arc::new(tunnel),
+        len
+    );
+
+    Some(vec![OpenVPN])
 }
 
 fn tag_http(cts: &[u8], stc: &[u8], _context: &TcpTaggerContext) -> Option<Vec<L7Tag>> {
@@ -405,6 +441,8 @@ fn tag_all_udp(client_to_server: &[u8],
         stun_timer_untagged.stop();
         record_timer(stun_timer_untagged.elapsed_microseconds(),
                      "tables.udp.timer.sessions.tagging.stun.untagged", metrics);
+
+        tag_vpn_udp(conversation, bus, metrics, &mut tags, &mut commands);
     }
 
     // Taggers on conversations with recent buffer enabled.
@@ -480,4 +518,42 @@ fn tag_all_udp(client_to_server: &[u8],
     }
 
     (tags, commands)
+}
+
+fn tag_vpn_udp(conversation: &UdpConversation,
+               bus: &Arc<Bus>,
+               metrics: &Arc<Mutex<Metrics>>,
+               tags: &mut HashSet<L7Tag>,
+               commands: &mut Vec<TaggerCommand>) {
+    // Conversations already identified as another protocol by the datagram-level taggers.
+    if conversation.tags.iter().any(|t| !matches!(t, WireGuard | OpenVPN)) {
+        return;
+    }
+
+    let mut timer = Timer::new();
+    let result = wireguard_tagger::tag_udp(conversation)
+        .or_else(|| openvpn_tagger::tag_udp(conversation))
+        .or_else(|| vpn_tagger_tools::continuation(conversation).map(|t| (t, Vec::new())));
+    timer.stop();
+
+    match result {
+        Some((tunnel, vpn_commands)) => {
+            record_timer(timer.elapsed_microseconds(),
+                         "tables.udp.timer.sessions.tagging.vpn.tagged", metrics);
+
+            tags.insert(match tunnel.vpn_type {
+                VpnType::WireGuard => WireGuard,
+                VpnType::OpenVPN => OpenVPN,
+                VpnType::DERP => DERP
+            });
+            commands.extend(vpn_commands);
+
+            let len = tunnel.estimate_struct_size();
+            to_pipeline!(WiredChannelName::VpnPipeline, bus.vpn_pipeline.sender, Arc::new(tunnel), len);
+        },
+        None => {
+            record_timer(timer.elapsed_microseconds(),
+                         "tables.udp.timer.sessions.tagging.vpn.untagged", metrics);
+        }
+    }
 }

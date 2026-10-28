@@ -170,6 +170,7 @@ public class NzymeHttpServer {
         resourceConfig.register(AssetContextResource.class);
         resourceConfig.register(Dot11LocationsResource.class);
         resourceConfig.register(SocksResource.class);
+        resourceConfig.register(VpnResource.class);
         resourceConfig.register(SSHResource.class);
         resourceConfig.register(TLSResource.class);
         resourceConfig.register(ConnectResource.class);

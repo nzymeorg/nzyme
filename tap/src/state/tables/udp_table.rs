@@ -12,6 +12,7 @@ use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::protocols::detection::l7_tagger::{tag_udp_sessions, L7Tag};
 use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
+use crate::protocols::detection::taggers::network_protocols::vpn_handshake_observer::VpnObservations;
 use crate::protocols::parsers::l4_key::L4Key;
 use crate::protocols::tools::ip_tools::is_site_local;
 use crate::wired::traffic_direction::TrafficDirection;
@@ -54,6 +55,8 @@ pub struct UdpConversation {
     pub capture_recent: bool,
     pub recent_client_to_server: VecDeque<Vec<u8>>,
     pub recent_server_to_client: VecDeque<Vec<u8>>,
+    // VPN handshake and transport facts seen on any datagram, independent of the bounded buffers above.
+    pub vpn: VpnObservations,
     pub tags: HashSet<L7Tag>
 }
 
@@ -90,7 +93,15 @@ impl UdpTable {
                 match conversations.get_mut(&datagram.session_key) {
                     Some(c) => {
                         if c.most_recent_segment_time < Utc::now() - Duration::seconds(3) {
-                            // Stale: treat as a brand-new conversation.
+                            /*
+                             * Stale: treat as a brand-new conversation. VPN tunnel tags carry
+                             * over because the tunnel on this 5-tuple continues and its later
+                             * datagrams may not allow a fresh identification.
+                             */
+                            let mut tags = tags;
+                            tags.extend(c.tags.iter()
+                                .filter(|t| matches!(t, L7Tag::WireGuard | L7Tag::OpenVPN))
+                                .cloned());
                             self.insert_new_conversation(datagram, tags, &mut conversations)
                         } else {
                             let mut timer = Timer::new();
@@ -121,6 +132,8 @@ impl UdpTable {
                                         push_recent(&mut c.recent_server_to_client, datagram.payload.clone()),
                                 }
                             }
+
+                            c.vpn.observe(&datagram.payload, datagram.source_address, datagram.source_port);
 
                             c.tags.extend(tags);
 
@@ -158,6 +171,9 @@ impl UdpTable {
 
         push_bounded(&mut datagrams_client_to_server, datagram.payload.clone());
 
+        let mut vpn = VpnObservations::default();
+        vpn.observe(&datagram.payload, datagram.source_address, datagram.source_port);
+
         conversations.insert(
             datagram.session_key.clone(),
             UdpConversation {
@@ -182,6 +198,7 @@ impl UdpTable {
                 capture_recent: false,
                 recent_client_to_server: VecDeque::new(),
                 recent_server_to_client: VecDeque::new(),
+                vpn,
                 tags,
             }
         );

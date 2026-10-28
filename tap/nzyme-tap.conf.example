@@ -100,6 +100,9 @@ pipeline_size = 512
 [protocols.webrtc]
 pipeline_size = 512
 
+[protocols.vpn]
+pipeline_size = 256
+
 [protocols.icmp]
 pipeline_size = 1024
 

@@ -106,6 +106,8 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
                         .countAllSessions(lookback, filters, taps);
                 case ETHERNET_SOCKS_TUNNEL -> nzyme.getEthernet().socks()
                         .countAllTunnels(lookback, filters, taps);
+                case ETHERNET_VPN_TUNNEL -> nzyme.getEthernet().vpn()
+                        .countAllTunnels(lookback, filters, taps);
                 case ETHERNET_TLS_SESSION -> nzyme.getEthernet().tls()
                         .countAllSessions(lookback, filters, taps);
                 case ETHERNET_TLS_CERTIFICATE -> nzyme.getEthernet().tls()

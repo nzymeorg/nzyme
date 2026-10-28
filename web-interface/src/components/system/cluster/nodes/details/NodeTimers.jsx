@@ -27,6 +27,7 @@ function NodeTimers(props) {
           <TimerRow title="Report Processing: DNS" timer={timers.report_processing_dns} />
           <TimerRow title="Report Processing: SSH" timer={timers.report_processing_ssh} />
           <TimerRow title="Report Processing: SOCKS" timer={timers.report_processing_socks} />
+          <TimerRow title="Report Processing: VPN" timer={timers.report_processing_vpn} />
           <TimerRow title="Report Processing: 802.11 / WiFi" timer={timers.report_processing_dot11} />
           <TimerRow title="Beacon Detection: Run per Tenant" timer={timers.beacon_detection_run} />
           <TimerRow title="Beacon Detection: Candidate Discovery" timer={timers.beacon_candidate_discovery} />

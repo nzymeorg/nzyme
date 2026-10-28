@@ -14,6 +14,7 @@ import app.nzyme.core.ethernet.spoofing.Spoofing;
 import app.nzyme.core.ethernet.icmp.ICMP;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
+import app.nzyme.core.ethernet.vpn.VPN;
 import app.nzyme.core.ethernet.ssh.SSH;
 import app.nzyme.core.ethernet.tls.TLS;
 import app.nzyme.core.ethernet.l4.tcp.TCP;
@@ -33,6 +34,7 @@ public class Ethernet {
     private final SSH ssh;
     private final TLS tls;
     private final SOCKS socks;
+    private final VPN vpn;
     private final NTP ntp;
     private final RTSP rtsp;
     private final NAT nat;
@@ -55,6 +57,7 @@ public class Ethernet {
         this.ssh = new SSH(this);
         this.tls = new TLS(this);
         this.socks = new SOCKS(this);
+        this.vpn = new VPN(this);
         this.ntp = new NTP(this);
         this.rtsp = new RTSP(this);
         this.nat = new NAT(this);
@@ -100,6 +103,10 @@ public class Ethernet {
 
     public SOCKS socks() {
         return socks;
+    }
+
+    public VPN vpn() {
+        return vpn;
     }
 
     public NTP ntp() {

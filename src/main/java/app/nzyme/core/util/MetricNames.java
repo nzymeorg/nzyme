@@ -101,6 +101,7 @@ public class MetricNames {
     public static final String UDP_ASSET_REGISTRATION_PROCESSING_TIMER = name(UDPTable.class, "asset-registration-processing-timing");
 
     public static final String SOCKS_TOTAL_REPORT_PROCESSING_TIMER = name(SOCKSTable.class, "total-report-processing-timing");
+    public static final String VPN_TOTAL_REPORT_PROCESSING_TIMER = name(VPNTable.class, "total-report-processing-timing");
     public static final String SSH_TOTAL_REPORT_PROCESSING_TIMER = name(SSHTable.class, "total-report-processing-timing");
     public static final String TLS_TOTAL_REPORT_PROCESSING_TIMER = name(TLSTable.class, "total-report-processing-timing");
     public static final String DHCP_TOTAL_REPORT_PROCESSING_TIMER = name(DHCPTable.class, "total-report-processing-timing");

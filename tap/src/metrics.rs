@@ -78,6 +78,7 @@ pub struct Channels {
     rtsp_pipeline: ChannelUtilization,
     stun_pipeline: ChannelUtilization,
     webrtc_pipeline: ChannelUtilization,
+    vpn_pipeline: ChannelUtilization,
 
     uav_remote_id_pipeline: ChannelUtilization,
 }
@@ -249,6 +250,7 @@ impl Metrics {
             "RtspPipeline" => &mut self.channels.rtsp_pipeline,
             "StunPipeline" => &mut self.channels.stun_pipeline,
             "WebRtcPipeline" => &mut self.channels.webrtc_pipeline,
+            "VpnPipeline" => &mut self.channels.vpn_pipeline,
             "UavRemoteIdPipeline" => &mut self.channels.uav_remote_id_pipeline,
             _ => panic!("Unknown channel {}", channel)
         }
@@ -275,6 +277,7 @@ impl Metrics {
             ("RtspPipeline", c.rtsp_pipeline.clone()),
             ("StunPipeline", c.stun_pipeline.clone()),
             ("WebRtcPipeline", c.webrtc_pipeline.clone()),
+            ("VpnPipeline", c.vpn_pipeline.clone()),
             ("UavRemoteIdPipeline", c.uav_remote_id_pipeline.clone()),
         ]
     }

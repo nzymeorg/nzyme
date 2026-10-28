@@ -28,6 +28,8 @@ export function monitorTypeToSearchPage(type) {
       return ApiRoutes.ETHERNET.REMOTE.SSH.INDEX;
     case "ETHERNET_SOCKS_TUNNEL":
       return ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX;
+    case "ETHERNET_VPN_TUNNEL":
+      return ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX;
     case "ETHERNET_TLS_SESSION":
       return ApiRoutes.ETHERNET.TLS.SESSIONS.INDEX;
     case "ETHERNET_TLS_CERTIFICATE":

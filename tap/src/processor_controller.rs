@@ -24,6 +24,7 @@ use crate::protocols::processors::ntp_processor::NtpProcessor;
 use crate::protocols::processors::rtsp_processor::RtspProcessor;
 use crate::protocols::processors::stun_processor::StunProcessor;
 use crate::protocols::processors::webrtc_processor::WebRtcProcessor;
+use crate::protocols::processors::vpn_processor::VpnProcessor;
 
 const DEFAULT_WIFI_PROCESSORS: i32 = 1;
 const DEFAULT_TCP_PROCESSORS: i32 = 2;
@@ -178,6 +179,7 @@ impl ProcessorController {
             let mut rtsp_processor = RtspProcessor::new(self.tables.rtsp.clone());
             let mut stun_processor = StunProcessor::new(self.tables.stun.clone());
             let mut webrtc_processor = WebRtcProcessor::new(self.tables.webrtc.clone());
+            let mut vpn_processor = VpnProcessor::new(self.tables.vpn.clone());
 
             thread::spawn(move || {
                 loop {
@@ -307,6 +309,16 @@ impl ProcessorController {
                                 Ok(conversation) => webrtc_processor.process(conversation),
                                 Err(e) => {
                                     error!("WebRTC receiver disconnected: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+
+                        recv(ethernet_bus.vpn_pipeline.receiver) -> msg => {
+                            match msg {
+                                Ok(tunnel) => vpn_processor.process(tunnel),
+                                Err(e) => {
+                                    error!("VPN receiver disconnected: {}", e);
                                     break;
                                 }
                             }

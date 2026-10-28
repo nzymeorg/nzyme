@@ -24,6 +24,7 @@ use crate::state::tables::rtsp_table::RtspTable;
 use crate::state::tables::stun_table::StunTable;
 use crate::state::tables::uav_table::UavTable;
 use crate::state::tables::webrtc_table::WebRtcTable;
+use crate::state::tables::vpn_table::VpnTable;
 use crate::wireless::dot11::engagement::engagement_control::EngagementControl;
 
 pub struct Tables {
@@ -43,6 +44,7 @@ pub struct Tables {
     pub rtsp: Arc<Mutex<RtspTable>>,
     pub stun: Arc<Mutex<StunTable>>,
     pub webrtc: Arc<Mutex<WebRtcTable>>,
+    pub vpn: Arc<Mutex<VpnTable>>,
     pub uav: Arc<Mutex<UavTable>>,
     has_ethernet: bool,
     has_dot11: bool,
@@ -93,6 +95,7 @@ impl Tables {
             rtsp: Arc::new(Mutex::new(RtspTable::new(leaderlink.clone(), metrics.clone()))),
             stun: Arc::new(Mutex::new(StunTable::new(leaderlink.clone(), metrics.clone()))),
             webrtc: Arc::new(Mutex::new(WebRtcTable::new(leaderlink.clone(), metrics.clone()))),
+            vpn: Arc::new(Mutex::new(VpnTable::new(leaderlink.clone(), metrics.clone()))),
             uav: Arc::new(Mutex::new(UavTable::new(leaderlink.clone(), metrics.clone(), engagement_control))),
             has_ethernet,
             has_dot11,
@@ -236,6 +239,14 @@ impl Tables {
                         webrtc.calculate_metrics();
                     },
                     Err(e) => error!("Could not acquire WebRTC table lock for report processing: {}", e)
+                });
+
+                timed(&mut cycle, "vpn", || match self.vpn.lock() {
+                    Ok(vpn) => {
+                        vpn.calculate_metrics();
+                        vpn.process_report();
+                    },
+                    Err(e) => error!("Could not acquire VPN table lock for report processing: {}", e)
                 });
             }
 

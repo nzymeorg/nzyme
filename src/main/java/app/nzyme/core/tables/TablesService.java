@@ -59,6 +59,7 @@ public class TablesService {
                 .put("ssh", new SSHTable(this))
                 .put("tls", new TLSTable(this))
                 .put("socks", new SOCKSTable(this))
+                .put("vpn", new VPNTable(this))
                 .put("ntp", new NTPTable(this))
                 .put("rtsp", new RTSPTable(this))
                 .put("nat", new NATTable(this))
@@ -134,6 +135,10 @@ public class TablesService {
 
     public SOCKSTable socks() {
         return (SOCKSTable) tables.get("socks");
+    }
+
+    public VPNTable vpn() {
+        return (VPNTable) tables.get("vpn");
     }
 
     public NTPTable ntp() {

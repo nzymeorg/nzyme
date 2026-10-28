@@ -18,6 +18,7 @@ import AssetActiveIndicator from "./AssetActiveIndicator";
 import AssetDetailsSSHSessions from "./AssetDetailsSSHSessions";
 import ComponentCycle from "../../shared/ComponentCycle";
 import AssetDetailsSOCKSTunnels from "./AssetDetailsSOCKSTunnels";
+import AssetDetailsVPNTunnels from "./AssetDetailsVPNTunnels";
 import AssetDetailsL4Sessions from "./AssetDetailsL4Sessions";
 import AssetDetailsL4Histograms from "./AssetDetailsL4Histograms";
 import AssetDetailsL4Ports from "./AssetDetailsL4Ports";
@@ -323,6 +324,22 @@ export default function AssetDetailsPage() {
                                                       operator: "equals",
                                                       value: asset.mac.address,
                                                     }]}} />},
+                  {name: "Outbound VPN Connections", element:
+                        <AssetDetailsVPNTunnels title="Outbound VPN Connections"
+                                                filters={{
+                                                  "client_mac": [{
+                                                    field: "client_mac",
+                                                    operator: "equals",
+                                                    value: asset.mac.address,
+                                                  }]}} />},
+                  {name: "Inbound VPN Connections", element:
+                        <AssetDetailsVPNTunnels title="Inbound VPN Connections"
+                                                filters={{
+                                                  "server_mac": [{
+                                                    field: "server_mac",
+                                                    operator: "equals",
+                                                    value: asset.mac.address,
+                                                  }]}} />},
                 ]} />
               </div>
             </div>

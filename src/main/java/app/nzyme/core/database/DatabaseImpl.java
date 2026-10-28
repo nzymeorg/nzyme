@@ -40,6 +40,7 @@ import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportEntryMapp
 import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportHopEntryMapper;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntryMapper;
 import app.nzyme.core.ethernet.socks.db.SocksTunnelEntryMapper;
+import app.nzyme.core.ethernet.vpn.db.VpnTunnelEntryMapper;
 import app.nzyme.core.ethernet.ssh.db.SSHSessionEntryMapper;
 import app.nzyme.core.ethernet.tls.db.TLSCertificateEntryMapper;
 import app.nzyme.core.ethernet.tls.db.TLSSessionEntryMapper;
@@ -243,6 +244,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new TcpSessionEntryMapper())
                 .registerRowMapper(new DNSLogEntryMapper())
                 .registerRowMapper(new SocksTunnelEntryMapper())
+                .registerRowMapper(new VpnTunnelEntryMapper())
                 .registerRowMapper(new SSHSessionEntryMapper())
                 .registerRowMapper(new TLSSessionEntryMapper())
                 .registerRowMapper(new TLSCertificateEntryMapper())
@@ -530,6 +532,11 @@ public class DatabaseImpl implements Database {
                         "socks_tunnels",
                         "SELECT COUNT(*) FROM socks_tunnels WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM socks_tunnels WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
+                        "vpn_tunnels",
+                        "SELECT COUNT(*) FROM vpn_tunnels WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM vpn_tunnels WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
                 ));
                 tables.add(new DataTableInformation(
                         "ntp_transactions",

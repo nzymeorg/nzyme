@@ -16,6 +16,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsRepo
 import app.nzyme.core.rest.resources.taps.reports.tables.portalintegrity.PortalIntegrityUrlReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.vpn.VpnTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
@@ -194,6 +195,22 @@ public class TablesResource {
 
         LOG.debug("Received SOCKS tunnels report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().socks().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/vpn/tunnels")
+    public Response vpnTunnels(@Context SecurityContext sc, VpnTunnelsReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting VPN tunnels report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received VPN tunnels report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().vpn().handleReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

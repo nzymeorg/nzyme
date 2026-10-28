@@ -26,6 +26,8 @@ export function monitorTypeToName(type) {
       return "Ethernet SSH Session"
     case "ETHERNET_SOCKS_TUNNEL":
       return "Ethernet SOCKS Tunnel"
+    case "ETHERNET_VPN_TUNNEL":
+      return "Ethernet VPN Tunnel"
     case "ETHERNET_TLS_SESSION":
       return "Ethernet TLS Session"
     case "ETHERNET_TLS_CERTIFICATE":

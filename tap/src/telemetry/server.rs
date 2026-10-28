@@ -498,6 +498,7 @@ fn channel_capacity(name: &str, c: &Configuration) -> u64 {
         "RtspPipeline" => c.protocols.rtsp.pipeline_size as i64,
         "StunPipeline" => c.protocols.stun.pipeline_size as i64,
         "WebRtcPipeline" => c.protocols.webrtc.pipeline_size as i64,
+        "VpnPipeline" => c.protocols.vpn.pipeline_size as i64,
         "UavRemoteIdPipeline" => c.protocols.uav_remote_id.pipeline_size as i64,
         _ => 0,
     };

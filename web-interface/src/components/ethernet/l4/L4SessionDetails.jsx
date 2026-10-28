@@ -95,7 +95,7 @@ export default function L4SessionDetails({type, session}) {
           </div>
         </div>
 
-        <L4TagDetails session={session} />
+        <L4TagDetails session={session} type={type} />
 
       </React.Fragment>
   )
