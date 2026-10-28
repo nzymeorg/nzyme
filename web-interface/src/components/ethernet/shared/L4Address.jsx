@@ -9,7 +9,8 @@ export default function L4Address({address,
                                     hideFlag = false,
                                     withAssetName = false,
                                     filterElement = undefined,
-                                    suffixElement = undefined}) {
+                                    suffixElement = undefined,
+                                    linkTo = undefined}) {
 
   const [overlayTimeout, setOverlayTimeout] = useState(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -71,7 +72,7 @@ export default function L4Address({address,
   return (
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
         {flag()}{' '}
-        <IPAddressLink ip={address.address} port={hidePort || !address.port ? null : address.port} />{' '}
+        <IPAddressLink ip={address.address} port={hidePort || !address.port ? null : address.port} to={linkTo} />{' '}
         {contextElement()}{assetNameElement()}{' '}
         {filterElement ? filterElement : null}{' '}
         {suffixElement ? suffixElement : null}

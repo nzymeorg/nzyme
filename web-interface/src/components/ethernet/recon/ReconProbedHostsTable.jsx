@@ -41,7 +41,6 @@ export default function ReconProbedHostsTable({hosts, page, setPage, perPage, or
         <thead>
         <tr>
           <th>Host {columnSorting("address")}</th>
-          <th>&nbsp;</th>
           <th>Probing Devices {columnSorting("source_count")}</th>
           <th>Probed Ports {columnSorting("port_count")}</th>
           <th>Unanswered Ports {columnSorting("failed_port_count")}</th>
@@ -56,14 +55,14 @@ export default function ReconProbedHostsTable({hosts, page, setPage, perPage, or
               <td>
                 {h.address_data ?
                   <L4Address address={h.address_data} hidePort={true} withAssetName
+                             linkTo={ApiRoutes.ETHERNET.RECON.HOSTS.DETAILS(h.address)}
                              filterElement={filterIcon("address", h.address)} />
                   : <React.Fragment>
-                      <span className="machine-data">{h.address}</span>{' '}
+                      <Link to={ApiRoutes.ETHERNET.RECON.HOSTS.DETAILS(h.address)}>
+                        <span className="machine-data">{h.address}</span>
+                      </Link>{' '}
                       {filterIcon("address", h.address)}
                     </React.Fragment>}
-              </td>
-              <td>
-                <Link to={ApiRoutes.ETHERNET.RECON.HOSTS.DETAILS(h.address)}>Details</Link>
               </td>
               <td>{numeral(h.source_count).format("0,0")}</td>
               <td>{numeral(h.port_count).format("0,0")}</td>

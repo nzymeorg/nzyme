@@ -118,10 +118,21 @@ export default function ReconProbedHostDetailsPage() {
                 <dt>Probing Devices</dt>
                 <dd>{numeral(t.source_count).format("0,0")}</dd>
                 <dt>Probed Ports</dt>
-                <dd>
+                <dd className="mb-0">
                   {numeral(t.port_count).format("0,0")}, of which{' '}
                   <strong>{numeral(t.failed_port_count).format("0,0")}</strong> never answered any device
                 </dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Metadata" />
+
+              <dl className="mb-0">
                 <dt>First Seen</dt>
                 <dd title={moment(t.first_seen).format()}>{moment(t.first_seen).fromNow()}</dd>
                 <dt>Last Seen</dt>
@@ -130,8 +141,10 @@ export default function ReconProbedHostDetailsPage() {
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="col-6">
+      <div className="row mt-3">
+        <div className="col-12">
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Probing Devices" />
