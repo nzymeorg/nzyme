@@ -78,7 +78,8 @@ pub struct DiscoTable {
 pub struct DiscoTransmitter {
     pub bssid: String,
     pub sent_frames: u128,
-    pub receivers: HashMap<String, u128>
+    pub receivers: HashMap<String, u128>,
+    pub signal_strengths: Vec<i8>
 }
 
 impl Dot11Table {
@@ -408,18 +409,21 @@ impl Dot11Table {
     pub fn register_deauthentication_frame(&self, frame: Dot11DeauthenticationFrame) {
         self.register_disco_frame(frame.transmitter,
                                   frame.destination,
+                                  frame.header.antenna_signal,
                                   &self.disco.deauth);
     }
 
     pub fn register_disassociation_frame(&self, frame: Dot11DisassociationFrame) {
         self.register_disco_frame(frame.transmitter,
                                   frame.destination,
+                                  frame.header.antenna_signal,
                                   &self.disco.disassoc);
     }
 
     fn register_disco_frame(&self,
                             transmitter: String,
                             receiver: String,
+                            signal: Option<i8>,
                             table: &Mutex<HashMap<String, DiscoTransmitter>>) {
         match table.lock() {
             Ok(mut transmitters) => {
@@ -427,6 +431,7 @@ impl Dot11Table {
                     Some(transmitter) => {
                         // Existing transmitter.
                         transmitter.sent_frames += 1;
+                        transmitter.signal_strengths.push(signal.unwrap_or(0));
 
                         match transmitter.receivers.get_mut(&receiver.clone()) {
                             Some(destination) => { *destination += 1; },
@@ -439,11 +444,12 @@ impl Dot11Table {
                         receivers.insert(receiver.clone(), 1);
 
                         transmitters.insert(
-                            receiver.clone(),
+                            transmitter.clone(),
                             DiscoTransmitter {
                                 bssid: transmitter.clone(),
                                 sent_frames: 1,
-                                receivers
+                                receivers,
+                                signal_strengths: vec![signal.unwrap_or(0)]
                             }
                         );
                     }
@@ -742,12 +748,25 @@ impl Dot11Table {
         match table.lock() {
             Ok(deauth) => {
                 for (bssid, info) in &*deauth {
+                    let (avg, min, max) = if info.signal_strengths.is_empty() {
+                        (0.0_f64, 0_i32, 0_i32)
+                    } else {
+                        let sum: i64 = info.signal_strengths.iter().map(|&s| s as i64).sum();
+                        let avg = sum as f64 / info.signal_strengths.len() as f64;
+                        let min = *info.signal_strengths.iter().min().unwrap_or(&0);
+                        let max = *info.signal_strengths.iter().max().unwrap_or(&0);
+                        (avg, min as i32, max as i32)
+                    };
+
                     report.insert(
                         bssid.clone(),
                         DiscoTransmitterReport {
                             bssid: info.bssid.clone(),
                             sent_frames: info.sent_frames,
                             receivers: info.receivers.clone(),
+                            signal_strength_average: avg,
+                            signal_strength_min: min,
+                            signal_strength_max: max,
                         }
                     );
                 }
