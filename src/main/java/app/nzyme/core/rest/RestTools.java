@@ -17,7 +17,10 @@
 
 package app.nzyme.core.rest;
 
+import app.nzyme.core.NzymeNode;
 import app.nzyme.core.detection.alerts.DetectionAlertService;
+import app.nzyme.core.ethernet.L4Type;
+import app.nzyme.core.rest.resources.ethernet.ReconAddressResponses;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.rest.responses.alerts.DetectionAlertDetailsResponse;
@@ -86,8 +89,18 @@ public class RestTools {
         return response;
     }
 
-    public static DetectionAlertDetailsResponse buildAlertDetailsResponse(DetectionAlertEntry alert,
+    public static DetectionAlertDetailsResponse buildAlertDetailsResponse(NzymeNode nzyme,
+                                                                    DetectionAlertEntry alert,
                                                                     List<DetectionAlertAttributeEntry> attributes) {
+        long timelineEntries = nzyme.getDetectionAlertService().countAlertTimelineEntries(alert.id());
+
+        return buildAlertDetailsResponse(nzyme, alert, attributes, Math.max(0, timelineEntries - 1));
+    }
+
+    public static DetectionAlertDetailsResponse buildAlertDetailsResponse(NzymeNode nzyme,
+                                                                    DetectionAlertEntry alert,
+                                                                    List<DetectionAlertAttributeEntry> attributes,
+                                                                    long reactivationCount) {
         Map<String, String> responseAttributes = Maps.newTreeMap();
         for (DetectionAlertAttributeEntry attribute : attributes) {
             responseAttributes.put(attribute.key(), attribute.value());
@@ -95,6 +108,18 @@ public class RestTools {
 
         boolean isActive = !alert.isResolved() &&
                 alert.lastSeen().isAfter(DateTime.now().minusMinutes(DetectionAlertService.ACTIVE_THRESHOLD_MINUTES));
+
+        String status;
+        if (alert.isResolved()) {
+            status = "Resolved";
+        } else if (isActive) {
+            status = "Active";
+        } else {
+            status = "Inactive";
+        }
+
+        ReconAddressResponses addresses = new ReconAddressResponses(nzyme);
+        String affectedMac = DetectionAlertService.affectedMac(attributes);
 
         return DetectionAlertDetailsResponse.create(
                 alert.uuid(),
@@ -107,6 +132,12 @@ public class RestTools {
                 alert.createdAt(),
                 alert.lastSeen(),
                 isActive,
+                alert.isResolved(),
+                status,
+                addresses.addressResponse(DetectionAlertService.affectedAddress(attributes), null, affectedMac,
+                        L4Type.TCP, alert.organizationId(), alert.tenantId()),
+                addresses.macResponse(affectedMac, alert.organizationId(), alert.tenantId()),
+                reactivationCount,
                 alert.organizationId(),
                 alert.tenantId()
         );

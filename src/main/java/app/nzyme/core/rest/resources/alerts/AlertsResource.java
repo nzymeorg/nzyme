@@ -1,7 +1,23 @@
 package app.nzyme.core.rest.resources.alerts;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.StringNumberAggregationResult;
+import app.nzyme.core.database.generic.TwoColumnHistogramOrderColumn;
+import app.nzyme.core.detection.alerts.DetectionAlertService;
 import app.nzyme.core.detection.alerts.DetectionType;
+import app.nzyme.core.detection.alerts.db.DetectionAlertSearchEntry;
+import app.nzyme.core.rest.resources.ethernet.ReconAddressResponses;
+import app.nzyme.core.rest.responses.shared.HistogramValueStructureResponse;
+import app.nzyme.core.rest.responses.shared.HistogramValueType;
+import app.nzyme.core.rest.responses.shared.NumericHistogramResponse;
+import app.nzyme.core.rest.responses.shared.TwoColumnTableHistogramResponse;
+import app.nzyme.core.rest.responses.shared.TwoColumnTableHistogramValueResponse;
+import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
+import app.nzyme.core.util.Bucketing;
+import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.filters.Filters;
+import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertTimelineEntry;
@@ -23,6 +39,7 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,14 +60,17 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.joda.time.DateTime;
 import org.joda.time.Duration;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static app.nzyme.core.rest.RestTools.buildAlertDetailsResponse;
+import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/alerts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -69,20 +89,27 @@ public class AlertsResource extends UserAuthenticatedResource {
 
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
-    @Operation(operationId = "findAlerts", summary = "List alerts of a tenant",
-            description = "Returns all alerts of a tenant, most recently seen first. Resolved alerts are included "
-                    + "and the response also carries the total number of alerts and the number of active alerts. "
-                    + "Pass a subsystem to limit the result to the alerts of one subsystem. The page size cannot be "
-                    + "larger than 250. Requires the alerts_view feature permission.")
+    @Operation(operationId = "findAlerts", summary = "Search alerts of a tenant",
+            description = "Returns the alerts of a tenant whose lifetime overlaps the time range and that match "
+                    + "the filters, together with the number of matching alerts and how many of them are active. "
+                    + "Resolved alerts are included. Each alert carries its status (Active, Inactive or Resolved), "
+                    + "the address and MAC address of the device it is about when its attributes identify one, and "
+                    + "how often it was re-activated after a pause. Filter fields: status, type, subsystem, "
+                    + "details, affected_address, affected_mac, attribute (matches the value of any attribute) and "
+                    + "reactivations. The page size cannot be larger than 250. Requires the alerts_view feature "
+                    + "permission.")
     @ApiResponse(responseCode = "200", description = "Alerts found.",
             content = @Content(schema = @Schema(implementation = DetectionAlertListResponse.class)))
-    @ApiResponse(responseCode = "400", description = "The subsystem is unknown.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The page size is larger than 250.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
     public Response findAll(@Parameter(hidden = true) @Context SecurityContext sc,
                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
-                            @Parameter(description = "Name of a subsystem to filter by. Omit for alerts of all subsystems.") @QueryParam("subsystem") @Nullable String subsystemParam,
+                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                            @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction. One of STATUS, DETAILS, DETECTION_TYPE, SUBSYSTEM, AFFECTED_ADDRESS, AFFECTED_MAC, REACTIVATIONS, CREATED_AT, LAST_SEEN.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                             @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
@@ -94,45 +121,300 @@ public class AlertsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        Subsystem subsystem = null;
-        if (subsystemParam != null) {
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        DetectionAlertService.OrderColumn orderColumn = DetectionAlertService.OrderColumn.LAST_SEEN;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
             try {
-                subsystem = Subsystem.valueOf(subsystemParam.toUpperCase());
-            } catch(IllegalArgumentException e) {
-                LOG.warn("Unknown subsystem.");
+                orderColumn = DetectionAlertService.OrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
                 return Response.status(Response.Status.BAD_REQUEST).build();
             }
         }
 
-        List<DetectionAlertEntry> alerts = nzyme.getDetectionAlertService().findAllAlerts(
-                organizationId,
-                tenantId,
-                subsystem,
-                limit,
-                offset
-        );
+        DetectionAlertService alerts = nzyme.getDetectionAlertService();
 
-        long total = nzyme.getDetectionAlertService().countAlerts(
-                organizationId,
-                tenantId,
-                subsystem
-        );
-
-        long totalActive = nzyme.getDetectionAlertService().countActiveAlerts(
-                organizationId,
-                tenantId,
-                subsystem
-        );
+        long total = alerts.countAlerts(organizationId, tenantId, timeRange, filters);
+        long totalActive = alerts.countActiveAlerts(organizationId, tenantId, timeRange, filters);
 
         List<DetectionAlertDetailsResponse> responsesList = Lists.newArrayList();
-        for (DetectionAlertEntry alert : alerts) {
-            List<DetectionAlertAttributeEntry> attributes = nzyme.getDetectionAlertService()
-                    .findAlertAttributes(alert.id());
+        for (DetectionAlertSearchEntry entry : alerts.findAlerts(organizationId, tenantId, timeRange, filters,
+                orderColumn, orderDirection, limit, offset)) {
+            List<DetectionAlertAttributeEntry> attributes = alerts.findAlertAttributes(entry.alert().id());
 
-            responsesList.add(buildAlertDetailsResponse(alert, attributes));
+            responsesList.add(buildAlertDetailsResponse(nzyme, entry.alert(), attributes,
+                    Math.max(0, entry.reactivations())));
         }
 
         return Response.ok(DetectionAlertListResponse.create(total, totalActive, responsesList)).build();
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/active")
+    @Operation(operationId = "findActiveAlertsHistogram", summary = "Get active alerts over time",
+            description = "Returns how many of the alerts that match the filters were active in each time bucket "
+                    + "of the time range, derived from the timeline periods of the alerts. Requires the "
+                    + "alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response activeAlertsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                          @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        return histogramResponse(nzyme.getDetectionAlertService()
+                .getActiveAlertsHistogram(organizationId, tenantId, timeRange, bucketing, filters), bucketing);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/new")
+    @Operation(operationId = "findNewAlertsHistogram", summary = "Get new alerts over time",
+            description = "Returns how many of the alerts that match the filters were raised for the first time "
+                    + "in each time bucket of the time range. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = NumericHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response newAlertsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                       @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        return histogramResponse(nzyme.getDetectionAlertService()
+                .getNewAlertsHistogram(organizationId, tenantId, timeRange, bucketing, filters), bucketing);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/types/top")
+    @Operation(operationId = "findTopAlertTypes", summary = "List top alert types",
+            description = "Returns the detection types with the most matching alerts in the time range, with the "
+                    + "alert count of each. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topTypesHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                      @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                      @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                      @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                      @Parameter(description = "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                      @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                      @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                      @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return aggregation(sc, DetectionAlertService.AggregationKey.DETECTION_TYPE, HistogramValueType.GENERIC,
+                organizationId, tenantId, timeRangeParameter, filtersParameter, orderColumnParam,
+                orderDirectionParam, limit, offset);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/subsystems/top")
+    @Operation(operationId = "findTopAlertSubsystems", summary = "List top alert subsystems",
+            description = "Returns the subsystems with the most matching alerts in the time range, with the alert "
+                    + "count of each. Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topSubsystemsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                           @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                           @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return aggregation(sc, DetectionAlertService.AggregationKey.SUBSYSTEM, HistogramValueType.GENERIC,
+                organizationId, tenantId, timeRangeParameter, filtersParameter, orderColumnParam,
+                orderDirectionParam, limit, offset);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/affected/addresses/top")
+    @Operation(operationId = "findTopAlertAffectedAddresses", summary = "List top affected addresses",
+            description = "Returns the IP addresses that the most matching alerts in the time range are about, "
+                    + "with the alert count of each. The address of an alert is taken from its attributes. "
+                    + "Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topAffectedAddressesHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                                  @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                                  @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                                  @Parameter(description = "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                                  @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return aggregation(sc, DetectionAlertService.AggregationKey.AFFECTED_ADDRESS,
+                HistogramValueType.L4_ADDRESS_NO_PORT, organizationId, tenantId, timeRangeParameter,
+                filtersParameter, orderColumnParam, orderDirectionParam, limit, offset);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/affected/macs/top")
+    @Operation(operationId = "findTopAlertAffectedMacs", summary = "List top affected MAC addresses",
+            description = "Returns the MAC addresses that the most matching alerts in the time range are about, "
+                    + "with the alert count of each. The MAC address of an alert is taken from its attributes. "
+                    + "Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topAffectedMacsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                             @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                             @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                             @Parameter(description = "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                             @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return aggregation(sc, DetectionAlertService.AggregationKey.AFFECTED_MAC, HistogramValueType.ETHERNET_MAC,
+                organizationId, tenantId, timeRangeParameter, filtersParameter, orderColumnParam,
+                orderDirectionParam, limit, offset);
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
+    @Path("/filtered/resolve")
+    @Operation(operationId = "resolveFilteredAlerts", summary = "Mark all matching alerts as resolved",
+            description = "Resolves every alert of the tenant whose lifetime overlaps the time range and that "
+                    + "matches the filters, not only the alerts of one page. Requires the alerts_manage feature "
+                    + "permission.")
+    @ApiResponse(responseCode = "200", description = "Matching alerts marked as resolved.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response resolveFiltered(@Parameter(hidden = true) @Context SecurityContext sc,
+                                    @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                    @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                    @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                    @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getDetectionAlertService().markAlertsAsResolved(organizationId, tenantId,
+                parseTimeRangeQueryParameter(timeRangeParameter), parseFiltersQueryParameter(filtersParameter));
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
+    @Path("/filtered/delete")
+    @Operation(operationId = "deleteFilteredAlerts", summary = "Delete all matching alerts",
+            description = "Deletes every alert of the tenant whose lifetime overlaps the time range and that "
+                    + "matches the filters, not only the alerts of one page. Requires the alerts_manage feature "
+                    + "permission.")
+    @ApiResponse(responseCode = "200", description = "Matching alerts deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFiltered(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                   @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getDetectionAlertService().deleteAlerts(organizationId, tenantId,
+                parseTimeRangeQueryParameter(timeRangeParameter), parseFiltersQueryParameter(filtersParameter));
+
+        return Response.ok().build();
+    }
+
+    private Response histogramResponse(List<GenericIntegerHistogramEntry> entries,
+                                       Bucketing.BucketingConfiguration bucketing) {
+        Map<DateTime, Integer> buckets = Maps.newHashMap();
+        for (GenericIntegerHistogramEntry bucket : entries) {
+            buckets.put(bucket.bucket(), bucket.value());
+        }
+
+        return Response.ok(NumericHistogramResponse.create(buckets, bucketing.bucketSizeMs())).build();
+    }
+
+    private Response aggregation(SecurityContext sc,
+                                 DetectionAlertService.AggregationKey key,
+                                 HistogramValueType valueType,
+                                 UUID organizationId,
+                                 UUID tenantId,
+                                 String timeRangeParameter,
+                                 String filtersParameter,
+                                 String orderColumnParam,
+                                 String orderDirectionParam,
+                                 int limit,
+                                 int offset) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        TwoColumnHistogramOrderColumn orderColumn = TwoColumnHistogramOrderColumn.VALUE;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = TwoColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        DetectionAlertService alerts = nzyme.getDetectionAlertService();
+        ReconAddressResponses addresses = new ReconAddressResponses(nzyme);
+
+        long count = alerts.countAggregationKeys(key, organizationId, tenantId, timeRange, filters);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (StringNumberAggregationResult x : alerts.aggregate(key, organizationId, tenantId, timeRange, filters,
+                orderColumn, orderDirection, limit, offset)) {
+            HistogramValueStructureResponse keyValue;
+            switch (valueType) {
+                case L4_ADDRESS_NO_PORT -> keyValue = HistogramValueStructureResponse.create(
+                        addresses.addressResponse(x.key(), null, null, L4Type.TCP, organizationId, tenantId),
+                        valueType, null);
+                case ETHERNET_MAC -> keyValue = HistogramValueStructureResponse.create(
+                        x.key(), valueType, addresses.macResponse(x.key(), organizationId, tenantId));
+                default -> keyValue = HistogramValueStructureResponse.create(x.key(), valueType, null);
+            }
+
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    keyValue,
+                    HistogramValueStructureResponse.create(x.value(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(count, true, values)).build();
     }
 
     @GET
@@ -158,7 +440,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         List<DetectionAlertAttributeEntry> attributes = nzyme.getDetectionAlertService()
                 .findAlertAttributes(alert.get().id());
 
-        return Response.ok(buildAlertDetailsResponse(alert.get(), attributes)).build();
+        return Response.ok(buildAlertDetailsResponse(nzyme, alert.get(), attributes)).build();
     }
 
 

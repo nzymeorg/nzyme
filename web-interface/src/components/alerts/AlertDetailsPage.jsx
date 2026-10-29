@@ -6,6 +6,10 @@ import ApiRoutes from "../../util/ApiRoutes";
 import moment from "moment/moment";
 import Subsystem from "../misc/Subsystem";
 import AlertActiveIndicator from "./AlertActiveIndicator";
+import AlertStatus from "./AlertStatus";
+import L4Address from "../ethernet/shared/L4Address";
+import EthernetMacAddress from "../shared/context/macs/EthernetMacAddress";
+import numeral from "numeral";
 import AlertDetails from "./alertdetails/AlertDetails";
 import AlertTimeline from "./AlertTimeline";
 import RelatedMonitoredNetwork from "./RelatedMonitoredNetwork";
@@ -127,6 +131,21 @@ function AlertDetailsPage() {
                 <h3>Metadata</h3>
 
                 <dl className="mb-0">
+                  <dt>Status</dt>
+                  <dd><AlertStatus alert={alert} /></dd>
+                  <dt>Affected Device</dt>
+                  <dd>
+                    {!alert.affected_address && !alert.affected_mac ? <span className="text-muted">n/a</span> : null}
+                    {alert.affected_address ?
+                        <L4Address address={alert.affected_address} hidePort={true} withAssetName /> : null}
+                    {alert.affected_address && alert.affected_mac ? <br /> : null}
+                    {alert.affected_mac ?
+                        <EthernetMacAddress addressWithContext={alert.affected_mac} withAssetLink withAssetName /> : null}
+                  </dd>
+                  <dt>Re-activations</dt>
+                  <dd title="How often this alert was triggered again after it had become inactive.">
+                    {numeral(alert.reactivation_count).format("0,0")}
+                  </dd>
                   <dt>First Seen</dt>
                   <dd>{moment(alert.created_at).format()}</dd>
                   <dt>Last Seen</dt>

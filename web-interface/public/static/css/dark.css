@@ -1264,6 +1264,15 @@ input.form-control[type="file"]::file-selector-button:hover {
     color: #fff;
 }
 
+.dropdown-item.disabled,
+.dropdown-item:disabled {
+    color: #80859a;
+}
+
+.dropdown-divider {
+    border-top-color: #33333d;
+}
+
 a.btn-outline-primary.show,
 button.btn-outline-primary.show,
 a.btn-outline-primary:active,

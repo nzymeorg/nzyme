@@ -14,6 +14,7 @@ import app.nzyme.core.crypto.database.TLSWildcardKeyAndCertificateEntryMapper;
 import app.nzyme.core.database.generic.*;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntryMapper;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntryMapper;
+import app.nzyme.core.detection.alerts.db.DetectionAlertSearchEntryMapper;
 import app.nzyme.core.detection.alerts.db.DetectionAlertTimelineEntryMapper;
 import app.nzyme.core.distributed.database.NodeEntryMapper;
 import app.nzyme.core.distributed.database.metrics.GaugeHistogramBucketMapper;
@@ -224,6 +225,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new MonitoredSecuritySuiteMapper())
                 .registerRowMapper(new BSSIDWithTapMapper())
                 .registerRowMapper(new DetectionAlertEntryMapper())
+                .registerRowMapper(new DetectionAlertSearchEntryMapper())
                 .registerRowMapper(new DetectionAlertAttributeEntryMapper())
                 .registerRowMapper(new DetectionAlertTimelineEntryMapper())
                 .registerRowMapper(new TrackDetectorConfigMapper())

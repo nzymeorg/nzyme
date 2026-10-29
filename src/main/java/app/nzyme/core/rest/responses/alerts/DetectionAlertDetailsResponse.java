@@ -1,5 +1,7 @@
 package app.nzyme.core.rest.responses.alerts;
 
+import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
+import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import org.joda.time.DateTime;
@@ -43,6 +45,23 @@ public abstract class DetectionAlertDetailsResponse {
     @JsonProperty("is_active")
     public abstract boolean isActive();
 
+    @JsonProperty("is_resolved")
+    public abstract boolean isResolved();
+
+    @JsonProperty("status")
+    public abstract String status();
+
+    @Nullable
+    @JsonProperty("affected_address")
+    public abstract L4AddressResponse affectedAddress();
+
+    @Nullable
+    @JsonProperty("affected_mac")
+    public abstract EthernetMacAddressResponse affectedMac();
+
+    @JsonProperty("reactivation_count")
+    public abstract long reactivationCount();
+
     @Nullable
     @JsonProperty("organization_id")
     public abstract UUID organizationId();
@@ -51,7 +70,7 @@ public abstract class DetectionAlertDetailsResponse {
     @JsonProperty("tenant_id")
     public abstract UUID tenantId();
 
-    public static DetectionAlertDetailsResponse create(UUID id, UUID dot11MonitoredNetworkId, UUID tapId, String detectionType, String subsystem, String details, Map<String, String> attributes, DateTime createdAt, DateTime lastSeen, boolean isActive, UUID organizationId, UUID tenantId) {
+    public static DetectionAlertDetailsResponse create(UUID id, UUID dot11MonitoredNetworkId, UUID tapId, String detectionType, String subsystem, String details, Map<String, String> attributes, DateTime createdAt, DateTime lastSeen, boolean isActive, boolean isResolved, String status, L4AddressResponse affectedAddress, EthernetMacAddressResponse affectedMac, long reactivationCount, UUID organizationId, UUID tenantId) {
         return builder()
                 .id(id)
                 .dot11MonitoredNetworkId(dot11MonitoredNetworkId)
@@ -63,6 +82,11 @@ public abstract class DetectionAlertDetailsResponse {
                 .createdAt(createdAt)
                 .lastSeen(lastSeen)
                 .isActive(isActive)
+                .isResolved(isResolved)
+                .status(status)
+                .affectedAddress(affectedAddress)
+                .affectedMac(affectedMac)
+                .reactivationCount(reactivationCount)
                 .organizationId(organizationId)
                 .tenantId(tenantId)
                 .build();
@@ -93,6 +117,16 @@ public abstract class DetectionAlertDetailsResponse {
         public abstract Builder lastSeen(DateTime lastSeen);
 
         public abstract Builder isActive(boolean isActive);
+
+        public abstract Builder isResolved(boolean isResolved);
+
+        public abstract Builder status(String status);
+
+        public abstract Builder affectedAddress(L4AddressResponse affectedAddress);
+
+        public abstract Builder affectedMac(EthernetMacAddressResponse affectedMac);
+
+        public abstract Builder reactivationCount(long reactivationCount);
 
         public abstract Builder organizationId(UUID organizationId);
 

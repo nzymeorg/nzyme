@@ -221,7 +221,7 @@ public class LocationsResource extends UserAuthenticatedResource {
                 List<DetectionAlertAttributeEntry> attributes = nzyme.getDetectionAlertService()
                         .findAlertAttributes(alert.id());
 
-                detectionAlerts.add(RestTools.buildAlertDetailsResponse(alert, attributes));
+                detectionAlerts.add(RestTools.buildAlertDetailsResponse(nzyme, alert, attributes));
             }
         }
 

@@ -1,9 +1,8 @@
-import React, {useContext, useEffect, useState} from "react";
+import React, {useContext, useEffect, useMemo, useState} from "react";
 
 import DetectionAlertsService from "../../services/DetectionAlertsService";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import AlertsTableRow from "./AlertsTableRow";
-import AutoRefreshSelector from "../misc/AutoRefreshSelector";
 import Paginator from "../misc/Paginator";
 import AlertActionMultiSelector from "./AlertActionMultiSelector";
 import {userHasPermission} from "../../util/Tools";
@@ -11,12 +10,12 @@ import {UserContext} from "../../App";
 import RenderConditionally from "../misc/RenderConditionally";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import {toast} from "react-toastify";
+import ColumnSorting from "../shared/ColumnSorting";
+import {Presets} from "../shared/timerange/TimeRange";
+import {queryParametersToFilters} from "../shared/filtering/FilterQueryParameters";
+import {ALERT_FILTER_FIELDS} from "./AlertFilterFields";
 
 const detectionAlertsService = new DetectionAlertsService();
-
-const loadData = function(setAlerts, organizationId, tenantId, subsystem, page, perPage) {
-  detectionAlertsService.findAllAlerts(setAlerts, organizationId, tenantId, perPage, (page-1)*perPage, subsystem);
-}
 
 function AlertsTable(props) {
 
@@ -29,16 +28,43 @@ function AlertsTable(props) {
 
   // Optional.
   const subsystem = props.subsystem;
+  const timeRange = props.timeRange ? props.timeRange : Presets.ALL_TIME;
+  const setFilters = props.setFilters;
+  const revision = props.revision;
+  const onLoaded = props.onLoaded;
+
+  // Memoized so that a table without page filters does not get a new filter object on every render.
+  const filters = useMemo(() => props.filters ? props.filters : (subsystem
+      ? queryParametersToFilters(
+          JSON.stringify({subsystem: [{field: "subsystem", operator: "equals", value: subsystem}]}),
+          ALERT_FILTER_FIELDS)
+      : {}), [props.filters, subsystem]);
 
   const [alerts, setAlerts] = useState(null);
-  const [isAutoRefresh, setIsAutoRefresh] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [selectedRows, setSelectedRows] = useState([]);
   const [allRowsSelected, setAllRowsSelected] = useState(false);
 
+  const [orderColumn, setOrderColumn] = useState("last_seen");
+  const [orderDirection, setOrderDirection] = useState("DESC");
+
   const [page, setPage] = useState(1);
 
-  const [revision, setRevision] = useState(0);
+  const [localRevision, setLocalRevision] = useState(0);
+
+  const loadData = () => {
+    detectionAlertsService.findAllAlerts((data) => {
+      setAlerts(data);
+      if (onLoaded) {
+        onLoaded(data);
+      }
+    }, organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, perPage, (page-1)*perPage);
+  }
+
+  const reload = () => {
+    setLocalRevision(prevRev => prevRev + 1);
+    setSelectedRows([]);
+    setAllRowsSelected(false);
+  }
 
   const onRowSelect = (uuid) => {
     const copy = [...selectedRows];
@@ -59,25 +85,47 @@ function AlertsTable(props) {
   const deleteSelected = (e) => {
     e.preventDefault();
 
-    if (!confirm("Really delete alerts?")) {
+    if (!confirm("Really delete selected alerts?")) {
       return;
     }
 
     detectionAlertsService.deleteAlerts(selectedRows, () => {
-      setRevision(prevRev => prevRev + 1);
-      setSelectedRows([]);
+      reload();
       toast.success("Selected alerts deleted.")
-      setAllRowsSelected(false);
     })
   }
 
   const resolveSelected = (e) => {
     e.preventDefault();
     detectionAlertsService.markAlertsAsResolved(selectedRows, () => {
-      setRevision(prevRev => prevRev + 1);
-      setSelectedRows([]);
+      reload();
       toast.success("Selected alerts marked as resolved.")
-      setAllRowsSelected(false);
+    })
+  }
+
+  const deleteMatching = (e) => {
+    e.preventDefault();
+
+    if (!confirm("Really delete all alerts that match the current filters and time range? This cannot be undone.")) {
+      return;
+    }
+
+    detectionAlertsService.deleteFilteredAlerts(organizationId, tenantId, timeRange, filters, () => {
+      reload();
+      toast.success("Matching alerts deleted.")
+    })
+  }
+
+  const resolveMatching = (e) => {
+    e.preventDefault();
+
+    if (!confirm("Really mark all alerts that match the current filters and time range as resolved?")) {
+      return;
+    }
+
+    detectionAlertsService.markFilteredAlertsAsResolved(organizationId, tenantId, timeRange, filters, () => {
+      reload();
+      toast.success("Matching alerts marked as resolved.")
     })
   }
 
@@ -99,18 +147,22 @@ function AlertsTable(props) {
     }
   }
 
+  const columnSorting = (columnName) => {
+    return <ColumnSorting thisColumn={columnName}
+                          orderColumn={orderColumn}
+                          setOrderColumn={setOrderColumn}
+                          orderDirection={orderDirection}
+                          setOrderDirection={setOrderDirection} />
+  }
+
+  useEffect(() => {
+    setPage(1);
+  }, [timeRange, filters, orderColumn, orderDirection]);
+
   useEffect(() => {
     setAlerts(null);
-    loadData(setAlerts, organizationId, tenantId, subsystem, page, perPage);
-
-    const timer = setInterval(() => {
-      if (isAutoRefresh) {
-        loadData(setAlerts, organizationId, tenantId, subsystem, page, perPage);
-      }
-    }, 15000);
-
-    return () => clearInterval(timer);
-  }, [isAutoRefresh, page, revision, organizationId, tenantId])
+    loadData();
+  }, [page, revision, localRevision, organizationId, tenantId, timeRange, filters, orderColumn, orderDirection])
 
   if (!alerts) {
     return <LoadingSpinner />
@@ -119,7 +171,7 @@ function AlertsTable(props) {
   if (alerts.alerts.length === 0) {
     return (
         <div className="alert alert-info mb-0">
-          No alerts recorded yet.
+          No alerts match the current filters and time range.
         </div>
     )
   }
@@ -132,16 +184,11 @@ function AlertsTable(props) {
                 show={userHasPermission(user, "alerts_manage") && !hideControls}
                 selectedRows={selectedRows}
                 onDeleteSelected={deleteSelected}
-                onResolveSelected={resolveSelected}/>
+                onResolveSelected={resolveSelected}
+                matchingCount={alerts.total}
+                onDeleteMatching={deleteMatching}
+                onResolveMatching={resolveMatching} />
           </div>
-
-          <RenderConditionally render={!hideControls}>
-            <div className="float-end">
-              <AutoRefreshSelector isAutoRefresh={isAutoRefresh}
-                                   setIsAutoRefresh={setIsAutoRefresh}
-                                   lastUpdated={lastUpdated}/>
-            </div>
-          </RenderConditionally>
 
           <div style={{clear: "both"}}/>
         </div>
@@ -157,21 +204,25 @@ function AlertsTable(props) {
                        onChange={handleAllRowsSelected}/>
               </th>
             </RenderConditionally>
-            <th>&nbsp;</th>
-            <th>Details</th>
-            <th>Type</th>
-            <th>Subsystem</th>
-            <th>First seen</th>
-            <th>Last seen</th>
+            <th className="text-nowrap">Status {columnSorting("status")}</th>
+            <th>Details {columnSorting("details")}</th>
+            <th>Type {columnSorting("detection_type")}</th>
+            <th>Subsystem {columnSorting("subsystem")}</th>
+            <th>Affected {columnSorting("affected_address")}</th>
+            <th>Re-activations {columnSorting("reactivations")}</th>
+            <th>First Seen {columnSorting("created_at")}</th>
+            <th>Last Seen {columnSorting("last_seen")}</th>
+            <th>Source</th>
           </tr>
           </thead>
           <tbody>
-          {alerts.alerts.map(function(alert, i){
-            return <AlertsTableRow key={"alert-" + i}
+          {alerts.alerts.map(function(alert){
+            return <AlertsTableRow key={"alert-" + alert.id}
                                    hideControls={hideControls}
                                    alert={alert}
                                    onSelect={onRowSelect}
-                                   isSelected={selectedRows.includes(alert.id)} />
+                                   isSelected={selectedRows.includes(alert.id)}
+                                   setFilters={setFilters} />
           })}
           </tbody>
         </table>

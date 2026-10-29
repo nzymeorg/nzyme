@@ -227,12 +227,15 @@ export default function LocationDetailsPage() {
                 <table className="table table-sm table-hover table-striped">
                   <thead>
                   <tr>
-                    <th>&nbsp;</th>
+                    <th className="text-nowrap">Status</th>
                     <th>Details</th>
                     <th>Type</th>
                     <th>Subsystem</th>
-                    <th>First seen</th>
-                    <th>Last seen</th>
+                    <th>Affected</th>
+                    <th>Re-activations</th>
+                    <th>First Seen</th>
+                    <th>Last Seen</th>
+                    <th>Source</th>
                   </tr>
                   </thead>
                   <tbody>

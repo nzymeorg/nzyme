@@ -1,10 +1,20 @@
 package app.nzyme.core.detection.alerts;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.StringNumberAggregationResult;
+import app.nzyme.core.database.generic.TwoColumnHistogramOrderColumn;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
+import app.nzyme.core.detection.alerts.db.DetectionAlertSearchEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertTimelineEntry;
 import app.nzyme.core.events.types.DetectionEvent;
+import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
+import app.nzyme.core.util.Bucketing;
+import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.filters.FilterSql;
+import app.nzyme.core.util.filters.FilterSqlFragment;
+import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -24,6 +34,80 @@ public class DetectionAlertService {
     private static final Logger LOG = LogManager.getLogger(DetectionAlertService.class);
 
     public static final int ACTIVE_THRESHOLD_MINUTES = 5;
+
+    /*
+     * Attribute keys that carry the address or MAC of the device an alert is about, in order of preference. The
+     * first key an alert has a value for is its affected address or MAC. The same lists drive the search query
+     * and the responses, so the filters match what is displayed.
+     */
+    public static final List<String> AFFECTED_ADDRESS_KEYS = List.of(
+            "source_address", "client_address", "sender_address", "address", "target_address", "server_address",
+            "destination_address", "gateway_address"
+    );
+    public static final List<String> AFFECTED_MAC_KEYS = List.of(
+            "source_mac", "client_mac", "sender_mac", "spoofer_mac", "mac", "owner_mac", "responder_mac",
+            "server_mac", "bssid"
+    );
+
+    public enum OrderColumn {
+
+        STATUS("status"),
+        DETAILS("details"),
+        DETECTION_TYPE("detection_type"),
+        SUBSYSTEM("subsystem"),
+        AFFECTED_ADDRESS("affected_address"),
+        AFFECTED_MAC("affected_mac"),
+        REACTIVATIONS("reactivations"),
+        CREATED_AT("created_at"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        OrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+
+    }
+
+    /*
+     * Alerts of a tenant whose lifetime overlaps the time range, with the values the search filters, sorts and
+     * aggregates on. An address attribute is only cast to inet when it looks like one, so a stray value cannot
+     * break the whole query.
+     */
+    private static final String SEARCH_BASE =
+            "SELECT da.*, " +
+                    "CASE WHEN da.is_resolved THEN 'Resolved' " +
+                    "WHEN da.last_seen > NOW() - INTERVAL '" + ACTIVE_THRESHOLD_MINUTES + " minutes' THEN 'Active' " +
+                    "ELSE 'Inactive' END AS status, " +
+                    "(" + affectedAttributeSelect(AFFECTED_ADDRESS_KEYS,
+                            "AND (aa.attribute_value ~ '^(\\d{1,3}\\.){3}\\d{1,3}$' " +
+                                    "OR aa.attribute_value ~ '^[0-9a-fA-F:]+$') ") +
+                    ")::inet AS affected_address, " +
+                    "(" + affectedAttributeSelect(AFFECTED_MAC_KEYS, "") + ") AS affected_mac, " +
+                    "(SELECT COUNT(*) FROM detection_alert_timeline AS t WHERE t.detection_alert_id = da.id) - 1 " +
+                    "AS reactivations " +
+                    "FROM detection_alerts AS da " +
+                    "WHERE da.organization_id = :organization_id AND da.tenant_id = :tenant_id " +
+                    "AND da.last_seen >= :tr_from AND da.created_at <= :tr_to ";
+
+    private static final String BUCKETS =
+            "buckets AS (SELECT generate_series(" +
+                    "date_trunc(:date_trunc, :tr_from::timestamptz), " +
+                    "date_trunc(:date_trunc, :tr_to::timestamptz), " +
+                    "make_interval(secs => :bucket_size_s)) AS bucket) ";
+
+    private static String affectedAttributeSelect(List<String> keys, String additionalCondition) {
+        String array = "ARRAY['" + String.join("','", keys) + "']::text[]";
+
+        return "SELECT aa.attribute_value FROM detection_alert_attributes AS aa " +
+                "WHERE aa.detection_alert_id = da.id AND aa.attribute_key = ANY(" + array + ") " +
+                "AND aa.attribute_value <> '' " + additionalCondition +
+                "ORDER BY array_position(" + array + ", aa.attribute_key) LIMIT 1";
+    }
 
     private final NzymeNode nzyme;
 
@@ -505,6 +589,242 @@ public class DetectionAlertService {
         return Hashing.sha256()
                 .hashString(source.toString(), StandardCharsets.UTF_8)
                 .toString();
+    }
+
+
+    /*
+     * Alert search. The "alerts" CTE carries every alert of the tenant in the time range that matches the filters.
+     */
+    private String searchCte(FilterSqlFragment filterFragment) {
+        return "WITH base AS (" + SEARCH_BASE + "), " +
+                "alerts AS (SELECT * FROM base AS alerts WHERE 1=1 " + filterFragment.whereSql() + ") ";
+    }
+
+    private Query bindSearch(Query query,
+                             UUID organizationId,
+                             UUID tenantId,
+                             TimeRange timeRange,
+                             FilterSqlFragment filterFragment) {
+        return query
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("tr_from", timeRange.from())
+                .bind("tr_to", timeRange.to())
+                .bindMap(filterFragment.bindings());
+    }
+
+    public long countAlerts(UUID organizationId, UUID tenantId, TimeRange timeRange, Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + "SELECT COUNT(*) FROM alerts"),
+                        organizationId, tenantId, timeRange, f)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public long countActiveAlerts(UUID organizationId, UUID tenantId, TimeRange timeRange, Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + "SELECT COUNT(*) FROM alerts WHERE status = 'Active'"),
+                        organizationId, tenantId, timeRange, f)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DetectionAlertSearchEntry> findAlerts(UUID organizationId,
+                                                      UUID tenantId,
+                                                      TimeRange timeRange,
+                                                      Filters filters,
+                                                      OrderColumn orderColumn,
+                                                      OrderDirection orderDirection,
+                                                      int limit,
+                                                      int offset) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + "SELECT * FROM alerts " +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset"),
+                        organizationId, tenantId, timeRange, f)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .mapTo(DetectionAlertSearchEntry.class)
+                        .list()
+        );
+    }
+
+    /*
+     * How many matching alerts were active in each bucket, from the timeline periods of the alerts.
+     */
+    public List<GenericIntegerHistogramEntry> getActiveAlertsHistogram(UUID organizationId,
+                                                                       UUID tenantId,
+                                                                       TimeRange timeRange,
+                                                                       Bucketing.BucketingConfiguration bucketing,
+                                                                       Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + ", " + BUCKETS +
+                                "SELECT b.bucket AS bucket, COUNT(DISTINCT t.detection_alert_id) AS value " +
+                                "FROM buckets AS b " +
+                                "LEFT JOIN detection_alert_timeline AS t " +
+                                "ON t.seen_from <= b.bucket + make_interval(secs => :bucket_size_s) " +
+                                "AND t.seen_to >= b.bucket " +
+                                "AND t.detection_alert_id IN (SELECT id FROM alerts) " +
+                                "GROUP BY b.bucket ORDER BY b.bucket DESC"),
+                        organizationId, tenantId, timeRange, f)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("bucket_size_s", bucketing.bucketSizeMs() / 1000.0)
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    /*
+     * How many matching alerts were raised for the first time in each bucket.
+     */
+    public List<GenericIntegerHistogramEntry> getNewAlertsHistogram(UUID organizationId,
+                                                                    UUID tenantId,
+                                                                    TimeRange timeRange,
+                                                                    Bucketing.BucketingConfiguration bucketing,
+                                                                    Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + ", " + BUCKETS +
+                                "SELECT b.bucket AS bucket, COUNT(a.id) AS value " +
+                                "FROM buckets AS b " +
+                                "LEFT JOIN alerts AS a " +
+                                "ON a.created_at >= b.bucket " +
+                                "AND a.created_at < b.bucket + make_interval(secs => :bucket_size_s) " +
+                                "GROUP BY b.bucket ORDER BY b.bucket DESC"),
+                        organizationId, tenantId, timeRange, f)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("bucket_size_s", bucketing.bucketSizeMs() / 1000.0)
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public enum AggregationKey {
+
+        DETECTION_TYPE("alerts.detection_type"),
+        SUBSYSTEM("alerts.subsystem"),
+        AFFECTED_ADDRESS("host(alerts.affected_address)"),
+        AFFECTED_MAC("alerts.affected_mac");
+
+        private final String expression;
+
+        AggregationKey(String expression) {
+            this.expression = expression;
+        }
+
+    }
+
+    public long countAggregationKeys(AggregationKey key,
+                                     UUID organizationId,
+                                     UUID tenantId,
+                                     TimeRange timeRange,
+                                     Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) + "SELECT COUNT(DISTINCT " + key.expression + ") " +
+                                "FROM alerts WHERE " + key.expression + " IS NOT NULL"),
+                        organizationId, tenantId, timeRange, f)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<StringNumberAggregationResult> aggregate(AggregationKey key,
+                                                         UUID organizationId,
+                                                         UUID tenantId,
+                                                         TimeRange timeRange,
+                                                         Filters filters,
+                                                         TwoColumnHistogramOrderColumn orderColumn,
+                                                         OrderDirection orderDirection,
+                                                         int limit,
+                                                         int offset) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindSearch(handle.createQuery(searchCte(f) +
+                                "SELECT " + key.expression + " AS key, COUNT(*) AS value " +
+                                "FROM alerts WHERE " + key.expression + " IS NOT NULL " +
+                                "GROUP BY " + key.expression + " " +
+                                "ORDER BY <order_column> <order_direction>, key ASC " +
+                                "LIMIT :limit OFFSET :offset"),
+                        organizationId, tenantId, timeRange, f)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .mapTo(StringNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
+    public int markAlertsAsResolved(UUID organizationId, UUID tenantId, TimeRange timeRange, Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate(searchCte(f) + "UPDATE detection_alerts SET is_resolved = true " +
+                                "WHERE id IN (SELECT id FROM alerts)")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(f.bindings())
+                        .execute()
+        );
+    }
+
+    public int deleteAlerts(UUID organizationId, UUID tenantId, TimeRange timeRange, Filters filters) {
+        FilterSqlFragment f = FilterSql.generate(filters, new DetectionAlertFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate(searchCte(f) + "DELETE FROM detection_alerts " +
+                                "WHERE id IN (SELECT id FROM alerts)")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(f.bindings())
+                        .execute()
+        );
+    }
+
+    /*
+     * The address or MAC an alert is about, from its attributes. Same key preference as the search query.
+     */
+    @Nullable
+    public static String affectedAddress(List<DetectionAlertAttributeEntry> attributes) {
+        return firstAttributeValue(attributes, AFFECTED_ADDRESS_KEYS);
+    }
+
+    @Nullable
+    public static String affectedMac(List<DetectionAlertAttributeEntry> attributes) {
+        return firstAttributeValue(attributes, AFFECTED_MAC_KEYS);
+    }
+
+    @Nullable
+    private static String firstAttributeValue(List<DetectionAlertAttributeEntry> attributes, List<String> keys) {
+        for (String key : keys) {
+            for (DetectionAlertAttributeEntry attribute : attributes) {
+                if (attribute.key().equals(key) && attribute.value() != null && !attribute.value().isEmpty()) {
+                    return attribute.value();
+                }
+            }
+        }
+
+        return null;
     }
 
 }
