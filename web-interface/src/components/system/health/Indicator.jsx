@@ -8,7 +8,12 @@ function Indicator(props) {
     return <div className="hc-indicator hc-disabled">{props.name}</div>
   }
 
-  if (!indicator || indicator.expired || indicator.level === "UNAVAILABLE") {
+  // UNAVAILABLE means not applicable, for example Connect while Connect is off.
+  if (indicator && indicator.level === "UNAVAILABLE") {
+    return <div className="hc-indicator hc-disabled" title="Not applicable to this cluster">{props.name}</div>
+  }
+
+  if (!indicator || indicator.expired) {
     return <div className="hc-indicator hc-invalid">{props.name}</div>
   }
 

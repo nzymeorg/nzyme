@@ -36,6 +36,7 @@ function HealthConsole(props) {
             <Indicator indicator={indicators.message_bus_message_stuck} name="Message Stuck" />
             <Indicator indicator={indicators.tap_file_permissions} name="Tap File Perms" />
             <Indicator indicator={indicators.node_file_permissions} name="Node File Perms" />
+            <Indicator indicator={indicators.connect} name="Connect" />
           </div>
 
           <div style={{clear: "both"}} />

@@ -58,6 +58,7 @@ public class HealthMonitor {
                 .add(new TasksQueueTaskStuckIndicator(nzyme.getTasksQueue()))
                 .add(new MessageBusMessageFailureIndicator(nzyme.getMessageBus()))
                 .add(new MessageBusMessageStuckIndicator(nzyme.getMessageBus()))
+                .add(new ConnectIndicator(nzyme))
                 .build();
 
         // Pull all indicators status and active/inactive state.

@@ -11,6 +11,7 @@ import app.nzyme.core.rest.interceptors.TapTableSizeInterceptor;
 import app.nzyme.core.rest.parameters.types.InetAddressParamConverterProvider;
 import app.nzyme.core.rest.resources.*;
 import app.nzyme.core.rest.resources.alerts.AlertsResource;
+import app.nzyme.core.rest.resources.briefing.BriefingResource;
 import app.nzyme.core.rest.resources.assets.WebInterfaceAssetsResource;
 import app.nzyme.core.rest.resources.bluetooth.BluetoothDevicesResource;
 import app.nzyme.core.rest.resources.context.AssetContextResource;
@@ -165,6 +166,7 @@ public class NzymeHttpServer {
         resourceConfig.register(Dot11ClientsResource.class);
         resourceConfig.register(Dot11MonitoredNetworksResource.class);
         resourceConfig.register(AlertsResource.class);
+        resourceConfig.register(BriefingResource.class);
         resourceConfig.register(BanditsResource.class);
         resourceConfig.register(Dot11DiscoResource.class);
         resourceConfig.register(AssetContextResource.class);

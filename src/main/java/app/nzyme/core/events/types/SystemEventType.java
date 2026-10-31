@@ -109,9 +109,16 @@ public enum SystemEventType {
 
     AUTHENTICATION_USER_API_KEY_CREATED(
             SystemEventCategory.AUTHENTICATION,
-            SystemEventScope.SYSTEM,
-            "An API for a user was created",
+            SystemEventScope.ORGANIZATION,
+            "An API key for a user was created",
             "A user created an API key that is valid for their scope of access."
+    ),
+
+    AUTHENTICATION_SUPERADMIN_API_KEY_CREATED(
+            SystemEventCategory.AUTHENTICATION,
+            SystemEventScope.SYSTEM,
+            "An API key for a super administrator was created",
+            "A super administrator created an API key that is valid for their scope of access."
     ),
 
     HEALTH_INDICATOR_CRYPTO_SYNC_TOGGLED(
@@ -231,6 +238,13 @@ public enum SystemEventType {
             SystemEventScope.SYSTEM,
             "\"Message Stuck\" Health Indicator was toggled",
             "The state of the \"Message Stuck\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_CONNECT_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Connect\" Health Indicator was toggled",
+            "The state of the \"Connect\" system health indicator has changed from a previously different state."
     );
 
     private final SystemEventCategory category;

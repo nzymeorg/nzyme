@@ -52,6 +52,9 @@
     "description" : "Bluetooth devices that the Bluetooth adapters of your taps discovered in range, over Bluetooth Classic, Bluetooth Low Energy or both. The data includes device names, manufacturers, device classes, discovered services and signal strength.",
     "name" : "Bluetooth"
   }, {
+    "description" : "A briefing summarizes what happened since the calling user last looked: what needs attention, whether the taps and detections are actually watching, and what changed compared to the window before. There is a main briefing across all subsystems and one each for WiFi and Ethernet.",
+    "name" : "Briefing"
+  }, {
     "description" : "Context is the knowledge you attach to an identifier, a MAC address or a network in CIDR notation, as a short name, a description and free form notes. Nzyme shows it everywhere the identifier appears in the web interface. Context always belongs to one tenant and is not shared across tenants.",
     "externalDocs" : {
       "description" : "Context in the Nzyme documentation",
@@ -2027,6 +2030,117 @@
         },
         "summary" : "Get signal strength histogram of a Bluetooth device",
         "tags" : [ "Bluetooth" ]
+      }
+    },
+    "/api/briefing/{type}" : {
+      "get" : {
+        "description" : "Builds the briefing of the given type (MAIN, DOT11 or ETHERNET) for a tenant and a set of taps. The window starts at the user's last visit of this briefing, at the end of the user's previous session, or at the start of the passed time range. Opening the briefing records the visit; reloads within ten minutes keep the same window. Sections the user has no permission for are left out. Alerts need the alerts_view feature permission and monitoring configuration checks need the dot11_monitoring_manage feature permission.",
+        "operationId" : "getBriefing",
+        "parameters" : [ {
+          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET.",
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit or pass * for all taps of the tenant the user can access, which is what the web interface does.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Where the window starts. One of LAST_VISIT, LAST_SESSION, TIME_RANGE. Defaults to LAST_VISIT.",
+          "in" : "query",
+          "name" : "since",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector, used with since=TIME_RANGE. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BriefingResponse"
+                }
+              }
+            },
+            "description" : "Briefing built."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown briefing type or since mode."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a briefing",
+        "tags" : [ "Briefing" ]
+      }
+    },
+    "/api/briefing/{type}/seen" : {
+      "put" : {
+        "description" : "Moves the calling user's last visit of this briefing to now, regardless of the reload grace period. The next briefing in last-visit mode starts a fresh window.",
+        "operationId" : "markBriefingSeen",
+        "parameters" : [ {
+          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET.",
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Marked as seen."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown briefing type."
+          }
+        },
+        "summary" : "Mark a briefing as seen",
+        "tags" : [ "Briefing" ]
       }
     },
     "/api/context/mac" : {
@@ -33102,6 +33216,425 @@
           },
           "sidebar_title_text" : {
             "type" : "string"
+          }
+        }
+      },
+      "BriefingAttentionItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "subsystem" : {
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingBreakdownEntryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingChangeGroupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "hint" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "subsystem" : {
+            "type" : "string"
+          },
+          "tiles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingChangeTileResponse"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingChangeTileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "breakdown" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingBreakdownEntryResponse"
+            }
+          },
+          "current" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "higher_is_worse" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "previous" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "samples" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingSampleResponse"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingCheckResponse" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "subsystem" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingLinkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "target" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingLocationEnvironmentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alerts" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "condition" : {
+            "$ref" : "#/components/schemas/LocationEnvironmentConditionDetailsResponse"
+          },
+          "temperature" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wind_gust" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wind_speed" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "BriefingLocationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alert_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "environment" : {
+            "$ref" : "#/components/schemas/BriefingLocationEnvironmentResponse"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "offline_taps" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "taps_online" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "taps_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BriefingMonitoringResponse" : {
+        "type" : "object",
+        "properties" : {
+          "checks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingCheckResponse"
+            }
+          },
+          "health_indicators" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingTapResponse"
+            }
+          },
+          "taps_online" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "taps_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BriefingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "activity" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "attention" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingAttentionItemResponse"
+            }
+          },
+          "briefing_type" : {
+            "type" : "string"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingChangeGroupResponse"
+            }
+          },
+          "generated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "locations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingLocationResponse"
+            }
+          },
+          "monitoring" : {
+            "$ref" : "#/components/schemas/BriefingMonitoringResponse"
+          },
+          "subsystems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "window" : {
+            "$ref" : "#/components/schemas/BriefingWindowResponse"
+          }
+        }
+      },
+      "BriefingSampleResponse" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "BriefingTapCaptureResponse" : {
+        "type" : "object",
+        "properties" : {
+          "capture_type" : {
+            "type" : "string"
+          },
+          "drop_ratio" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "dropped" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "interface_name" : {
+            "type" : "string"
+          },
+          "is_running" : {
+            "type" : "boolean"
+          },
+          "received" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BriefingTapResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active_alerts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "captures" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BriefingTapCaptureResponse"
+            }
+          },
+          "clock_drift_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_report" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "location_name" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "online" : {
+            "type" : "boolean"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BriefingWindowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "capped" : {
+            "type" : "boolean"
+          },
+          "duration_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "is_first_visit" : {
+            "type" : "boolean"
+          },
+          "last_login_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_visit_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mode" : {
+            "type" : "string"
+          },
+          "previous_from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "previous_session_ended_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "previous_to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

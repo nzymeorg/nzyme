@@ -31,8 +31,8 @@ function Sidebar(props) {
         <ul className="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
           <NavigationLink
               href={ApiRoutes.DASHBOARD}
-              title="Dashboard"
-              icon={<i className="sidebar-icon fa-regular fa-map"/>}/>
+              title="Briefing"
+              icon={<i className="sidebar-icon fa-regular fa-newspaper"/>}/>
 
           <NavigationLink
             href={ApiRoutes.LOCATIONS.INDEX}
@@ -45,8 +45,8 @@ function Sidebar(props) {
                           show={userHasSubsystem(user, "ethernet")}>
             <NavigationLink
                 href={ApiRoutes.ETHERNET.OVERVIEW}
-                title="Overview"
-                icon={<i className="sidebar-icon fa-solid fa-ranking-star"/>}/>
+                title="Briefing"
+                icon={<i className="sidebar-icon fa-regular fa-newspaper"/>}/>
             <NavigationLink
                 href={ApiRoutes.ETHERNET.ASSETS.INDEX}
                 title="Assets"
@@ -124,8 +124,8 @@ function Sidebar(props) {
                           show={userHasSubsystem(user, "dot11")}>
             <NavigationLink
                 href={ApiRoutes.DOT11.OVERVIEW}
-                title="Overview"
-                icon={<i className="sidebar-icon fa-solid fa-ranking-star"/>}/>
+                title="Briefing"
+                icon={<i className="sidebar-icon fa-regular fa-newspaper"/>}/>
 
             <NavigationLink
                 href={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX}

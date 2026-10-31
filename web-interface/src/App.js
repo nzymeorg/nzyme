@@ -8,7 +8,7 @@ import {
 
 import NavigationBar from './components/layout/NavigationBar'
 import ScrollToTop from './components/layout/ScrollToTop'
-import OverviewPage from './components/overview/OverviewPage'
+import BriefingPage from './components/briefing/BriefingPage'
 import NotConnectedPage from './components/misc/NotConnectedPage'
 import NotFoundPage from './components/misc/NotFoundPage'
 import ApiRoutes from './util/ApiRoutes'
@@ -89,7 +89,6 @@ import EditBeaconExclusionPage from "./components/ethernet/beacons/exclusions/Ed
 import BeaconExclusionDetailsPage from "./components/ethernet/beacons/exclusions/BeaconExclusionDetailsPage";
 import ClientDetailsPage from "./components/dot11/clients/ClientDetailsPage";
 import BSSIDDetailsPage from "./components/dot11/bssids/BSSIDDetailsPage";
-import Dot11OverviewPage from "./components/dot11/Dot11OverviewPage";
 import SearchResultPage from "./components/search/SearchResultPage";
 import Dot11MonitoringPage from "./components/dot11/monitoring/Dot11MonitoringPage";
 import CreateMonitoredNetworkPage from "./components/dot11/monitoring/CreateMonitoredNetworkPage";
@@ -223,7 +222,6 @@ import EditIcmpExclusionPage from "./components/ethernet/icmp/exclusions/EditIcm
 import TCPSessionDetailsPage from "./components/ethernet/l4/tcp/TCPSessionDetailsPage";
 import UDPSessionDetailsPage from "./components/ethernet/l4/udp/UDPSessionDetailsPage";
 import EthernetAssetsSettingsPage from "./components/ethernet/assets/EthernetAssetsSettingsPage";
-import EthernetOverviewPage from "./components/ethernet/EthernetOverviewPage";
 import {NTPOverviewPage} from "./components/ethernet/time/ntp/NTPOverviewPage";
 import NTPTransactionDetailsPage from "./components/ethernet/time/ntp/NTPTransactionDetailsPage";
 import Dot11MonitorsPage from "./components/dot11/monitoring/Dot11MonitorsPage";
@@ -523,7 +521,7 @@ function App() {
                         <div className="container-fluid">
                           <div className="content">
                             <Routes>
-                              <Route path={ApiRoutes.DASHBOARD} element={<OverviewPage />}/>
+                              <Route path={ApiRoutes.DASHBOARD} element={<BriefingPage type="MAIN" />}/>
 
                               { /* User Profile / Own User */}
                               <Route path={ApiRoutes.USERPROFILE.PROFILE} element={<UserProfilePage onMfaReset={() => setRevision(new Date())} />}/>
@@ -626,7 +624,7 @@ function App() {
 
                               { /* Ethernet. */ }
                               <Route element={<ProtectedRoute execute={userHasSubsystem(userInformation, "ethernet")} />}>
-                                <Route path={ApiRoutes.ETHERNET.OVERVIEW} element={<EthernetOverviewPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.OVERVIEW} element={<BriefingPage type="ETHERNET" />}/>
 
                                 { /* Ethernet/IP. */}
                                 <Route path={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(':addressParam')} element={<IPAddressDetailsPage />}/>
@@ -772,7 +770,7 @@ function App() {
                                 <Route path={ApiRoutes.DOT11.MONITORING.MONITORS.INDEX} element={<Dot11MonitorsPage />}/>
 
                                 { /* 802.11/Networks. */}
-                                <Route path={ApiRoutes.DOT11.OVERVIEW} element={<Dot11OverviewPage />}/>
+                                <Route path={ApiRoutes.DOT11.OVERVIEW} element={<BriefingPage type="DOT11" />}/>
                                 <Route path={ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX} element={<BSSIDsPage />}/>
                                 <Route path={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(':bssidParam')} element={<BSSIDDetailsPage />}/>
                                 <Route path={ApiRoutes.DOT11.NETWORKS.BSSIDS.TIMELIME(':bssidParam')} element={<BSSIDTimelinePage />}/>

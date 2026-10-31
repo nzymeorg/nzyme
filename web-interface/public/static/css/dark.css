@@ -1303,3 +1303,20 @@ a.classification-edit {
 tr:hover a.classification-edit, a.classification-edit:hover {
     opacity: 1;
 }
+
+.briefing {
+    --br-ink: #e8e8ed;
+    --br-muted: #9a9ab0;
+    --br-faint: #6b7280;
+    --br-line: #33333d;
+    --br-inset: #16161b;
+    --br-inset-2: #26262e;
+    --br-accent: #7b93db;
+    --br-accent-ink: #9baee5;
+    --br-accent-soft: rgba(123, 147, 219, 0.22);
+    --br-crit: #f13244;
+    --br-high: #ff7a1a;
+    --br-low: #8a9bd0;
+    --br-info: #7c8291;
+    --br-ok: #34d399;
+}

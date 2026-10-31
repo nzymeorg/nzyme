@@ -256,12 +256,20 @@ public class UserProfileResource extends UserAuthenticatedResource {
                 authenticatedUser.getUserId(), req.name(), ApiKeys.hash(plaintextKey), expiresAt
         );
 
-        // System event.
-        nzyme.getEventEngine().processEvent(SystemEvent.create(
-                SystemEventType.AUTHENTICATION_USER_API_KEY_CREATED,
-                DateTime.now(),
-                "User [" + authenticatedUser.getEmail() + "] created an API key for themselves."
-        ), authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        // System event. Super administrators have no organization.
+        if (authenticatedUser.isSuperAdministrator()) {
+            nzyme.getEventEngine().processEvent(SystemEvent.create(
+                    SystemEventType.AUTHENTICATION_SUPERADMIN_API_KEY_CREATED,
+                    DateTime.now(),
+                    "Super administrator [" + authenticatedUser.getEmail() + "] created an API key for themselves."
+            ), null, null);
+        } else {
+            nzyme.getEventEngine().processEvent(SystemEvent.create(
+                    SystemEventType.AUTHENTICATION_USER_API_KEY_CREATED,
+                    DateTime.now(),
+                    "User [" + authenticatedUser.getEmail() + "] created an API key for themselves."
+            ), authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        }
 
         return Response.status(Response.Status.CREATED)
                 .entity(ApiKeyCreatedResponse.create(plaintextKey, expiresAt))

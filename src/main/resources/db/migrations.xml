@@ -11153,4 +11153,52 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_user_login_timestamps" author="lennartkoopmann">
+        <addColumn tableName="auth_users">
+            <column name="last_login_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+        <addColumn tableName="auth_users">
+            <column name="previous_login_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_user_previous_session_end" author="lennartkoopmann">
+        <addColumn tableName="auth_users">
+            <column name="previous_session_ended_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_briefing_visits" author="lennartkoopmann">
+        <createTable tableName="briefing_visits">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="user_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="briefing_type" type="varchar(32)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_visit_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="previous_visit_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="briefing_visits"
+                             columnNames="user_id, briefing_type"
+                             constraintName="briefing_visits_unique_user_type" />
+    </changeSet>
+
 </databaseChangeLog>

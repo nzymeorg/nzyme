@@ -17,6 +17,7 @@ import TaskFailureConsequence from "./consequences/TaskFailureConsequence";
 import TaskStuckConsequence from "./consequences/TaskStuckConsequence";
 import MessageStuckConsequence from "./consequences/MessageStuckConsequence";
 import MessageFailureConsequence from "./consequences/MessageFailureConsequence";
+import ConnectConsequence from "./consequences/ConnectConsequence";
 
 function Consequences(props) {
 
@@ -69,6 +70,7 @@ function Consequences(props) {
         <TaskStuckConsequence show={consequences.includes("tasks_queue_task_stuck")} />
         <MessageFailureConsequence show={consequences.includes("message_bus_message_failure")} />
         <MessageStuckConsequence show={consequences.includes("message_bus_message_stuck")} />
+        <ConnectConsequence show={consequences.includes("connect")} />
       </div>
   )
 

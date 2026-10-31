@@ -743,11 +743,43 @@ public class AuthenticationService {
         );
     }
 
+    /*
+     * At the moment of a login, last_activity still holds the last request of the session before, so that is
+     * when the previous session ended. Nothing else records session ends.
+     */
     public void markUserSuccessfulLogin(UserEntry user) {
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE auth_users SET failed_login_count = NULL WHERE uuid = :user_id")
+                handle.createUpdate("UPDATE auth_users SET failed_login_count = NULL, " +
+                                "previous_session_ended_at = last_activity, " +
+                                "previous_login_at = last_login_at, last_login_at = NOW() WHERE uuid = :user_id")
                         .bind("user_id", user.uuid())
                         .execute()
+        );
+    }
+
+    /*
+     * The current login, the login before it and when the session before ended. The current login is the session
+     * the user is working in right now, so "since my last session" means from the end of the previous one.
+     */
+    public record UserLoginTimestamps(@Nullable DateTime lastLoginAt,
+                                      @Nullable DateTime previousLoginAt,
+                                      @Nullable DateTime previousSessionEndedAt) { }
+
+    public UserLoginTimestamps findLoginTimestampsOfUser(UUID userId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT last_login_at, previous_login_at, previous_session_ended_at " +
+                                "FROM auth_users WHERE uuid = :user_id")
+                        .bind("user_id", userId)
+                        .map((rs, ctx) -> new UserLoginTimestamps(
+                                rs.getTimestamp("last_login_at") == null
+                                        ? null : new DateTime(rs.getTimestamp("last_login_at")),
+                                rs.getTimestamp("previous_login_at") == null
+                                        ? null : new DateTime(rs.getTimestamp("previous_login_at")),
+                                rs.getTimestamp("previous_session_ended_at") == null
+                                        ? null : new DateTime(rs.getTimestamp("previous_session_ended_at"))
+                        ))
+                        .findOne()
+                        .orElse(new UserLoginTimestamps(null, null, null))
         );
     }
 
