@@ -11,6 +11,15 @@ const list = (values) => {
 
 const sameList = (a, b) => JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
 
+// A server only includes the options a client asked for, so an option absent from a response is not a change.
+const differsFrom = (field, offered, expected) => {
+  if (field === "routers" || field === "dns_servers") {
+    return offered && offered.length > 0 && !sameList(offered, expected);
+  }
+
+  return !!offered && offered !== (expected || null);
+}
+
 const text = (value) => value ? <span className="machine-data">{value}</span> : <span className="text-muted">None</span>;
 
 export function DhcpOfferedValue({parameters, field, compareTo = undefined}) {
@@ -32,8 +41,7 @@ export function DhcpOfferedValue({parameters, field, compareTo = undefined}) {
 
   const latest = parameters[field];
   const expected = compareTo ? compareTo[field] : null;
-  const differs = compareTo
-    && (isList ? !sameList(latest, expected) : (latest || null) !== (expected || null));
+  const differs = compareTo && differsFrom(field, latest, expected);
 
   if (!differs) {
     return render(latest);
@@ -61,11 +69,7 @@ export default function DhcpOfferedParameters({parameters, compareTo = undefined
       return false;
     }
 
-    if (field === "routers" || field === "dns_servers") {
-      return !sameList(parameters[field], compareTo[field]);
-    }
-
-    return (parameters[field] || null) !== (compareTo[field] || null);
+    return differsFrom(field, parameters[field], compareTo[field]);
   }
 
   const mark = (field, content) => {

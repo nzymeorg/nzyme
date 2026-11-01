@@ -487,10 +487,10 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
 
             if (finding.offered() != null) {
                 offeredAccepted = server.get().trusted() && baseline != null
-                        && baseline.sameConfigurationAs(finding.offered());
+                        && !finding.offered().deviatesFrom(baseline);
             }
 
-            serverLatestMatchesBaseline = baseline == null || latest == null || latest.sameConfigurationAs(baseline);
+            serverLatestMatchesBaseline = baseline == null || latest == null || !latest.deviatesFrom(baseline);
         }
 
         return DhcpSpoofingFindingResponse.create(
@@ -527,7 +527,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
                                                         UUID tenantId) {
         DhcpOfferedParameters baseline = server.baseline();
         DhcpOfferedParameters latest = server.latest();
-        boolean latestMatchesBaseline = baseline == null || latest == null || latest.sameConfigurationAs(baseline);
+        boolean latestMatchesBaseline = baseline == null || latest == null || !latest.deviatesFrom(baseline);
 
         return DhcpSpoofingServerResponse.create(
                 server.uuid(),

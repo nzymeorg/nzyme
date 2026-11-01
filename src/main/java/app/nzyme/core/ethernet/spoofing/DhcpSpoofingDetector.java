@@ -237,10 +237,13 @@ public class DhcpSpoofingDetector {
                 server.firstSeen = earliest(server.firstSeen, r.firstSeen());
                 server.lastSeen = latest(server.lastSeen, r.lastSeen());
 
+                // The latest known value of every option, since clients ask for different options.
                 DhcpOfferedParameters parameters = DhcpOfferedParameters.fromResponse(r);
                 if (server.latestAt == null || r.lastSeen().isAfter(server.latestAt)) {
-                    server.latest = parameters;
+                    server.latest = parameters.mergedWith(server.latest);
                     server.latestAt = r.lastSeen();
+                } else {
+                    server.latest = server.latest.mergedWith(parameters);
                 }
 
                 ConfigurationActivity c = server.configurations
@@ -311,6 +314,7 @@ public class DhcpSpoofingDetector {
         for (ServerActivity a : ordered) {
             try {
                 DhcpSpoofingServerEntry server = servers.get(identity(a.mac, a.address));
+                DhcpOfferedParameters latest = a.latest.mergedWith(server == null ? null : server.latest());
 
                 if (server == null && learningStart == null) {
                     learningStart = a.firstSeen;
@@ -335,20 +339,20 @@ public class DhcpSpoofingDetector {
                             a.serverIdentifier,
                             trusted,
                             trusted ? TRUST_SOURCE_LEARNED : null,
-                            trusted ? a.latest : null,
+                            trusted ? latest : null,
                             a.firstSeen,
                             a.lastSeen
                     );
                     servers.put(identity(a.mac, a.address), server);
                 } else if (!server.trusted() && learningRestartedAt != null && inLearningPeriod) {
                     spoofing.setDhcpServerLearned(handle, server.id());
-                    spoofing.setDhcpServerBaseline(handle, server.id(), a.latest);
+                    spoofing.setDhcpServerBaseline(handle, server.id(), latest);
                     server = spoofing.findDhcpServerById(handle, server.id()).orElse(server);
                     servers.put(identity(a.mac, a.address), server);
                 }
 
                 spoofing.addDhcpServerActivity(
-                        handle, server.id(), a.totalCounts(), a.latest, a.serverIdentifier,
+                        handle, server.id(), a.totalCounts(), latest, a.serverIdentifier,
                         server.tapUuids(), a.taps, a.firstSeen, a.lastSeen
                 );
 
@@ -368,7 +372,7 @@ public class DhcpSpoofingDetector {
 
                 DhcpOfferedParameters baseline = server.baseline();
                 if (baseline == null) {
-                    spoofing.setDhcpServerBaseline(handle, server.id(), a.latest);
+                    spoofing.setDhcpServerBaseline(handle, server.id(), latest);
                     continue;
                 }
 
@@ -380,7 +384,7 @@ public class DhcpSpoofingDetector {
                 DateTime deviatingLast = null;
                 Set<Long> deviatingTransactions = Sets.newHashSet();
                 for (ConfigurationActivity c : a.configurations.values()) {
-                    if (c.parameters.sameConfigurationAs(baseline)) {
+                    if (!c.parameters.deviatesFrom(baseline)) {
                         continue;
                     }
 

@@ -39,18 +39,38 @@ public abstract class DhcpOfferedParameters {
         return create(r.subnetMask(), r.routers(), r.dnsServers(), r.domainName(), r.leaseTimeSeconds());
     }
 
-    /*
-     * Order of routers and DNS servers is ignored because servers rotate it for load balancing. Lease time is
-     * ignored because it varies per pool.
-     */
-    public boolean sameConfigurationAs(DhcpOfferedParameters other) {
-        return Objects.equals(subnetMask(), other.subnetMask())
-                && Sets.newHashSet(routers()).equals(Sets.newHashSet(other.routers()))
-                && Sets.newHashSet(dnsServers()).equals(Sets.newHashSet(other.dnsServers()))
-                && Objects.equals(normalizeDomain(domainName()), normalizeDomain(other.domainName()));
+    public boolean deviatesFrom(DhcpOfferedParameters baseline) {
+        if (subnetMask() != null && !subnetMask().equals(baseline.subnetMask())) {
+            return true;
+        }
+
+        if (!routers().isEmpty() && !Sets.newHashSet(routers()).equals(Sets.newHashSet(baseline.routers()))) {
+            return true;
+        }
+
+        if (!dnsServers().isEmpty()
+                && !Sets.newHashSet(dnsServers()).equals(Sets.newHashSet(baseline.dnsServers()))) {
+            return true;
+        }
+
+        String domain = normalizeDomain(domainName());
+        return domain != null && !domain.equals(normalizeDomain(baseline.domainName()));
     }
 
-    // Must group exactly the configurations that sameConfigurationAs() considers equal.
+    public DhcpOfferedParameters mergedWith(@Nullable DhcpOfferedParameters previous) {
+        if (previous == null) {
+            return this;
+        }
+
+        return create(
+                subnetMask() != null ? subnetMask() : previous.subnetMask(),
+                routers().isEmpty() ? previous.routers() : routers(),
+                dnsServers().isEmpty() ? previous.dnsServers() : dnsServers(),
+                normalizeDomain(domainName()) != null ? domainName() : previous.domainName(),
+                leaseTimeSeconds() != null ? leaseTimeSeconds() : previous.leaseTimeSeconds()
+        );
+    }
+
     public String configurationKey() {
         return subnetMask() + "|" + String.join(",", routers().stream().sorted().toList()) + "|"
                 + String.join(",", dnsServers().stream().sorted().toList()) + "|" + normalizeDomain(domainName());
