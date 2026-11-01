@@ -21,6 +21,7 @@
 
         <!-- Default to x64. -->
         <jre.arch>x64</jre.arch>
+        <jre.release>jdk-25.0.5+8</jre.release>
 
         <log4j.version>2.26.1</log4j.version>
         <guava.version>33.5.0-jre</guava.version>
@@ -591,7 +592,7 @@
                         <phase>prepare-package</phase>
                         <goals><goal>wget</goal></goals>
                         <configuration>
-                            <url>https://api.adoptium.net/v3/binary/latest/25/ga/linux/${jre.arch}/jre/hotspot/normal/eclipse</url>
+                            <url>https://api.adoptium.net/v3/binary/version/${jre.release}/linux/${jre.arch}/jre/hotspot/normal/eclipse</url>
                             <outputFileName>jre.tar.gz</outputFileName>
                             <unpack>true</unpack>
                             <outputDirectory>${project.build.directory}/jvm/runtime</outputDirectory>
