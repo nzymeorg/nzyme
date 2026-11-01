@@ -788,6 +788,8 @@ function App() {
 
                               { /* Bluetooth. */ }
                               <Route element={<ProtectedRoute execute={userHasSubsystem(userInformation, "bluetooth")} />}>
+                                <Route path={ApiRoutes.BLUETOOTH.OVERVIEW} element={<BriefingPage type="BLUETOOTH" />}/>
+
                                 { /* Bluetooth Clients/Devices. */}
                                 <Route path={ApiRoutes.BLUETOOTH.DEVICES.INDEX} element={<BluetoothDevicesPage />}/>
                                 <Route path={ApiRoutes.BLUETOOTH.DEVICES.DETAILS(':macParam')} element={<BluetoothDeviceDetailsPage />}/>

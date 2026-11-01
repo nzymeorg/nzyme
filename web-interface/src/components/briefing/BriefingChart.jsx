@@ -8,8 +8,8 @@ export default function BriefingChart({data, window, unit, kind}) {
 
   const dark = Store.get("dark_mode");
   const colors = dark
-    ? { text: "#c4c4d4", grid: "#2a2a33", line: "#9baee5", fill: "rgba(123,147,219,0.14)", previous: "rgba(255,255,255,0.03)" }
-    : { text: "#111111", grid: "#e6e6e6", line: "#1d30d7", fill: "rgba(29,48,215,0.08)", previous: "rgba(0,0,0,0.025)" };
+    ? { text: "#c4c4d4", grid: "#2a2a33", line: "#9baee5", fill: "rgba(123,147,219,0.14)", previous: "rgba(255,255,255,0.03)", label: "#1e1e26" }
+    : { text: "#111111", grid: "#e6e6e6", line: "#1d30d7", fill: "rgba(29,48,215,0.08)", previous: "rgba(0,0,0,0.025)", label: "#f1f1f1" };
 
   // Plotly ignores time zones: Date objects are read as local, strings as given. Local strings keep everything aligned.
   const local = (t) => moment(t).format("YYYY-MM-DD HH:mm:ss");
@@ -61,7 +61,9 @@ export default function BriefingChart({data, window, unit, kind}) {
       { type: "line", xref: "x", yref: "paper", x0: split, x1: split, y0: 0, y1: 1, line: { color: colors.line, width: 1, dash: "dot" }, layer: "below" }
     ],
     annotations: [
-      { xref: "x", yref: "paper", x: split, y: 1, text: windowStartLabel(window), showarrow: false, xanchor: "left", yanchor: "top", font: { size: 10, color: colors.text }, opacity: 0.7 }
+      { xref: "x", yref: "paper", x: split, y: 1, xshift: 3, yshift: -3, text: windowStartLabel(window), showarrow: false,
+        xanchor: "left", yanchor: "top", font: { size: 10, color: colors.text },
+        bgcolor: colors.label, bordercolor: colors.grid, borderwidth: 1, borderpad: 3 }
     ]
   };
 

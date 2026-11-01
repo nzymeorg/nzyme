@@ -30,10 +30,16 @@ export default function ActivitySection({activity, window, type, tapsTotal}) {
     chart(prefix + "assets", prefix ? "Ethernet: Active assets" : "Active assets", a.assets);
   }
 
+  const bluetooth = (a, prefix) => {
+    chart(prefix + "devices", prefix ? "Bluetooth: Devices seen" : "Devices seen", a.devices);
+  }
+
   if (type === "DOT11") {
     dot11(activity, "");
   } else if (type === "ETHERNET") {
     ethernet(activity, "");
+  } else if (type === "BLUETOOTH") {
+    bluetooth(activity, "");
   } else {
     chart("throughput", "Total tap throughput", activity.throughput, {unit: "bitrate"});
     if (activity.ethernet) {
@@ -41,6 +47,9 @@ export default function ActivitySection({activity, window, type, tapsTotal}) {
     }
     if (activity.dot11) {
       dot11(activity.dot11, "dot11_");
+    }
+    if (activity.bluetooth) {
+      bluetooth(activity.bluetooth, "bluetooth_");
     }
   }
 

@@ -15,7 +15,8 @@ const briefingService = new BriefingService();
 const TITLES = {
   MAIN: "Briefing",
   DOT11: "WiFi briefing",
-  ETHERNET: "Ethernet briefing"
+  ETHERNET: "Ethernet briefing",
+  BLUETOOTH: "Bluetooth briefing"
 }
 
 const SINCE_MODES = ["LAST_VISIT", "LAST_SESSION", "TIME_RANGE"];

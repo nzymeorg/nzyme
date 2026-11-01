@@ -94,7 +94,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
 
         for (BriefingType type : BriefingType.values()) {
             BriefingWindow window = service.resolveWindow(type, user, BriefingSinceMode.LAST_VISIT, null);
-            BriefingContext ctx = service.buildContext(user, organizationId, tenantId, taps, window, true, true);
+            BriefingContext ctx = service.buildContext(user, organizationId, tenantId, taps, window, true, true, true, true);
 
             BriefingResponse briefing = service.build(type, ctx);
 
@@ -129,7 +129,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
                 BriefingWindow window = service.resolveWindow(type, user, BriefingSinceMode.TIME_RANGE,
                         TimeRangeFactory.relative(60 * 24 * 7));
                 BriefingContext ctx = service.buildContext(user, tap.organizationId(), tap.tenantId(),
-                        List.of(tap.uuid()), window, true, true);
+                        List.of(tap.uuid()), window, true, true, true, true);
 
                 BriefingResponse briefing = service.build(type, ctx);
 
@@ -178,6 +178,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         private final AuthenticationService authenticationService;
         private final Dot11 dot11;
         private final Ethernet ethernet;
+        private final Bluetooth bluetooth;
         private final TapManager tapManager;
         private final DetectionAlertService detectionAlertService;
         private final Subsystems subsystems;
@@ -204,6 +205,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
             this.authenticationService = new AuthenticationService(this);
             this.dot11 = new Dot11(this);
             this.ethernet = new Ethernet(this);
+            this.bluetooth = new Bluetooth(this);
             this.tapManager = new TapManager(this);
             this.detectionAlertService = new DetectionAlertService(this);
             this.subsystems = new Subsystems(this);
@@ -214,6 +216,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         @Override public AuthenticationService getAuthenticationService() { return authenticationService; }
         @Override public Dot11 getDot11() { return dot11; }
         @Override public Ethernet getEthernet() { return ethernet; }
+        @Override public Bluetooth getBluetooth() { return bluetooth; }
         @Override public TapManager getTapManager() { return tapManager; }
         @Override public DetectionAlertService getDetectionAlertService() { return detectionAlertService; }
         @Override public Subsystems getSubsystems() { return subsystems; }
@@ -234,7 +237,6 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         @Override public ClusterManager getClusterManager() { throw unavailable(); }
         @Override public MessageBus getMessageBus() { throw unavailable(); }
         @Override public TasksQueue getTasksQueue() { throw unavailable(); }
-        @Override public Bluetooth getBluetooth() { throw unavailable(); }
         @Override public Uav getUav() { throw unavailable(); }
         @Override public AssetManager getAssetsManager() { throw unavailable(); }
         @Override public ContextService getContextService() { throw unavailable(); }

@@ -155,6 +155,11 @@ function Sidebar(props) {
                           icon={<i className="sidebar-icon fa-brands fa-bluetooth"/>}
                           show={userHasSubsystem(user, "bluetooth")}>
             <NavigationLink
+                href={ApiRoutes.BLUETOOTH.OVERVIEW}
+                title="Briefing"
+                icon={<i className="sidebar-icon fa-regular fa-newspaper"/>}/>
+
+            <NavigationLink
                 href={ApiRoutes.BLUETOOTH.DEVICES.INDEX}
                 title="Devices"
                 icon={<i className="sidebar-icon fa-solid fa-mobile-screen-button"/>}/>

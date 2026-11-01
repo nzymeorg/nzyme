@@ -36,7 +36,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Tag(name = "Briefing", description = "A briefing summarizes what happened since the calling user last looked: "
         + "what needs attention, whether the taps and detections are actually watching, and what changed compared "
-        + "to the window before. There is a main briefing across all subsystems and one each for WiFi and Ethernet.")
+        + "to the window before. There is a main briefing across all subsystems and one each for WiFi, Ethernet and Bluetooth.")
 public class BriefingResource extends TapDataHandlingResource {
 
     private static final Logger LOG = LogManager.getLogger(BriefingResource.class);
@@ -57,18 +57,20 @@ public class BriefingResource extends TapDataHandlingResource {
     @Path("/{type}")
     @RESTSecured(PermissionLevel.ANY)
     @Operation(operationId = "getBriefing", summary = "Get a briefing",
-            description = "Builds the briefing of the given type (MAIN, DOT11 or ETHERNET) for a tenant and a set "
+            description = "Builds the briefing of the given type (MAIN, DOT11, ETHERNET or BLUETOOTH) for a tenant and a set "
                     + "of taps. The window starts at the user's last visit of this briefing, at the end of the user's "
                     + "previous session, or at the start of the passed time range. Opening the briefing records the visit; "
                     + "reloads within ten minutes keep the same window. Sections the user has no permission for "
                     + "are left out. Alerts need the alerts_view feature permission and monitoring configuration "
-                    + "checks need the dot11_monitoring_manage feature permission.")
+                    + "checks need the dot11_monitoring_manage feature permission, Ethernet detection "
+                    + "method checks the ethernet_monitoring_manage feature permission. Links to pages the user "
+                    + "cannot open are left out.")
     @ApiResponse(responseCode = "200", description = "Briefing built.",
             content = @Content(schema = @Schema(implementation = BriefingResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown briefing type or since mode.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
     public Response get(@Parameter(hidden = true) @Context SecurityContext sc,
-                        @Parameter(description = "Briefing type. One of MAIN, DOT11, ETHERNET.") @PathParam("type") String typeParam,
+                        @Parameter(description = "Briefing type. One of MAIN, DOT11, ETHERNET, BLUETOOTH.") @PathParam("type") String typeParam,
                         @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
                         @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
                         @Parameter(description = "Comma separated list of tap UUIDs to include. Omit or pass * for all taps of the tenant the user can access, which is what the web interface does.") @QueryParam("taps") String tapsParam,
@@ -106,7 +108,9 @@ public class BriefingResource extends TapDataHandlingResource {
 
         BriefingWindow window = service().resolveWindow(type, user, since, timeRange);
         BriefingContext ctx = service().buildContext(user, organizationId, tenantId, taps, window,
-                userHasPermission(user, "alerts_view"), userHasPermission(user, "dot11_monitoring_manage"));
+                userHasPermission(user, "alerts_view"), userHasPermission(user, "dot11_monitoring_manage"),
+                userHasPermission(user, "ethernet_monitoring_manage"),
+                userHasPermission(user, "bluetooth_monitoring_manage"));
 
         long started = System.currentTimeMillis();
         BriefingResponse briefing = service().build(type, ctx);
@@ -124,7 +128,7 @@ public class BriefingResource extends TapDataHandlingResource {
     @ApiResponse(responseCode = "200", description = "Marked as seen.", content = @Content)
     @ApiResponse(responseCode = "400", description = "Unknown briefing type.", content = @Content)
     public Response markSeen(@Parameter(hidden = true) @Context SecurityContext sc,
-                             @Parameter(description = "Briefing type. One of MAIN, DOT11, ETHERNET.") @PathParam("type") String typeParam) {
+                             @Parameter(description = "Briefing type. One of MAIN, DOT11, ETHERNET, BLUETOOTH.") @PathParam("type") String typeParam) {
         BriefingType type;
         try {
             type = BriefingType.valueOf(typeParam.toUpperCase());

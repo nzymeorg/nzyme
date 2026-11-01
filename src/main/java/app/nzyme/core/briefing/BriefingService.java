@@ -106,7 +106,9 @@ public class BriefingService {
                                         List<UUID> taps,
                                         BriefingWindow window,
                                         boolean canViewAlerts,
-                                        boolean canManageDot11Monitoring) {
+                                        boolean canManageDot11Monitoring,
+                                        boolean canManageEthernetMonitoring,
+                                        boolean canManageBluetoothMonitoring) {
         Set<Subsystem> subsystems = Sets.newHashSet();
         for (Subsystem subsystem : List.of(Subsystem.DOT11, Subsystem.ETHERNET, Subsystem.BLUETOOTH, Subsystem.UAV)) {
             if (nzyme.getSubsystems().isEnabled(subsystem, organizationId, tenantId)) {
@@ -115,7 +117,8 @@ public class BriefingService {
         }
 
         return new BriefingContext(nzyme, organizationId, tenantId, taps, window, canViewAlerts,
-                canManageDot11Monitoring, user.isOrganizationAdministrator(), user.isSuperAdministrator(), subsystems);
+                canManageDot11Monitoring, canManageEthernetMonitoring, canManageBluetoothMonitoring,
+                user.isOrganizationAdministrator(), user.isSuperAdministrator(), subsystems);
     }
 
     public BriefingResponse build(BriefingType type, BriefingContext ctx) {
@@ -123,6 +126,7 @@ public class BriefingService {
             case MAIN -> buildMain(ctx);
             case DOT11 -> buildDot11(ctx);
             case ETHERNET -> buildEthernet(ctx);
+            case BLUETOOTH -> buildBluetooth(ctx);
         };
     }
 
@@ -164,7 +168,9 @@ public class BriefingService {
             boolean inUse = taps.capturesType("WiFi");
             checks.addAll(tagged(dot11.checks(taps), Subsystem.DOT11));
             if (ctx.canViewAlerts()) {
-                attention.addAll(dot11Alerts.attention(inUse ? Dot11Collector.NETWORK_ALERT_TYPES::contains : t -> false));
+                // Without the monitoring permission there are no per-network items, so the alerts stay here.
+                boolean perNetwork = inUse && ctx.canManageDot11Monitoring();
+                attention.addAll(dot11Alerts.attention(perNetwork ? Dot11Collector.NETWORK_ALERT_TYPES::contains : t -> false));
             }
             if (inUse) {
                 attention.addAll(dot11.attention());
@@ -185,8 +191,16 @@ public class BriefingService {
             }
         }
 
-        if (ctx.hasSubsystem(Subsystem.BLUETOOTH) && ctx.canViewAlerts()) {
-            attention.addAll(new AlertsCollector(ctx, Subsystem.BLUETOOTH).load().attention(t -> false));
+        if (ctx.hasSubsystem(Subsystem.BLUETOOTH)) {
+            BluetoothCollector bluetooth = new BluetoothCollector(ctx).load();
+            checks.addAll(tagged(bluetooth.checks(), Subsystem.BLUETOOTH));
+            if (ctx.canViewAlerts()) {
+                attention.addAll(new AlertsCollector(ctx, Subsystem.BLUETOOTH).load().attention(t -> false));
+            }
+            if (bluetooth.inUse(taps)) {
+                activity.put("bluetooth", bluetooth.activity());
+                changes.add(bluetooth.devicesGroup());
+            }
         }
         if (ctx.hasSubsystem(Subsystem.UAV) && ctx.canViewAlerts()) {
             attention.addAll(new AlertsCollector(ctx, Subsystem.UAV).load().attention(t -> false));
@@ -208,7 +222,8 @@ public class BriefingService {
         List<BriefingAttentionItemResponse> attention = Lists.newArrayList();
         attention.addAll(taps.attention());
         if (ctx.canViewAlerts()) {
-            attention.addAll(alerts.attention(Dot11Collector.NETWORK_ALERT_TYPES::contains));
+            attention.addAll(alerts.attention(ctx.canManageDot11Monitoring()
+                    ? Dot11Collector.NETWORK_ALERT_TYPES::contains : t -> false));
         }
         attention.addAll(dot11.attention());
 
@@ -238,6 +253,25 @@ public class BriefingService {
 
         return assemble(BriefingType.ETHERNET, ctx, attention, checks, List.of(), ethernet.activity(), taps, null,
                 new LocationsCollector(ctx, Subsystem.ETHERNET).load().locations());
+    }
+
+    private BriefingResponse buildBluetooth(BriefingContext ctx) {
+        TapsCollector taps = new TapsCollector(ctx).load();
+        AlertsCollector alerts = new AlertsCollector(ctx, Subsystem.BLUETOOTH).load();
+        BluetoothCollector bluetooth = new BluetoothCollector(ctx).load();
+
+        List<BriefingAttentionItemResponse> attention = Lists.newArrayList();
+        attention.addAll(taps.attention());
+        if (ctx.canViewAlerts()) {
+            attention.addAll(alerts.attention(t -> false));
+        }
+
+        List<BriefingCheckResponse> checks = Lists.newArrayList();
+        checks.addAll(taps.checks());
+        checks.addAll(bluetooth.checks());
+
+        return assemble(BriefingType.BLUETOOTH, ctx, attention, checks, List.of(bluetooth.devicesGroup()),
+                bluetooth.activity(), taps, null, new LocationsCollector(ctx, Subsystem.BLUETOOTH).load().locations());
     }
 
     private BriefingResponse assemble(BriefingType type,

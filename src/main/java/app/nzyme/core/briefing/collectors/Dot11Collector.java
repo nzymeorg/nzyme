@@ -119,7 +119,7 @@ public class Dot11Collector {
                     "No tap scans " + plural(channels.size(), "a channel", "channels")
                             + " expected for \"" + missing.getKey() + "\"",
                     "Not scanned: " + String.join(", ", channels) + ". Unexpected activity there goes unnoticed.",
-                    channels.size(), null, BriefingLinks.to("TAPS")));
+                    channels.size(), null, tapsLink()));
         }
 
         return items;
@@ -183,12 +183,12 @@ public class Dot11Collector {
                 if (missing.isEmpty()) {
                     checks.add(BriefingItems.ok("dot11_coverage", "All " + expectedFrequencies.size()
                             + " monitored " + plural(expectedFrequencies.size(), "channel is", "channels are") + " scanned",
-                            null, BriefingLinks.to("TAPS")));
+                            null, tapsLink()));
                 } else {
                     checks.add(BriefingItems.warn("dot11_coverage", missing.size() + " monitored "
                             + plural(missing.size(), "channel is", "channels are") + " not scanned by any tap",
                             String.join(", ", missing.stream().map(Dot11Collector::describeFrequency).toList()) + ".",
-                            BriefingLinks.to("TAPS")));
+                            tapsLink()));
                 }
             }
 
@@ -393,6 +393,10 @@ public class Dot11Collector {
             case DOT11_UNAPPROVED_CLIENT -> "unapproved client";
             default -> type.getTitle().toLowerCase();
         };
+    }
+
+    private @Nullable BriefingLinkResponse tapsLink() {
+        return ctx.canOpenTaps() ? BriefingLinks.to("TAPS") : null;
     }
 
     public static String describeFrequency(int frequency) {

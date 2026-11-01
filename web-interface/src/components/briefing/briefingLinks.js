@@ -61,6 +61,8 @@ export function resolveBriefingLink(link, window) {
     case "LOCATION": return ApiRoutes.LOCATIONS.DETAILS(p.uuid);
     case "DOT11_BRIEFING": return ApiRoutes.DOT11.OVERVIEW;
     case "ETHERNET_BRIEFING": return ApiRoutes.ETHERNET.OVERVIEW;
+    case "BLUETOOTH_BRIEFING": return ApiRoutes.BLUETOOTH.OVERVIEW;
+    case "BLUETOOTH_MONITORS": return ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX;
     case "DOT11_BSSIDS": return withRange(ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, window);
     case "DOT11_BSSID": return ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(p.bssid);
     case "DOT11_CLIENTS": return withRange(ApiRoutes.DOT11.CLIENTS.CONNECTED, window);
@@ -117,7 +119,8 @@ const LINK_LABELS = {
   ALERTS: "Alerts", ALERT: "Alert details", ALERT_SUBSCRIPTIONS: "Alert subscriptions",
   TAP: "Tap details", TAPS: "Taps", HEALTH: "Health", CLUSTER: "Cluster",
   SYSTEM_EVENTS: "System events", SESSIONS: "Sessions", ORGANIZATION: "Organization", LOCATIONS: "Locations", LOCATION: "Location",
-  DOT11_BRIEFING: "WiFi briefing", ETHERNET_BRIEFING: "Ethernet briefing",
+  DOT11_BRIEFING: "WiFi briefing", ETHERNET_BRIEFING: "Ethernet briefing", BLUETOOTH_BRIEFING: "Bluetooth briefing",
+  BLUETOOTH_MONITORS: "Monitors",
   DOT11_BSSIDS: "Access points", DOT11_BSSID: "Access point", DOT11_CLIENTS: "Clients", DOT11_CLIENT: "Client",
   DOT11_DISCO: "Disconnection activity", DOT11_MONITORING: "Monitored networks",
   DOT11_MONITORING_CREATE: "Add monitored network", DOT11_MONITORED_NETWORK: "Network configuration",

@@ -52,7 +52,7 @@
     "description" : "Bluetooth devices that the Bluetooth adapters of your taps discovered in range, over Bluetooth Classic, Bluetooth Low Energy or both. The data includes device names, manufacturers, device classes, discovered services and signal strength.",
     "name" : "Bluetooth"
   }, {
-    "description" : "A briefing summarizes what happened since the calling user last looked: what needs attention, whether the taps and detections are actually watching, and what changed compared to the window before. There is a main briefing across all subsystems and one each for WiFi and Ethernet.",
+    "description" : "A briefing summarizes what happened since the calling user last looked: what needs attention, whether the taps and detections are actually watching, and what changed compared to the window before. There is a main briefing across all subsystems and one each for WiFi, Ethernet and Bluetooth.",
     "name" : "Briefing"
   }, {
     "description" : "Context is the knowledge you attach to an identifier, a MAC address or a network in CIDR notation, as a short name, a description and free form notes. Nzyme shows it everywhere the identifier appears in the web interface. Context always belongs to one tenant and is not shared across tenants.",
@@ -2034,10 +2034,10 @@
     },
     "/api/briefing/{type}" : {
       "get" : {
-        "description" : "Builds the briefing of the given type (MAIN, DOT11 or ETHERNET) for a tenant and a set of taps. The window starts at the user's last visit of this briefing, at the end of the user's previous session, or at the start of the passed time range. Opening the briefing records the visit; reloads within ten minutes keep the same window. Sections the user has no permission for are left out. Alerts need the alerts_view feature permission and monitoring configuration checks need the dot11_monitoring_manage feature permission.",
+        "description" : "Builds the briefing of the given type (MAIN, DOT11, ETHERNET or BLUETOOTH) for a tenant and a set of taps. The window starts at the user's last visit of this briefing, at the end of the user's previous session, or at the start of the passed time range. Opening the briefing records the visit; reloads within ten minutes keep the same window. Sections the user has no permission for are left out. Alerts need the alerts_view feature permission and monitoring configuration checks need the dot11_monitoring_manage feature permission, Ethernet detection method checks the ethernet_monitoring_manage feature permission. Links to pages the user cannot open are left out.",
         "operationId" : "getBriefing",
         "parameters" : [ {
-          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET.",
+          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET, BLUETOOTH.",
           "in" : "path",
           "name" : "type",
           "required" : true,
@@ -2117,7 +2117,7 @@
         "description" : "Moves the calling user's last visit of this briefing to now, regardless of the reload grace period. The next briefing in last-visit mode starts a fresh window.",
         "operationId" : "markBriefingSeen",
         "parameters" : [ {
-          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET.",
+          "description" : "Briefing type. One of MAIN, DOT11, ETHERNET, BLUETOOTH.",
           "in" : "path",
           "name" : "type",
           "required" : true,

@@ -185,16 +185,17 @@ public class EthernetCollector {
                     + plural(contextNetworks, "network", "networks") + " defined", null, BriefingLinks.to("CONTEXT_NETWORKS")));
         }
 
+        BriefingLinkResponse monitors = ctx.canManageEthernetMonitoring() ? BriefingLinks.to("ETHERNET_MONITORS") : null;
         if (monitorsTotal == 0) {
             checks.add(BriefingItems.info("ethernet_monitors", "No Ethernet monitors configured",
-                    "Monitors alert on custom conditions in your traffic.", BriefingLinks.to("ETHERNET_MONITORS")));
+                    "Monitors alert on custom conditions in your traffic.", monitors));
         } else {
             checks.add(BriefingItems.check("ethernet_monitors", monitorsEnabled == monitorsTotal ? "OK" : "INFO",
                     monitorsEnabled + " of " + monitorsTotal + " Ethernet " + plural(monitorsTotal, "monitor", "monitors") + " enabled",
-                    null, BriefingLinks.to("ETHERNET_MONITORS")));
+                    null, monitors));
         }
 
-        if (!disabledMethods.isEmpty()) {
+        if (ctx.canManageEthernetMonitoring() && !disabledMethods.isEmpty()) {
             checks.add(BriefingItems.info("ethernet_methods", disabledMethods.size() + " of " + totalMethods
                             + " Ethernet detection " + plural(disabledMethods.size(), "method is", "methods are") + " switched off",
                     "Off: " + String.join(", ", disabledMethods) + ".", null));

@@ -14,12 +14,19 @@ public record BriefingContext(NzymeNode nzyme,
                               BriefingWindow window,
                               boolean canViewAlerts,
                               boolean canManageDot11Monitoring,
+                              boolean canManageEthernetMonitoring,
+                              boolean canManageBluetoothMonitoring,
                               boolean isOrganizationAdministrator,
                               boolean isSuperAdministrator,
                               Set<Subsystem> subsystems) {
 
     public boolean isOrganizationAdministratorOrAbove() {
         return isOrganizationAdministrator || isSuperAdministrator;
+    }
+
+    // Tap pages live under System, which only organization administrators and above can open.
+    public boolean canOpenTaps() {
+        return isOrganizationAdministratorOrAbove();
     }
 
     public boolean hasSubsystem(Subsystem subsystem) {

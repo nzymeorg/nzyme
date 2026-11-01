@@ -8,6 +8,7 @@ import app.nzyme.core.rest.responses.briefing.BriefingAttentionItemResponse;
 import app.nzyme.core.rest.responses.briefing.BriefingCheckResponse;
 import app.nzyme.core.rest.responses.briefing.BriefingTapCaptureResponse;
 import app.nzyme.core.rest.responses.briefing.BriefingHistogramBucketResponse;
+import app.nzyme.core.rest.responses.briefing.BriefingLinkResponse;
 import app.nzyme.core.rest.responses.briefing.BriefingTapResponse;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
@@ -122,6 +123,14 @@ public class TapsCollector {
     public List<BriefingAttentionItemResponse> attention() {
         List<BriefingAttentionItemResponse> items = Lists.newArrayList();
 
+        if (taps.isEmpty()) {
+            items.add(BriefingItems.attention(BriefingSeverity.ORANGE, "tap", null,
+                    "No taps are reporting",
+                    "Nothing is observed and no detections can fire until a tap is set up and sends data.",
+                    1, null, tapsLink()));
+            return items;
+        }
+
         for (BriefingTapResponse tap : taps) {
             if (!tap.online()) {
                 continue;
@@ -132,7 +141,7 @@ public class TapsCollector {
                     items.add(BriefingItems.attention(BriefingSeverity.ORANGE, "tap", null,
                             "Capture " + capture.interfaceName() + " on \"" + tap.name() + "\" is not running",
                             "The " + capture.captureType() + " capture stopped. The tap is online but blind on this interface.",
-                            1, null, BriefingLinks.to("TAP", "uuid", tap.uuid().toString())));
+                            1, null, tapLink(tap)));
                 }
             }
         }
@@ -144,20 +153,20 @@ public class TapsCollector {
         List<BriefingCheckResponse> checks = Lists.newArrayList();
 
         if (taps.isEmpty()) {
-            checks.add(BriefingItems.warn("taps_selected", "No taps in this tenant",
-                    "This briefing has no data source until a tap reports for this tenant.",
-                    BriefingLinks.to("TAPS")));
+            checks.add(BriefingItems.warn("taps_selected", "No taps are reporting",
+                    "This briefing has no data source until a tap is set up and sends data.",
+                    tapsLink()));
             return checks;
         }
 
         long online = online();
         if (online == taps.size()) {
             checks.add(BriefingItems.ok("taps_online", online + " of " + taps.size() + " "
-                    + plural(taps.size(), "tap", "taps") + " reporting", null, BriefingLinks.to("TAPS")));
+                    + plural(taps.size(), "tap", "taps") + " reporting", null, tapsLink()));
         } else {
             checks.add(BriefingItems.warn("taps_online", online + " of " + taps.size() + " "
                     + plural(taps.size(), "tap", "taps") + " reporting",
-                    (taps.size() - online) + " offline.", BriefingLinks.to("TAPS")));
+                    (taps.size() - online) + " offline.", tapsLink()));
         }
 
         return checks;
@@ -182,6 +191,14 @@ public class TapsCollector {
                                 new DateTime(rs.getTimestamp("bucket")), rs.getDouble("value")))
                         .list()
         );
+    }
+
+    public @Nullable BriefingLinkResponse tapsLink() {
+        return ctx.canOpenTaps() ? BriefingLinks.to("TAPS") : null;
+    }
+
+    public @Nullable BriefingLinkResponse tapLink(BriefingTapResponse tap) {
+        return ctx.canOpenTaps() ? BriefingLinks.to("TAP", "uuid", tap.uuid().toString()) : null;
     }
 
     public static String describeAge(@Nullable DateTime timestamp) {
