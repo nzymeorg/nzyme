@@ -199,7 +199,6 @@ public class BriefingService {
             }
             if (bluetooth.inUse(taps)) {
                 activity.put("bluetooth", bluetooth.activity());
-                changes.add(bluetooth.devicesGroup());
             }
         }
         if (ctx.hasSubsystem(Subsystem.UAV) && ctx.canViewAlerts()) {
