@@ -66,7 +66,7 @@ function MonitoredNetworkDetailsPage() {
       setNewBSSID("");
       setBSSIDFormSubmitting(false);
     }, function () {
-      toast.error("Could not add monitored BSSID. Please check nzyme log file.");
+      toast.error("Could not add monitored BSSID. Please check Nzyme log file.");
       setBSSIDFormSubmitting(false);
     })
   }
@@ -79,7 +79,7 @@ function MonitoredNetworkDetailsPage() {
       setNewChannel("");
       setChannelFormSubmitting(false);
     }, function () {
-      toast.error("Could not add monitored channel. Please check nzyme log file.");
+      toast.error("Could not add monitored channel. Please check Nzyme log file.");
       setChannelFormSubmitting(false);
     })
   }
@@ -92,7 +92,7 @@ function MonitoredNetworkDetailsPage() {
       setNewSecuritySuite("");
       setSecuritySuiteFormSubmitting(false);
     }, function () {
-      toast.error("Could not add monitored security suite. Please check nzyme log file.");
+      toast.error("Could not add monitored security suite. Please check Nzyme log file.");
       setSecuritySuiteFormSubmitting(false);
     })
   }

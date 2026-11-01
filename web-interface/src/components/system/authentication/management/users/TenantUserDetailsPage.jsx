@@ -230,7 +230,7 @@ function TenantUserDetailsPage() {
                     <h4 className="mt-4">Features &amp; Functionality</h4>
 
                     <p>
-                      On top of tap data access, a user can be restricted to certain features and functionality in nzyme.
+                      On top of tap data access, a user can be restricted to certain features and functionality in Nzyme.
                       While the user will always be limited to seeing data from taps that belong to their tenant, some
                       functionality will not be limited to the taps selected above. For example, if a user is allowed to
                       view alerts, they might see alerts referencing data of taps that are not selected above. Any such

@@ -9,7 +9,7 @@ function TapClockProcedure(props) {
   return (
       <ol className="consequence-solution-procedure">
         <li>
-          <SolutionCounter counter="1" /> Identify nzyme taps with unsafe clock drift on the{' '}
+          <SolutionCounter counter="1" /> Identify Nzyme taps with unsafe clock drift on the{' '}
           <Link to={ApiRoutes.SYSTEM.TAPS.INDEX}>taps overview</Link> page
         </li>
 

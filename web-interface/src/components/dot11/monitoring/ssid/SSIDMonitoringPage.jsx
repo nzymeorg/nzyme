@@ -41,7 +41,7 @@ export default function SSIDMonitoringPage() {
     e.preventDefault();
 
     if (!confirm("Really delete all known networks? Each will reappear as unapproved network " +
-      "next time nzyme records it.")) {
+      "next time Nzyme records it.")) {
       return;
     }
 

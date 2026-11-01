@@ -17,7 +17,7 @@ export default function TermsOfUseModal() {
           <div className="modal-content">
             <div className="modal-body">
               <p>
-                Use of the Nzyme system (the “Nyzme Program”) is made available by [nzyme LLC] (“Nzyme”) on an open
+                Use of the Nzyme system (the “Nzyme Program”) is made available by [nzyme LLC] (“Nzyme”) on an open
                 source basis pursuant to the Server Side Public License available here:
                 https://www.mongodb.com/legal/licensing/server-side-public-license (the “License”).
               </p>

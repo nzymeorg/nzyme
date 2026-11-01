@@ -149,7 +149,7 @@ function ClientsPage() {
                 <p className="text-muted">
                   It should be noted that many modern WiFi devices utilize MAC address randomization when they are not
                   connected to a network. This practice improves privacy by complicating tracking efforts, resulting in
-                  a wide range of distinct MAC addresses being captured by nzyme. The advertised SSIDs of BSSIDs are
+                  a wide range of distinct MAC addresses being captured by Nzyme. The advertised SSIDs of BSSIDs are
                   compiled from the most recent three days of available data.{' '}
 
                   <HelpBubble link="https://go.nzyme.org/kb-mac-randomization" />

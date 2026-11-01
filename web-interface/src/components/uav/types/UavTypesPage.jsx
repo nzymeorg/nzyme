@@ -105,7 +105,7 @@ export default function UavTypesPage() {
               <CardTitleWithControls title="Built-In Types" />
 
               <p className="text-muted mt-0">
-                Built-in types, provided through nzyme Connect, cover a wide range of known UAV models.
+                Built-in types, provided through Nzyme Connect, cover a wide range of known UAV models.
               </p>
 
               <ConnectTypesTable types={connectTypes}

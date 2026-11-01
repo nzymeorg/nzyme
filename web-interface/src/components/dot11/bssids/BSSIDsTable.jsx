@@ -29,7 +29,7 @@ function BSSIDsTable(props) {
 
   if (bssids.length === 0) {
     return <div className="alert alert-info mb-0">
-      No access points discovered yet. Make sure a WiFi-enabled nzyme tap is connected and configured properly.
+      No access points discovered yet. Make sure a WiFi-enabled Nzyme tap is connected and configured properly.
     </div>
   }
 

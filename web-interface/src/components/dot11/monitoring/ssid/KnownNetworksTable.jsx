@@ -135,7 +135,7 @@ export default function KnownNetworksTable(props) {
         e.preventDefault();
 
         if (!confirm("Really delete known network? It will reappear as unapproved network " +
-            "next time nzyme records it.")) {
+            "next time Nzyme records it.")) {
             return;
         }
 

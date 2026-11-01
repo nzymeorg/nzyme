@@ -32,7 +32,7 @@ function SSIDSuggestions(props) {
   if (!ssidNames || ssidNames.length === 0) {
     return (
         <div className="alert alert-info">
-          Cannot suggest SSIDs, because nzyme has not recorded any yet.
+          Cannot suggest SSIDs, because Nzyme has not recorded any yet.
         </div>
     )
   }

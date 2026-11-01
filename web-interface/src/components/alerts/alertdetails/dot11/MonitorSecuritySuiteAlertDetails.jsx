@@ -45,7 +45,7 @@ function MonitorSecuritySuiteAlertDetails(props) {
 
                 <ul className="mb-0">
                   <li>An authorized security configuration change of an access point might have been the cause. To
-                    prevent false alerts, it's crucial to update the nzyme network monitoring configuration when making
+                    prevent false alerts, it's crucial to update the Nzyme network monitoring configuration when making
                     changes to monitored networks.</li>
                 </ul>
               </div>

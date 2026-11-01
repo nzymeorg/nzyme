@@ -43,7 +43,7 @@ function EphemeralNodesConfiguration(props) {
             <h3>Ephemeral Nodes</h3>
 
             <p>
-              Ephemeral nodes are nzyme nodes that are short-lived. This is a common pattern for immutable deployments
+              Ephemeral nodes are Nzyme nodes that are short-lived. This is a common pattern for immutable deployments
               or highly flexible, container-based architectures in which nodes can be destroyed and created very rapidly.
             </p>
 

@@ -30,9 +30,9 @@ function MonitoringPage () {
                             <h3>Metrics Exporters</h3>
 
                             <p>
-                                The nzyme system can make internal metrics available to other monitoring systems. Learn
+                                The Nzyme system can make internal metrics available to other monitoring systems. Learn
                                 more about metrics exporters in
-                                the <a href="https://go.nzyme.org/metrics-exporters" target="_blank" rel="noreferrer">nzyme documentation</a>.
+                                the <a href="https://go.nzyme.org/metrics-exporters" target="_blank" rel="noreferrer">Nzyme documentation</a>.
                             </p>
 
                             <ExportersTable summary={summary} />

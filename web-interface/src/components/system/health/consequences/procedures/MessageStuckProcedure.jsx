@@ -18,7 +18,7 @@ function MessageStuckProcedure() {
         </li>
         <li className="consequence-solution-sublist">
           <ol>
-            <li><SolutionCounter counter="2.1" /> Restart the nzyme node that handles the stuck message to stop processing.
+            <li><SolutionCounter counter="2.1" /> Restart the Nzyme node that handles the stuck message to stop processing.
               Note that the message will report as failed after restart and the <Indicator text="Message Failure" />{' '}
               indicator will illuminate. Follow the instruction for that indicator as well.</li>
             <li><SolutionCounter counter="2.2" /> Review stuck message and it's consequences. Consider manually restarting

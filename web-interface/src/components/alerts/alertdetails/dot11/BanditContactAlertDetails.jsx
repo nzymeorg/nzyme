@@ -27,7 +27,7 @@ function BanditContactAlertDetails(props) {
                   <dd>{alert.attributes.fingerprint}</dd>
 
                   <p className="mb-0 mt-3">
-                    A known WiFi attack platform ("Bandit") was detected by nzyme.
+                    A known WiFi attack platform ("Bandit") was detected by Nzyme.
                   </p>
                 </dl>
               </div>

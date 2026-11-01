@@ -50,7 +50,7 @@ export default function MonitoredClientsConfigurationPage() {
     e.preventDefault();
 
     if (!confirm("Really delete all clients? Each will reappear as unapproved client " +
-      "next time nzyme records it.")) {
+      "next time Nzyme records it.")) {
       return;
     }
 

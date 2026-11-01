@@ -9,7 +9,7 @@ function NodeClockProcedure(props) {
   return (
       <ol className="consequence-solution-procedure">
         <li>
-          <SolutionCounter counter="1" /> Identify nzyme nodes with unsafe clock drift on the{' '}
+          <SolutionCounter counter="1" /> Identify Nzyme nodes with unsafe clock drift on the{' '}
           <Link to={ApiRoutes.SYSTEM.CLUSTER.INDEX}>nodes overview</Link> page
         </li>
         <li>

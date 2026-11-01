@@ -118,7 +118,7 @@ function SmtpIntegration() {
           </td>
         </tr>
         <tr>
-          <td>URL of nzyme Web Interface</td>
+          <td>URL of Nzyme Web Interface</td>
           <td>
             <ConfigurationValue value={configuration.web_interface_url.value
                 ? configuration.web_interface_url.value : configuration.web_interface_url.default_value}

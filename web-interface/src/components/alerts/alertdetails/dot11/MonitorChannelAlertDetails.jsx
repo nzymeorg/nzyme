@@ -41,10 +41,10 @@ function MonitorChannelAlertDetails(props) {
                 </p>
 
                 <ul className="mb-0">
-                  <li>The access point configuration was legitimately altered, and the nzyme network monitoring
+                  <li>The access point configuration was legitimately altered, and the Nzyme network monitoring
                     configuration hasn't been updated accordingly.</li>
                   <li>Many access points may automatically select new channels based on RF spectrum congestion. Ensure
-                    all potential channels are included in the nzyme network monitoring configuration.</li>
+                    all potential channels are included in the Nzyme network monitoring configuration.</li>
                 </ul>
               </div>
             </div>

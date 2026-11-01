@@ -150,7 +150,7 @@ function MonitoredNetworkConfigurationImportDialog(props) {
     if (!data || data.length === 0) {
       return <div className="alert alert-info">
         No data was located for the monitored network. Ensure that access points broadcasting this network are present
-        and within the range of the nzyme taps accessible to your user.
+        and within the range of the Nzyme taps accessible to your user.
       </div>
     }
   }

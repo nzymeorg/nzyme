@@ -37,7 +37,7 @@ function MonitorBSSIDAlertDetails(props) {
                 </p>
 
                 <ul className="mb-0">
-                  <li>A new access point was installed and the nzyme configuration has not been updated yet.</li>
+                  <li>A new access point was installed and the Nzyme configuration has not been updated yet.</li>
                 </ul>
               </div>
             </div>

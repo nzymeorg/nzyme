@@ -36,7 +36,7 @@ function HealthPage(props) {
             <div className="card">
               <div className="card-body">
                 <p className="help-text">
-                  An Nzyme deployment is constantly monitoring itself for common issues. Resolution steps will appear
+                  A Nzyme deployment is constantly monitoring itself for common issues. Resolution steps will appear
                   below if an indicator is illuminated in orange or red.
                 </p>
 

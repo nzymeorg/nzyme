@@ -67,7 +67,7 @@ export default function OrganizationQuotasPage() {
 
                 <p className="text-muted">
                   It is possible to configure a quota that is lower than the current usage. In this scenario, no new
-                  resources can be created, but nzyme will not automatically delete any existing resources.
+                  resources can be created, but Nzyme will not automatically delete any existing resources.
                   Instead, you will see a warning that you are above the quota and should decide which resources
                   to manually delete.
                 </p>

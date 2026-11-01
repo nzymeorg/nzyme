@@ -15,7 +15,7 @@ function TaskStuckConsequence(props) {
           problem="At least one cluster task is stuck: Claimed by a node to work on but not executed. Example cluster
                   tasks are detection runs or delivery of alert notifications."
           acceptableRange={[
-            "Task processing must complete within 1 hour after acknowledgment by a nzyme node"
+            "Task processing must complete within 1 hour after acknowledgment by a Nzyme node"
           ]}
           consequences={[
             "An expected background action of the program was not performed"

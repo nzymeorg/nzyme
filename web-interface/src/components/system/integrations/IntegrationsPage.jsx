@@ -21,7 +21,7 @@ function IntegrationsPage() {
                 <h3>SMTP / Email</h3>
 
                 <p>
-                  With the configuration of an SMTP connection, nzyme gains the capability to send emails for alerts,
+                  With the configuration of an SMTP connection, Nzyme gains the capability to send emails for alerts,
                   system events, and other trigger actions.
                 </p>
 

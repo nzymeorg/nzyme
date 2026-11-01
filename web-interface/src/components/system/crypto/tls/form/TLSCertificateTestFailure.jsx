@@ -19,7 +19,7 @@ function TLSCertificateTestFailure(props) {
           </dl>
 
           <p className="mt-3 mb-0">
-            Please double check the files you uploaded. The nzyme log file will have more details about why the
+            Please double check the files you uploaded. The Nzyme log file will have more details about why the
             certificate and/or key is invalid.
           </p>
         </div>

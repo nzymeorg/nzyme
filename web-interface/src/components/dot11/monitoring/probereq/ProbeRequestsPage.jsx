@@ -66,7 +66,7 @@ export default function ProbeRequestsPage() {
                   Monitoring probe requests is essential for ensuring that sensitive SSIDs are not broadcasted by
                   your devices, especially in secure or sensitive locations. For instance, if you provide WiFi
                   access in a high-security area, it is crucial to prevent users from inadvertently revealing
-                  that they have previously connected to this network elsewhere. By using nzyme to monitor probe
+                  that they have previously connected to this network elsewhere. By using Nzyme to monitor probe
                   requests, you can enforce a policy that requires users to delete certain networks from their
                   devices or disable the &quot;auto-connect&quot; feature.
                 </p>

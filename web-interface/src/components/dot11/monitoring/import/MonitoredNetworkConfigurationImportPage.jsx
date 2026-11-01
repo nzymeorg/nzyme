@@ -75,7 +75,7 @@ function MonitoredNetworkConfigurationImportPage() {
 
                 <p className="text-muted">
                   Setting up network monitoring manually for large networks with multiple access points can be
-                  labor-intensive. To streamline this process, nzyme's import functionality allows you to import
+                  labor-intensive. To streamline this process, Nzyme's import functionality allows you to import
                   recorded configurations.
                 </p>
 
@@ -88,7 +88,7 @@ function MonitoredNetworkConfigurationImportPage() {
                     network environment.
                   </li>
                   <li>
-                    Allow nzyme to gather data over several hours to ensure it comprehensively captures all available
+                    Allow Nzyme to gather data over several hours to ensure it comprehensively captures all available
                     network information.
                   </li>
                   <li>

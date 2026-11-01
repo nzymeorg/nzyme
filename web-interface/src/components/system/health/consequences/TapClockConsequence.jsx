@@ -12,7 +12,7 @@ function TapClockConsequence(props) {
       <Consequence
           indicator="Tap Clock"
           color="red"
-          problem="At least one nzyme tap has a local system clock that is not synchronized with reference world time."
+          problem="At least one Nzyme tap has a local system clock that is not synchronized with reference world time."
           acceptableRange={[
             String.fromCharCode(177) + "5000 ms of drift from reference world time"
           ]}

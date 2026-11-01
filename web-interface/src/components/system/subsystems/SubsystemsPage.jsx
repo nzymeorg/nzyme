@@ -28,7 +28,7 @@ export default function SubsystemsPage() {
               <h3>Subsystem Configuration</h3>
 
               <p>
-                This setting governs subsystem availability across the entire nzyme cluster. <strong>You can also
+                This setting governs subsystem availability across the entire Nzyme cluster. <strong>You can also
                 configure subsystems at the organization and tenant levels</strong>, with the higher-level configuration
                 taking precedence.
               </p>

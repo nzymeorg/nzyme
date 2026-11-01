@@ -12,7 +12,7 @@ function EmailActionForm(props) {
   const [name, setName] = useState(action && action.name ? action.name : "");
   const [description, setDescription] = useState(action && action.description ? action.description : "");
   const [subjectPrefix, setSubjectPrefix] = useState(action && action.configuration && action.configuration.subject_prefix
-      ? action.configuration.subject_prefix : "[nzyme]");
+      ? action.configuration.subject_prefix : "[Nzyme]");
   const [newReceiverInput, setNewReceiverInput] = useState("");
   const [receivers, setReceivers] = useState(action && action.configuration && action.configuration.receivers
       ? action.configuration.receivers : []);
@@ -86,7 +86,7 @@ function EmailActionForm(props) {
           <input type="text"
                  className="form-control"
                  id="subjectPrefix"
-                 placeholder="[nzyme]"
+                 placeholder="[Nzyme]"
                  value={subjectPrefix}
                  onChange={(e) => setSubjectPrefix(e.target.value)} />
           <div className="form-text">

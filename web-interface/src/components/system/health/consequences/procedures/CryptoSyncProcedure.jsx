@@ -34,7 +34,7 @@ function CryptoSyncProcedure(props) {
         </li>
         <li>
           <SolutionCounter counter="5" /> Read more about this topic in the{' '}
-          <a href="https://go.nzyme.org/crypto-pgp" target="_blank" rel="noopener">nzyme Crypto &amp; PGP documentation</a> to avoid
+          <a href="https://go.nzyme.org/crypto-pgp" target="_blank" rel="noopener">Nzyme Crypto &amp; PGP documentation</a> to avoid
           issues in the future.
         </li>
 

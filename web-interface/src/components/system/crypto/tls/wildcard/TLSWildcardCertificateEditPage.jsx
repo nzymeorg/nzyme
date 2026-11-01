@@ -73,7 +73,7 @@ function TLSWildcardCertificateEditPage(props) {
 
   const replaceCertificate = function(formData) {
     if (!confirm("Really replace wildcard TLS certificate? This will replace the existing " +
-        "certificate on all nodes that match the regular expression. Note that the nzyme HTTP server on those node will " +
+        "certificate on all nodes that match the regular expression. Note that the Nzyme HTTP server on those node will " +
         "restart and you will likely experience a brief loss of connection.")) {
       return;
     }

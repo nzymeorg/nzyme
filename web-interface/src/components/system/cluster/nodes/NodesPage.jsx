@@ -59,7 +59,7 @@ function NodesPage() {
                 <h3>Cluster Messaging</h3>
 
                 <p>
-                  An nzyme cluster is communicating between nodes to ensure operations. For debugging information,
+                  A Nzyme cluster is communicating between nodes to ensure operations. For debugging information,
                   you can access details of the inter-node messaging bus and tasks queue.
                 </p>
 

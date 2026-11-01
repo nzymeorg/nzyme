@@ -29,7 +29,7 @@ function MFASetupPage(props) {
   }, [])
 
   const buildOTPAuthURL = function() {
-    return "otpauth://totp/nzyme:" + userEmail + "?secret=" + userSecret + "&issuer=nzyme&algorithm=SHA1&digits=6&period=30"
+    return "otpauth://totp/nzyme:" + userEmail + "?secret=" + userSecret + "&issuer=Nzyme&algorithm=SHA1&digits=6&period=30"
   }
 
   const advanceToStage2 = function() {

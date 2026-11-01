@@ -42,9 +42,9 @@ function CryptoSummaryPage () {
                               <h3>PGP Keys</h3>
 
                               <p>
-                                  The nzyme system will automatically generate PGP keys for you to encrypt sensitive
+                                  The Nzyme system will automatically generate PGP keys for you to encrypt sensitive
                                   information in the database. Learn more about PGP keys
-                                  in the <a href="https://go.nzyme.org/crypto-pgp" target="_blank" rel="noreferrer">nzyme documentation</a>.
+                                  in the <a href="https://go.nzyme.org/crypto-pgp" target="_blank" rel="noreferrer">Nzyme documentation</a>.
                               </p>
 
                               <PGPKeyTable crypto={crypto} />
@@ -60,11 +60,11 @@ function CryptoSummaryPage () {
                       <h3>PGP Configuration</h3>
 
                       <p>
-                        The same PGP keys have to be deployed on all nzyme nodes in a cluster. Nzyme will automatically
+                        The same PGP keys have to be deployed on all Nzyme nodes in a cluster. Nzyme will automatically
                         pull the keys from other nodes when joining an existing cluster. The key exchange is encrypted
                         but you can still disable the automatic exchange here. You can also temporarily enable the
                         exchange when you are joining new nodes and then disable it again when you are done. If you
-                        disable the key exchange, you must manually copy the keys or the new nzyme node will not
+                        disable the key exchange, you must manually copy the keys or the new Nzyme node will not
                         start up.
                       </p>
 
@@ -105,7 +105,7 @@ function CryptoSummaryPage () {
                       <h3>TLS Certificates in Use</h3>
 
                       <p>
-                        Individual TLS certificates per node. By default, nzyme will generate a self-signed certificate for
+                        Individual TLS certificates per node. By default, Nzyme will generate a self-signed certificate for
                         you, but you can also upload your own. For auto-provisioning, please look at the wildcard
                         certificate configuration on this page.
                       </p>

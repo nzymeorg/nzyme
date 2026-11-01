@@ -13,7 +13,7 @@ function TapErrorProcedure(props) {
           <ol>
             <li>
               <SolutionCounter counter="2.1" /> Investigate the local Nzyme tap log file to see what type of errors
-              occur in the channels. Please reach out to nzyme support channels with any questions about such errors.
+              occur in the channels. Please reach out to Nzyme support channels with any questions about such errors.
             </li>
           </ol>
         </li>

@@ -29,7 +29,7 @@ function TLSCertificateDetailsPage() {
 
   const regenerateSelfSignedCertificate = function() {
     if (!confirm("Really re-generate self-signed TLS certificate for this node? This will replace the existing " +
-        "certificate. Note that the nzyme HTTP server on this node will restart and you will likely experience a brief " +
+        "certificate. Note that the Nzyme HTTP server on this node will restart and you will likely experience a brief " +
         "loss of connection.")) {
       return;
     }
@@ -42,7 +42,7 @@ function TLSCertificateDetailsPage() {
 
   const installCertificate = function(formData) {
     if (!confirm("Really install individual TLS certificate for this node? This will replace the existing " +
-        "certificate. Note that the nzyme HTTP server on this node will restart and you will likely experience a brief " +
+        "certificate. Note that the Nzyme HTTP server on this node will restart and you will likely experience a brief " +
         "loss of connection.")) {
       return;
     }
@@ -108,17 +108,17 @@ function TLSCertificateDetailsPage() {
                   <h3>Load Certificate from Disk</h3>
 
                   <p>
-                    You can place a certificate in the nzyme cryptography folder on the local disk of this node.
+                    You can place a certificate in the Nzyme cryptography folder on the local disk of this node.
                     It will always be loaded before any wildcard or custom certificate is considered. This can be
                     especially useful in automatically deployed environments under configuration management.
                   </p>
 
                   <p>
-                    Learn more about this in the <a href="https://go.nzyme.org/load-tlscert-disk">nzyme documentation</a>.
+                    Learn more about this in the <a href="https://go.nzyme.org/load-tlscert-disk">Nzyme documentation</a>.
                   </p>
 
                   <p>
-                    <strong>The nzyme certificate load order is the following:</strong>
+                    <strong>The Nzyme certificate load order is the following:</strong>
                   </p>
 
                   <ol>
@@ -137,7 +137,7 @@ function TLSCertificateDetailsPage() {
                 <div className="card-body">
                   <h3>Install Individual Certificate</h3>
 
-                  <p>Use this form to upload an individual TLS certificate for this nzyme node.</p>
+                  <p>Use this form to upload an individual TLS certificate for this Nzyme node.</p>
 
                   <TLSCertificateHelp />
 

@@ -14,7 +14,7 @@ function TapsTable(props) {
 
   if (taps.length === 0) {
     return <div className="alert alert-warning mb-0">
-      No nzyme taps configured yet. They are managed in the{' '}
+      No Nzyme taps configured yet. They are managed in the{' '}
       <Link to={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.INDEX}>authentication section</Link> and can also be added
       directly from this page using the button above.
     </div>

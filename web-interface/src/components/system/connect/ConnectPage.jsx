@@ -32,7 +32,7 @@ export default function ConnectPage() {
       <React.Fragment>
         <div className="row">
           <div className="col-md-12">
-            <h1>nzyme Connect</h1>
+            <h1>Nzyme Connect</h1>
           </div>
         </div>
 
@@ -44,7 +44,7 @@ export default function ConnectPage() {
             <div className="card">
               <div className="card-body">
                 <p className="mb-3">
-                  The optional nzyme Connect APIs provide a link to up-to-date information and cluster improvements,
+                  The optional Nzyme Connect APIs provide a link to up-to-date information and cluster improvements,
                   including:
                 </p>
 
@@ -72,7 +72,7 @@ export default function ConnectPage() {
                 <h3>Provided Services</h3>
 
                 <p>
-                  The following services are enabled for <strong>this</strong> nzyme cluster. Services are managed
+                  The following services are enabled for <strong>this</strong> Nzyme cluster. Services are managed
                   using your account at <a href="https://connect.nzyme.org/" target="_blank">https://connect.nzyme.org/</a>.
                 </p>
 
@@ -101,7 +101,7 @@ export default function ConnectPage() {
                   </thead>
                   <tbody>
                   <tr>
-                    <td>nzyme Connect enabled</td>
+                    <td>Nzyme Connect enabled</td>
                     <td>
                       <ConfigurationValue value={configuration.connect_enabled.value}
                                           configKey={configuration.connect_enabled.key}

@@ -11,7 +11,7 @@ function ConnectProcedure() {
           when the last report was accepted and whether the API key is still valid.
         </li>
         <li>
-          <SolutionCounter counter="2" /> Make sure every nzyme node can reach the Connect API over HTTPS. Check
+          <SolutionCounter counter="2" /> Make sure every Nzyme node can reach the Connect API over HTTPS. Check
           firewalls, proxies and DNS resolution on the nodes.
         </li>
         <li>

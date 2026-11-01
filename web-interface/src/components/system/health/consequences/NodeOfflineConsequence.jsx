@@ -12,7 +12,7 @@ function NodeOfflineConsequence(props) {
       <Consequence
           indicator="Node Offline"
           color="orange"
-          problem="At least one nzyme node that was active in the last 24 hours is currently offline."
+          problem="At least one Nzyme node that was active in the last 24 hours is currently offline."
           acceptableRange={[
             "n/a"
           ]}

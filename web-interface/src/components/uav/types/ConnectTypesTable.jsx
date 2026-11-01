@@ -20,7 +20,7 @@ export default function ConnectTypesTable(props) {
 
   if (types.count === 0) {
     return <div className="alert alert-warning mb-0">
-      No built-in types found. Set up <a href="https://connect.nzyme.org/">nzyme Connect</a> if you want to use this
+      No built-in types found. Set up <a href="https://connect.nzyme.org/">Nzyme Connect</a> if you want to use this
       feature.
     </div>
   }

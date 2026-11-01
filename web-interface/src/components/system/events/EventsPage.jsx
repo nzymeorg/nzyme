@@ -62,7 +62,7 @@ function EventsPage() {
                 <h3>All Recorded Events</h3>
 
                 <p>
-                  The table below displays all recorded events that can trigger actions within nzyme. Please note
+                  The table below displays all recorded events that can trigger actions within Nzyme. Please note
                   that detection alerts have additionally been organized in a separate section in the navigation panel
                   for easier and streamlined management.
                 </p>

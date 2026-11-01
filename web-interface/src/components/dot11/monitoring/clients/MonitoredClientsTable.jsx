@@ -115,7 +115,7 @@ export default function MonitoredClientsTable(props) {
     e.preventDefault();
 
     if (!confirm("Really delete client? It will reappear as unapproved client " +
-      "next time nzyme records it.")) {
+      "next time Nzyme records it.")) {
       return;
     }
 

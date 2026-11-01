@@ -5,7 +5,7 @@ function RestartRequiredWarning (props) {
     return (
             <div className="alert alert-info">
                 Values that have been changed and require a restart to take effect are marked in red. Please restart
-                nzyme or change the values back to their original value if you changed your mind.
+                Nzyme or change the values back to their original value if you changed your mind.
             </div>
     )
   } else {

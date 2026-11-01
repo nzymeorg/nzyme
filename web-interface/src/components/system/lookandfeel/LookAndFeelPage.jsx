@@ -19,14 +19,14 @@ export default function LookAndFeelPage(props) {
 
         <div className="alert alert-warning mt-1">
           <p>
-            Remember that nzyme is licensed under the <a href="https://go.nzyme.org/license">Server Side Public
+            Remember that Nzyme is licensed under the <a href="https://go.nzyme.org/license">Server Side Public
             License</a> (SSPL), which <strong>does not permit making the functionality of the program available to
             third parties as a service</strong> without meeting certain conditions.
           </p>
 
           <p>
-            You will likely need a commercial nzyme license if you are, for example, a managed service or cloud provider
-            offering nzyme as a service to third parties.
+            You will likely need a commercial Nzyme license if you are, for example, a managed service or cloud provider
+            offering Nzyme as a service to third parties.
           </p>
 
           <p className="mb-0">
@@ -68,8 +68,8 @@ export default function LookAndFeelPage(props) {
               <div className="card-body">
                 <h3>Custom Browser Icon and Title</h3>
 
-                You can configure a custom browser icon and title in your nzyme node configuration files. These settings
-                are not modifiable via the web interface due to the way nzyme processes assets and its fundamental HTML template.
+                You can configure a custom browser icon and title in your Nzyme node configuration files. These settings
+                are not modifiable via the web interface due to the way Nzyme processes assets and its fundamental HTML template.
               </div>
             </div>
           </div>

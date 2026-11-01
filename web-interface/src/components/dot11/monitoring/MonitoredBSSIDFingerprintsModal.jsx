@@ -31,7 +31,7 @@ function MonitoredBSSIDFingerprintsModal(props) {
       setFormSubmitting(false);
       setNewFingerprint("");
     }, function () {
-      toast.error("Could not add fingerprint. Please check nzyme log file.");
+      toast.error("Could not add fingerprint. Please check Nzyme log file.");
       setFormSubmitting(false);
     })
   }

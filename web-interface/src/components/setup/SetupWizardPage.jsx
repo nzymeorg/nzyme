@@ -44,7 +44,7 @@ function SetupWizardPage(props) {
 
                         <p>
                           This setup wizard will guide you through the few initial setups required to get started
-                          with nzyme.
+                          with Nzyme.
                         </p>
 
                         <TermsOfUseModal />

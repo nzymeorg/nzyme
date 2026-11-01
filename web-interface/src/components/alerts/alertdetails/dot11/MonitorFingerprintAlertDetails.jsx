@@ -36,7 +36,7 @@ function MonitorFingerprintAlertDetails(props) {
                 </p>
 
                 <ul className="mb-0">
-                  <li>A legitimate change of the access point configuration took place and the nzyme configuration has
+                  <li>A legitimate change of the access point configuration took place and the Nzyme configuration has
                     not been updated.</li>
                 </ul>
               </div>

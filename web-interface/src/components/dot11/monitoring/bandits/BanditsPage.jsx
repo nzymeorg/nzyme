@@ -32,7 +32,7 @@ export default function BanditsPage() {
                 <h3>Bandits</h3>
 
                 <p className="text-muted mb-0">
-                  All nzyme taps are constantly looking for known attack platforms, called <i>bandits</i>. Once a bandit
+                  All Nzyme taps are constantly looking for known attack platforms, called <i>bandits</i>. Once a bandit
                   is detected, an alarm is raised.
                 </p>
               </div>
@@ -47,7 +47,7 @@ export default function BanditsPage() {
                 <h3>Built-In Bandits</h3>
 
                 <p className="text-muted">
-                  The built-in bandits ship with nzyme by default.
+                  The built-in bandits ship with Nzyme by default.
                 </p>
 
                 <BuiltinBanditsTable />

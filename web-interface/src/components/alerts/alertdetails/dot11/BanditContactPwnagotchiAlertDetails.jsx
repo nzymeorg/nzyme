@@ -32,7 +32,7 @@ function BanditContactPwnagotchiAlertDetails(props) {
                   <dd>{alert.attributes.version}</dd>
 
                   <p className="mb-0 mt-3">
-                    The Pwnagotchi WiFi attack platform was detected by nzyme.
+                    The Pwnagotchi WiFi attack platform was detected by Nzyme.
                   </p>
                 </dl>
               </div>

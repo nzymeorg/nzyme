@@ -15,7 +15,7 @@ function NodeFilePermissionsProcedure(props) {
             <li>
               <SolutionCounter counter="2.1" /> Run the commands from the log as root. With default paths, these
               are <code>chmod 700 /usr/share/nzyme/crypto</code>, <code>chmod 600 /usr/share/nzyme/crypto/pgp_private.pgp</code> and <code>chmod 640 /etc/nzyme/nzyme.conf</code>.
-              Everything should be owned by the user nzyme runs as.
+              Everything should be owned by the user Nzyme runs as.
             </li>
             <li>
               <SolutionCounter counter="2.2" /> Consider the exposed secrets compromised if untrusted users had

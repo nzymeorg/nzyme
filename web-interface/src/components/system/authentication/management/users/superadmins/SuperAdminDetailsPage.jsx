@@ -206,7 +206,7 @@ function SuperAdminDetailsPage() {
 
                     <p>
                       Note that you cannot delete yourself and you also cannot delete the last remaining super
-                      administrator of this nzyme system.
+                      administrator of this Nzyme system.
                     </p>
 
                     <button className="btn btn-sm btn-danger" onClick={deleteSuperAdmin} disabled={!isDeletable}>

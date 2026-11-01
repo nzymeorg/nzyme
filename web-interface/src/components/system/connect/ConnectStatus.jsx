@@ -15,7 +15,7 @@ export default function ConnectStatus(props) {
                 <i className="fa-solid fa-link-slash"></i> Disabled
               </div>
               <div className="connect-status-meta">
-                This setup is not configured to connect to nzyme Connect. Please enable it and enter an API key.
+                This setup is not configured to connect to Nzyme Connect. Please enable it and enter an API key.
               </div>
             </div>
           </div>

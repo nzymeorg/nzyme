@@ -18,7 +18,7 @@ function TaskStuckProcedure() {
         </li>
         <li className="consequence-solution-sublist">
           <ol>
-            <li><SolutionCounter counter="2.1" /> Restart the nzyme node that handles the stuck task to stop processing.
+            <li><SolutionCounter counter="2.1" /> Restart the Nzyme node that handles the stuck task to stop processing.
               Note that the task will report as failed after restart and the <Indicator text="Task Failure" />{' '}
               indicator will illuminate. Follow the instruction for that indicator as well.</li>
             <li><SolutionCounter counter="2.2" /> Review stuck task and it's consequences. Consider manually restarting

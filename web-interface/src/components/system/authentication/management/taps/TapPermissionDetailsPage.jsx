@@ -141,7 +141,7 @@ function TapPermissionDetailsPage() {
                   <div className="card-body">
                     <CardTitleWithControls title="Tap Secret" slim={true}/>
 
-                    <p>The tap secret is used to authenticate taps when they connect to nzyme. Every tap has a unique
+                    <p>The tap secret is used to authenticate taps when they connect to Nzyme. Every tap has a unique
                     secret that must be configured in the tap configuration file. <strong>You must update the secret
                     in your tap configuration file after cycling it.</strong> The secret is encrypted in the database.</p>
 

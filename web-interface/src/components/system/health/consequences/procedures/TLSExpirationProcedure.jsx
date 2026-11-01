@@ -8,7 +8,7 @@ function TLSExpirationProcedure(props) {
   return (
       <ol className="consequence-solution-procedure">
         <li>
-          <SolutionCounter counter="1" /> Identify nzyme nodes with expiring or expired TLS certificates using
+          <SolutionCounter counter="1" /> Identify Nzyme nodes with expiring or expired TLS certificates using
           the <Link to={ApiRoutes.SYSTEM.CRYPTO.INDEX}>Keys &amp; Certificates</Link> page.
         </li>
         <li>

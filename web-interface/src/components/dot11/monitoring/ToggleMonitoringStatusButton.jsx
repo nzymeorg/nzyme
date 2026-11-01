@@ -18,7 +18,7 @@ function ToggleMonitoringStatusButton(props) {
       toast.success("Monitoring enabled.");
       setSubmitting(false);
     }, function () {
-      toast.error("Could not enable monitoring. Please check nzyme log file.");
+      toast.error("Could not enable monitoring. Please check Nzyme log file.");
       setSubmitting(false);
     });
   }
@@ -30,7 +30,7 @@ function ToggleMonitoringStatusButton(props) {
       toast.success("Monitoring disabled.");
       setSubmitting(false);
     }, function () {
-      toast.error("Could not disable monitoring. Please check nzyme log file.");
+      toast.error("Could not disable monitoring. Please check Nzyme log file.");
       setSubmitting(false);
     });
   }
