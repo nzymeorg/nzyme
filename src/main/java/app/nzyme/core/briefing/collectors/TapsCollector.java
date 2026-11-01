@@ -129,7 +129,7 @@ public class TapsCollector {
 
             for (BriefingTapCaptureResponse capture : tap.captures()) {
                 if (!capture.isRunning()) {
-                    items.add(BriefingItems.attention(BriefingSeverity.NOTICE, "tap", null,
+                    items.add(BriefingItems.attention(BriefingSeverity.ORANGE, "tap", null,
                             "Capture " + capture.interfaceName() + " on \"" + tap.name() + "\" is not running",
                             "The " + capture.captureType() + " capture stopped. The tap is online but blind on this interface.",
                             1, null, BriefingLinks.to("TAP", "uuid", tap.uuid().toString())));

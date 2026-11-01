@@ -113,8 +113,8 @@ public class AlertsCollector {
             items.add(BriefingItems.attention(BriefingSeverity.ALERT, "alert",
                     subsystem == null ? null : subsystem.name(),
                     count + " " + plural(count, "alert", "alerts") + " flared up again",
-                    "Known " + plural(count, "alert", "alerts") + " that went quiet and came back. "
-                            + "For example: " + describe(sample),
+                    count == 1 ? "Known alert that went quiet and came back: " + describe(sample)
+                            : "Known alerts that went quiet and came back. For example: " + describe(sample),
                     count, sample.lastSeen(),
                     count == 1 ? BriefingLinks.alert(sample.uuid().toString())
                             : BriefingLinks.alerts(subsystem == null ? null : subsystem.name(), null, "Active")));

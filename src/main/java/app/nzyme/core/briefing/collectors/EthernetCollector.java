@@ -30,7 +30,6 @@ public class EthernetCollector {
     private Map<String, DateTime> portalIntegrityLastReport;
     private long monitorsTotal;
     private long monitorsEnabled;
-    private long exclusionsEnabled;
     private long contextNetworks;
 
     private List<String> disabledMethods;
@@ -65,16 +64,6 @@ public class EthernetCollector {
                     .bind("organization_id", ctx.organizationId())
                     .bind("tenant_id", ctx.tenantId())
                     .mapTo(Long.class).one();
-
-            exclusionsEnabled = 0;
-            for (String table : List.of("beacon_exclusions", "recon_exclusions", "spoofing_exclusions",
-                    "dns_tunnel_exclusions", "icmp_exclusions")) {
-                exclusionsEnabled += handle.createQuery("SELECT COUNT(*) FROM " + table +
-                                " WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND enabled = true")
-                        .bind("organization_id", ctx.organizationId())
-                        .bind("tenant_id", ctx.tenantId())
-                        .mapTo(Long.class).one();
-            }
 
             contextNetworks = handle.createQuery("SELECT COUNT(*) FROM context_networks " +
                             "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
@@ -247,12 +236,6 @@ public class EthernetCollector {
                                 + plural(dhcpServersTrusted, "server", "servers") + ", learning complete",
                         null, BriefingLinks.to("SPOOFING_DHCP")));
             }
-        }
-
-        if (exclusionsEnabled > 0) {
-            checks.add(BriefingItems.info("ethernet_exclusions", exclusionsEnabled + " detection "
-                    + plural(exclusionsEnabled, "exclusion suppresses", "exclusions suppress") + " findings",
-                    "Beacons, recon, spoofing, DNS tunnel and ICMP exclusions combined.", null));
         }
 
         // Taps do not report whether portal integrity is configured, so missing probes are never a warning.

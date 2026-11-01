@@ -12,11 +12,12 @@ export default function ChangesSection({changes, window, type, hint}) {
 
   return (
     <div className="row briefing-changes">
-      {changes.map((group, i) => (
+      {changes.map((group) => (
         <div key={group.key} className="col-12 mt-3">
           <BriefingCard title={(type === "MAIN" && group.subsystem ? subsystemName(group.subsystem) + ": " : "") + group.title}
                         internalLink={resolveBriefingLink(group.link, window)}
-                        hint={[i === 0 ? hint : null, group.hint].filter(Boolean).join(" ")}>
+                        className={group.key === "cluster" ? "briefing-changes-stacked" : null}
+                        hint={[group.hint, hint].filter(Boolean).join(" ")}>
             <TileLayout tiles={group.tiles} window={window} />
           </BriefingCard>
         </div>

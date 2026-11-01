@@ -34,8 +34,9 @@ export default function BriefingChart({data, window, unit, kind}) {
   };
 
   const layout = {
-    height: 190,
-    margin: { l: 36, r: 8, t: 8, b: 28 },
+    // Date ticks take two lines (time, then the date on day changes), so the bottom margin holds both.
+    height: 204,
+    margin: { l: 36, r: 8, t: 8, b: 42 },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
     font: { family: "Geist, sans-serif", size: 11, color: colors.text },

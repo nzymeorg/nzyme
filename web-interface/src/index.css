@@ -2315,7 +2315,7 @@ tr:hover a.classification-edit, a.classification-edit:hover {
     text-align: center;
 }
 
-.briefing-check-glyph.level-ok { color: var(--br-muted); }
+.briefing-check-glyph.level-ok { color: var(--br-ok); }
 .briefing-check-glyph.level-warn { color: var(--br-high); }
 .briefing-check-glyph.level-info { color: var(--br-muted); }
 
@@ -2448,6 +2448,21 @@ tr:hover a.classification-edit, a.classification-edit:hover {
 .briefing-tile-compact .briefing-tile-delta {
     margin-top: 0;
     flex-basis: 100%;
+}
+
+/* Long tile titles: number on top, text always below it. */
+.briefing-changes-stacked .briefing-tile-compact .briefing-tile-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.briefing-changes-stacked .briefing-tile-compact .briefing-tile-title {
+    margin-top: 2px;
+}
+
+.briefing-changes-stacked .briefing-tile-compact .briefing-tile-delta {
+    margin-top: 4px;
 }
 
 .briefing-tile {

@@ -157,9 +157,13 @@ public class Dot11Collector {
                         gaps.add(state.bssidsWithoutFingerprints() + " "
                                 + plural(state.bssidsWithoutFingerprints(), "BSSID", "BSSIDs") + " without fingerprints");
                     }
-                    long disabledMethods = countDisabledMethods(state.network());
-                    if (disabledMethods > 0) {
-                        gaps.add(disabledMethods + " detection " + plural(disabledMethods, "method", "methods") + " switched off");
+                    // Every other method is fine to switch off. These two guard against impersonation
+                    // and need no expected values, so there is no reason to run without them.
+                    if (!state.network().enabledSimilarLookingSSID()) {
+                        gaps.add("similar SSIDs detection switched off");
+                    }
+                    if (!state.network().enabledSSIDSubstring()) {
+                        gaps.add("restricted SSID substrings detection switched off");
                     }
 
                     BriefingLinkResponse link = BriefingLinks.to("DOT11_MONITORED_NETWORK", "uuid", state.network().uuid().toString());
@@ -366,18 +370,6 @@ public class Dot11Collector {
             case DOT11_UNAPPROVED_CLIENT -> network.enabledClientMonitoring() && network.enabledClientEventing();
             default -> false;
         };
-    }
-
-    private static long countDisabledMethods(MonitoredSSID network) {
-        long disabled = 0;
-        if (!network.enabledUnexpectedBSSID()) disabled++;
-        if (!network.enabledUnexpectedChannel()) disabled++;
-        if (!network.enabledUnexpectedSecuritySuites()) disabled++;
-        if (!network.enabledUnexpectedFingerprint()) disabled++;
-        if (!network.enabledUnexpectedSignalTracks()) disabled++;
-        if (!network.enabledSimilarLookingSSID()) disabled++;
-        if (!network.enabledSSIDSubstring()) disabled++;
-        return disabled;
     }
 
     private static String describeTypes(Set<DetectionType> types) {

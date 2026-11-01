@@ -3,7 +3,7 @@ import numeral from "numeral";
 
 export const SEVERITY = {
   RED:    { label: "Health indicator red",    icon: "fa-solid fa-triangle-exclamation", rank: 0 },
-  ORANGE: { label: "Health indicator orange", icon: "fa-solid fa-circle-exclamation",   rank: 1 },
+  ORANGE: { label: "Warning",                 icon: "fa-solid fa-circle-exclamation",   rank: 1 },
   ALERT:  { label: "Alert",                   icon: "fa-solid fa-bell",                 rank: 2 },
   NOTICE: { label: "Notice",                  icon: "fa-solid fa-circle-dot",           rank: 3 },
   INFO:   { label: "Info",                    icon: "fa-solid fa-circle-info",          rank: 4 }
