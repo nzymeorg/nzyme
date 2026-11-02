@@ -17,6 +17,11 @@ export default function FilterValueIcon(props) {
     setShow(!show);
   }
 
+  const applyFilters = (newFilters) => {
+    setFilters(newFilters);
+    setShow(false);
+  }
+
   if (!setFilters || value === null || value === undefined) {
     return null;
   }
@@ -38,7 +43,7 @@ export default function FilterValueIcon(props) {
                 </div>
                 <div className="modal-body">
                   <Filters fields={fields}
-                           setFilters={setFilters}
+                           setFilters={applyFilters}
                            hideAppliedFilters={true}
                            onMonitorsReady={() => {}}
                            preSelectedField={field}

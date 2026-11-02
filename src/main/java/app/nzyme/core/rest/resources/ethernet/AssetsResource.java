@@ -547,9 +547,9 @@ public class AssetsResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "findAssetsConfiguration", summary = "Get the asset configuration of a tenant",
-            description = "Returns the asset settings of the tenant, currently the retention time of asset "
-                    + "statistics in days, which defaults to 365. Requires the ethernet_assets_manage feature "
-                    + "permission.",
+            description = "Returns the asset settings of the tenant: the retention time of asset statistics in "
+                    + "days, which defaults to 365, and whether DHCP fingerprint monitoring is enabled, which "
+                    + "defaults to true. Requires the ethernet_assets_manage feature permission.",
             externalDocs = @ExternalDocumentation(description = "Asset configuration in the Nzyme documentation",
                     url = "https://go.nzyme.org/assets-config"))
     @ApiResponse(responseCode = "200", description = "Configuration found.",
@@ -568,16 +568,28 @@ public class AssetsResource extends TapDataHandlingResource {
                 tenantId
         ).orElse(AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.defaultValue().get()));
 
-        return Response.ok(AssetsConfigurationResponse.create(ConfigurationEntryResponse.create(
-                AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key(),
-                "Asset Statistics Retention Time (Days)",
-                retentionTimeDays,
-                ConfigurationEntryValueType.NUMBER,
-                AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.defaultValue().orElse(null),
-                AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.requiresRestart(),
-                AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.constraints().orElse(Collections.emptyList()),
-                "assets-config"
-        ))).build();
+        return Response.ok(AssetsConfigurationResponse.create(
+                ConfigurationEntryResponse.create(
+                        AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key(),
+                        "Asset Statistics Retention Time (Days)",
+                        retentionTimeDays,
+                        ConfigurationEntryValueType.NUMBER,
+                        AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.defaultValue().orElse(null),
+                        AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.requiresRestart(),
+                        AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.constraints().orElse(Collections.emptyList()),
+                        "assets-config"
+                ),
+                ConfigurationEntryResponse.create(
+                        AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.key(),
+                        "DHCP Fingerprint Monitoring Enabled",
+                        nzyme.getEthernet().dhcp().fingerprintMonitoringEnabled(organizationId, tenantId),
+                        ConfigurationEntryValueType.BOOLEAN,
+                        AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.defaultValue().orElse(null),
+                        AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.requiresRestart(),
+                        AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.constraints().orElse(Collections.emptyList()),
+                        "assets-config"
+                )
+        )).build();
 
     }
 
@@ -585,9 +597,11 @@ public class AssetsResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "updateAssetsConfiguration", summary = "Update the asset configuration of a tenant",
-            description = "Updates the asset settings of the tenant. The only accepted key is "
-                    + "assets_statistics_retention_time_days, the number of days asset statistics are kept. "
-                    + "Requires the ethernet_assets_manage feature permission.",
+            description = "Updates the asset settings of the tenant. Accepted keys are "
+                    + "assets_statistics_retention_time_days, the number of days asset statistics are kept, and "
+                    + "assets_dhcp_fingerprint_monitoring_enabled, which controls whether a changed DHCP "
+                    + "fingerprint of an asset raises an alert. Requires the ethernet_assets_manage feature "
+                    + "permission.",
             externalDocs = @ExternalDocumentation(description = "Asset configuration in the Nzyme documentation",
                     url = "https://go.nzyme.org/assets-config"))
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
@@ -607,7 +621,8 @@ public class AssetsResource extends TapDataHandlingResource {
         }
 
         Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
-                .allowing(AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS)
+                .allowing(AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS,
+                        AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED)
                 .validate(req.change());
 
         if (changes.isEmpty()) {

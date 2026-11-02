@@ -162,7 +162,13 @@ const ApiRoutes = {
       DETAILS: uuid => `/ethernet/assets/${uuid}`,
       DHCP: {
         INDEX: '/ethernet/assets/dhcp',
-        TRANSACTION_DETAILS: transactionId => `/ethernet/assets/dhcp/show/${transactionId}`
+        TRANSACTION_DETAILS: transactionId => `/ethernet/assets/dhcp/show/${transactionId}`,
+        EXCLUSIONS: {
+          INDEX: '/ethernet/assets/dhcp/exclusions',
+          CREATE: '/ethernet/assets/dhcp/exclusions/create',
+          DETAILS: uuid => `/ethernet/assets/dhcp/exclusions/show/${uuid}`,
+          EDIT: uuid => `/ethernet/assets/dhcp/exclusions/show/${uuid}/edit`
+        }
       },
       ARP: {
         INDEX: '/ethernet/assets/arp'

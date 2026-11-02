@@ -17,4 +17,13 @@ public class AssetRegistryKeys {
             false
     );
 
+    public static final RegistryKey DHCP_FINGERPRINT_MONITORING_ENABLED = RegistryKey.create(
+            "assets_dhcp_fingerprint_monitoring_enabled",
+            Optional.of(new ArrayList<>() {{
+                add(ConfigurationEntryConstraint.createSimpleBooleanConstraint());
+            }}),
+            Optional.of("true"),
+            false
+    );
+
 }

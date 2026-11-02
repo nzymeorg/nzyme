@@ -66,7 +66,8 @@ public class Permissions {
         put("ethernet_assets_manage", Permission.create(
                 "ethernet_assets_manage",
                 "Manage Ethernet Assets",
-                "Allows user to create, edit and delete configurations related to Ethernet asset management.",
+                "Allows user to create, edit and delete configurations related to Ethernet asset management, " +
+                        "including DHCP fingerprint exclusions and deleting hostnames and IP addresses of assets.",
                 false
         ));
         put("api_keys_manage_own", Permission.create(

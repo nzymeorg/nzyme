@@ -1,4 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
+import {Link} from "react-router-dom";
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import {ASSETS_MENU_ITEMS} from "../AssetsMenuItems";
 import ApiRoutes from "../../../../util/ApiRoutes";
@@ -7,6 +8,7 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import {TapContext} from "../../../../App";
 import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
 import DHCPTransactionsTable from "./DHCPTransactionsTable";
+import DHCPFlakyFingerprintAssetsTable from "./DHCPFlakyFingerprintAssetsTable";
 import useUrlFilters from "../../../shared/filtering/useUrlFilters";
 import {DHCP_FILTER_FIELDS} from "./DHCPFilterFields";
 import Filters from "../../../shared/filtering/Filters";
@@ -40,6 +42,10 @@ export default function DHCPTransactionsPage() {
 
   const perPage = 25;
   const [page, setPage] = useState(1);
+
+  const [flakyAssets, setFlakyAssets] = useState(null);
+  const flakyPerPage = 10;
+  const [flakyPage, setFlakyPage] = useState(1);
 
   const [revision, setRevision] = useState(new Date());
 
@@ -77,6 +83,20 @@ export default function DHCPTransactionsPage() {
         setData
     );
   }, [selectedTaps, organizationId, tenantId, timeRange, orderColumn, orderDirection, filters, page, revision, monitorsReady]);
+
+  useEffect(() => {
+    setFlakyAssets(null);
+
+    assetsService.findDHCPFlakyFingerprintAssets(
+        organizationId,
+        tenantId,
+        timeRange,
+        selectedTaps,
+        flakyPerPage,
+        (flakyPage-1)*flakyPerPage,
+        setFlakyAssets
+    );
+  }, [selectedTaps, organizationId, tenantId, timeRange, flakyPage, revision]);
 
   return (
       <React.Fragment>
@@ -144,6 +164,32 @@ export default function DHCPTransactionsPage() {
             </div>
           </div>
         </RenderConditionally>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Assets with Flaky DHCP Fingerprints"
+                                       timeRange={timeRange}
+                                       refreshAction={() => setRevision(new Date())} />
+
+                <p className="text-muted">
+                  Assets that presented more than one DHCP fingerprint for the same transaction type during the
+                  selected time range. Each change triggers a <em>new DHCP fingerprint</em> alert, so these assets
+                  are candidates for investigation or for an{' '}
+                  <Link to={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.INDEX}>exclusion</Link> from that alert type.
+                  Filters do not apply to this table.
+                </p>
+
+                <DHCPFlakyFingerprintAssetsTable data={flakyAssets}
+                                                 page={flakyPage}
+                                                 setPage={setFlakyPage}
+                                                 perPage={flakyPerPage}
+                                                 setFilters={setFilters} />
+              </div>
+            </div>
+          </div>
+        </div>
       </React.Fragment>
   )
 

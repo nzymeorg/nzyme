@@ -3,6 +3,9 @@ package app.nzyme.core.tables.ethernet;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprint;
+import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
+import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusions;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFingerprintExclusionEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponseEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponses;
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsReport;
@@ -13,6 +16,7 @@ import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.MetricNames;
 import app.nzyme.plugin.Subsystem;
 import com.codahale.metrics.Timer;
+import jakarta.annotation.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.DateTimeFeature;
@@ -220,6 +224,11 @@ public class DHCPTable implements DataTable {
         Map<String, NewAsset> newAssets = new LinkedHashMap<>();
         boolean haveUpdate = false;
 
+        boolean fingerprintMonitoring = tablesService.getNzyme().getEthernet().dhcp()
+                .fingerprintMonitoringEnabled(tap.organizationId(), tap.tenantId());
+
+        Map<DHCPFingerprintExclusionEntry, DHCPFingerprintExclusionMatcher> exclusions = null;
+
         for (Dhcpv4TransactionReport tx : txs) {
             if (tx.clientMac().equals("00:00:00:00:00:00")) {
                 continue;
@@ -274,7 +283,22 @@ public class DHCPTable implements DataTable {
 
                 updateBatch.add();
                 haveUpdate = true;
-                checkFingerprint(tap, asset.get(), tx);
+
+                if (fingerprintMonitoring && fingerprintChanged(asset.get(), tx)) {
+                    if (exclusions == null) {
+                        exclusions = tablesService.getNzyme().getEthernet().dhcp().fingerprintExclusions()
+                                .compileEnabled(handle, tap.organizationId(), tap.tenantId());
+                    }
+
+                    DHCPFingerprintExclusionEntry exclusion = DHCPFingerprintExclusions
+                            .findMatching(exclusions, tx.clientMac(), tx.transactionType());
+                    if (exclusion == null) {
+                        raiseFingerprintAlert(tap, asset.get(), tx);
+                    } else {
+                        tablesService.getNzyme().getEthernet().dhcp().fingerprintExclusions()
+                                .recordMatch(handle, exclusion.id());
+                    }
+                }
             } else {
                 NewAsset na = new NewAsset(UUID.randomUUID(), tx.clientMac(), tx.firstPacket(), tx.latestPacket());
                 fingerprint.ifPresent(fp -> na.setFingerprintIfAbsent(tx.transactionType(), fp));
@@ -322,54 +346,56 @@ public class DHCPTable implements DataTable {
         }
     }
 
-    private void checkFingerprint(Tap tap, AssetEntry asset, Dhcpv4TransactionReport tx) {
+    private boolean fingerprintChanged(AssetEntry asset, Dhcpv4TransactionReport tx) {
         Optional<String> fingerprint = new DHCPFingerprint(tx.options(), tx.vendorClass()).generate();
+        String existingFingerprint = existingFingerprint(asset, tx.transactionType());
 
-        String existingFingerprint;
-        switch (tx.transactionType()) {
+        return fingerprint.isPresent() && existingFingerprint != null && !fingerprint.get().equals(existingFingerprint);
+    }
+
+    @Nullable
+    private static String existingFingerprint(AssetEntry asset, String transactionType) {
+        switch (transactionType) {
             case "Initial":
-                existingFingerprint = asset.dhcpFingerprintInitial();
-                break;
+                return asset.dhcpFingerprintInitial();
             case "Renew":
-                existingFingerprint = asset.dhcpFingerprintRenew();
-                break;
+                return asset.dhcpFingerprintRenew();
             case "Reboot":
-                existingFingerprint = asset.dhcpFingerprintReboot();
-                break;
+                return asset.dhcpFingerprintReboot();
             case "Rebind":
-                existingFingerprint = asset.dhcpFingerprintRebind();
-                break;
+                return asset.dhcpFingerprintRebind();
             default:
-                return;
+                return null;
         }
+    }
+
+    private void raiseFingerprintAlert(Tap tap, AssetEntry asset, Dhcpv4TransactionReport tx) {
+        Optional<String> fingerprint = new DHCPFingerprint(tx.options(), tx.vendorClass()).generate();
+        String existingFingerprint = existingFingerprint(asset, tx.transactionType());
 
         if (fingerprint.isEmpty() || existingFingerprint == null) {
             return;
         }
 
-        if (!fingerprint.get().equals(existingFingerprint)) {
-            // Fingerprint differs.
-            // TODO only trigger if alert enabled for this asset.
-            Map<String, String> attributes = Maps.newHashMap();
-            attributes.put("asset_uuid", asset.uuid().toString());
-            attributes.put("mac", tx.clientMac());
-            attributes.put("transaction_type", tx.transactionType());
-            attributes.put("existing_fingerprint", existingFingerprint);
-            attributes.put("new_fingerprint", fingerprint.get());
+        Map<String, String> attributes = Maps.newHashMap();
+        attributes.put("asset_uuid", asset.uuid().toString());
+        attributes.put("mac", tx.clientMac());
+        attributes.put("transaction_type", tx.transactionType());
+        attributes.put("existing_fingerprint", existingFingerprint);
+        attributes.put("new_fingerprint", fingerprint.get());
 
-            tablesService.getNzyme().getDetectionAlertService().raiseAlert(
-                    tap.organizationId(),
-                    tap.tenantId(),
-                    null,
-                    tap.uuid(),
-                    DetectionType.ASSETS_DHCP_FINGERPRINT_NEW,
-                    Subsystem.ETHERNET,
-                    "MAC address \"" + tx.clientMac() + "\" is presenting new DHCP fingerprint " +
-                            " \"" + fingerprint.get() + "\"",
-                    attributes,
-                    Set.of("asset_uuid", "new_fingerprint")
-            );
-        }
+        tablesService.getNzyme().getDetectionAlertService().raiseAlert(
+                tap.organizationId(),
+                tap.tenantId(),
+                null,
+                tap.uuid(),
+                DetectionType.ASSETS_DHCP_FINGERPRINT_NEW,
+                Subsystem.ETHERNET,
+                "MAC address \"" + tx.clientMac() + "\" is presenting new DHCP fingerprint " +
+                        " \"" + fingerprint.get() + "\"",
+                attributes,
+                Set.of("asset_uuid", "new_fingerprint")
+        );
     }
 
     @Override

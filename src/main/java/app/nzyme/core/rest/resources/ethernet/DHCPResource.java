@@ -5,6 +5,10 @@ import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.dhcp.DHCP;
+import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
+import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusions;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFingerprintExclusionEntry;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFlakyFingerprintAssetEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPStatisticsBucket;
 import app.nzyme.core.ethernet.dhcp.db.DHCPTransactionEntry;
 import app.nzyme.core.rest.RestHelpers;
@@ -12,6 +16,9 @@ import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
+import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPFingerprintExclusionReferenceResponse;
+import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPFlakyFingerprintAssetResponse;
+import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPFlakyFingerprintAssetsListResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPStatisticsBucketResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPTimelineStepResponse;
 import app.nzyme.core.rest.responses.ethernet.dhcp.DHCPServerResponseResponse;
@@ -173,6 +180,62 @@ public class DHCPResource extends TapDataHandlingResource {
         }
 
         return Response.ok(buildTransactionResponse(txe.get(), organizationId, tenantId)).build();
+    }
+
+    @GET
+    @Path("/fingerprints/flaky")
+    @Operation(operationId = "findDhcpFlakyFingerprintAssets", summary = "List assets with flaky DHCP fingerprints",
+            description = "Returns client MAC addresses that presented more than one distinct DHCP fingerprint for "
+                    + "the same transaction type in the time range. Such assets repeatedly trigger the \"new DHCP "
+                    + "fingerprint\" detection and are candidates for investigation or exclusion. Each entry carries "
+                    + "the affected transaction types, all distinct fingerprints, how often the fingerprint changed "
+                    + "between consecutive transactions and how many transactions were observed. Results are "
+                    + "paginated and ordered by number of fingerprint changes. Each entry also lists the "
+                    + "enabled DHCP fingerprint exclusions that already cover the asset.")
+    @ApiResponse(responseCode = "200", description = "Assets found.",
+            content = @Content(schema = @Schema(implementation = DHCPFlakyFingerprintAssetsListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response flakyFingerprintAssets(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                           @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        DHCPFingerprintExclusions exclusions = nzyme.getEthernet().dhcp().fingerprintExclusions();
+        Map<DHCPFingerprintExclusionEntry, DHCPFingerprintExclusionMatcher> compiledExclusions =
+                exclusions.compileEnabled(organizationId, tenantId);
+
+        long total = nzyme.getEthernet().dhcp().countFlakyFingerprintAssets(timeRange, taps);
+        List<DHCPFlakyFingerprintAssetResponse> assets = Lists.newArrayList();
+        for (DHCPFlakyFingerprintAssetEntry a : nzyme.getEthernet().dhcp()
+                .findFlakyFingerprintAssets(timeRange, limit, offset, taps)) {
+            List<DHCPFingerprintExclusionReferenceResponse> matchingExclusions = Lists.newArrayList();
+            for (DHCPFingerprintExclusionEntry e : exclusions.findAllMatchingMac(compiledExclusions, a.clientMac())) {
+                matchingExclusions.add(DHCPFingerprintExclusionReferenceResponse.create(e.uuid(), e.name()));
+            }
+
+            assets.add(DHCPFlakyFingerprintAssetResponse.create(
+                    buildMacResponse(a.clientMac(), organizationId, tenantId),
+                    a.transactionTypes(),
+                    a.fingerprints(),
+                    a.fingerprintCount(),
+                    a.changeCount(),
+                    a.transactionCount(),
+                    a.firstSeen(),
+                    a.lastSeen(),
+                    matchingExclusions
+            ));
+        }
+
+        return Response.ok(DHCPFlakyFingerprintAssetsListResponse.create(total, assets)).build();
     }
 
     private DHCPTransactionDetailsResponse buildTransactionResponse(DHCPTransactionEntry tx,

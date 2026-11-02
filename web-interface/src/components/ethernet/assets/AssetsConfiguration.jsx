@@ -48,6 +48,23 @@ export default function AssetsConfiguration({organizationId, tenantId}) {
                                 dbUpdateCallback={assetsService.updateAssetsConfiguration} />
           </td>
         </tr>
+        <tr>
+          <td>DHCP Fingerprint Monitoring Enabled</td>
+          <td>
+            <ConfigurationValue value={config.dhcp_fingerprint_monitoring_enabled.value}
+                                configKey={config.dhcp_fingerprint_monitoring_enabled.key}
+                                required={true}
+                                boolean={true} />
+          </td>
+          <td>
+            <ConfigurationModal config={config.dhcp_fingerprint_monitoring_enabled}
+                                setGlobalConfig={setConfig}
+                                setLocalRevision={setRevision}
+                                organizationId={organizationId}
+                                tenantId={tenantId}
+                                dbUpdateCallback={assetsService.updateAssetsConfiguration} />
+          </td>
+        </tr>
         </tbody>
       </table>
     </React.Fragment>

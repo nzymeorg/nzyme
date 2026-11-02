@@ -1,8 +1,10 @@
 package app.nzyme.core.ethernet.dhcp;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.assets.AssetRegistryKeys;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFlakyFingerprintAssetEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPStatisticsBucket;
 import app.nzyme.core.ethernet.dhcp.db.DHCPTransactionEntry;
 import app.nzyme.core.util.Bucketing;
@@ -41,9 +43,21 @@ public class DHCP {
     }
 
     private final NzymeNode nzyme;
+    private final DHCPFingerprintExclusions fingerprintExclusions;
 
     public DHCP(Ethernet ethernet) {
         this.nzyme = ethernet.getNzyme();
+        this.fingerprintExclusions = new DHCPFingerprintExclusions(this.nzyme);
+    }
+
+    public DHCPFingerprintExclusions fingerprintExclusions() {
+        return fingerprintExclusions;
+    }
+
+    public boolean fingerprintMonitoringEnabled(UUID organizationId, UUID tenantId) {
+        return Boolean.parseBoolean(nzyme.getDatabaseCoreRegistry()
+                .getValue(AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.key(), organizationId, tenantId)
+                .orElse(AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.defaultValue().orElseThrow()));
     }
 
     public long countAllTransactions(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -181,6 +195,74 @@ public class DHCP {
                         .bindMap(filterFragment.bindings())
                         .bindList("taps", taps)
                         .mapTo(DHCPStatisticsBucket.class)
+                        .list()
+        );
+    }
+
+    // Transactions are de-duplicated across taps the same way as in findAllTransactions().
+    private static final String FLAKY_FINGERPRINTS_CTE =
+            "WITH txs AS (" +
+                "SELECT MIN(client_mac) AS client_mac, MIN(transaction_type) AS transaction_type, " +
+                "MIN(fingerprint) AS fingerprint, MIN(first_packet) AS first_packet, " +
+                "MAX(latest_packet) AS latest_packet " +
+                "FROM dhcp_transactions " +
+                "WHERE fingerprint IS NOT NULL " +
+                "AND latest_packet >= :tr_from AND latest_packet <= :tr_to " +
+                "AND tap_uuid IN (<taps>) " +
+                "GROUP BY transaction_id, FLOOR(EXTRACT(EPOCH FROM first_packet)::numeric / 10)" +
+            "), fps AS (" +
+                "SELECT *, LAG(fingerprint) OVER (PARTITION BY client_mac, transaction_type " +
+                "ORDER BY first_packet) AS previous_fingerprint FROM txs" +
+            "), flaky AS (" +
+                "SELECT client_mac, transaction_type FROM fps " +
+                "GROUP BY client_mac, transaction_type HAVING COUNT(DISTINCT fingerprint) > 1" +
+            ") ";
+
+    public long countFlakyFingerprintAssets(TimeRange timeRange, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(FLAKY_FINGERPRINTS_CTE + "SELECT COUNT(DISTINCT client_mac) FROM flaky")
+                        .bindList("taps", taps)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DHCPFlakyFingerprintAssetEntry> findFlakyFingerprintAssets(TimeRange timeRange,
+                                                                           int limit,
+                                                                           int offset,
+                                                                           List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery(FLAKY_FINGERPRINTS_CTE +
+                                "SELECT f.client_mac, " +
+                                "jsonb_agg(DISTINCT f.transaction_type) AS transaction_types, " +
+                                "jsonb_agg(DISTINCT f.fingerprint) AS fingerprints, " +
+                                "COUNT(DISTINCT f.fingerprint) AS fingerprint_count, " +
+                                "COUNT(*) FILTER (WHERE f.previous_fingerprint IS NOT NULL " +
+                                "AND f.previous_fingerprint <> f.fingerprint) AS change_count, " +
+                                "COUNT(*) AS transaction_count, " +
+                                "MIN(f.first_packet) AS first_seen, MAX(f.latest_packet) AS last_seen " +
+                                "FROM fps f " +
+                                "JOIN flaky fl ON fl.client_mac = f.client_mac " +
+                                "AND fl.transaction_type = f.transaction_type " +
+                                "GROUP BY f.client_mac " +
+                                "ORDER BY change_count DESC, fingerprint_count DESC, last_seen DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bindList("taps", taps)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .mapTo(DHCPFlakyFingerprintAssetEntry.class)
                         .list()
         );
     }

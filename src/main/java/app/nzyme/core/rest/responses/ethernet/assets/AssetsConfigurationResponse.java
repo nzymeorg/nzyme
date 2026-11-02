@@ -10,9 +10,13 @@ public abstract class AssetsConfigurationResponse {
     @JsonProperty("statistics_retention_time_days")
     public abstract ConfigurationEntryResponse statisticsRetentionTimeDays();
 
-    public static AssetsConfigurationResponse create(ConfigurationEntryResponse statisticsRetentionTimeDays) {
+    @JsonProperty("dhcp_fingerprint_monitoring_enabled")
+    public abstract ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled();
+
+    public static AssetsConfigurationResponse create(ConfigurationEntryResponse statisticsRetentionTimeDays, ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled) {
         return builder()
                 .statisticsRetentionTimeDays(statisticsRetentionTimeDays)
+                .dhcpFingerprintMonitoringEnabled(dhcpFingerprintMonitoringEnabled)
                 .build();
     }
 
@@ -23,6 +27,8 @@ public abstract class AssetsConfigurationResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder statisticsRetentionTimeDays(ConfigurationEntryResponse statisticsRetentionTimeDays);
+
+        public abstract Builder dhcpFingerprintMonitoringEnabled(ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled);
 
         public abstract AssetsConfigurationResponse build();
     }

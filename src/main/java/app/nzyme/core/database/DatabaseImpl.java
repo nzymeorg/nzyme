@@ -27,6 +27,8 @@ import app.nzyme.core.dot11.db.monitoring.probereq.MonitoredProbeRequestEntryMap
 import app.nzyme.core.dot11.tracks.db.TrackDetectorConfigMapper;
 import app.nzyme.core.ethernet.arp.db.ARPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.arp.db.ArpPacketEntryMapper;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFingerprintExclusionEntryMapper;
+import app.nzyme.core.ethernet.dhcp.db.DHCPFlakyFingerprintAssetMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPTransactionMapper;
 import app.nzyme.core.ethernet.dns.db.*;
@@ -289,6 +291,8 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new StringNumberNumberAggregationResultMapper())
                 .registerRowMapper(new L4AddressDataAddressNumberNumberAggregationResultMapper())
                 .registerRowMapper(new DHCPStatisticsBucketMapper())
+                .registerRowMapper(new DHCPFlakyFingerprintAssetMapper())
+                .registerRowMapper(new DHCPFingerprintExclusionEntryMapper())
                 .registerRowMapper(new NTPTransactionEntryMapper())
                 .registerRowMapper(new StringDoubleDoubleNumberAggregationResultMapper())
                 .registerRowMapper(new StringStringNumberAggregationResultMapper())

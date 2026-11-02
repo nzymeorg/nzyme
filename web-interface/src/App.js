@@ -222,6 +222,10 @@ import EditIcmpExclusionPage from "./components/ethernet/icmp/exclusions/EditIcm
 import TCPSessionDetailsPage from "./components/ethernet/l4/tcp/TCPSessionDetailsPage";
 import UDPSessionDetailsPage from "./components/ethernet/l4/udp/UDPSessionDetailsPage";
 import EthernetAssetsSettingsPage from "./components/ethernet/assets/EthernetAssetsSettingsPage";
+import DHCPFingerprintExclusionsPage from "./components/ethernet/assets/dhcp/exclusions/DHCPFingerprintExclusionsPage";
+import CreateDHCPFingerprintExclusionPage from "./components/ethernet/assets/dhcp/exclusions/CreateDHCPFingerprintExclusionPage";
+import DHCPFingerprintExclusionDetailsPage from "./components/ethernet/assets/dhcp/exclusions/DHCPFingerprintExclusionDetailsPage";
+import EditDHCPFingerprintExclusionPage from "./components/ethernet/assets/dhcp/exclusions/EditDHCPFingerprintExclusionPage";
 import {NTPOverviewPage} from "./components/ethernet/time/ntp/NTPOverviewPage";
 import NTPTransactionDetailsPage from "./components/ethernet/time/ntp/NTPTransactionDetailsPage";
 import Dot11MonitorsPage from "./components/dot11/monitoring/Dot11MonitorsPage";
@@ -640,6 +644,10 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DETAILS(`:uuid`)} element={<AssetDetailsPage />} />
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX} element={<DHCPTransactionsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.TRANSACTION_DETAILS(':transactionId')} element={<DHCPTransactionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.INDEX} element={<DHCPFingerprintExclusionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.CREATE} element={<CreateDHCPFingerprintExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.DETAILS(':uuid')} element={<DHCPFingerprintExclusionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.EDIT(':uuid')} element={<EditDHCPFingerprintExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.ARP.INDEX} element={<ARPPacketsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.SETTINGS} element={<EthernetAssetsSettingsPage />}/>
 
