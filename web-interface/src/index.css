@@ -2783,12 +2783,18 @@ a.briefing-tile-link:hover .briefing-tile-value {
     padding: 2px 0;
 }
 
-.asset-pivots-external {
+.pivot-link-external {
     margin-left: 6px;
     font-size: 11px;
     color: #999;
 }
 
-.asset-pivots-external:hover {
+.pivot-link-external:hover {
     color: inherit;
+}
+
+.pivot-link-external-btn {
+    padding-left: 6px;
+    padding-right: 6px;
+    font-size: 11px;
 }

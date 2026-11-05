@@ -1,7 +1,7 @@
 import React, {Suspense, useCallback, useEffect, useMemo, useState} from "react";
 import {toast} from "react-toastify";
 import moment from "moment";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import SortableTable from "./SortableTable";
 import L4Address from "../../shared/L4Address";
@@ -12,7 +12,7 @@ import AssetsService from "../../../../services/ethernet/AssetsService";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {Presets} from "../../../shared/timerange/TimeRange";
 import AssetCommunicationGraph from "./AssetCommunicationGraph";
-import {countryName, externalPeerLabel, filteredLink, formatBytes, formatCount, isUnresolvedExternal} from "./AssetProfileHelpers";
+import {countryName, externalPeerLabel, filteredLink, formatBytes, formatCount, isUnresolvedExternal, macFilter} from "./AssetProfileHelpers";
 import {countryCentroid} from "../../../shared/maps/CountryCentroids";
 
 const assetsService = new AssetsService();
@@ -381,8 +381,9 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     return <SortableTable columns={peerColumns} rows={rows} rowKey={(p) => p.peer_type + ":" + p.peer_key} defaultColumn="bytes_rx" />;
   }
 
-  const l4SessionsLink = (field, value) => filteredLink(ApiRoutes.ETHERNET.L4.SESSIONS, {
-    [field]: [{field: field, operator: "equals", value: value}]
+  const l4SessionsLink = (field, value, operator = "equals") => filteredLink(ApiRoutes.ETHERNET.L4.SESSIONS, {
+    ...macFilter("source_mac", asset.mac.address),
+    [field]: [{field: field, operator: operator, value: value}]
   });
 
   const selectionPanel = () => {
@@ -433,13 +434,13 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
           {firstSeen ? <React.Fragment><dt>Seen</dt><dd className="mb-0">{moment(firstSeen).format("YYYY-MM-DD HH:mm")} to {moment(lastSeen).format("YYYY-MM-DD HH:mm")}</dd></React.Fragment> : null}
         </dl>
         {node.type === "INTERNAL" && node.asset
-          ? <Link to={ApiRoutes.ETHERNET.ASSETS.DETAILS(node.asset.uuid)} className="btn btn-sm btn-outline-primary me-1">Open Asset</Link>
+          ? <PivotLink to={ApiRoutes.ETHERNET.ASSETS.DETAILS(node.asset.uuid)} button="btn btn-sm btn-outline-primary" className="me-1">Open Asset</PivotLink>
           : null}
         {node.type === "INTERNAL" && node.address
-          ? <Link to={l4SessionsLink("destination_address", node.address)} className="btn btn-sm btn-outline-secondary me-1">Sessions to Peer</Link>
+          ? <PivotLink to={l4SessionsLink("destination_address", node.address)} button="btn btn-sm btn-outline-secondary" className="me-1">Sessions to Peer</PivotLink>
           : null}
         {node.type === "EXTERNAL" && node.asn_number
-          ? <Link to={l4SessionsLink("destination_address_geo_asn_number", String(node.asn_number))} className="btn btn-sm btn-outline-secondary">Sessions to Network</Link>
+          ? <PivotLink to={l4SessionsLink("destination_address_geo_asn_number", String(node.asn_number), "equals_numeric")} button="btn btn-sm btn-outline-secondary">Sessions to Network</PivotLink>
           : null}
       </React.Fragment>
     )
@@ -493,7 +494,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
             : null}
         </ul>
         {l.country_code
-          ? <Link to={l4SessionsLink("destination_address_geo_country_code", l.country_code)} className="btn btn-sm btn-outline-secondary">Sessions to Country</Link>
+          ? <PivotLink to={l4SessionsLink("destination_address_geo_country_code", l.country_code)} button="btn btn-sm btn-outline-secondary">Sessions to Country</PivotLink>
           : null}
       </React.Fragment>
     )

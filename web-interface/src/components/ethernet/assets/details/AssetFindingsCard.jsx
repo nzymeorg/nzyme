@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import moment from "moment";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import AssetsService from "../../../../services/ethernet/AssetsService";
@@ -88,7 +88,7 @@ export default function AssetFindingsCard({asset, organizationId, tenantId, revi
               const link = findingLink(f.type, mac);
               return (
                 <tr key={f.type + "-" + f.role}>
-                  <td>{link ? <Link to={link}>{findingTitle(f.type)}</Link> : findingTitle(f.type)}</td>
+                  <td>{link ? <PivotLink to={link}>{findingTitle(f.type)}</PivotLink> : findingTitle(f.type)}</td>
                   <td>{alertRoleTitle(f.role)}</td>
                   <td>{formatCount(f.count)}</td>
                   <td>{f.last_seen ? <span title={moment(f.last_seen).format()}>{moment(f.last_seen).fromNow()}</span> : <span className="text-muted">n/a</span>}</td>

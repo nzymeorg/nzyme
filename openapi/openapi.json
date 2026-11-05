@@ -108,6 +108,9 @@
     "description" : "A beacon is a destination that one or more devices in the monitored Ethernet traffic call out to in regular intervals. This is how software checks for updates and reports telemetry, but also how malware maintains a command and control channel. Nzyme detects beacons passively from TLS, HTTP, SSH, SOCKS, DNS, TCP and UDP traffic, groups them by destination and gives each one a random name until an operator names and classifies it. Beacons are never retention cleaned, only their check-in history is.",
     "name" : "Beacons"
   }, {
+    "description" : "Exclusions keep assets with known flaky DHCP fingerprints from raising the \"new DHCP fingerprint\" alert. An exclusion is a MAC address or a vendor prefix, optionally limited to certain DHCP transaction types. Nzyme keeps updating the fingerprints of excluded assets, it only stops alerting on changes. Use them for devices that legitimately alternate between DHCP clients, like dual-boot machines, or for device classes whose firmware randomizes DHCP options.",
+    "name" : "DHCP Fingerprint Exclusions"
+  }, {
     "description" : "DHCP transactions that taps recorded on the Ethernet network, including client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. Nzyme also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.",
     "name" : "DHCP"
   }, {
@@ -7628,7 +7631,7 @@
     },
     "/api/ethernet/assets/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
       "get" : {
-        "description" : "Returns the asset settings of the tenant, currently the retention time of asset statistics in days, which defaults to 365. Requires the ethernet_assets_manage feature permission.",
+        "description" : "Returns the asset settings of the tenant: the retention time of asset statistics in days, which defaults to 365, the retention times of the long-term asset activity (default 365), attribute (default 730) and communication (default 90) data in days, and whether DHCP fingerprint monitoring is enabled, which defaults to true. Requires the ethernet_assets_manage feature permission.",
         "externalDocs" : {
           "description" : "Asset configuration in the Nzyme documentation",
           "url" : "https://go.nzyme.org/assets-config"
@@ -7675,7 +7678,7 @@
         "tags" : [ "Assets" ]
       },
       "put" : {
-        "description" : "Updates the asset settings of the tenant. The only accepted key is assets_statistics_retention_time_days, the number of days asset statistics are kept. Requires the ethernet_assets_manage feature permission.",
+        "description" : "Updates the asset settings of the tenant. Accepted keys are assets_statistics_retention_time_days, the number of days asset statistics are kept, assets_activity_retention_time_days, assets_attributes_retention_time_days and assets_communication_retention_time_days, the retention of the long-term asset activity, attribute and communication data, and assets_dhcp_fingerprint_monitoring_enabled, which controls whether a changed DHCP fingerprint of an asset raises an alert. Requires the ethernet_assets_manage feature permission.",
         "externalDocs" : {
           "description" : "Asset configuration in the Nzyme documentation",
           "url" : "https://go.nzyme.org/assets-config"
@@ -8098,6 +8101,622 @@
           }
         },
         "summary" : "Delete an IP address of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/activity" : {
+      "get" : {
+        "description" : "Returns the activity of the asset over the requested number of days as an hour of day by day of week heatmap and a per-day calendar, shifted into the timezone offset of the caller. Activity is kept outside of the regular protocol data retention.",
+        "operationId" : "findAssetProfileActivity",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Number of days to look back. Defaults to 90, maximum is 730.",
+          "in" : "query",
+          "name" : "days",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Timezone offset of the caller in minutes east of UTC. Defaults to 0.",
+          "in" : "query",
+          "name" : "tz_offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetActivityResponse"
+                }
+              }
+            },
+            "description" : "Activity found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the long-term activity of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/alerts" : {
+      "get" : {
+        "description" : "Returns the alerts that carry the MAC address of the asset in any attribute, grouped by detection type, with the role of the asset in them: ACTOR when it caused the alert, VICTIM when it was the target, SUBJECT when the alert is about the asset itself.",
+        "operationId" : "findAssetProfileAlerts",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetAlertsResponse"
+                }
+              }
+            },
+            "description" : "Alerts found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the alerts involving an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/attributes" : {
+      "get" : {
+        "description" : "Returns every attribute value ever recorded for the asset, grouped by dimension, with first and last seen timestamps and a count. Dimensions include fingerprints, protocols, inbound ports, external networks, infrastructure servers, roles and taps.",
+        "operationId" : "findAssetProfileAttributes",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetAttributesResponse"
+                }
+              }
+            },
+            "description" : "Attributes found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the attribute ledger of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/communication" : {
+      "get" : {
+        "description" : "Returns the aggregated communication edges of the asset in the time range: internal peers by address and MAC, external peers by autonomous system and country, each with direction, layer 4 type, session and byte counts. Internal peers that are assets carry the asset reference, external networks carry the GeoIP city and coordinates first seen for them. Edges are ordered by bytes, descending. The origin is the map position of the asset, from the coordinates of the tap that observed it most or of that tap's location, and null without any.",
+        "operationId" : "findAssetProfileCommunication",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Maximum number of edges. Defaults to 250, maximum is 2000.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetCommunicationResponse"
+                }
+              }
+            },
+            "description" : "Communication found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the communication peers of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/exclusions" : {
+      "get" : {
+        "description" : "Returns every detection exclusion that matches the asset, by its MAC address directly or by one of its IP addresses through a CIDR, across DHCP fingerprint, spoofing, beacon, ICMP, recon and DNS tunnel exclusions.",
+        "operationId" : "findAssetProfileExclusions",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetExclusionsResponse"
+                }
+              }
+            },
+            "description" : "Exclusions found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the exclusions covering an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/findings" : {
+      "get" : {
+        "description" : "Returns the findings of the detection methods that keep their own finding tables, such as scans, beacons, tunnels and spoofing, with the role of the asset in them: ACTOR or VICTIM.",
+        "operationId" : "findAssetProfileFindings",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetFindingsResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the detection findings involving an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/risks" : {
+      "get" : {
+        "description" : "Returns risk signals derived from the asset profile and the detection findings: plaintext protocols, legacy TLS, untrusted or self-signed TLS servers it connected to, sessions accepted from outside the network, tunnels, beacons, scans, spoofing, a randomized MAC address and missing context. TLS signals are limited to the time range and the TLS data retention.",
+        "operationId" : "findAssetProfileRisks",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range for the TLS and inbound session signals.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetRisksResponse"
+                }
+              }
+            },
+            "description" : "Risk signals found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the risk signals of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/summary" : {
+      "get" : {
+        "description" : "Returns the numbers of the asset details summary strip: activity state, alerts involving the asset, exclusions covering it, the most recent change, the taps that observed it and the roles it fulfills.",
+        "operationId" : "findAssetProfileSummary",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetProfileSummaryResponse"
+                }
+              }
+            },
+            "description" : "Summary found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the profile summary of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/timeline" : {
+      "get" : {
+        "description" : "Returns the timeline of the asset in the time range: when it was first seen, every hostname, IP address and attribute value that showed up for the first time, and every alert it was involved in. Filtered by type, which is an event type or ATTRIBUTE:<dimension>, and by value, and sorted by timestamp, type or value.",
+        "operationId" : "findAssetProfileTimeline",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sort column: timestamp, type or value. Defaults to timestamp.",
+          "in" : "query",
+          "name" : "order_by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sort direction: ASC or DESC. Defaults to DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTimelineResponse"
+                }
+              }
+            },
+            "description" : "Timeline found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the change timeline of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/timeline/histogram" : {
+      "get" : {
+        "description" : "Returns the number of timeline events of the asset per time bucket, under the same filters as the timeline. The response is an object that maps each bucket timestamp to a count. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findAssetProfileTimelineHistogram",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the change histogram of an asset",
         "tags" : [ "Assets" ]
       }
     },
@@ -9856,6 +10475,530 @@
         },
         "summary" : "List devices calling a beacon",
         "tags" : [ "Beacons" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions" : {
+      "get" : {
+        "description" : "Returns the exclusions of the tenant, sorted by name by default. Each exclusion includes which known assets it currently covers. Results are paginated.",
+        "operationId" : "findDhcpFingerprintExclusions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: name, description, enabled, mac, match_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, ENABLED, MAC, LAST_MATCHED_AT, MATCH_COUNT, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFingerprintExclusionsListResponse"
+                }
+              }
+            },
+            "description" : "Exclusions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List DHCP fingerprint exclusions of a tenant",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates an exclusion. It takes effect with the next DHCP transaction the taps report. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "createDhcpFingerprintExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DHCPFingerprintExclusionRequest"
+              }
+            }
+          },
+          "description" : "The exclusion.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFingerprintExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion created."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Create a DHCP fingerprint exclusion",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions/organization/{organization_id}/tenant/{tenant_id}/preview" : {
+      "post" : {
+        "description" : "Validates the criteria and returns the known assets they match, without saving anything. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "previewDhcpFingerprintExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DHCPFingerprintExclusionRequest"
+              }
+            }
+          },
+          "description" : "The criteria. Name and description are ignored.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFingerprintExclusionImpactResponse"
+                }
+              }
+            },
+            "description" : "Impact calculated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Preview which known assets an exclusion would cover",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}" : {
+      "delete" : {
+        "description" : "Deletes an exclusion. Fingerprint changes of the assets it covered raise alerts again. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteDhcpFingerprintExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a DHCP fingerprint exclusion",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      },
+      "put" : {
+        "description" : "Replaces name, description, enabled state and all criteria of an exclusion. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "updateDhcpFingerprintExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DHCPFingerprintExclusionRequest"
+              }
+            }
+          },
+          "description" : "The new exclusion data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFingerprintExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Update a DHCP fingerprint exclusion",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}/enabled/{enabled}" : {
+      "put" : {
+        "description" : "A disabled exclusion is kept but no longer applied. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "setDhcpFingerprintExclusionEnabled",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Enable or disable a DHCP fingerprint exclusion",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/exclusions/show/{exclusion_uuid}" : {
+      "get" : {
+        "description" : "Returns one exclusion, including which known assets it currently covers.",
+        "operationId" : "findDhcpFingerprintExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFingerprintExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a DHCP fingerprint exclusion",
+        "tags" : [ "DHCP Fingerprint Exclusions" ]
+      }
+    },
+    "/api/ethernet/dhcp/fingerprints/flaky" : {
+      "get" : {
+        "description" : "Returns client MAC addresses that presented more than one distinct DHCP fingerprint for the same transaction type in the time range. Such assets repeatedly trigger the \"new DHCP fingerprint\" detection and are candidates for investigation or exclusion. Each entry carries the affected transaction types, all distinct fingerprints, how often the fingerprint changed between consecutive transactions and how many transactions were observed. Results are paginated and ordered by number of fingerprint changes. Each entry also lists the enabled DHCP fingerprint exclusions that already cover the asset.",
+        "operationId" : "findDhcpFlakyFingerprintAssets",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DHCPFlakyFingerprintAssetsListResponse"
+                }
+              }
+            },
+            "description" : "Assets found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List assets with flaky DHCP fingerprints",
+        "tags" : [ "DHCP" ]
       }
     },
     "/api/ethernet/dhcp/transactions" : {
@@ -32054,6 +33197,347 @@
           }
         }
       },
+      "AssetActivityCellResponse" : {
+        "type" : "object",
+        "properties" : {
+          "arp_packets" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "day_of_week" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dhcp_transactions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dns_queries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "events" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tcp_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "udp_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetActivityDayResponse" : {
+        "type" : "object",
+        "properties" : {
+          "arp_packets" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "day" : {
+            "type" : "string"
+          },
+          "dhcp_transactions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dns_queries" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "events" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tcp_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "udp_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetActivityResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active_days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "calendar" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetActivityDayResponse"
+            }
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "heatmap" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetActivityCellResponse"
+            }
+          },
+          "longest_gap_days" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "longest_gap_end" : {
+            "type" : "string"
+          },
+          "retention_days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total_events" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetAlertSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "detection_type" : {
+            "type" : "string"
+          },
+          "detection_type_description" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "role" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetAlertsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "alerts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetAlertSummaryResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetAttributeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dimension" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac_address" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetAttributesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/components/schemas/AssetAttributeResponse"
+              }
+            }
+          }
+        }
+      },
+      "AssetCommunicationEdgeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes_rx" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_tx" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "direction" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "peer" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "peer_address" : {
+            "type" : "string"
+          },
+          "peer_asn_name" : {
+            "type" : "string"
+          },
+          "peer_asn_number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "peer_asset" : {
+            "$ref" : "#/components/schemas/AssetPeerAssetResponse"
+          },
+          "peer_city" : {
+            "type" : "string"
+          },
+          "peer_country_code" : {
+            "type" : "string"
+          },
+          "peer_key" : {
+            "type" : "string"
+          },
+          "peer_latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "peer_longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "peer_mac" : {
+            "type" : "string"
+          },
+          "peer_type" : {
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
+            "type" : "string"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetCommunicationOriginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "location_name" : {
+            "type" : "string"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetCommunicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "asset_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "edges" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetCommunicationEdgeResponse"
+            }
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "origin" : {
+            "$ref" : "#/components/schemas/AssetCommunicationOriginResponse"
+          },
+          "retention_days" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "AssetDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -32104,6 +33588,76 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "AssetExclusionMatchResponse" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "matched_by" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetExclusionsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetExclusionMatchResponse"
+            }
+          }
+        }
+      },
+      "AssetFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetFindingsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetFindingResponse"
+            }
           }
         }
       },
@@ -32189,6 +33743,144 @@
           }
         }
       },
+      "AssetPeerAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mac" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetProfileSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active_alerts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "exclusions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "has_context" : {
+            "type" : "boolean"
+          },
+          "is_active" : {
+            "type" : "boolean"
+          },
+          "last_change_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_change_detail" : {
+            "type" : "string"
+          },
+          "last_change_type" : {
+            "type" : "string"
+          },
+          "last_change_value" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "randomized_mac" : {
+            "type" : "boolean"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetRoleResponse"
+            }
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTapResponse"
+            }
+          },
+          "total_alerts" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetRiskSignalResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "signal" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetRisksResponse" : {
+        "type" : "object",
+        "properties" : {
+          "signals" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetRiskSignalResponse"
+            }
+          },
+          "tls_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tls_versions" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "AssetRoleResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dependents" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "role" : {
+            "type" : "string"
+          }
+        }
+      },
       "AssetSummariesListResponse" : {
         "type" : "object",
         "properties" : {
@@ -32257,9 +33949,82 @@
           }
         }
       },
+      "AssetTapResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetTimelineEventResponse" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetTimelineResponse" : {
+        "type" : "object",
+        "properties" : {
+          "attribute_retention_days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTimelineEventResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "AssetsConfigurationResponse" : {
         "type" : "object",
         "properties" : {
+          "activity_retention_time_days" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "attributes_retention_time_days" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "communication_retention_time_days" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "dhcp_fingerprint_monitoring_enabled" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
           "statistics_retention_time_days" : {
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
           }
@@ -34783,6 +36548,212 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/CustomBanditDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DHCPFingerprintExclusionImpactResponse" : {
+        "type" : "object",
+        "properties" : {
+          "assets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DHCPFingerprintExclusionMatchedAssetResponse"
+            }
+          },
+          "matching_assets" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DHCPFingerprintExclusionMatchedAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DHCPFingerprintExclusionReferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DHCPFingerprintExclusionRequest" : {
+        "type" : "object",
+        "description" : "Body for creating, updating or previewing a DHCP fingerprint exclusion. The MAC address or vendor prefix is required. The transaction types are optional and limit the exclusion to those DHCP transaction types.",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Optional description of why the exclusion exists.",
+            "writeOnly" : true
+          },
+          "enabled" : {
+            "type" : "boolean",
+            "description" : "Whether the exclusion is active. Defaults to true.",
+            "writeOnly" : true
+          },
+          "mac" : {
+            "type" : "string",
+            "description" : "Full MAC address like AA:BB:CC:DD:EE:FF, or a vendor prefix like AA:BB:CC that covers every device of that vendor.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the exclusion. Required when creating or updating, ignored for previews.",
+            "writeOnly" : true
+          },
+          "transaction_types" : {
+            "type" : "array",
+            "description" : "DHCP transaction types the exclusion is limited to: Initial, Renew, Reboot or Rebind. Empty or omitted covers all types.",
+            "items" : {
+              "type" : "string",
+              "description" : "DHCP transaction types the exclusion is limited to: Initial, Renew, Reboot or Rebind. Empty or omitted covers all types."
+            },
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "mac" ]
+      },
+      "DHCPFingerprintExclusionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "created_by_email" : {
+            "type" : "string"
+          },
+          "created_by_name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "impact" : {
+            "$ref" : "#/components/schemas/DHCPFingerprintExclusionImpactResponse"
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_is_prefix" : {
+            "type" : "boolean"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "transaction_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DHCPFingerprintExclusionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DHCPFingerprintExclusionResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DHCPFlakyFingerprintAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "change_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DHCPFingerprintExclusionReferenceResponse"
+            }
+          },
+          "fingerprint_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fingerprints" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "transaction_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "transaction_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "DHCPFlakyFingerprintAssetsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "assets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DHCPFlakyFingerprintAssetResponse"
             }
           },
           "total" : {

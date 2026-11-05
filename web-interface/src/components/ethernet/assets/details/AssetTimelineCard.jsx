@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
 import moment from "moment";
 import numeral from "numeral";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import Filters from "../../../shared/filtering/Filters";
@@ -48,7 +48,7 @@ export default function AssetTimelineCard({asset, organizationId, tenantId, revi
 
   const describe = (event) => {
     if (event.type === "ALERT") {
-      return <Link to={ApiRoutes.ALERTS.DETAILS(event.detail)}>{event.value.replace(/_/g, " ")}</Link>;
+      return <PivotLink to={ApiRoutes.ALERTS.DETAILS(event.detail)}>{event.value.replace(/_/g, " ")}</PivotLink>;
     }
 
     const change = describeChange(event.type, event.value, event.detail);

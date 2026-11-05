@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import moment from "moment";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import AssetsService from "../../../../services/ethernet/AssetsService";
@@ -72,12 +72,12 @@ export default function AssetAlertsCard({asset, organizationId, tenantId, revisi
             {rows.map((a) => (
               <tr key={a.detection_type}>
                 <td title={a.detection_type}>
-                  <Link to={filteredLink(ApiRoutes.ALERTS.INDEX, {
+                  <PivotLink to={filteredLink(ApiRoutes.ALERTS.INDEX, {
                     ...macFilter("attribute", mac),
                     type: [{field: "type", operator: "equals", value: a.detection_type}]
                   })}>
                     {a.detection_type_description ? a.detection_type_description : a.detection_type}
-                  </Link>
+                  </PivotLink>
                 </td>
                 <td>{alertRoleTitle(a.role)}</td>
                 <td>{a.active_count > 0 ? <span className="text-danger">{formatCount(a.active_count)}</span> : <span className="text-muted">0</span>}</td>

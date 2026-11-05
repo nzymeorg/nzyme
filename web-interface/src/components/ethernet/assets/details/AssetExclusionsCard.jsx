@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import moment from "moment";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import AssetsService from "../../../../services/ethernet/AssetsService";
@@ -72,7 +72,7 @@ export default function AssetExclusionsCard({asset, organizationId, tenantId, re
             <tr key={e.type + "-" + e.uuid}>
               <td>{exclusionTitle(e.type)}</td>
               <td>
-                {route ? <Link to={route}>{e.name}</Link> : e.name}{' '}
+                {route ? <PivotLink to={route}>{e.name}</PivotLink> : e.name}{' '}
                 {e.enabled ? null : <span className="badge bg-secondary">Disabled</span>}
               </td>
               <td>{e.matched_by}</td>

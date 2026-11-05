@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {Link} from "react-router-dom";
+import PivotLink from "../../../shared/PivotLink";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import {filteredLink, macFilter} from "./AssetProfileHelpers";
 
@@ -120,13 +120,7 @@ export default function AssetPivotsDrawer({asset}) {
               <h6>{group.title}</h6>
               <ul className="list-unstyled">
                 {group.links.map((link) => (
-                  <li key={link.title}>
-                    <Link to={link.to}>{link.title}</Link>
-                    <Link to={link.to} target="_blank" rel="noreferrer" className="asset-pivots-external"
-                          title="Open in new tab" aria-label={link.title + " in new tab"}>
-                      <i className="fa-solid fa-arrow-up-right-from-square" />
-                    </Link>
-                  </li>
+                  <li key={link.title}><PivotLink to={link.to}>{link.title}</PivotLink></li>
                 ))}
               </ul>
             </div>
