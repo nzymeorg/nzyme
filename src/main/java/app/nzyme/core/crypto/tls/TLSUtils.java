@@ -183,6 +183,42 @@ public class TLSUtils {
         return DatatypeConverter.printHexBinary(md.digest()).toLowerCase();
     }
 
+    /*
+     * True if the private key belongs to the certificate's public key: signs a random challenge with the key and
+     * verifies it with the certificate. Catches a cert/key pair that doesn't belong together, for example while
+     * the two files are being replaced one after the other.
+     */
+    public static boolean keyMatchesCertificate(PrivateKey key, X509Certificate certificate) {
+        String algorithm = switch (key.getAlgorithm()) {
+            case "RSA" -> "SHA256withRSA";
+            case "EC", "ECDSA" -> "SHA256withECDSA";
+            case "Ed25519", "EdDSA" -> "Ed25519";
+            case "Ed448" -> "Ed448";
+            default -> null;
+        };
+
+        if (algorithm == null) {
+            return false;
+        }
+
+        try {
+            byte[] challenge = new byte[32];
+            new SecureRandom().nextBytes(challenge);
+
+            Signature signer = Signature.getInstance(algorithm);
+            signer.initSign(key);
+            signer.update(challenge);
+            byte[] signature = signer.sign();
+
+            Signature verifier = Signature.getInstance(algorithm);
+            verifier.initVerify(certificate.getPublicKey());
+            verifier.update(challenge);
+            return verifier.verify(signature);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public static TLSKeyAndCertificate readTLSKeyAndCertificateFromInputStreams(UUID nodeId,
                                                                                 TLSSourceType sourceType,
                                                                                 InputStream certificate,

@@ -726,7 +726,11 @@ public class Crypto {
         }
     }
 
-    private Optional<TLSKeyAndCertificate> loadTLSCertificateFromDisk() {
+    /*
+     * Reads tls.cert / tls.key from the crypto directory, if both exist. Also used by TLSCertificateFileWatcher to
+     * notice a certificate that was replaced on disk while the node is running.
+     */
+    public Optional<TLSKeyAndCertificate> loadTLSCertificateFromDisk() {
         File certFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_CERTIFICATE_FILE_NAME).toFile();
         File keyFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_KEY_FILE_NAME).toFile();
 
