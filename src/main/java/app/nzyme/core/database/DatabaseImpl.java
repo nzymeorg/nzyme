@@ -634,6 +634,38 @@ public class DatabaseImpl implements Database {
                         "DELETE FROM uavs WHERE last_seen < :since AND tap_uuid IN (<taps>)"
                 ));
             }
+            case ASSET_ACTIVITY -> {
+                tables.add(new DataTableInformation(
+                        "assets_activity",
+                        "SELECT COUNT(*) FROM assets_activity WHERE <scope>",
+                        "DELETE FROM assets_activity WHERE <scope> AND bucket < :since",
+                        true
+                ));
+            }
+            case ASSET_ATTRIBUTES -> {
+                tables.add(new DataTableInformation(
+                        "assets_attributes",
+                        "SELECT COUNT(*) FROM assets_attributes WHERE <scope>",
+                        "DELETE FROM assets_attributes WHERE <scope> AND last_seen < :since",
+                        true
+                ));
+            }
+            case ASSET_COMMUNICATION -> {
+                tables.add(new DataTableInformation(
+                        "assets_communication",
+                        "SELECT COUNT(*) FROM assets_communication WHERE <scope>",
+                        "DELETE FROM assets_communication WHERE <scope> AND bucket < :since",
+                        true
+                ));
+            }
+            case ASSET_STATISTICS -> {
+                tables.add(new DataTableInformation(
+                        "assets_statistics",
+                        "SELECT COUNT(*) FROM assets_statistics WHERE <scope>",
+                        "DELETE FROM assets_statistics WHERE <scope> AND timestamp < :since",
+                        true
+                ));
+            }
             case TIMELINE_EVENTS_DOT11 -> {
                 tables.add(new DataTableInformation(
                         "dot11_timeline_events",

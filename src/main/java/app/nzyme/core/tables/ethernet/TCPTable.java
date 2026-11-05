@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.ethernet.l4.tcp.TCPFingerprint;
@@ -220,6 +221,8 @@ public class TCPTable implements DataTable {
         long totalSessions = 0;
         long totalInternalSessions = 0;
 
+        AssetProfileBatch profile = new AssetProfileBatch(tap);
+
         for (Map.Entry<String, TcpSessionReport> entry : deduplicated.entrySet()) {
             String sessionKey = entry.getKey();
             TcpSessionReport session = entry.getValue();
@@ -328,6 +331,25 @@ public class TCPTable implements DataTable {
                     totalRxInternalBytes += session.bytesCountRxIncremental();
                     totalTxInternalBytes += session.bytesCountTxIncremental();
                 }
+
+                // A session is new when every segment it has is from this report cycle.
+                profile.l4Session(
+                        AssetProfileBatch.L4Type.TCP,
+                        session.sourceMac(),
+                        session.destinationMac(),
+                        sourceAddress,
+                        destinationAddress,
+                        session.destinationPort(),
+                        session.tags(),
+                        session.segmentsCount() == session.segmentsCountIncremental(),
+                        session.bytesCountRxIncremental(),
+                        session.bytesCountTxIncremental(),
+                        session.startTime(),
+                        session.mostRecentSegmentTime(),
+                        sourceGeo,
+                        destinationGeo,
+                        fingerprint
+                );
             } catch (Exception e) {
                 LOG.error("Could not handle TCP session.", e);
             }
@@ -338,6 +360,8 @@ public class TCPTable implements DataTable {
         } catch (Exception e) {
             LOG.error("Could not write TCP sessions.", e);
         }
+
+        profile.flush(handle);
 
         try {
             // Aggregated statistics.

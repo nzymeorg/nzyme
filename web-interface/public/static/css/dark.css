@@ -1320,3 +1320,22 @@ tr:hover a.classification-edit, a.classification-edit:hover {
     --br-info: #7c8291;
     --br-ok: #34d399;
 }
+.share-bar {
+    background-color: #33333d;
+}
+
+.share-bar > i {
+    background-color: #7b93db;
+}
+
+.asset-pivots-tab {
+    color: #c7c7d1;
+    background-color: #1c1c22;
+    border-color: #33333d;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
+}
+
+.asset-pivots-tab:hover {
+    color: #ffffff;
+    background-color: #26262e;
+}

@@ -17,6 +17,10 @@
 
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.taps.Tap;
+import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.assets.profile.AssetAttributeDimension;
+import app.nzyme.core.assets.profile.AssetRole;
 import app.nzyme.core.ethernet.dns.DnsNames;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsIpStatisticsReport;
@@ -77,6 +81,8 @@ public class DNSTable implements DataTable {
                 try (Timer.Context ignored2 = logReportTimer.time()) {
                     registerLogs(handle, tapUuid, report.queryLog(), report.responseLog());
                 }
+
+                writeAssetProfiles(handle, tapUuid, report.queryLog());
             });
         }
     }
@@ -172,6 +178,33 @@ public class DNSTable implements DataTable {
 
     /*
      */
+
+    private void writeAssetProfiles(Handle handle, UUID tapUuid, List<DnsLogReport> queries) {
+        if (queries.isEmpty()) {
+            return;
+        }
+
+        Optional<Tap> tap = tablesService.getNzyme().getTapManager().findTap(tapUuid);
+        if (tap.isEmpty()) {
+            return;
+        }
+
+        AssetProfileBatch profile = new AssetProfileBatch(tap.get());
+
+        for (DnsLogReport d : queries) {
+            profile.activity(d.clientMac(), d.timestamp(), AssetProfileBatch.ActivityKind.DNS, 1, 0, 0);
+            profile.tap(d.clientMac(), d.timestamp(), 1);
+            profile.attribute(d.clientMac(), AssetAttributeDimension.DNS_SERVER, d.serverAddress(), d.timestamp());
+
+            if (AssetProfileBatch.isUsableMac(d.serverMac())) {
+                profile.activity(d.serverMac(), d.timestamp(), AssetProfileBatch.ActivityKind.DNS, 1, 0, 0);
+                profile.tap(d.serverMac(), d.timestamp(), 1);
+                profile.attribute(d.serverMac(), AssetAttributeDimension.ROLE, AssetRole.DNS_SERVER.name(), d.timestamp());
+            }
+        }
+
+        profile.flush(handle);
+    }
 
     private void registerLogs(Handle handle,
                               UUID tapUuid,

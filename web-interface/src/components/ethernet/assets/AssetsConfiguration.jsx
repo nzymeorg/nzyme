@@ -48,6 +48,24 @@ export default function AssetsConfiguration({organizationId, tenantId}) {
                                 dbUpdateCallback={assetsService.updateAssetsConfiguration} />
           </td>
         </tr>
+        {["activity_retention_time_days", "attributes_retention_time_days", "communication_retention_time_days"].map((key) =>
+          <tr key={key}>
+            <td>{config[key].key_human_readable}</td>
+            <td>
+              <ConfigurationValue value={config[key].value}
+                                  configKey={config[key].key}
+                                  required={true} />
+            </td>
+            <td>
+              <ConfigurationModal config={config[key]}
+                                  setGlobalConfig={setConfig}
+                                  setLocalRevision={setRevision}
+                                  organizationId={organizationId}
+                                  tenantId={tenantId}
+                                  dbUpdateCallback={assetsService.updateAssetsConfiguration} />
+            </td>
+          </tr>
+        )}
         <tr>
           <td>DHCP Fingerprint Monitoring Enabled</td>
           <td>

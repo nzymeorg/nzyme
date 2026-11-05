@@ -1,5 +1,6 @@
 package app.nzyme.core.assets;
 
+import app.nzyme.core.assets.profile.AssetProfiles;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.assets.db.AssetHostnameEntry;
@@ -86,8 +87,15 @@ public class AssetManager {
 
     private final NzymeNode nzyme;
 
+    private final AssetProfiles profiles;
+
     public AssetManager(NzymeNode nzyme) {
         this.nzyme = nzyme;
+        this.profiles = new AssetProfiles(nzyme);
+    }
+
+    public AssetProfiles profiles() {
+        return profiles;
     }
 
     public long countActiveAssets(UUID organizationId, UUID tenantId) {
@@ -478,17 +486,6 @@ public class AssetManager {
                         .bind("tenant_id", tenantId)
                         .bind("asset_count", assetCount)
                         .bind("timestamp", timestamp)
-                        .execute()
-        );
-    }
-
-    public void retentionCleanAssetStatistics(UUID organizationId, UUID tenantId, DateTime cutoff) {
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM assets_statistics WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND timestamp < :cutoff")
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .bind("cutoff", cutoff)
                         .execute()
         );
     }

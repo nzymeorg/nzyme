@@ -19,6 +19,7 @@ import app.nzyme.core.security.authentication.db.OrganizationEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
 import app.nzyme.core.timelines.TimelinesRegistryKeys;
 import app.nzyme.core.uav.UavRegistryKeys;
+import app.nzyme.core.assets.AssetRegistryKeys;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
@@ -363,6 +364,10 @@ public class DatabaseResource extends UserAuthenticatedResource {
             case TLS_CERTIFICATES -> key = EthernetRegistryKeys.TLS_CERTIFICATES_RETENTION_TIME_DAYS.key();
             case UAV -> key = UavRegistryKeys.UAV_RETENTION_TIME_DAYS.key();
             case TIMELINE_EVENTS_DOT11 -> key = TimelinesRegistryKeys.DOT11_EVENTS_RETENTION_TIME_DAYS.key();
+            case ASSET_ACTIVITY -> key = AssetRegistryKeys.ASSETS_ACTIVITY_RETENTION_TIME_DAYS.key();
+            case ASSET_ATTRIBUTES -> key = AssetRegistryKeys.ASSETS_ATTRIBUTES_RETENTION_TIME_DAYS.key();
+            case ASSET_COMMUNICATION -> key = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.key();
+            case ASSET_STATISTICS -> key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
         }
 
         nzyme.getDatabaseCoreRegistry()
@@ -376,9 +381,19 @@ public class DatabaseResource extends UserAuthenticatedResource {
                                        @Nullable UUID tenantId) {
         List<DataTableInformation> tables = ((DatabaseImpl) nzyme.getDatabase()).getTablesOfDataCategory(category);
 
+        List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, tenantId);
+
         long rows = 0;
         for (DataTableInformation table : tables) {
-            List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, tenantId);
+            if (table.isTenantScoped()) {
+                rows += nzyme.getDatabase().withHandle(handle ->
+                        DataTableInformation.bindTenantScope(handle.createQuery(table.getRowCountQuery()),
+                                        organizationId, tenantId)
+                                .mapTo(Long.class)
+                                .one()
+                );
+                continue;
+            }
 
             if (tapUuids.isEmpty()) {
                 continue;

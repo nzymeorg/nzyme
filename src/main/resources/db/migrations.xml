@@ -11251,4 +11251,211 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="58" author="lennartkoopmann">
+        <createTable tableName="assets_activity">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="bucket" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="arp_packets" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="dhcp_transactions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="dns_queries" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tcp_sessions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="udp_sessions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_rx" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_tx" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_activity" indexName="assets_activity_bucket_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="mac" />
+            <column name="tap_uuid" />
+            <column name="bucket" />
+        </createIndex>
+        <createIndex tableName="assets_activity" indexName="assets_activity_bucket">
+            <column name="bucket" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="59" author="lennartkoopmann">
+        <createTable tableName="assets_attributes">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="dimension" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="value" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_attributes" indexName="assets_attributes_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="mac" />
+            <column name="dimension" />
+            <column name="value" />
+        </createIndex>
+        <createIndex tableName="assets_attributes" indexName="assets_attributes_dimension_value">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="dimension" />
+            <column name="value" />
+        </createIndex>
+        <createIndex tableName="assets_attributes" indexName="assets_attributes_last_seen">
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="60" author="lennartkoopmann">
+        <createTable tableName="assets_communication">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="direction" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="l4_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="peer_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="peer_key" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="peer_mac" type="text" />
+            <column name="peer_address" type="inet" />
+            <column name="peer_asn_number" type="integer" />
+            <column name="peer_asn_name" type="text" />
+            <column name="peer_country_code" type="text" />
+            <column name="bucket" type="date">
+                <constraints nullable="false" />
+            </column>
+            <column name="sessions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_rx" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes_tx" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_communication" indexName="assets_communication_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="mac" />
+            <column name="direction" />
+            <column name="l4_type" />
+            <column name="peer_type" />
+            <column name="peer_key" />
+            <column name="bucket" />
+        </createIndex>
+        <createIndex tableName="assets_communication" indexName="assets_communication_bucket">
+            <column name="bucket" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="61" author="lennartkoopmann">
+        <addColumn tableName="assets_attributes">
+            <column name="bytes" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="62" author="lennartkoopmann">
+        <addColumn tableName="assets_communication">
+            <column name="port" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocol" type="text" defaultValue="">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+        <dropIndex tableName="assets_communication" indexName="assets_communication_key" />
+        <createIndex tableName="assets_communication" indexName="assets_communication_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="mac" />
+            <column name="direction" />
+            <column name="l4_type" />
+            <column name="peer_type" />
+            <column name="peer_key" />
+            <column name="port" />
+            <column name="protocol" />
+            <column name="bucket" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="63" author="lennartkoopmann">
+        <addColumn tableName="assets_communication">
+            <column name="peer_city" type="text" />
+            <column name="peer_latitude" type="double" />
+            <column name="peer_longitude" type="double" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

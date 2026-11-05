@@ -3,8 +3,6 @@ import {Link, useParams} from "react-router-dom";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import AssetsService from "../../../services/ethernet/AssetsService";
-import SectionMenuBar from "../../shared/SectionMenuBar";
-import {ASSETS_MENU_ITEMS} from "./AssetsMenuItems";
 import ApiRoutes from "../../../util/ApiRoutes";
 import moment from "moment/moment";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
@@ -13,20 +11,21 @@ import {Presets} from "../../shared/timerange/TimeRange";
 import AssetIpAddressesTable from "./AssetIpAddressesTable";
 import {toast} from "react-toastify";
 import AssetSourceProtocols from "./AssetSourceProtocols";
-import AssetDetailsDNSTransactions from "./AssetDetailsDNSTransactions";
-import AssetActiveIndicator from "./AssetActiveIndicator";
-import AssetDetailsSSHSessions from "./AssetDetailsSSHSessions";
-import ComponentCycle from "../../shared/ComponentCycle";
-import AssetDetailsSOCKSTunnels from "./AssetDetailsSOCKSTunnels";
-import AssetDetailsVPNTunnels from "./AssetDetailsVPNTunnels";
-import AssetDetailsL4Sessions from "./AssetDetailsL4Sessions";
-import AssetDetailsL4Histograms from "./AssetDetailsL4Histograms";
-import AssetDetailsL4Ports from "./AssetDetailsL4Ports";
 import AssetDetailsAssetName from "./AssetDetailsAssetName";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
-import AssetDetailsNTPTransactions from "./AssetDetailsNTPTransactions";
 import usePageTitle from "../../../util/UsePageTitle";
 import ContextNotes from "../../context/ContextNotes";
+import AssetProfileSummaryStrip from "./details/AssetProfileSummaryStrip";
+import AssetIdentityCard from "./details/AssetIdentityCard";
+import AssetRolesCard from "./details/AssetRolesCard";
+import AssetRiskSignalsCard from "./details/AssetRiskSignalsCard";
+import AssetExclusionsCard from "./details/AssetExclusionsCard";
+import AssetActivityCard from "./details/AssetActivityCard";
+import AssetCommunicationCard from "./details/AssetCommunicationCard";
+import AssetTimelineCard from "./details/AssetTimelineCard";
+import AssetAlertsCard from "./details/AssetAlertsCard";
+import AssetFindingsCard from "./details/AssetFindingsCard";
+import AssetPivotsDrawer from "./details/AssetPivotsDrawer";
 
 const assetsService = new AssetsService();
 
@@ -54,11 +53,26 @@ export default function AssetDetailsPage() {
 
   const [revision, setRevision] = useState(new Date());
 
+  const [summary, setSummary] = useState(null);
+  const [attributes, setAttributes] = useState(null);
+
   usePageTitle(asset ? `Details: ${asset.mac.address}` : "Ethernet Asset Details");
+
+  useEffect(() => {
+    setHostnamesPage(1);
+    setIpAddressesPage(1);
+  }, [uuid]);
 
   useEffect(() => {
     setAsset(null);
     assetsService.findAsset(uuid, organizationId, tenantId, setAsset);
+  }, [uuid, organizationId, tenantId, revision]);
+
+  useEffect(() => {
+    setSummary(null);
+    setAttributes(null);
+    assetsService.getAssetProfileSummary(uuid, organizationId, tenantId, setSummary);
+    assetsService.getAssetProfileAttributes(uuid, organizationId, tenantId, setAttributes);
   }, [uuid, organizationId, tenantId, revision]);
 
   useEffect(() => {
@@ -90,6 +104,8 @@ export default function AssetDetailsPage() {
         setIpAddresses
     );
   }, [uuid, organizationId, tenantId, ipAddressesTimeRange, ipAddressesOrderColumn, ipAddressesOrderDirection, ipAddressesPage, revision])
+
+  const refresh = () => setRevision(new Date());
 
   const onDeleteHostname = (e, id) => {
     e.preventDefault();
@@ -127,8 +143,14 @@ export default function AssetDetailsPage() {
   }
 
   const notes = () => {
-    if (!asset.mac || !asset.mac.context || !asset.mac.context.notes
-      || asset.mac.context.notes.trim().length === 0) {
+    if (!asset.mac || !asset.mac.context) {
+      return <div className="alert alert-info mb-0">
+        This asset has no associated notes. Notes are kept in the MAC address context, which this asset does not
+        have yet.
+      </div>
+    }
+
+    if (!asset.mac.context.notes || asset.mac.context.notes.trim().length === 0) {
       return <div className="alert alert-info mb-0">
         This asset has no associated notes. You can add notes on the{' '}
         <Link to={ApiRoutes.CONTEXT.MAC_ADDRESSES.SHOW(asset.mac.context.uuid)}>Asset Context page</Link>.
@@ -146,15 +168,19 @@ export default function AssetDetailsPage() {
       <React.Fragment>
         <div className="row">
           <div className="col-12">
-            <SectionMenuBar items={ASSETS_MENU_ITEMS}
-                            activeRoute={ApiRoutes.ETHERNET.ASSETS.INDEX} />
+            <nav aria-label="breadcrumb">
+              <ol className="breadcrumb">
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
+                <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.ASSETS.INDEX}>Assets</Link></li>
+                <li className="breadcrumb-item active" aria-current="page">{asset.mac.address}</li>
+              </ol>
+            </nav>
           </div>
         </div>
 
-        <div className="row mt-3">
+        <div className="row mt-2">
           <div className="col-8">
             <h1>
-              <AssetActiveIndicator active={asset.is_active} />{' '}
               Asset <span className="machine-data">{asset.mac.address}</span>{' '}
               {asset.name ? <span className="context-name context-name-asset">{asset.name}</span>
                   : null}
@@ -169,11 +195,13 @@ export default function AssetDetailsPage() {
           </div>
         </div>
 
+        <AssetProfileSummaryStrip summary={summary} />
+
         <div className="row mt-3">
           <div className="col-6">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Details" />
+                <CardTitleWithControls title="Details" refreshAction={refresh} />
 
                 <dl className="mb-0">
                   <dt>MAC Address</dt>
@@ -195,7 +223,7 @@ export default function AssetDetailsPage() {
           <div className="col-6">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Metadata" />
+                <CardTitleWithControls title="Metadata" refreshAction={refresh} />
 
                 <p className="text-muted">Asset metadata is never automatically retention cleaned.</p>
 
@@ -220,7 +248,7 @@ export default function AssetDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Notes" />
+                <CardTitleWithControls title="Notes" refreshAction={refresh} />
 
                 {notes()}
               </div>
@@ -234,7 +262,8 @@ export default function AssetDetailsPage() {
               <div className="card-body">
                 <CardTitleWithControls title="Hostnames"
                                        timeRange={hostnamesTimeRange}
-                                       setTimeRange={setHostnamesTimeRange} />
+                                       setTimeRange={setHostnamesTimeRange}
+                                       refreshAction={refresh} />
 
                 <AssetHostnamesTable hostnames={hostnames}
                                      page={hostnamesPage}
@@ -254,7 +283,8 @@ export default function AssetDetailsPage() {
               <div className="card-body">
                 <CardTitleWithControls title="IP Addresses"
                                        timeRange={ipAddressesTimeRange}
-                                       setTimeRange={setIpAddressesTimeRange} />
+                                       setTimeRange={setIpAddressesTimeRange}
+                                       refreshAction={refresh} />
 
                 <AssetIpAddressesTable addresses={ipAddresses}
                                        page={ipAddressesPage}
@@ -270,32 +300,12 @@ export default function AssetDetailsPage() {
           </div>
         </div>
 
-        <AssetDetailsDNSTransactions asset={asset}/>
-
         <div className="row mt-3">
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Remote Access" />
-
-                <ComponentCycle components={[
-                    {name: "Outbound SSH Sessions", element:
-                          <AssetDetailsSSHSessions title="Outbound SSH Sessions"
-                                                   filters={{
-                                                     "client_mac": [{
-                                                       field: "client_mac",
-                                                       operator: "equals",
-                                                       value: asset.mac.address,
-                                                     }]}} />},
-                  {name: "Inbound SSH Sessions", element:
-                        <AssetDetailsSSHSessions title="Inbound SSH Sessions"
-                                                 filters={{
-                                                   "server_mac": [{
-                                                     field: "server_mac",
-                                                     operator: "equals",
-                                                     value: asset.mac.address,
-                                                   }]}} />},
-                ]} />
+                <AssetRolesCard attributes={attributes} summary={summary}
+                                onRefresh={refresh} />
               </div>
             </div>
           </div>
@@ -305,42 +315,11 @@ export default function AssetDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Tunnels"  />
-
-                <ComponentCycle components={[
-                  {name: "Outbound SOCKS Tunnels", element:
-                        <AssetDetailsSOCKSTunnels title="Outbound SOCKS Tunnels"
-                                                  filters={{
-                                                    "client_mac": [{
-                                                      field: "client_mac",
-                                                      operator: "equals",
-                                                      value: asset.mac.address,
-                                                    }]}} />},
-                  {name: "Inbound SOCKS Tunnels", element:
-                        <AssetDetailsSOCKSTunnels title="Inbound SOCKS Tunnels"
-                                                  filters={{
-                                                    "server_mac": [{
-                                                      field: "server_mac",
-                                                      operator: "equals",
-                                                      value: asset.mac.address,
-                                                    }]}} />},
-                  {name: "Outbound VPN Connections", element:
-                        <AssetDetailsVPNTunnels title="Outbound VPN Connections"
-                                                filters={{
-                                                  "client_mac": [{
-                                                    field: "client_mac",
-                                                    operator: "equals",
-                                                    value: asset.mac.address,
-                                                  }]}} />},
-                  {name: "Inbound VPN Connections", element:
-                        <AssetDetailsVPNTunnels title="Inbound VPN Connections"
-                                                filters={{
-                                                  "server_mac": [{
-                                                    field: "server_mac",
-                                                    operator: "equals",
-                                                    value: asset.mac.address,
-                                                  }]}} />},
-                ]} />
+                <AssetActivityCard asset={asset}
+                                   organizationId={organizationId}
+                                   tenantId={tenantId}
+                                   revision={revision}
+                                   onRefresh={refresh} />
               </div>
             </div>
           </div>
@@ -350,42 +329,38 @@ export default function AssetDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="TCP/UDP Sessions"  />
+                <AssetCommunicationCard asset={asset}
+                                        organizationId={organizationId}
+                                        tenantId={tenantId}
+                                        attributes={attributes}
+                                        revision={revision}
+                                        onRefresh={refresh} />
+              </div>
+            </div>
+          </div>
+        </div>
 
-                <ComponentCycle components={[
-                  {name: "Destinations", element:
-                        <AssetDetailsL4Histograms title="Destinations"
-                                                  filters={{
-                                                    "source_mac": [{
-                                                      field: "source_mac",
-                                                      operator: "equals",
-                                                      value: asset.mac.address,
-                                                    }]}} />},
-                  {name: "Ports", element:
-                        <AssetDetailsL4Ports title="Ports"
-                                                  filters={{
-                                                    "source_mac": [{
-                                                      field: "source_mac",
-                                                      operator: "equals",
-                                                      value: asset.mac.address,
-                                                    }]}} />},
-                  {name: "Outbound Sessions", element:
-                      <AssetDetailsL4Sessions title="Outbound Sessions"
-                                              filters={{
-                                                "source_mac": [{
-                                                  field: "source_mac",
-                                                  operator: "equals",
-                                                  value: asset.mac.address,
-                                                }]}} />},
-                  {name: "Inbound Sessions", element:
-                      <AssetDetailsL4Sessions title="Inbound Sessions"
-                                              filters={{
-                                                "destination_mac": [{
-                                                  field: "destination_mac",
-                                                  operator: "equals",
-                                                  value: asset.mac.address,
-                                                }]}} />},
-                ]} />
+        <div className="row mt-3">
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <AssetRiskSignalsCard asset={asset}
+                                      organizationId={organizationId}
+                                      tenantId={tenantId}
+                                      revision={revision}
+                                      onRefresh={refresh} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <AssetExclusionsCard asset={asset}
+                                     organizationId={organizationId}
+                                     tenantId={tenantId}
+                                     revision={revision}
+                                     onRefresh={refresh} />
               </div>
             </div>
           </div>
@@ -395,30 +370,55 @@ export default function AssetDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Time"  />
-
-                <ComponentCycle components={[
-                  {name: "NTP Client Requests", element:
-                      <AssetDetailsNTPTransactions title="NTP Client Requests"
-                                                   filters={{
-                                                     "client_mac": [{
-                                                       field: "client_mac",
-                                                       operator: "equals",
-                                                       value: asset.mac.address,
-                                                     }]}} />},
-                  {name: "NTP Server Responses", element:
-                      <AssetDetailsNTPTransactions title="NTP Server Responses"
-                                                   filters={{
-                                                     "server_mac": [{
-                                                       field: "server_mac",
-                                                       operator: "equals",
-                                                       value: asset.mac.address,
-                                                     }]}} />},
-                ]} />
+                <AssetTimelineCard key={asset.uuid}
+                                   asset={asset}
+                                   organizationId={organizationId}
+                                   tenantId={tenantId}
+                                   revision={revision}
+                                   onRefresh={refresh} />
               </div>
             </div>
           </div>
         </div>
+
+        <div className="row mt-3">
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <AssetAlertsCard asset={asset}
+                                 organizationId={organizationId}
+                                 tenantId={tenantId}
+                                 revision={revision}
+                                 onRefresh={refresh} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-6">
+            <div className="card">
+              <div className="card-body">
+                <AssetFindingsCard asset={asset}
+                                   organizationId={organizationId}
+                                   tenantId={tenantId}
+                                   revision={revision}
+                                   onRefresh={refresh} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <AssetIdentityCard attributes={attributes}
+                                   onRefresh={refresh} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <AssetPivotsDrawer asset={asset} />
 
       </React.Fragment>
   )

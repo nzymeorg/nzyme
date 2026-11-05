@@ -28,13 +28,11 @@ public class TenantPurgeCategoryTaskHandler extends PurgeTask implements TaskHan
         );
         DateTime since = DateTime.parse((String) task.parametersMap().get("since"));
 
-        List<UUID> tapUuids = Tools.getTapUuids(
-                nzyme,
-                UUID.fromString((String) task.parametersMap().get("organization_id")),
-                UUID.fromString((String) task.parametersMap().get("tenant_id"))
-        );
+        UUID organizationId = UUID.fromString((String) task.parametersMap().get("organization_id"));
+        UUID tenantId = UUID.fromString((String) task.parametersMap().get("tenant_id"));
+        List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, tenantId);
 
-        return purge(nzyme, tapUuids, tables, since);
+        return purge(nzyme, tapUuids, organizationId, tenantId, tables, since);
     }
 
     @Override

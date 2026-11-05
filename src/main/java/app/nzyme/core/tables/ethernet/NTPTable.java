@@ -1,5 +1,12 @@
 package app.nzyme.core.tables.ethernet;
 
+import java.util.List;
+import org.jdbi.v3.core.Handle;
+import java.util.Optional;
+import app.nzyme.core.taps.Tap;
+import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.assets.profile.AssetAttributeDimension;
+import app.nzyme.core.assets.profile.AssetRole;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ntp.NTPTransactionsReport;
 import app.nzyme.core.tables.DataTable;
@@ -129,8 +136,42 @@ public class NTPTable implements DataTable {
                 }
 
                 batch.execute();
+
+                writeAssetProfiles(handle, tapUuid, report.transactions());
             }
         });
+    }
+
+    private void writeAssetProfiles(Handle handle, UUID tapUuid, List<NTPTransactionReport> txs) {
+        if (txs.isEmpty()) {
+            return;
+        }
+
+        Optional<Tap> tap = tablesService.getNzyme().getTapManager().findTap(tapUuid);
+        if (tap.isEmpty()) {
+            return;
+        }
+
+        AssetProfileBatch profile = new AssetProfileBatch(tap.get());
+
+        for (NTPTransactionReport tx : txs) {
+            DateTime timestamp = tx.timestampClientTapReceive() != null
+                    ? tx.timestampClientTapReceive() : tx.timestampServerTapReceive();
+
+            profile.tap(tx.clientMac(), timestamp, 1);
+            profile.attribute(tx.clientMac(), AssetAttributeDimension.NTP_SERVER, tx.serverAddress(), timestamp);
+            if (tx.clientVersion() != null) {
+                profile.attribute(tx.clientMac(), AssetAttributeDimension.NTP_CLIENT_VERSION,
+                        String.valueOf(tx.clientVersion()), timestamp);
+            }
+
+            if (AssetProfileBatch.isUsableMac(tx.serverMac())) {
+                profile.tap(tx.serverMac(), timestamp, 1);
+                profile.attribute(tx.serverMac(), AssetAttributeDimension.ROLE, AssetRole.NTP_SERVER.name(), timestamp);
+            }
+        }
+
+        profile.flush(handle);
     }
 
     @Override

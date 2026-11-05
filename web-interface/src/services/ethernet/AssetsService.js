@@ -58,6 +58,73 @@ export default class AssetsService {
     RESTClient.delete(`/ethernet/assets/show/${assetId}/ip_addresses/${addressId}/organization/${organizationId}/tenant/${tenantId}`, onSuccess)
   }
 
+  getAssetProfileSummary(assetId, organizationId, tenantId, setSummary) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/summary`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setSummary(response.data)
+    )
+  }
+
+  getAssetProfileAttributes(assetId, organizationId, tenantId, setAttributes) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/attributes`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setAttributes(response.data)
+    )
+  }
+
+  getAssetProfileActivity(assetId, organizationId, tenantId, days, timezoneOffset, setActivity) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/activity`, {
+      organization_id: organizationId, tenant_id: tenantId, days: days, tz_offset: timezoneOffset },
+        (response) => setActivity(response.data)
+    )
+  }
+
+  getAssetProfileCommunication(assetId, organizationId, tenantId, timeRange, limit, setCommunication, onError = undefined) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/communication`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, limit: limit },
+        (response) => setCommunication(response.data),
+        onError
+    )
+  }
+
+  getAssetProfileTimeline(assetId, organizationId, tenantId, timeRange, filters, orderBy, orderDirection, limit, offset, setTimeline) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/timeline`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters,
+      order_by: orderBy, order_direction: orderDirection, limit: limit, offset: offset },
+        (response) => setTimeline(response.data)
+    )
+  }
+
+  getAssetProfileTimelineHistogram(assetId, organizationId, tenantId, timeRange, filters, setHistogram) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/timeline/histogram`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters },
+        (response) => setHistogram(response.data)
+    )
+  }
+
+  getAssetProfileAlerts(assetId, organizationId, tenantId, setAlerts) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/alerts`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setAlerts(response.data)
+    )
+  }
+
+  getAssetProfileFindings(assetId, organizationId, tenantId, setFindings) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/findings`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setFindings(response.data)
+    )
+  }
+
+  getAssetProfileExclusions(assetId, organizationId, tenantId, setExclusions) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/exclusions`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setExclusions(response.data)
+    )
+  }
+
+  getAssetProfileRisks(assetId, organizationId, tenantId, timeRange, setRisks) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/risks`, {
+      organization_id: organizationId, tenant_id: tenantId, time_range: timeRange },
+        (response) => setRisks(response.data)
+    )
+  }
+
   findAllDHCPTransactions(organizationId, tenantId, timeRange, orderColumn, orderDirection, filters, taps, limit, offset, setTransactions) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

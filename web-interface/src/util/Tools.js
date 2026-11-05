@@ -382,6 +382,14 @@ export function humanReadableDatabaseCategoryName(category) {
       return "Ethernet: TLS Certificates"
     case "TIMELINE_EVENTS_DOT11":
       return "Timeline Events (802.11/WiFi)"
+    case "ASSET_ACTIVITY":
+      return "Assets: Activity"
+    case "ASSET_ATTRIBUTES":
+      return "Assets: Attributes"
+    case "ASSET_COMMUNICATION":
+      return "Assets: Communication"
+    case "ASSET_STATISTICS":
+      return "Assets: Statistics"
   }
 
   return category;

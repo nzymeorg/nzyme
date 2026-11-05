@@ -490,6 +490,11 @@ div.node-process-arguments .btn-link {
     font-size: 13px;
 }
 
+/* Bootstrap would paint tables white, which makes a table on a card look like a separate box. */
+.table {
+    --bs-table-bg: transparent;
+}
+
 table tr.table-span-heading td {
     text-align: center;
     font-style: italic;
@@ -2703,4 +2708,87 @@ a.briefing-tile-link:hover .briefing-tile-value {
         .briefing-verdict-line {
         font-size: 24px;
     }
+}
+
+.share-bar {
+    display: inline-block;
+    height: 6px;
+    border-radius: 3px;
+    background-color: #e3e3e3;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.share-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 3px;
+    background-color: #1d30d7;
+}
+
+/* The globe tooltip content carries its own plate, so the library box goes. */
+.connection-globe .float-tooltip-kap {
+  background: transparent;
+  padding: 0;
+  max-width: none;
+}
+
+/* Between the sticky navbar (1020) and the offcanvas (1045). */
+.asset-pivots-tab {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    z-index: 1025;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    padding: 12px 9px;
+    font-family: "Geist", sans-serif;
+    font-size: 13px;
+    line-height: 1;
+    color: #444;
+    background-color: #f9f9f9;
+    border: 1px solid #e6e6e6;
+    border-right: 0;
+    border-radius: 8px 0 0 8px;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+}
+
+.asset-pivots-tab:hover {
+    color: #000;
+    background-color: #ffffff;
+}
+
+.asset-pivots-drawer {
+    --bs-offcanvas-width: 340px;
+}
+
+.asset-pivots-drawer .offcanvas-title {
+    margin-bottom: 0;
+}
+
+.asset-pivots-group {
+    margin-bottom: 18px;
+}
+
+.asset-pivots-group h6 {
+    margin-bottom: 4px;
+}
+
+.asset-pivots-group ul {
+    margin-bottom: 0;
+}
+
+.asset-pivots-group li {
+    padding: 2px 0;
+}
+
+.asset-pivots-external {
+    margin-left: 6px;
+    font-size: 11px;
+    color: #999;
+}
+
+.asset-pivots-external:hover {
+    color: inherit;
 }

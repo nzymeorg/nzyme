@@ -1,5 +1,8 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.taps.Tap;
+import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.ethernet.tls.CertificateDetails;
 import app.nzyme.core.ethernet.tls.CertificateStore;
 import app.nzyme.core.ethernet.tls.JA4;
@@ -166,6 +169,34 @@ public class TLSTable implements DataTable {
         }
 
         batch.execute();
+
+        writeAssetProfiles(handle, tapUuid, sessions);
+    }
+
+    private void writeAssetProfiles(Handle handle, UUID tapUuid, List<TlsSessionReport> sessions) {
+        Optional<Tap> tap = tablesService.getNzyme().getTapManager().findTap(tapUuid);
+        if (tap.isEmpty()) {
+            return;
+        }
+
+        AssetProfileBatch profile = new AssetProfileBatch(tap.get());
+
+        for (TlsSessionReport session : sessions) {
+            DateTime timestamp = session.mostRecentSegmentTime() != null
+                    ? session.mostRecentSegmentTime() : session.establishedAt();
+
+            if (session.clientHello() != null) {
+                profile.attribute(session.sourceMac(), AssetAttributeDimension.JA4,
+                        JA4.calculate(session.clientHello()), timestamp);
+            }
+
+            if (session.serverHello() != null && session.serverHello().version() != null) {
+                profile.attribute(session.sourceMac(), AssetAttributeDimension.TLS_VERSION,
+                        session.serverHello().version(), timestamp);
+            }
+        }
+
+        profile.flush(handle);
     }
 
     private PreparedBatch bindSession(PreparedBatch batch, TlsSessionReport s, Map<String, CertificateDetails> certificates) {

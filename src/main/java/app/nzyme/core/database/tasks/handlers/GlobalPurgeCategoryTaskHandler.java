@@ -30,7 +30,7 @@ public class GlobalPurgeCategoryTaskHandler extends PurgeTask implements TaskHan
 
         List<UUID> tapUuids = Tools.getTapUuids(nzyme, null, null);
 
-        return purge(nzyme, tapUuids, tables, since);
+        return purge(nzyme, tapUuids, null, null, tables, since);
     }
 
     @Override

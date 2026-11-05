@@ -1,5 +1,8 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.assets.profile.AssetAttributeDimension;
+import app.nzyme.core.assets.profile.AssetRole;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprint;
@@ -75,6 +78,8 @@ public class DHCPTable implements DataTable {
                 try (Timer.Context ignored3 = assetRegistrationTimer.time()) {
                     registerAssets(handle, tap.get(), report.four());
                 }
+
+                writeAssetProfiles(handle, tap.get(), report.four());
             }
         });
     }
@@ -344,6 +349,32 @@ public class DHCPTable implements DataTable {
                         tap.organizationId(), tap.tenantId(), tap.uuid());
             }
         }
+    }
+
+    private void writeAssetProfiles(Handle handle, Tap tap, List<Dhcpv4TransactionReport> txs) {
+        AssetProfileBatch profile = new AssetProfileBatch(tap);
+
+        for (Dhcpv4TransactionReport tx : txs) {
+            DateTime timestamp = tx.latestPacket() != null ? tx.latestPacket() : tx.firstPacket();
+
+            profile.activity(tx.clientMac(), timestamp, AssetProfileBatch.ActivityKind.DHCP, 1, 0, 0);
+            profile.tap(tx.clientMac(), timestamp, 1);
+
+            new DHCPFingerprint(tx.options(), tx.vendorClass()).generate().ifPresent(fp ->
+                    profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_FINGERPRINT, fp, timestamp));
+            profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_VENDOR_CLASS, tx.vendorClass(), timestamp);
+
+            String server = tx.selectedServerAddress() != null ? tx.selectedServerAddress() : tx.serverMac();
+            profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_SERVER, server, timestamp);
+
+            if (AssetProfileBatch.isUsableMac(tx.serverMac())) {
+                profile.activity(tx.serverMac(), timestamp, AssetProfileBatch.ActivityKind.DHCP, 1, 0, 0);
+                profile.tap(tx.serverMac(), timestamp, 1);
+                profile.attribute(tx.serverMac(), AssetAttributeDimension.ROLE, AssetRole.DHCP_SERVER.name(), timestamp);
+            }
+        }
+
+        profile.flush(handle);
     }
 
     private boolean fingerprintChanged(AssetEntry asset, Dhcpv4TransactionReport tx) {

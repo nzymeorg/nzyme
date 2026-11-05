@@ -1,5 +1,8 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.assets.profile.AssetAttributeDimension;
+import app.nzyme.core.assets.profile.AssetRole;
 import app.nzyme.core.ethernet.spoofing.NameResolutionJson;
 import app.nzyme.core.rest.resources.taps.reports.tables.nameres.NameResolutionResponseReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.nameres.NameResolutionResponsesReport;
@@ -55,6 +58,18 @@ public class NameResolutionTable implements DataTable {
                 }
 
                 batch.execute();
+
+                tablesService.getNzyme().getTapManager().findTap(tapUuid).ifPresent(tap -> {
+                    AssetProfileBatch profile = new AssetProfileBatch(tap);
+                    for (NameResolutionResponseReport r : report.responses()) {
+                        profile.tap(r.responderMac(), r.lastSeen(), 1);
+                        profile.attribute(r.responderMac(), AssetAttributeDimension.ROLE,
+                                AssetRole.NAME_RESOLUTION_RESPONDER.name(), r.lastSeen());
+                        profile.attribute(r.responderMac(), AssetAttributeDimension.NAME_RESOLUTION_PROTOCOL,
+                                r.protocol(), r.lastSeen());
+                    }
+                    profile.flush(handle);
+                });
             });
         }
     }

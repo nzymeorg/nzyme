@@ -33,6 +33,7 @@ public class FilterFactory {
             case "recon_target_outcome_equals":
             case "icmp_type_equals":
             case "protocol_equals":
+            case "asset_change_type_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );
@@ -54,6 +55,7 @@ public class FilterFactory {
             case "recon_target_outcome_not_equals":
             case "icmp_type_not_equals":
             case "protocol_not_equals":
+            case "asset_change_type_not_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );

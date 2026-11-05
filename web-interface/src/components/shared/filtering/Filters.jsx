@@ -69,6 +69,7 @@ import {
 } from "./validators/ReconTargetOutcomeValidator";
 import {ALLOWED_ICMP_TYPE_VALUES, ICMP_TYPE_SELECT_OPTIONS} from "./validators/IcmpTypeValidator";
 import {ALLOWED_TRACEROUTE_PROTOCOL_VALUES, TRACEROUTE_PROTOCOL_SELECT_OPTIONS} from "./validators/TracerouteProtocolValidator";
+import {ALLOWED_ASSET_CHANGE_TYPE_VALUES, ASSET_CHANGE_TYPE_SELECT_OPTIONS} from "./validators/AssetChangeTypeValidator";
 
 export const FILTER_TYPE = {
   STRING: {
@@ -167,6 +168,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_TLS_VERSION_VALUES, value)
     ],
     placeholder: "TLSv1.3"
+  },
+  ASSET_CHANGE_TYPE: {
+    name: "asset_change_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_ASSET_CHANGE_TYPE_VALUES, value)
+    ],
+    placeholder: null
   },
   PUBLIC_KEY_ALGORITHM: {
     name: "public_key_algorithm",
@@ -702,6 +710,24 @@ export const OPERATORS = {
     options: TRACEROUTE_PROTOCOL_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
+  ASSET_CHANGE_TYPE_EQUALS: {
+    name: "asset_change_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ASSET_CHANGE_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  ASSET_CHANGE_TYPE_NOT_EQUALS: {
+    name: "asset_change_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: ASSET_CHANGE_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
   TLS_VERSION_EQUALS: {
     name: "tls_version_equals",
     sign: "==",
@@ -989,6 +1015,12 @@ export default function Filters(props) {
             OPERATORS.TLS_VERSION_NOT_EQUALS,
             OPERATORS.IS_NULL,
             OPERATORS.IS_NOT_NULL
+          ])
+          break;
+        case FILTER_TYPE.ASSET_CHANGE_TYPE:
+          setAllowedOperators([
+            OPERATORS.ASSET_CHANGE_TYPE_EQUALS,
+            OPERATORS.ASSET_CHANGE_TYPE_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.PUBLIC_KEY_ALGORITHM:

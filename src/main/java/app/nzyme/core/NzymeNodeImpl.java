@@ -19,7 +19,6 @@ package app.nzyme.core;
 
 import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.assets.AssetMonitor;
-import app.nzyme.core.assets.AssetStatisticsCleaner;
 import app.nzyme.core.bluetooth.Bluetooth;
 import app.nzyme.core.bluetooth.sig.BluetoothSigService;
 import app.nzyme.core.cache.CacheManager;
@@ -344,7 +343,6 @@ public class NzymeNodeImpl implements NzymeNode {
         periodicalManager.scheduleAtFixedRate(new KnownClientMonitor(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new DatabaseRetentionCleaner(this), 1, 60, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new AssetMonitor(this), 1, 1, TimeUnit.MINUTES);
-        periodicalManager.scheduleAtFixedRate(new AssetStatisticsCleaner(this), 1, 10, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new MonitorsThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new BeaconsThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new ReconThread(this), 1, 1, TimeUnit.MINUTES);

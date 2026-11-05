@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.ethernet.l4.udp.UdpConversationState;
@@ -159,6 +160,8 @@ public class UDPTable implements DataTable {
         long totalSessions = 0;
         long totalInternalSessions = 0;
 
+        AssetProfileBatch profile = new AssetProfileBatch(tap);
+
         for (Map.Entry<String, UdpConversationReport> entry : deduplicated.entrySet()) {
             String sessionKey = entry.getKey();
             UdpConversationReport conversation = entry.getValue();
@@ -240,6 +243,25 @@ public class UDPTable implements DataTable {
                     totalRxInternalBytes += conversation.bytesCountRxIncremental();
                     totalTxInternalBytes += conversation.bytesCountTxIncremental();
                 }
+
+                // A conversation is new when every datagram it has is from this report cycle.
+                profile.l4Session(
+                        AssetProfileBatch.L4Type.UDP,
+                        conversation.sourceMac(),
+                        conversation.destinationMac(),
+                        sourceAddress,
+                        destinationAddress,
+                        conversation.destinationPort(),
+                        conversation.tags(),
+                        conversation.datagramsCount() == conversation.datagramsCountIncremental(),
+                        conversation.bytesCountRxIncremental(),
+                        conversation.bytesCountTxIncremental(),
+                        conversation.startTime(),
+                        conversation.mostRecentSegmentTime(),
+                        sourceGeo,
+                        destinationGeo,
+                        null
+                );
             } catch (Exception e) {
                 LOG.error("Could not handle UDP conversation.", e);
             }
@@ -250,6 +272,9 @@ public class UDPTable implements DataTable {
         } catch (Exception e) {
             LOG.error("Could not write UDP conversations.", e);
         }
+
+
+        profile.flush(handle);
 
         try {
             // Aggregated statistics.

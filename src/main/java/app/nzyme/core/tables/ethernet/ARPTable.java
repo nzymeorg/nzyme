@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.rest.resources.taps.reports.tables.arp.ArpPacketReport;
@@ -80,6 +81,14 @@ public class ARPTable implements DataTable {
                 try (Timer.Context ignored1 = assetRegistrationTimer.time()) {
                     registerAssets(handle, tap.get(), timestamp, report.packets());
                 }
+
+                AssetProfileBatch profile = new AssetProfileBatch(tap.get());
+                for (ArpPacketReport packet : report.packets()) {
+                    profile.activity(packet.ethernetSourceMac(), packet.timestamp(),
+                            AssetProfileBatch.ActivityKind.ARP, 1, 0, 0);
+                    profile.tap(packet.ethernetSourceMac(), packet.timestamp(), 1);
+                }
+                profile.flush(handle);
             });
         }
     }
