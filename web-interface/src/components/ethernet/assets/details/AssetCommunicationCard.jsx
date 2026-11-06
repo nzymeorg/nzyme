@@ -565,6 +565,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
       <CardTitleWithControls title="Communication"
                              timeRange={timeRange}
                              setTimeRange={setTimeRange}
+                             timeRangeGranularity="day"
                              doNotPersistTimeRange={true}
                              refreshAction={onRefresh} />
 

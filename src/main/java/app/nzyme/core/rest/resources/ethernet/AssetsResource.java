@@ -891,7 +891,9 @@ public class AssetsResource extends TapDataHandlingResource {
     @Operation(operationId = "findAssetProfileCommunication", summary = "Get the communication peers of an asset",
             description = "Returns the aggregated communication edges of the asset in the time range: internal "
                     + "peers by address and MAC, external peers by autonomous system and country, each with "
-                    + "direction, layer 4 type, session and byte counts. Internal peers that are assets carry the "
+                    + "direction, layer 4 type, session and byte counts. Communication is aggregated per UTC day, so "
+                    + "the time range applies to whole days: a range shorter than a day returns that whole day. "
+                    + "Internal peers that are assets carry the "
                     + "asset reference, external networks carry the GeoIP city and coordinates first seen for them. "
                     + "Edges are ordered by bytes, descending. The origin is the map position of the asset, from the "
                     + "coordinates of the tap that observed it most or of that tap's location, and null without any.")

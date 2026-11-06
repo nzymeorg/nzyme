@@ -155,6 +155,7 @@ export default function AssetActivityCard({asset, organizationId, tenantId, revi
       <CardTitleWithControls title="Activity"
                              timeRange={timeRange}
                              setTimeRange={setTimeRange}
+                             timeRangeGranularity="day"
                              doNotPersistTimeRange={true}
                              refreshAction={onRefresh} />
 

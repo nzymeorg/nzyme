@@ -23,6 +23,7 @@ function CardTitleWithControls(props) {
   const fixedAppliedTimeRange = props.fixedAppliedTimeRange;
 
   const doNotPersistTimeRange = props.doNotPersistTimeRange || false;
+  const timeRangeGranularity = props.timeRangeGranularity;
 
   const [timeRangeDialogOpened, setTimeRangeDialogOpened] = useState(false);
 
@@ -125,6 +126,7 @@ function CardTitleWithControls(props) {
         <TimeRangeSelector timeRange={timeRange}
                            setTimeRange={setTimeRange}
                            urlKey={urlKey}
+                           granularity={timeRangeGranularity}
                            doNotPersistTimeRange={doNotPersistTimeRange} />
       </div>
     );

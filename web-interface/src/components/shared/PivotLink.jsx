@@ -1,10 +1,6 @@
 import React from "react";
 import {Link} from "react-router-dom";
 
-/*
- * A link into another page with a second, small link next to it that opens the same page in a new tab. Inline by
- * default; with `button` set it renders as a split button group, `button` being the button classes of the main part.
- */
 export default function PivotLink({to, children, title, button = null, className = ""}) {
   const label = typeof children === "string" ? children : title;
   const newTab = label ? label + " in new tab" : "Open in new tab";
