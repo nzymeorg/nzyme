@@ -8226,7 +8226,7 @@
     },
     "/api/ethernet/assets/show/{asset_id}/profile/attributes" : {
       "get" : {
-        "description" : "Returns every attribute value ever recorded for the asset, grouped by dimension, with first and last seen timestamps and a count. Dimensions include fingerprints, protocols, inbound ports, external networks, infrastructure servers, roles and taps.",
+        "description" : "Returns every attribute value ever recorded for the asset, grouped by dimension, with first and last seen timestamps and a count. Dimensions include fingerprints, protocols, inbound ports, external networks, infrastructure servers, roles and taps. Dimensions can be excluded, which the web interface does for inbound ports since those have their own paginated endpoint and can number in the thousands on a scanned host.",
         "operationId" : "findAssetProfileAttributes",
         "parameters" : [ {
           "description" : "Asset UUID.",
@@ -8253,6 +8253,13 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "description" : "Comma-separated dimensions to leave out, like INBOUND_PORT,INBOUND_PORT_PROTOCOL.",
+          "in" : "query",
+          "name" : "exclude_dimensions",
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -8278,7 +8285,7 @@
     },
     "/api/ethernet/assets/show/{asset_id}/profile/communication" : {
       "get" : {
-        "description" : "Returns the aggregated communication edges of the asset in the time range: internal peers by address and MAC, external peers by autonomous system and country, each with direction, layer 4 type, session and byte counts. Internal peers that are assets carry the asset reference, external networks carry the GeoIP city and coordinates first seen for them. Edges are ordered by bytes, descending. The origin is the map position of the asset, from the coordinates of the tap that observed it most or of that tap's location, and null without any.",
+        "description" : "Returns the aggregated communication edges of the asset in the time range: internal peers by address and MAC, external peers by autonomous system and country, each with direction, layer 4 type, session and byte counts. Communication is aggregated per UTC day, so the time range applies to whole days: a range shorter than a day returns that whole day. Internal peers that are assets carry the asset reference, external networks carry the GeoIP city and coordinates first seen for them. Edges are ordered by bytes, descending. The origin is the map position of the asset, from the coordinates of the tap that observed it most or of that tap's location, and null without any.",
         "operationId" : "findAssetProfileCommunication",
         "parameters" : [ {
           "description" : "Asset UUID.",
@@ -8444,6 +8451,94 @@
           }
         },
         "summary" : "Get the detection findings involving an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/show/{asset_id}/profile/inbound-ports" : {
+      "get" : {
+        "description" : "Returns one page of the ports the asset accepted sessions on, each with the session and byte counts, first and last seen timestamps and the protocols served on it, busiest first. The totals and maximums cover every port of the asset, not only the page. Sorted by port, count, bytes, first_seen or last_seen.",
+        "operationId" : "findAssetProfileInboundPorts",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sort column: port, count, bytes, first_seen or last_seen. Defaults to count.",
+          "in" : "query",
+          "name" : "order_by",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sort direction: ASC or DESC. Defaults to DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size, at most 100.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetInboundPortsResponse"
+                }
+              }
+            },
+            "description" : "Inbound ports found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid sort column."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the inbound ports of an asset",
         "tags" : [ "Assets" ]
       }
     },
@@ -33699,6 +33794,86 @@
           }
         }
       },
+      "AssetInboundPortProtocolResponse" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetInboundPortResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocols" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetInboundPortProtocolResponse"
+            }
+          },
+          "transport" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetInboundPortsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "max_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "max_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ports" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetInboundPortResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "AssetIpAddressDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -33977,6 +34152,9 @@
         "type" : "object",
         "properties" : {
           "detail" : {
+            "type" : "string"
+          },
+          "label" : {
             "type" : "string"
           },
           "timestamp" : {

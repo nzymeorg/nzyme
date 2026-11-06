@@ -115,13 +115,94 @@ public class AssetProfiles {
     }
 
     public List<AttributeEntry> attributes(UUID organizationId, UUID tenantId, String mac) {
+        return attributes(organizationId, tenantId, mac, Set.of());
+    }
+
+    public List<AttributeEntry> attributes(UUID organizationId, UUID tenantId, String mac, Set<String> excludedDimensions) {
+        String exclusion = excludedDimensions.isEmpty() ? "" : "AND dimension NOT IN (<excluded>) ";
+
+        return nzyme.getDatabase().withHandle(handle -> {
+            Query query = handle.createQuery("SELECT dimension, value, count, bytes, first_seen, last_seen FROM assets_attributes " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac " +
+                            exclusion + "ORDER BY dimension ASC, last_seen DESC")
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .bind("mac", mac);
+            if (!excludedDimensions.isEmpty()) {
+                query.bindList("excluded", new ArrayList<>(excludedDimensions));
+            }
+            return query.map((rs, ctx) -> new AttributeEntry(rs.getString("dimension"), rs.getString("value"),
+                            rs.getLong("count"), rs.getLong("bytes"), dateTime(rs.getTimestamp("first_seen")),
+                            dateTime(rs.getTimestamp("last_seen"))))
+                    .list();
+        });
+    }
+
+    public record InboundPortTotals(long ports, long sessions, long bytes, long maxSessions, long maxBytes) {}
+
+    public enum InboundPortOrder {
+        PORT, COUNT, BYTES, FIRST_SEEN, LAST_SEEN
+    }
+
+    public InboundPortTotals inboundPortTotals(UUID organizationId, UUID tenantId, String mac) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT dimension, value, count, bytes, first_seen, last_seen FROM assets_attributes " +
+                handle.createQuery("SELECT COUNT(*) AS ports, COALESCE(SUM(count), 0) AS sessions, " +
+                                "COALESCE(SUM(bytes), 0) AS bytes, COALESCE(MAX(count), 0) AS max_sessions, " +
+                                "COALESCE(MAX(bytes), 0) AS max_bytes FROM assets_attributes " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac " +
-                                "ORDER BY dimension ASC, last_seen DESC")
+                                "AND dimension = 'INBOUND_PORT'")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("mac", mac)
+                        .map((rs, ctx) -> new InboundPortTotals(rs.getLong("ports"), rs.getLong("sessions"),
+                                rs.getLong("bytes"), rs.getLong("max_sessions"), rs.getLong("max_bytes")))
+                        .one()
+        );
+    }
+
+    // Values look like "TCP/22".
+    public List<AttributeEntry> inboundPorts(UUID organizationId, UUID tenantId, String mac, InboundPortOrder order,
+                                             OrderDirection direction, int limit, int offset) {
+        String dir = direction == OrderDirection.ASC ? "ASC" : "DESC";
+        String orderBy = switch (order) {
+            case PORT -> "NULLIF(regexp_replace(split_part(value, '/', 2), '\\D', '', 'g'), '')::int " + dir + ", value " + dir;
+            case BYTES -> "bytes " + dir + ", count DESC, value ASC";
+            case FIRST_SEEN -> "first_seen " + dir + ", value ASC";
+            case LAST_SEEN -> "last_seen " + dir + ", value ASC";
+            default -> "count " + dir + ", bytes DESC, value ASC";
+        };
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT dimension, value, count, bytes, first_seen, last_seen FROM assets_attributes " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac " +
+                                "AND dimension = 'INBOUND_PORT' ORDER BY " + orderBy + " LIMIT :limit OFFSET :offset")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("mac", mac)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .map((rs, ctx) -> new AttributeEntry(rs.getString("dimension"), rs.getString("value"),
+                                rs.getLong("count"), rs.getLong("bytes"), dateTime(rs.getTimestamp("first_seen")),
+                                dateTime(rs.getTimestamp("last_seen"))))
+                        .list()
+        );
+    }
+
+    // Values look like "TCP/22 SSH".
+    public List<AttributeEntry> inboundPortProtocols(UUID organizationId, UUID tenantId, String mac, List<String> ports) {
+        if (ports.isEmpty()) {
+            return List.of();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT dimension, value, count, bytes, first_seen, last_seen FROM assets_attributes " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac " +
+                                "AND dimension = 'INBOUND_PORT_PROTOCOL' AND split_part(value, ' ', 1) IN (<ports>) " +
+                                "ORDER BY count DESC, value ASC")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("mac", mac)
+                        .bindList("ports", ports)
                         .map((rs, ctx) -> new AttributeEntry(rs.getString("dimension"), rs.getString("value"),
                                 rs.getLong("count"), rs.getLong("bytes"), dateTime(rs.getTimestamp("first_seen")),
                                 dateTime(rs.getTimestamp("last_seen"))))

@@ -2,11 +2,12 @@ import {externalPeerLabel} from "./AssetProfileHelpers";
 import React, {useCallback, useEffect, useRef, useState} from "react";
 import {
   drag,
-  forceCenter,
   forceCollide,
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   select,
   zoom,
   zoomIdentity
@@ -73,6 +74,144 @@ const colorsForMode = (darkMode) => {
 }
 
 const GRID_SPACING = 24;
+
+// Direction sectors are fixed so the layout reads the same on every asset. Only peers of the root are grouped.
+const MAX_GROUPS = 12;
+const GROUP_LABEL_OFFSET = 26;
+const OTHER_GROUP = "__other__";
+const FIT_PADDING = 36;
+const FIT_MAX_SCALE = 1.2;
+
+const groupLabelPosition = (group) => {
+  let extent = 0;
+  group.members.forEach((n) => {
+    const along = (n.x - group.cx) * group.ux + (n.y - group.cy) * group.uy;
+    extent = Math.max(extent, along + nodeRadius(n));
+  });
+  const distance = extent + GROUP_LABEL_OFFSET;
+  return {x: group.cx + group.ux * distance, y: group.cy + group.uy * distance};
+}
+
+const fitTransform = (nodes, groups, width, height) => {
+  if (nodes.length === 0 || width <= 0 || height <= 0) return null;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const include = (x, y, margin) => {
+    minX = Math.min(minX, x - margin);
+    maxX = Math.max(maxX, x + margin);
+    minY = Math.min(minY, y - margin);
+    maxY = Math.max(maxY, y + margin);
+  }
+  nodes.forEach((n) => include(n.x, n.y, nodeRadius(n) + 6));
+  groups.forEach((g) => {
+    const l = groupLabelPosition(g);
+    include(l.x, l.y, 60);
+  });
+
+  const k = Math.min(FIT_MAX_SCALE, (width - FIT_PADDING * 2) / (maxX - minX), (height - FIT_PADDING * 2) / (maxY - minY));
+  return zoomIdentity
+    .translate(width / 2 - k * (minX + maxX) / 2, height / 2 - k * (minY + maxY) / 2)
+    .scale(k);
+}
+
+const DIRECTION_SECTORS = {
+  "INTERNAL|INBOUND": {label: "Internal peers connecting in", angle: -0.75 * Math.PI},
+  "INTERNAL|BOTH": {label: "Internal, both directions", angle: Math.PI},
+  "INTERNAL|OUTBOUND": {label: "Internal services used", angle: 0.75 * Math.PI},
+  "EXTERNAL|INBOUND": {label: "External networks connecting in", angle: -0.25 * Math.PI},
+  "EXTERNAL|BOTH": {label: "External, both directions", angle: 0},
+  "EXTERNAL|OUTBOUND": {label: "External services used", angle: 0.25 * Math.PI}
+};
+
+const linkDirection = (link) => (link.outbound && link.inbound ? "BOTH" : (link.outbound ? "OUTBOUND" : "INBOUND"));
+
+const serviceOf = (link) => {
+  let best = null;
+  link.edges.forEach((edge) => {
+    const bytes = (edge.bytes_rx || 0) + (edge.bytes_tx || 0);
+    if (!best || bytes > best.bytes) best = {edge: edge, bytes: bytes};
+  });
+  if (!best) return null;
+
+  const edge = best.edge;
+  const port = edge.port === 0 ? edge.l4_type + " other ports" : edge.l4_type + "/" + edge.port;
+  const name = edge.protocol ? port + " " + edge.protocol : port;
+  return (edge.direction === "OUTBOUND" ? "Outbound " : "Inbound ") + name;
+}
+
+const groupKeyFor = (grouping, node, link) => {
+  switch (grouping) {
+    case "direction":
+      return {key: node.type + "|" + linkDirection(link), label: DIRECTION_SECTORS[node.type + "|" + linkDirection(link)].label};
+    case "country":
+      if (node.type === "INTERNAL") return {key: "internal", label: "Internal network"};
+      return node.country_code
+        ? {key: "cc:" + node.country_code, label: node.country_code}
+        : {key: "cc:none", label: "Unknown country"};
+    case "service": {
+      const service = serviceOf(link);
+      return service ? {key: "svc:" + service, label: service} : {key: "svc:none", label: "Unknown service"};
+    }
+    default:
+      return null;
+  }
+}
+
+const layoutGroups = (grouping, graph, nodes, links, cx, cy) => {
+  nodes.forEach((n) => {
+    n.anchor = n.type === "ROOT" ? {x: cx, y: cy} : null;
+    n.anchorDistance = 0;
+  });
+
+  if (!grouping || grouping === "none") return [];
+
+  const groups = new Map();
+  links.forEach((link) => {
+    const peer = link.sourceId === graph.rootId ? link.target : (link.targetId === graph.rootId ? link.source : null);
+    if (!peer || typeof peer !== "object") return;
+
+    const g = groupKeyFor(grouping, peer, link);
+    if (!g) return;
+    if (!groups.has(g.key)) groups.set(g.key, {key: g.key, label: g.label, members: [], bytes: 0});
+    const group = groups.get(g.key);
+    group.members.push(peer);
+    group.bytes += link.bytes;
+  });
+
+  let ordered = Array.from(groups.values()).sort((a, b) => b.bytes - a.bytes);
+
+  if (grouping !== "direction" && ordered.length > MAX_GROUPS) {
+    const other = {key: OTHER_GROUP, label: "Other", members: [], bytes: 0};
+    ordered.slice(MAX_GROUPS - 1).forEach((g) => {
+      other.members.push(...g.members);
+      other.bytes += g.bytes;
+    });
+    ordered = ordered.slice(0, MAX_GROUPS - 1).concat([other]);
+  }
+
+  const ring = Math.max(190, ordered.length * 85 / (2 * Math.PI));
+
+  ordered.forEach((group, i) => {
+    const angle = grouping === "direction"
+      ? DIRECTION_SECTORS[group.key].angle
+      : -Math.PI / 2 + i * 2 * Math.PI / ordered.length;
+    const distance = ring + 8 * Math.sqrt(group.members.length);
+
+    group.x = cx + Math.cos(angle) * distance;
+    group.y = cy + Math.sin(angle) * distance;
+    group.cx = cx;
+    group.cy = cy;
+    group.ux = Math.cos(angle);
+    group.uy = Math.sin(angle);
+
+    group.members.forEach((n) => {
+      n.anchor = {x: group.x, y: group.y};
+      n.anchorDistance = distance;
+    });
+  });
+
+  return ordered;
+}
 
 const peerLabel = (edge) => {
   if (edge.peer_type === "INTERNAL") {
@@ -209,7 +348,7 @@ const publicNode = (node) => ({
   country_code: node.country_code
 });
 
-export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minBytes = 0, onExpand, onSelect, focus = null, height = 520}) {
+export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minBytes = 0, grouping = "direction", onExpand, onSelect, focus = null, height = 520}) {
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -228,6 +367,9 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
   const frozenRef = useRef(false);
   const mountedRef = useRef(false);
   const minBytesRef = useRef(minBytes);
+  const groupingRef = useRef(grouping);
+  const groupsRef = useRef([]);
+  const fitPendingRef = useRef(false);
   const colorsRef = useRef(colorsForMode(false));
   const callbacksRef = useRef({onExpand: null, onSelect: null});
 
@@ -369,8 +511,31 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     const fontSize = 11 / t.k;
     const lineHeight = 14 / t.k;
     const padding = 4 / t.k;
+
     ctx.font = "bold " + fontSize + "px " + FONT_FAMILY;
     ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    groupsRef.current.forEach((group) => {
+      const text = group.label + " · " + formatCount(group.members.length);
+      const l = groupLabelPosition(group);
+      const plateWidth = ctx.measureText(text).width + padding * 3;
+      const plateHeight = lineHeight + padding;
+
+      ctx.globalAlpha = 0.88;
+      ctx.fillStyle = c.background;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(l.x - plateWidth / 2, l.y - plateHeight / 2, plateWidth, plateHeight, 3 / t.k);
+      else ctx.rect(l.x - plateWidth / 2, l.y - plateHeight / 2, plateWidth, plateHeight);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = 1 / t.k;
+      ctx.strokeStyle = c.lines;
+      ctx.stroke();
+
+      ctx.fillStyle = c.text;
+      ctx.fillText(text, l.x, l.y);
+    });
+
     ctx.textBaseline = "top";
     nodes.forEach((node) => {
       if (!isHighlighted(node)) return;
@@ -438,8 +603,25 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     scheduleDraw();
   }, [darkMode, scheduleDraw]);
 
-  // `reheat` is the alpha to restart the simulation with, or 0 to only redraw.
-  const applyVisibility = useCallback((reheat) => {
+  const fitView = useCallback((animated) => {
+    const canvas = canvasRef.current;
+    const zoomBehavior = zoomRef.current;
+    if (!canvas || !zoomBehavior) return;
+
+    const {width, height: h} = sizeRef.current;
+    const transform = fitTransform(visibleRef.current.nodes, groupsRef.current, width, h);
+    if (!transform) return;
+
+    if (animated) {
+      select(canvas).transition().duration(400).call(zoomBehavior.transform, transform);
+    } else {
+      select(canvas).call(zoomBehavior.transform, transform);
+    }
+  }, []);
+
+  // `reheat` is the alpha to restart the simulation with, or 0 to only redraw. `fit` keeps the layout in view
+  // while it settles, until the user zooms or pans.
+  const applyVisibility = useCallback((reheat, fit = false) => {
     const graph = graphRef.current;
     const simulation = simulationRef.current;
     if (!simulation) return;
@@ -472,6 +654,16 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
 
     visibleRef.current = {nodes: nodes, links: visibleLinks};
 
+    // Links hold node ids until the link force resolves them, group layout needs the objects.
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    visibleLinks.forEach((l) => {
+      if (typeof l.source !== "object") l.source = byId.get(l.sourceId);
+      if (typeof l.target !== "object") l.target = byId.get(l.targetId);
+    });
+
+    const {width, height: h} = sizeRef.current;
+    groupsRef.current = layoutGroups(groupingRef.current, graph, nodes, visibleLinks, width / 2, h / 2);
+
     simulation.nodes(nodes);
     simulation.force("link").links(visibleLinks);
 
@@ -479,12 +671,15 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     hoveredLinkRef.current = null;
     if (selectedRef.current && !nodeIds.has(selectedRef.current.id)) selectedRef.current = null;
 
+    if (fit) fitPendingRef.current = true;
+
     if (reheat > 0 && !frozenRef.current) {
       simulation.alpha(reheat).restart();
     } else {
+      if (fit) fitView(false);
       scheduleDraw();
     }
-  }, [scheduleDraw]);
+  }, [scheduleDraw, fitView]);
 
   const nodeAtScreen = useCallback((px, py) => {
     const simulation = simulationRef.current;
@@ -565,12 +760,24 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    const grouped = () => groupingRef.current && groupingRef.current !== "none";
+
     const simulation = forceSimulation()
-      .force("link", forceLink().id((d) => d.id).distance((l) => 50 + nodeRadius(l.source) + nodeRadius(l.target)))
-      .force("charge", forceManyBody().strength((d) => (d.type === "ROOT" ? -400 : -120)))
-      .force("center", forceCenter(0, 0))
+      .force("link", forceLink().id((d) => d.id).distance((l) => {
+        const anchored = l.source.anchorDistance || l.target.anchorDistance;
+        return anchored ? anchored : 50 + nodeRadius(l.source) + nodeRadius(l.target);
+      }))
+      .force("charge", forceManyBody().strength((d) => (d.type === "ROOT" ? -400 : (grouped() ? -45 : -120))))
+      .force("x", forceX().x((d) => (d.anchor ? d.anchor.x : 0)).strength((d) => (d.type === "ROOT" ? 0.9 : (d.anchor ? 0.14 : 0))))
+      .force("y", forceY().y((d) => (d.anchor ? d.anchor.y : 0)).strength((d) => (d.type === "ROOT" ? 0.9 : (d.anchor ? 0.14 : 0))))
       .force("collide", forceCollide().radius((d) => nodeRadius(d) + 6))
-      .on("tick", scheduleDraw);
+      .on("tick", () => {
+        if (fitPendingRef.current) fitView(false);
+        scheduleDraw();
+      })
+      .on("end", () => {
+        fitPendingRef.current = false;
+      });
     simulationRef.current = simulation;
 
     const resize = () => {
@@ -586,8 +793,8 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
       canvas.height = pixelHeight;
       canvas.style.width = width + "px";
       canvas.style.height = height + "px";
-      simulation.force("center").x(width / 2).y(height / 2);
-      scheduleDraw();
+      // Anchors are absolute, so a new center means a new layout.
+      if (visibleRef.current.nodes.length > 0) applyVisibility(0.2, true); else scheduleDraw();
     }
 
     // Applied in the next frame: a resize inside the observer callback is reported as a ResizeObserver loop.
@@ -617,6 +824,8 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
       // Wheel zooms only with Ctrl held, drag pans only without it.
       .filter((event) => !event.button && (event.type === "wheel" ? wheelZooms(event) : !event.ctrlKey))
       .on("zoom", (event) => {
+        // Programmatic transforms have no source event.
+        if (event.sourceEvent) fitPendingRef.current = false;
         transformRef.current = event.transform;
         scheduleDraw();
       });
@@ -739,7 +948,7 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
         frameRef.current = null;
       }
     }
-  }, [hasEdges, height, scheduleDraw, nodeAtScreen, linkAtScreen, expandNode, applyVisibility]);
+  }, [hasEdges, height, scheduleDraw, nodeAtScreen, linkAtScreen, expandNode, applyVisibility, fitView]);
 
   useEffect(() => {
     if (!hasEdges) return;
@@ -757,13 +966,18 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     hoveredLinkRef.current = null;
     selectedRef.current = null;
 
-    applyVisibility(1);
+    applyVisibility(1, true);
   }, [rootMac, rootLabel, edges, hasEdges, applyVisibility]);
 
   useEffect(() => {
     minBytesRef.current = minBytes;
-    if (hasEdges) applyVisibility(0.3);
+    if (hasEdges) applyVisibility(0.3, true);
   }, [minBytes, hasEdges, applyVisibility]);
+
+  useEffect(() => {
+    groupingRef.current = grouping;
+    if (hasEdges) applyVisibility(0.6, true);
+  }, [grouping, hasEdges, applyVisibility]);
 
   useEffect(() => {
     if (!focus) return;
@@ -771,6 +985,7 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     if (!node) return;
 
     selectedRef.current = node;
+    fitPendingRef.current = false;
     scheduleDraw();
 
     const notify = callbacksRef.current.onSelect;
@@ -786,11 +1001,7 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
       .call(zoomRef.current.transform, zoomIdentity.translate(width / 2 - node.x * k, h / 2 - node.y * k).scale(k));
   }, [focus, scheduleDraw]);
 
-  const onResetView = () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !zoomRef.current) return;
-    select(canvas).call(zoomRef.current.transform, zoomIdentity);
-  }
+  const onResetView = () => fitView(true);
 
   const onToggleFreeze = () => {
     const next = !frozenRef.current;

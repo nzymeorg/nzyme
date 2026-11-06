@@ -59,13 +59,13 @@ const chartColors = () => {
   if (Store.get("dark_mode")) {
     return {
       background: "#1c1c22", text: "#c4c4d4", lines: "#33333d", grid: "#2a2a33",
-      scale: [[0, "#26262e"], [0.001, "#1e3a8a"], [0.25, "#2f74c0"], [0.5, "#38bdf8"], [0.75, "#facc15"], [1, "#fb923c"]]
+      scale: [[0, "#26262e"], [0.001, "#1e3a5f"], [0.35, "#1d4ed8"], [0.7, "#3b82f6"], [1, "#bfdbfe"]]
     };
   }
 
   return {
     background: "#f9f9f9", text: "#111111", lines: "#373737", grid: "#e6e6e6",
-    scale: [[0, "#ececec"], [0.001, "#1e40af"], [0.25, "#2563eb"], [0.5, "#0ea5e9"], [0.75, "#eab308"], [1, "#ea580c"]]
+    scale: [[0, "#ececec"], [0.001, "#dbeafe"], [0.35, "#93c5fd"], [0.7, "#3b82f6"], [1, "#1e3a8a"]]
   };
 }
 
@@ -136,6 +136,25 @@ export default function AssetActivityCard({asset, organizationId, tenantId, revi
 
     return {z, text, x};
   }, [activity, days]);
+
+  const legend = (byBytes) => {
+    const ramp = colors.scale.slice(1);
+    const gradient = "linear-gradient(to right, " + ramp.map(([stop, color]) => color + " " + Math.round(stop * 100) + "%").join(", ") + ")";
+
+    return (
+      <div className="d-flex flex-wrap align-items-center small text-muted mt-2">
+        <span className="d-inline-flex align-items-center me-3">
+          <span className="d-inline-block me-1 rounded-1" style={{width: 14, height: 14, background: colors.scale[0][1]}} />
+          No activity
+        </span>
+        <span className="d-inline-flex align-items-center">
+          <span className="me-1">Less {byBytes ? "traffic" : "events"}</span>
+          <span className="d-inline-block rounded-1" style={{width: 120, height: 14, background: gradient}} />
+          <span className="ms-1">More</span>
+        </span>
+      </div>
+    )
+  }
 
   const layoutBase = (height, marginLeft) => ({
     height: height,
@@ -241,6 +260,8 @@ export default function AssetActivityCard({asset, organizationId, tenantId, revi
                   }]}
                   layout={{...layoutBase(190, 40), xaxis: {...layoutBase(0, 0).xaxis, type: "category", nticks: 12, tickfont: {size: 9}}}}
                   config={config} />
+
+            {legend(activity.total_bytes > 0)}
 
             <p className="text-muted small mb-0 mt-2">
               Cells are colored by traffic volume, or by events for assets that moved no payload. A network event is one observed interaction of this asset on the

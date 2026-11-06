@@ -22,6 +22,33 @@ const INFRASTRUCTURE_SHOWN = 5;
 
 const EDGE_LIMIT = 500;
 
+const PORTS_SHOWN = 8;
+
+const portBreakdown = (links) => {
+  const byKey = {};
+  links.forEach((e) => {
+    const protocol = e.protocol ? e.protocol : "";
+    const key = e.direction + "|" + e.l4_type + "|" + e.port + "|" + protocol;
+    if (!byKey[key]) {
+      byKey[key] = {key: key, direction: e.direction, l4_type: e.l4_type, port: e.port, protocol: protocol, sessions: 0, bytes: 0};
+    }
+    byKey[key].sessions += e.sessions;
+    byKey[key].bytes += e.bytes_rx + e.bytes_tx;
+  });
+
+  return Object.values(byKey).sort((a, b) => (b.bytes - a.bytes) || (b.sessions - a.sessions));
+}
+
+const portLabel = (p) => p.l4_type + "/" + (p.port === 0 ? "other" : p.port);
+
+const portTitle = (p) => {
+  const what = p.port === 0
+    ? "further " + p.l4_type + " ports past the per-peer limit"
+    : portLabel(p) + (p.protocol ? " (" + p.protocol + ")" : "");
+  const who = p.direction === "INBOUND" ? "Peer connected to this asset on " : "This asset connected to the peer on ";
+  return who + what + ". " + formatCount(p.sessions) + (p.sessions === 1 ? " session, " : " sessions, ") + formatBytes(p.bytes);
+}
+
 const ConnectionGlobe = React.lazy(() => import("../../../shared/maps/ConnectionGlobe"));
 
 // Networks closer together than this many decimals of a degree are one location on the map.
@@ -50,8 +77,16 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
   // row take effect again.
   const [focus, setFocus] = useState(null);
   const [view, setView] = useState("graph");
+  const [grouping, setGrouping] = useState("direction");
   const [mapSelection, setMapSelection] = useState(null);
   const [mapFocus, setMapFocus] = useState(null);
+  const [mapGrouping, setMapGrouping] = useState("city");
+
+  const changeMapGrouping = (grouping) => {
+    setMapGrouping(grouping);
+    setMapSelection(null);
+    setMapFocus(null);
+  }
 
   useEffect(() => {
     setCommunication(null);
@@ -156,15 +191,20 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     let unlocated = 0;
     let unresolved = 0;
 
+    const byCountry = mapGrouping === "country";
+
     external.forEach((p) => {
       let id, lat, lng, precision;
-      if (typeof p.peer_latitude === "number" && typeof p.peer_longitude === "number") {
+      const hasCoordinates = typeof p.peer_latitude === "number" && typeof p.peer_longitude === "number";
+      const centroid = countryCentroid(p.peer_country_code);
+
+      // A network without a country keeps its own coordinates even when grouping by country.
+      if (hasCoordinates && (!byCountry || !centroid)) {
         lat = Number(p.peer_latitude.toFixed(LOCATION_PRECISION));
         lng = Number(p.peer_longitude.toFixed(LOCATION_PRECISION));
         id = "loc:" + lat + "," + lng;
         precision = "CITY";
       } else {
-        const centroid = countryCentroid(p.peer_country_code);
         if (!centroid) {
           unlocated += 1;
           if (isUnresolvedExternal(p)) unresolved += 1;
@@ -210,7 +250,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     });
 
     return { locations: locations, external: external.length, unlocated: unlocated, unresolved: unresolved };
-  }, [peers]);
+  }, [peers, mapGrouping]);
 
   const selectedDays = useMemo(() => {
     switch (timeRange.type) {
@@ -296,8 +336,38 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     return { rows: shown, folded: folded };
   }, [allInfrastructureRows, expandedRoles]);
 
+  const infrastructurePivot = (r) => {
+    const mac = asset.mac.address;
+    switch (r.role) {
+      case "Gateway":
+        return { title: "Sessions via gateway", to: filteredLink(ApiRoutes.ETHERNET.L4.SESSIONS, {
+          ...macFilter("source_mac", mac), ...macFilter("destination_mac", r.value) }) };
+      case "DNS Server":
+        return { title: "DNS queries to server", to: filteredLink(ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS, {
+          ...macFilter("client_mac", mac), server_address: [{ field: "server_address", operator: "equals", value: r.value }] }) };
+      case "DHCP Server":
+        return { title: "DHCP transactions with server", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX, {
+          ...macFilter("client_mac", mac), ...macFilter("server_mac", r.value) }) };
+      case "NTP Server":
+        return { title: "NTP requests to server", to: filteredLink(ApiRoutes.ETHERNET.TIME.NTP.INDEX, {
+          ...macFilter("client_mac", mac), server_address: [{ field: "server_address", operator: "equals", value: r.value }] }) };
+      default:
+        return null;
+    }
+  }
+
   const infrastructureColumns = [
-    { key: "role", label: "Role", value: (r) => r.role, render: (r) => r.role },
+    { key: "role", label: "Role", value: (r) => r.role, render: (r) => {
+        const pivot = infrastructurePivot(r);
+        return (
+          <span>
+            {r.role}
+            {pivot
+              ? <PivotLink to={pivot.to} title={pivot.title} className="ms-2 small" icon={true} />
+              : null}
+          </span>
+        );
+      } },
     { key: "value", label: "Address", value: (r) => r.value, render: (r) => {
         if (r.l4_address) return <L4Address address={r.l4_address} hidePort={true} withAssetName={true} />;
         if (r.mac_address) return <EthernetMacAddress addressWithContext={r.mac_address} withAssetLink={true} withAssetName={true} hideActiveIndicator={true} />;
@@ -363,8 +433,32 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     </button>
   );
 
+  const peerPivot = (p) => {
+    if (p.peer_type === "INTERNAL") {
+      if (p.peer_mac) return { title: "Sessions to peer", to: l4SessionsLink("destination_mac", p.peer_mac) };
+      if (p.peer_address) return { title: "Sessions to peer", to: l4SessionsLink("destination_address", p.peer_address) };
+      return null;
+    }
+
+    if (p.peer_asn_number) {
+      return { title: "Sessions to network", to: l4SessionsLink("destination_address_geo_asn_number", String(p.peer_asn_number), "equals_numeric") };
+    }
+    if (p.peer_country_code) {
+      return { title: "Sessions to country", to: l4SessionsLink("destination_address_geo_country_code", p.peer_country_code) };
+    }
+    return null;
+  }
+
   const peerColumns = [
-    { key: "peer", label: "Peer", value: (p) => peerLabel(p), render: (p) => <span>{locateButton(p)}{peerCell(p)}</span> },
+    { key: "peer", label: "Peer", value: (p) => peerLabel(p), render: (p) => {
+        const pivot = peerPivot(p);
+        return (
+          <span>
+            {locateButton(p)}{peerCell(p)}
+            {pivot ? <PivotLink to={pivot.to} title={pivot.title} className="ms-2 small" icon={true} /> : null}
+          </span>
+        );
+      } },
     { key: "direction", label: "Direction", value: (p) => directionText(p), render: (p) => directionText(p) },
     { key: "sessions", label: "Sessions", value: (p) => p.sessions, render: (p) => formatCount(p.sessions) },
     { key: "bytes_tx", label: "Sent", value: (p) => p.bytes_tx, render: (p) => formatBytes(p.bytes_tx) },
@@ -433,6 +527,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
           <dd>{formatBytes(bytesOut)} sent, {formatBytes(bytesIn)} received</dd>
           {firstSeen ? <React.Fragment><dt>Seen</dt><dd className="mb-0">{moment(firstSeen).format("YYYY-MM-DD HH:mm")} to {moment(lastSeen).format("YYYY-MM-DD HH:mm")}</dd></React.Fragment> : null}
         </dl>
+        {portsSection(selection.links)}
         {node.type === "INTERNAL" && node.asset
           ? <PivotLink to={ApiRoutes.ETHERNET.ASSETS.DETAILS(node.asset.uuid)} button="btn btn-sm btn-outline-primary" className="me-1">Open Asset</PivotLink>
           : null}
@@ -442,6 +537,34 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
         {node.type === "EXTERNAL" && node.asn_number
           ? <PivotLink to={l4SessionsLink("destination_address_geo_asn_number", String(node.asn_number), "equals_numeric")} button="btn btn-sm btn-outline-secondary">Sessions to Network</PivotLink>
           : null}
+      </React.Fragment>
+    )
+  }
+
+  const portsSection = (links) => {
+    const ports = portBreakdown(links);
+    if (ports.length === 0) {
+      return null;
+    }
+
+    return (
+      <React.Fragment>
+        <h6 className="mb-1">{ports.length === 1 ? "Port" : "Ports (" + formatCount(ports.length) + ")"}</h6>
+        <ul className="list-unstyled mb-2">
+          {ports.slice(0, PORTS_SHOWN).map((p) => (
+            <li key={p.key} className="d-flex justify-content-between small" title={portTitle(p)}>
+              <span className="text-truncate me-2">
+                <i className={"fa-solid text-muted me-1 " + (p.direction === "INBOUND" ? "fa-arrow-left" : "fa-arrow-right")} />
+                <span className="machine-data">{portLabel(p)}</span>
+                {p.protocol ? <span className="ms-1">{p.protocol}</span> : null}
+              </span>
+              <span className="text-nowrap">{formatBytes(p.bytes)}</span>
+            </li>
+          ))}
+          {ports.length > PORTS_SHOWN
+            ? <li className="text-muted small">{formatCount(ports.length - PORTS_SHOWN)} more</li>
+            : null}
+        </ul>
       </React.Fragment>
     )
   }
@@ -457,6 +580,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     }
 
     const country = countryName(l.country_code);
+    const locationKeys = new Set(l.networks.map((n) => n.peer_key));
 
     return (
       <React.Fragment>
@@ -493,6 +617,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
             ? <li className="text-muted small">{formatCount(l.networks.length - 10)} more</li>
             : null}
         </ul>
+        {portsSection(edges.filter((e) => e.peer_type === "EXTERNAL" && locationKeys.has(e.peer_key)))}
         {l.country_code
           ? <PivotLink to={l4SessionsLink("destination_address_geo_country_code", l.country_code)} button="btn btn-sm btn-outline-secondary">Sessions to Country</PivotLink>
           : null}
@@ -608,6 +733,11 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
                 <option value={104857600}>100 MB</option>
               </select>
             </div>
+            {view === "graph"
+              ? filterSelect("asset-comm-grouping", "Group by", grouping, setGrouping,
+                  [["direction", "Direction and scope"], ["service", "Service"], ["country", "Country"], ["none", "No grouping"]])
+              : filterSelect("asset-comm-map-grouping", "Map points", mapGrouping, changeMapGrouping,
+                  [["city", "Cities"], ["country", "Countries"]])}
             <div className="ms-auto mb-2">
               <div className="btn-group btn-group-sm" role="group" aria-label="View">
                 <button type="button"
@@ -631,6 +761,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
                                            rootLabel={asset.name}
                                            edges={edges}
                                            minBytes={minBytes}
+                                           grouping={grouping}
                                            onExpand={onExpand}
                                            onSelect={onSelect}
                                            focus={focus}

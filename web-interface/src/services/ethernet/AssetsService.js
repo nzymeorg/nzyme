@@ -64,9 +64,18 @@ export default class AssetsService {
     )
   }
 
-  getAssetProfileAttributes(assetId, organizationId, tenantId, setAttributes) {
-    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/attributes`, { organization_id: organizationId, tenant_id: tenantId },
+  getAssetProfileAttributes(assetId, organizationId, tenantId, excludeDimensions, setAttributes) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/attributes`, {
+      organization_id: organizationId, tenant_id: tenantId, exclude_dimensions: excludeDimensions.join(",") },
         (response) => setAttributes(response.data)
+    )
+  }
+
+  getAssetProfileInboundPorts(assetId, organizationId, tenantId, orderBy, orderDirection, limit, offset, setPorts) {
+    RESTClient.get(`/ethernet/assets/show/${assetId}/profile/inbound-ports`, {
+      organization_id: organizationId, tenant_id: tenantId, order_by: orderBy, order_direction: orderDirection,
+      limit: limit, offset: offset },
+        (response) => setPorts(response.data)
     )
   }
 

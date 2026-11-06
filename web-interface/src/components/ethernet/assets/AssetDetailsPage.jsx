@@ -72,7 +72,7 @@ export default function AssetDetailsPage() {
     setSummary(null);
     setAttributes(null);
     assetsService.getAssetProfileSummary(uuid, organizationId, tenantId, setSummary);
-    assetsService.getAssetProfileAttributes(uuid, organizationId, tenantId, setAttributes);
+    assetsService.getAssetProfileAttributes(uuid, organizationId, tenantId, ["INBOUND_PORT", "INBOUND_PORT_PROTOCOL"], setAttributes);
   }, [uuid, organizationId, tenantId, revision]);
 
   useEffect(() => {
@@ -304,7 +304,8 @@ export default function AssetDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <AssetRolesCard attributes={attributes} summary={summary}
+                <AssetRolesCard asset={asset} organizationId={organizationId} tenantId={tenantId}
+                                attributes={attributes} summary={summary} revision={revision}
                                 onRefresh={refresh} />
               </div>
             </div>

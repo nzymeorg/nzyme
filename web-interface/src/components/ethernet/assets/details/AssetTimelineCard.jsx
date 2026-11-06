@@ -48,7 +48,14 @@ export default function AssetTimelineCard({asset, organizationId, tenantId, revi
 
   const describe = (event) => {
     if (event.type === "ALERT") {
-      return <PivotLink to={ApiRoutes.ALERTS.DETAILS(event.detail)}>{event.value.replace(/_/g, " ")}</PivotLink>;
+      return (
+        <span>
+          <strong>Alert</strong>{' '}
+          <PivotLink to={ApiRoutes.ALERTS.DETAILS(event.detail)} title={event.value}>
+            {event.label ? event.label : event.value.replace(/_/g, " ")}
+          </PivotLink>
+        </span>
+      );
     }
 
     const change = describeChange(event.type, event.value, event.detail);

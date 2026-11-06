@@ -2783,6 +2783,15 @@ a.briefing-tile-link:hover .briefing-tile-value {
     padding: 2px 0;
 }
 
+.pivot-link-icon {
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+.pivot-link-icon:hover {
+    opacity: 1;
+}
+
 .pivot-link-external {
     margin-left: 6px;
     font-size: 11px;
@@ -2791,6 +2800,16 @@ a.briefing-tile-link:hover .briefing-tile-value {
 
 .pivot-link-external:hover {
     color: inherit;
+}
+
+.pivot-link-external-icon {
+    margin-left: 6px;
+    font-size: 11px;
+    opacity: 0.4;
+}
+
+.pivot-link-external-icon:hover {
+    opacity: 1;
 }
 
 .pivot-link-external-btn {

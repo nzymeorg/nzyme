@@ -1,9 +1,23 @@
 import React from "react";
 import {Link} from "react-router-dom";
 
-export default function PivotLink({to, children, title, button = null, className = ""}) {
+export default function PivotLink({to, children, title, button = null, className = "", icon = false}) {
   const label = typeof children === "string" ? children : title;
   const newTab = label ? label + " in new tab" : "Open in new tab";
+
+  if (icon) {
+    return (
+      <span className={"text-nowrap " + className}>
+        <Link to={to} title="Pivot" aria-label={label} className="pivot-link-icon">
+          <i className="fa-solid fa-person-walking-dashed-line-arrow-right" />
+        </Link>
+        <Link to={to} target="_blank" rel="noreferrer" className="pivot-link-external-icon"
+              title="Pivot in new window" aria-label={newTab}>
+          <i className="fa-solid fa-arrow-up-right-from-square" />
+        </Link>
+      </span>
+    );
+  }
 
   if (button) {
     return (

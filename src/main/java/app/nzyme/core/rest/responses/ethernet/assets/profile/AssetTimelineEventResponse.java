@@ -17,13 +17,17 @@ public abstract class AssetTimelineEventResponse {
     @Nullable
     @JsonProperty("detail")
     public abstract String detail();
+    @Nullable
+    @JsonProperty("label")
+    public abstract String label();
 
-    public static AssetTimelineEventResponse create(String type, DateTime timestamp, String value, String detail) {
+    public static AssetTimelineEventResponse create(String type, DateTime timestamp, String value, String detail, String label) {
         return builder()
                 .type(type)
                 .timestamp(timestamp)
                 .value(value)
                 .detail(detail)
+                .label(label)
                 .build();
     }
 
@@ -37,6 +41,7 @@ public abstract class AssetTimelineEventResponse {
         public abstract Builder timestamp(DateTime timestamp);
         public abstract Builder value(String value);
         public abstract Builder detail(String detail);
+        public abstract Builder label(String label);
 
         public abstract AssetTimelineEventResponse build();
     }

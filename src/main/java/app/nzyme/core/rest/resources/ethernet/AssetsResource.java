@@ -29,6 +29,10 @@ import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.database.OrderDirection;
+import com.google.common.base.Strings;
+import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortProtocolResponse;
+import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortResponse;
+import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortsResponse;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
 import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
@@ -776,24 +780,36 @@ public class AssetsResource extends TapDataHandlingResource {
     @Operation(operationId = "findAssetProfileAttributes", summary = "Get the attribute ledger of an asset",
             description = "Returns every attribute value ever recorded for the asset, grouped by dimension, with "
                     + "first and last seen timestamps and a count. Dimensions include fingerprints, protocols, "
-                    + "inbound ports, external networks, infrastructure servers, roles and taps.")
+                    + "inbound ports, external networks, infrastructure servers, roles and taps. Dimensions can be "
+                    + "excluded, which the web interface does for inbound ports since those have their own paginated "
+                    + "endpoint and can number in the thousands on a scanned host.")
     @ApiResponse(responseCode = "200", description = "Attributes found.",
             content = @Content(schema = @Schema(implementation = AssetAttributesResponse.class)))
     @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
     public Response profileAttributes(@Parameter(hidden = true) @Context SecurityContext sc,
                                       @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
                                       @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
-                                      @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId) {
+                                      @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                      @Parameter(description = "Comma-separated dimensions to leave out, like INBOUND_PORT,INBOUND_PORT_PROTOCOL.") @QueryParam("exclude_dimensions") String excludeDimensions) {
         Optional<AssetEntry> asset = resolveAsset(sc, assetId, organizationId, tenantId);
         if (asset.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Set<String> excluded = new HashSet<>();
+        if (!Strings.isNullOrEmpty(excludeDimensions)) {
+            for (String dimension : excludeDimensions.split(",")) {
+                if (!dimension.isBlank()) {
+                    excluded.add(dimension.trim().toUpperCase());
+                }
+            }
         }
 
         Map<String, Integer> externalResolved = new HashMap<>();
 
         Map<String, List<AssetAttributeResponse>> attributes = new LinkedHashMap<>();
         for (AssetProfiles.AttributeEntry a : nzyme.getAssetsManager().profiles()
-                .attributes(organizationId, tenantId, asset.get().mac())) {
+                .attributes(organizationId, tenantId, asset.get().mac(), excluded)) {
             L4AddressResponse l4Address = null;
             EthernetMacAddressResponse macAddress = null;
 
@@ -821,6 +837,80 @@ public class AssetsResource extends TapDataHandlingResource {
         }
 
         return Response.ok(AssetAttributesResponse.create(attributes)).build();
+    }
+
+    @GET
+    @Path("/show/{asset_id}/profile/inbound-ports")
+    @Operation(operationId = "findAssetProfileInboundPorts", summary = "Get the inbound ports of an asset",
+            description = "Returns one page of the ports the asset accepted sessions on, each with the session "
+                    + "and byte counts, first and last seen timestamps and the protocols served on it, busiest "
+                    + "first. The totals and maximums cover every port of the asset, not only the page. Sorted by "
+                    + "port, count, bytes, first_seen or last_seen.")
+    @ApiResponse(responseCode = "200", description = "Inbound ports found.",
+            content = @Content(schema = @Schema(implementation = AssetInboundPortsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid sort column.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response profileInboundPorts(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                                        @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                        @Parameter(description = "Sort column: port, count, bytes, first_seen or last_seen. Defaults to count.") @QueryParam("order_by") String orderBy,
+                                        @Parameter(description = "Sort direction: ASC or DESC. Defaults to DESC.") @QueryParam("order_direction") String orderDirection,
+                                        @Parameter(description = "Page size, at most 100.") @QueryParam("limit") int limit,
+                                        @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        Optional<AssetEntry> asset = resolveAsset(sc, assetId, organizationId, tenantId);
+        if (asset.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        AssetProfiles.InboundPortOrder order;
+        try {
+            order = Strings.isNullOrEmpty(orderBy)
+                    ? AssetProfiles.InboundPortOrder.COUNT
+                    : AssetProfiles.InboundPortOrder.valueOf(orderBy.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+        OrderDirection direction = "ASC".equalsIgnoreCase(orderDirection) ? OrderDirection.ASC : OrderDirection.DESC;
+
+        AssetProfiles profiles = nzyme.getAssetsManager().profiles();
+        String mac = asset.get().mac();
+
+        List<AssetProfiles.AttributeEntry> page = profiles.inboundPorts(organizationId, tenantId, mac, order, direction,
+                Math.max(1, Math.min(limit <= 0 ? 10 : limit, 100)), Math.max(0, offset));
+
+        Map<String, List<AssetInboundPortProtocolResponse>> protocolsByPort = new HashMap<>();
+        for (AssetProfiles.AttributeEntry p : profiles.inboundPortProtocols(organizationId, tenantId, mac,
+                page.stream().map(AssetProfiles.AttributeEntry::value).toList())) {
+            int separator = p.value().indexOf(' ');
+            if (separator < 0) {
+                continue;
+            }
+            protocolsByPort.computeIfAbsent(p.value().substring(0, separator), k -> new ArrayList<>())
+                    .add(AssetInboundPortProtocolResponse.create(p.value().substring(separator + 1), p.count()));
+        }
+
+        List<AssetInboundPortResponse> ports = new ArrayList<>();
+        for (AssetProfiles.AttributeEntry a : page) {
+            String[] parts = a.value().split("/", 2);
+            int port = 0;
+            if (parts.length == 2) {
+                try {
+                    port = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException ignored) { }
+            }
+
+            ports.add(AssetInboundPortResponse.create(
+                    a.value(), parts[0], port, a.count(), a.bytes(), a.firstSeen(), a.lastSeen(),
+                    protocolsByPort.getOrDefault(a.value(), List.of())
+            ));
+        }
+
+        AssetProfiles.InboundPortTotals totals = profiles.inboundPortTotals(organizationId, tenantId, mac);
+
+        return Response.ok(AssetInboundPortsResponse.create(
+                totals.ports(), totals.sessions(), totals.bytes(), totals.maxSessions(), totals.maxBytes(), ports
+        )).build();
     }
 
     @GET
@@ -966,6 +1056,19 @@ public class AssetsResource extends TapDataHandlingResource {
     }
 
     @Nullable
+    private static String timelineLabel(AssetProfiles.TimelineEvent e) {
+        if (!"ALERT".equals(e.type()) || e.value() == null) {
+            return null;
+        }
+
+        try {
+            return DetectionType.valueOf(e.value()).getTitle();
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    @Nullable
     private AssetCommunicationOriginResponse communicationOrigin(UUID organizationId, UUID tenantId, String mac) {
         List<AssetProfiles.AttributeEntry> taps = nzyme.getAssetsManager().profiles()
                 .attributes(organizationId, tenantId, mac).stream()
@@ -1054,7 +1157,7 @@ public class AssetsResource extends TapDataHandlingResource {
         List<AssetTimelineEventResponse> events = new ArrayList<>();
         for (AssetProfiles.TimelineEvent e : profiles.timeline(asset.get(), timeRange, filters, order, direction,
                 Math.max(1, Math.min(limit, 250)), Math.max(0, offset))) {
-            events.add(AssetTimelineEventResponse.create(e.type(), e.timestamp(), e.value(), e.detail()));
+            events.add(AssetTimelineEventResponse.create(e.type(), e.timestamp(), e.value(), e.detail(), timelineLabel(e)));
         }
 
         int attributeRetentionDays = Integer.parseInt(nzyme.getDatabaseCoreRegistry()
