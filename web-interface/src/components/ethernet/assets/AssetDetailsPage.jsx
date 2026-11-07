@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import {Link, useParams} from "react-router-dom";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../../misc/LoadingSpinner";
@@ -26,6 +26,9 @@ import AssetTimelineCard from "./details/AssetTimelineCard";
 import AssetAlertsCard from "./details/AssetAlertsCard";
 import AssetFindingsCard from "./details/AssetFindingsCard";
 import AssetPivotsDrawer from "./details/AssetPivotsDrawer";
+import AssetIdentityNoticesCard from "./details/AssetIdentityNoticesCard";
+import {UserContext} from "../../../App";
+import {userHasPermission} from "../../../util/Tools";
 
 const assetsService = new AssetsService();
 
@@ -34,6 +37,8 @@ export default function AssetDetailsPage() {
   const {uuid} = useParams();
 
   const [organizationId, tenantId] = useSelectedTenant();
+  const user = useContext(UserContext);
+  const canManage = userHasPermission(user, "ethernet_assets_manage");
 
   const [asset, setAsset] = useState(null);
 
@@ -196,6 +201,21 @@ export default function AssetDetailsPage() {
         </div>
 
         <AssetProfileSummaryStrip summary={summary} />
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <AssetIdentityNoticesCard asset={asset}
+                                          organizationId={organizationId}
+                                          tenantId={tenantId}
+                                          revision={revision}
+                                          onRefresh={() => setRevision(new Date())}
+                                          canEdit={canManage} />
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="row mt-3">
           <div className="col-6">

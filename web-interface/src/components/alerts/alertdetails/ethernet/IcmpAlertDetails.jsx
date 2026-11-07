@@ -38,8 +38,14 @@ export default function IcmpAlertDetails({alert}) {
           <dd><span className="machine-data">{a.destination_address}</span></dd>
           <dt>Max Echo Payload</dt>
           <dd>{a.max_payload_bytes} bytes</dd>
-          <dt>Findings</dt>
-          <dd><Link to={ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX}>Detected ICMP tunnels</Link></dd>
+          <dt>Finding</dt>
+          <dd>
+            {a.tunnel_uuid ?
+              <Link to={ApiRoutes.ETHERNET.ICMP.TUNNELS.DETAILS(a.tunnel_uuid)}>
+                ICMP tunnel from {a.source_address} to {a.destination_address}
+              </Link>
+              : <Link to={ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX}>Detected ICMP tunnels</Link>}
+          </dd>
         </React.Fragment>
       )
     }

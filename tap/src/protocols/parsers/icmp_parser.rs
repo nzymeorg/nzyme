@@ -113,6 +113,7 @@ mod tests {
             ttl: 64,
             ip_tos: 0,
             df: false,
+            identification: 0,
             protocol: 1,
             payload,
             size: 0,

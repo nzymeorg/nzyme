@@ -39,6 +39,10 @@ function HealthConsole(props) {
             <Indicator indicator={indicators.connect} name="Connect" />
           </div>
 
+          <div className="hc-row">
+            <Indicator indicator={indicators.asset_identity_backlog} name="Identity Backlog" />
+          </div>
+
           <div style={{clear: "both"}} />
         </div>
   )

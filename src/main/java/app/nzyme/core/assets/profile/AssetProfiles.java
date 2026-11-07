@@ -5,6 +5,8 @@ import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.detection.alerts.DetectionAlertService;
 import app.nzyme.core.ethernet.CIDR;
 import app.nzyme.core.ethernet.beacons.db.BeaconExclusionEntry;
+import app.nzyme.core.assets.identity.AssetIdentityExclusionMatcher;
+import app.nzyme.core.assets.identity.db.AssetIdentityExclusionEntry;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
 import app.nzyme.core.ethernet.dhcp.db.DHCPFingerprintExclusionEntry;
 import app.nzyme.core.ethernet.dns.tunnels.db.DnsTunnelExclusionEntry;
@@ -375,6 +377,20 @@ public class AssetProfiles {
                                 classification + "'", organizationId, tenantId, mac);
             }
 
+            finding(handle, result, "IDENTITY_DUPLICATE_MAC", "SUBJECT",
+                    "SELECT COUNT(*) AS c, MAX(last_seen) AS ls FROM assets_identity_duplicate_findings " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac",
+                    organizationId, tenantId, mac);
+            finding(handle, result, "IDENTITY_CHANGE", "SUBJECT",
+                    "SELECT COUNT(*) AS c, MAX(last_seen) AS ls FROM assets_identity_change_findings " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac",
+                    organizationId, tenantId, mac);
+            finding(handle, result, "IDENTITY_MAC_CHANGE", "SUBJECT",
+                    "SELECT COUNT(*) AS c, MAX(detected_at) AS ls FROM assets_links " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                            "AND (predecessor_mac = :mac OR successor_mac = :mac) AND status <> 'DISMISSED'",
+                    organizationId, tenantId, mac);
+
             finding(handle, result, "DNS_TUNNEL", "ACTOR",
                     "SELECT COUNT(*) AS c, MAX(last_seen) AS ls FROM dns_tunnel_findings " +
                             "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND client_mac = :mac",
@@ -514,6 +530,20 @@ public class AssetProfiles {
                     }
                 } catch (Exception ex) {
                     LOG.debug("Skipping unparseable DHCP fingerprint exclusion [{}].", e.uuid(), ex);
+                }
+            }
+
+            for (AssetIdentityExclusionEntry e : handle.createQuery("SELECT * FROM assets_identity_exclusions " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id ORDER BY name ASC")
+                    .bind("organization_id", organizationId).bind("tenant_id", tenantId)
+                    .mapTo(AssetIdentityExclusionEntry.class).list()) {
+                try {
+                    if (AssetIdentityExclusionMatcher.create(e).matchesMac(normalizedMac)) {
+                        result.add(new ExclusionMatch("ASSET_IDENTITY", e.uuid(), e.name(), e.enabled(),
+                                "MAC address", e.matchCount(), e.lastMatchedAt()));
+                    }
+                } catch (Exception ex) {
+                    LOG.debug("Skipping unparseable asset identity exclusion [{}].", e.uuid(), ex);
                 }
             }
 

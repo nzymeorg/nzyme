@@ -252,4 +252,112 @@ export default class AssetsService {
       { change: newConfig }, successCallback, errorCallback)
   }
 
+  getAssetIdentityConfiguration(organizationId, tenantId, setConfiguration) {
+    RESTClient.get(`/ethernet/assets/identity/organization/${organizationId}/tenant/${tenantId}/configuration`, {},
+      (response) => setConfiguration(response.data));
+  }
+
+  updateAssetIdentityConfiguration(newConfig, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/ethernet/assets/identity/organization/${organizationId}/tenant/${tenantId}/configuration`,
+      {change: newConfig}, successCallback, errorCallback);
+  }
+
+  findAllDuplicateMacFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
+    RESTClient.get("/ethernet/assets/identity/duplicates", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setFindings(response.data));
+  }
+
+  findDuplicateMacFinding(uuid, organizationId, tenantId, setFinding, onError = undefined) {
+    RESTClient.get(`/ethernet/assets/identity/duplicates/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setFinding(response.data), onError);
+  }
+
+  deleteDuplicateMacFinding(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/assets/identity/duplicates/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  findAllIdentityChangeFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
+    RESTClient.get("/ethernet/assets/identity/changes", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setFindings(response.data));
+  }
+
+  findIdentityChangeFinding(uuid, organizationId, tenantId, setFinding, onError = undefined) {
+    RESTClient.get(`/ethernet/assets/identity/changes/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setFinding(response.data), onError);
+  }
+
+  deleteIdentityChangeFinding(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/assets/identity/changes/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  findAllAssetLinks(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setLinks) {
+    RESTClient.get("/ethernet/assets/identity/links", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setLinks(response.data));
+  }
+
+  findAssetLink(uuid, organizationId, tenantId, setLink, onError = undefined) {
+    RESTClient.get(`/ethernet/assets/identity/links/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setLink(response.data), onError);
+  }
+
+  setAssetLinkStatus(uuid, organizationId, tenantId, status, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/status/${status}`,
+      {}, successCallback);
+  }
+
+  deleteAssetLink(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
+  getAssetIdentitySummary(assetId, organizationId, tenantId, setSummary) {
+    RESTClient.get(`/ethernet/assets/identity/asset/${assetId}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setSummary(response.data));
+  }
+
+  findAllAssetIdentityExclusions(organizationId, tenantId, filters, orderColumn, orderDirection, limit, offset, setExclusions) {
+    RESTClient.get("/ethernet/assets/identity/exclusions", {
+      organization_id: organizationId, tenant_id: tenantId, filters: filters, order_column: orderColumn,
+      order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setExclusions(response.data));
+  }
+
+  findAssetIdentityExclusion(uuid, organizationId, tenantId, setExclusion, onError = undefined) {
+    RESTClient.get(`/ethernet/assets/identity/exclusions/show/${uuid}`, {organization_id: organizationId, tenant_id: tenantId},
+      (response) => setExclusion(response.data), onError);
+  }
+
+  previewAssetIdentityExclusion(organizationId, tenantId, exclusion, setImpact, errorCallback) {
+    RESTClient.post(`/ethernet/assets/identity/exclusions/organization/${organizationId}/tenant/${tenantId}/preview`,
+      exclusion, (response) => setImpact(response.data), errorCallback);
+  }
+
+  createAssetIdentityExclusion(organizationId, tenantId, exclusion, successCallback, errorCallback) {
+    RESTClient.post(`/ethernet/assets/identity/exclusions/organization/${organizationId}/tenant/${tenantId}`,
+      exclusion, successCallback, errorCallback);
+  }
+
+  updateAssetIdentityExclusion(uuid, organizationId, tenantId, exclusion, successCallback, errorCallback) {
+    RESTClient.put(`/ethernet/assets/identity/exclusions/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      exclusion, successCallback, errorCallback);
+  }
+
+  setAssetIdentityExclusionEnabled(uuid, organizationId, tenantId, enabled, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/exclusions/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/enabled/${enabled}`,
+      {}, successCallback);
+  }
+
+  deleteAssetIdentityExclusion(uuid, organizationId, tenantId, successCallback) {
+    RESTClient.delete(`/ethernet/assets/identity/exclusions/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
+      successCallback);
+  }
+
 }

@@ -245,6 +245,13 @@ public enum SystemEventType {
             SystemEventScope.SYSTEM,
             "\"Connect\" Health Indicator was toggled",
             "The state of the \"Connect\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_ASSET_IDENTITY_BACKLOG_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Asset Identity Backlog\" Health Indicator was toggled",
+            "The state of the \"Asset Identity Backlog\" system health indicator has changed from a previously different state."
     );
 
     private final SystemEventCategory category;

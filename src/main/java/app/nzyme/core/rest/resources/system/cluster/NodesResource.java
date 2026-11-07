@@ -288,6 +288,13 @@ public class NodesResource {
             timers.put("dns_tunnel_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.DNS_TUNNEL_DETECTION_RUN_TIMER.database_label, handle)));
 
+            timers.put("identity_duplicate_mac_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label, handle)));
+            timers.put("identity_change_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.IDENTITY_CHANGE_DETECTION_RUN_TIMER.database_label, handle)));
+            timers.put("identity_successor_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER.database_label, handle)));
+
             // Database connection pool.
             timers.put("database_pool_wait", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.DATABASE_POOL_WAIT_TIMER.database_label, handle)));

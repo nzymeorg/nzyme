@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::MutexGuard;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use crate::state::tables::tcp_table::TcpSession;
+use crate::state::tables::tcp_table::{TcpSession, TcpSynAck};
 use crate::protocols::parsers::l4_key::L4Key;
 
 #[derive(Serialize)]
@@ -37,7 +37,50 @@ pub struct TcpSessionReport {
     pub syn_maximum_segment_size: Option<u16>,
     pub syn_window_scale_multiplier: Option<u8>,
     pub syn_options: Vec<u8>,
+    pub syn_ip_id: u16,
+    pub syn_timestamp_value: Option<u32>,
+    pub syn_timestamp_echo: Option<u32>,
+    pub latest_client_timestamp_value: Option<u32>,
+    pub latest_client_timestamp_time: Option<DateTime<Utc>>,
+    pub latest_client_ip_id: Option<u16>,
+    pub segments_count_client_to_server: u64,
+    pub syn_ack: Option<TcpSynAckReport>,
     pub tags: HashSet<String>
+}
+
+#[derive(Serialize)]
+pub struct TcpSynAckReport {
+    pub ip_ttl: u8,
+    pub ip_tos: u8,
+    pub ip_df: bool,
+    pub ip_id: u16,
+    pub cwr: bool,
+    pub ece: bool,
+    pub window_size: u16,
+    pub maximum_segment_size: Option<u16>,
+    pub window_scale_multiplier: Option<u8>,
+    pub options: Vec<u8>,
+    pub timestamp_value: Option<u32>,
+    pub timestamp_echo: Option<u32>
+}
+
+impl TcpSynAckReport {
+    fn from(s: &TcpSynAck) -> Self {
+        TcpSynAckReport {
+            ip_ttl: s.ip_ttl,
+            ip_tos: s.ip_tos,
+            ip_df: s.ip_df,
+            ip_id: s.ip_id,
+            cwr: s.cwr,
+            ece: s.ece,
+            window_size: s.window_size,
+            maximum_segment_size: s.maximum_segment_size,
+            window_scale_multiplier: s.window_scale_multiplier,
+            options: s.options.clone(),
+            timestamp_value: s.timestamp_value,
+            timestamp_echo: s.timestamp_echo
+        }
+    }
 }
 
 pub fn generate(s: &MutexGuard<HashMap<L4Key, TcpSession>>) -> TcpSessionsReport {
@@ -70,6 +113,14 @@ pub fn generate(s: &MutexGuard<HashMap<L4Key, TcpSession>>) -> TcpSessionsReport
             syn_maximum_segment_size: session.syn_maximum_segment_size,
             syn_window_scale_multiplier: session.syn_window_scale_multiplier,
             syn_options: session.syn_options.clone(),
+            syn_ip_id: session.syn_ip_id,
+            syn_timestamp_value: session.syn_timestamp_value,
+            syn_timestamp_echo: session.syn_timestamp_echo,
+            latest_client_timestamp_value: session.latest_client_timestamp_value,
+            latest_client_timestamp_time: session.latest_client_timestamp_time,
+            latest_client_ip_id: session.latest_client_ip_id,
+            segments_count_client_to_server: session.segments_count_client_to_server,
+            syn_ack: session.syn_ack.as_ref().map(TcpSynAckReport::from),
             tags: session.tags.clone().into_iter()
                         .map(|t| t.to_string())
                         .collect()

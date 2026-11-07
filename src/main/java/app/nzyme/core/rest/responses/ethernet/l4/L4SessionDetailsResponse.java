@@ -60,7 +60,11 @@ public abstract class L4SessionDetailsResponse {
     @Nullable
     public abstract String fingerprint();
 
-    public static L4SessionDetailsResponse create(String sessionKey, L4AddressTypeResponse l4Type, L4AddressResponse source, L4AddressResponse destination, long bytesCount, long bytesRxCount, long bytesTxCount, long segmentsCount, DateTime startTime, DateTime endTime, DateTime mostRecentSegmentTime, long durationMs, String state, List<String> tags, String fingerprint) {
+    @Nullable
+    @JsonProperty("fingerprint_id")
+    public abstract String fingerprintId();
+
+    public static L4SessionDetailsResponse create(String sessionKey, L4AddressTypeResponse l4Type, L4AddressResponse source, L4AddressResponse destination, long bytesCount, long bytesRxCount, long bytesTxCount, long segmentsCount, DateTime startTime, DateTime endTime, DateTime mostRecentSegmentTime, long durationMs, String state, List<String> tags, String fingerprint, String fingerprintId) {
         return builder()
                 .sessionKey(sessionKey)
                 .l4Type(l4Type)
@@ -77,6 +81,7 @@ public abstract class L4SessionDetailsResponse {
                 .state(state)
                 .tags(tags)
                 .fingerprint(fingerprint)
+                .fingerprintId(fingerprintId)
                 .build();
     }
 
@@ -115,6 +120,7 @@ public abstract class L4SessionDetailsResponse {
         public abstract Builder tags(List<String> tags);
 
         public abstract Builder fingerprint(String fingerprint);
+        public abstract Builder fingerprintId(String fingerprintId);
 
         public abstract L4SessionDetailsResponse build();
     }

@@ -173,6 +173,22 @@ const ApiRoutes = {
       ARP: {
         INDEX: '/ethernet/assets/arp'
       },
+      IDENTITY: {
+        INDEX: '/ethernet/assets/identity/duplicates',
+        TAB: tab => `/ethernet/assets/identity/${tab}`,
+        DUPLICATES: '/ethernet/assets/identity/duplicates',
+        CHANGES: '/ethernet/assets/identity/changes',
+        LINKS: '/ethernet/assets/identity/links',
+        DUPLICATE_DETAILS: uuid => `/ethernet/assets/identity/duplicates/show/${uuid}`,
+        CHANGE_DETAILS: uuid => `/ethernet/assets/identity/changes/show/${uuid}`,
+        LINK_DETAILS: uuid => `/ethernet/assets/identity/links/show/${uuid}`,
+        EXCLUSIONS: {
+          INDEX: '/ethernet/assets/identity/exclusions',
+          CREATE: '/ethernet/assets/identity/exclusions/create',
+          DETAILS: uuid => `/ethernet/assets/identity/exclusions/show/${uuid}`,
+          EDIT: uuid => `/ethernet/assets/identity/exclusions/show/${uuid}/edit`
+        }
+      },
       SETTINGS: '/ethernet/assets/settings'
     },
     DNS: {

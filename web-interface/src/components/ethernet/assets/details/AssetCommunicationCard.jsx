@@ -380,16 +380,22 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
 
   const directionText = (p) => (p.outbound && p.inbound ? "Both" : (p.outbound ? "Outbound" : "Inbound"));
 
-  const peerCell = (p) => {
+  // The pivot must stay inside the address element, or the open context overlay pushes it onto a new line.
+  const peerCell = (p, pivot) => {
+    const pivotElement = pivot
+      ? <PivotLink to={pivot.to} title={pivot.title} className="ms-2 small" icon={true} /> : null;
+
     if (p.peer_type === "INTERNAL") {
       if (p.peer) {
-        return <L4Address address={p.peer} hidePort={true} hideFlag={true} withAssetName={true} />;
+        return <L4Address address={p.peer} hidePort={true} hideFlag={true} withAssetName={true}
+                          suffixElement={pivotElement} />;
       }
       return (
         <span>
           {peerLabel(p)}
           {p.peer_asset && p.peer_asset.name
             ? <span className="context-name context-name-asset ms-1">{p.peer_asset.name}</span> : null}
+          {pivotElement}
         </span>
       );
     }
@@ -398,6 +404,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
       <span>
         <Flag code={p.peer_country_code ? p.peer_country_code : "NONE"} />{' '}
         {peerLabel(p)}
+        {pivotElement}
       </span>
     );
   }
@@ -451,11 +458,9 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
 
   const peerColumns = [
     { key: "peer", label: "Peer", value: (p) => peerLabel(p), render: (p) => {
-        const pivot = peerPivot(p);
         return (
           <span>
-            {locateButton(p)}{peerCell(p)}
-            {pivot ? <PivotLink to={pivot.to} title={pivot.title} className="ms-2 small" icon={true} /> : null}
+            {locateButton(p)}{peerCell(p, peerPivot(p))}
           </span>
         );
       } },

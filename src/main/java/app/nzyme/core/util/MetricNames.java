@@ -23,6 +23,9 @@ import app.nzyme.core.ethernet.spoofing.ArpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DnsSpoofingDetector;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelDetector;
+import app.nzyme.core.assets.identity.DuplicateMacDetector;
+import app.nzyme.core.assets.identity.IdentityChangeDetector;
+import app.nzyme.core.assets.identity.AssetSuccessorDetector;
 import app.nzyme.core.ethernet.spoofing.NameResolutionSpoofingDetector;
 import app.nzyme.core.bluetooth.sig.BluetoothSigService;
 import app.nzyme.core.context.ContextService;
@@ -129,6 +132,9 @@ public class MetricNames {
     public static final String SPOOFING_NAMERES_DETECTION_RUN_TIMER = name(NameResolutionSpoofingDetector.class, "detection-run-timing");
     public static final String SPOOFING_DNS_DETECTION_RUN_TIMER = name(DnsSpoofingDetector.class, "detection-run-timing");
     public static final String DNS_TUNNEL_DETECTION_RUN_TIMER = name(DnsTunnelDetector.class, "detection-run-timing");
+    public static final String IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER = name(DuplicateMacDetector.class, "detection-run-timing");
+    public static final String IDENTITY_CHANGE_DETECTION_RUN_TIMER = name(IdentityChangeDetector.class, "detection-run-timing");
+    public static final String IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER = name(AssetSuccessorDetector.class, "detection-run-timing");
     public static final String UAV_CONNECT_TYPE_LOOKUP_TIMING = name(Uav.class, "connect-type-lookup-timing");
 
     public static final String MONITOR_EXECUTION_TIMER_BASE = name(MonitorExecutionTaskHandler.class, "execution-timer-");

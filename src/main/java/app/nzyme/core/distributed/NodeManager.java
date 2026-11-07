@@ -395,6 +395,12 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SPOOFING_DNS_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.DNS_TUNNEL_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.DNS_TUNNEL_DETECTION_RUN_TIMER));
+            writeTimer(MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER));
+            writeTimer(MetricExternalName.IDENTITY_CHANGE_DETECTION_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.IDENTITY_CHANGE_DETECTION_RUN_TIMER));
+            writeTimer(MetricExternalName.IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER));
 
             // Write all monitor execution timers.
             for (Map.Entry<String, Timer> timer : metrics.getTimers().entrySet()) {

@@ -125,12 +125,55 @@ pub struct TcpSession {
     pub syn_maximum_segment_size: Option<u16>,
     pub syn_window_scale_multiplier: Option<u8>,
     pub syn_options: Vec<u8>,
+    pub syn_ip_id: u16,
+    pub syn_timestamp_value: Option<u32>,
+    pub syn_timestamp_echo: Option<u32>,
+    pub latest_client_timestamp_value: Option<u32>,
+    pub latest_client_timestamp_time: Option<DateTime<Utc>>,
+    pub latest_client_ip_id: Option<u16>,
+    pub segments_count_client_to_server: u64,
+    pub syn_ack: Option<TcpSynAck>,
     pub tags: HashSet<L7Tag>,
     /*
      * Session attributes as seen by the L7 taggers at the last tagging run. Used to decide
      * if attributes changed and a new tagging run is required.
      */
     pub tagging_fingerprint: Option<TcpTaggingFingerprint>
+}
+
+#[derive(Debug, Clone)]
+pub struct TcpSynAck {
+    pub ip_ttl: u8,
+    pub ip_tos: u8,
+    pub ip_df: bool,
+    pub ip_id: u16,
+    pub cwr: bool,
+    pub ece: bool,
+    pub window_size: u16,
+    pub maximum_segment_size: Option<u16>,
+    pub window_scale_multiplier: Option<u8>,
+    pub options: Vec<u8>,
+    pub timestamp_value: Option<u32>,
+    pub timestamp_echo: Option<u32>
+}
+
+impl TcpSynAck {
+    pub fn from_segment(segment: &TcpSegment) -> Self {
+        TcpSynAck {
+            ip_ttl: segment.ip_ttl,
+            ip_tos: segment.ip_tos,
+            ip_df: segment.ip_df,
+            ip_id: segment.ip_id,
+            cwr: segment.flags.cwr,
+            ece: segment.flags.ece,
+            window_size: segment.window_size,
+            maximum_segment_size: segment.maximum_segment_size,
+            window_scale_multiplier: segment.window_scale_multiplier,
+            options: segment.options.clone(),
+            timestamp_value: segment.timestamp_value,
+            timestamp_echo: segment.timestamp_echo
+        }
+    }
 }
 
 impl TcpSession {
@@ -200,6 +243,23 @@ impl TcpTable {
                         if session.end_time.is_none()
                             && (session_state == ClosedFin || session_state == ClosedRst || session_state == Refused) {
                             session.end_time = Some(segment.timestamp);
+                        }
+
+                        match segment.determine_direction(session) {
+                            TrafficDirection::ClientToServer => {
+                                session.segments_count_client_to_server += 1;
+                                session.latest_client_ip_id = Some(segment.ip_id);
+
+                                if segment.timestamp_value.is_some() {
+                                    session.latest_client_timestamp_value = segment.timestamp_value;
+                                    session.latest_client_timestamp_time = Some(segment.timestamp);
+                                }
+                            },
+                            TrafficDirection::ServerToClient => {
+                                if segment.flags.syn && segment.flags.ack && session.syn_ack.is_none() {
+                                    session.syn_ack = Some(TcpSynAck::from_segment(segment));
+                                }
+                            }
                         }
 
                         if !segment.payload.is_empty() {
@@ -272,6 +332,14 @@ impl TcpTable {
                                 syn_maximum_segment_size: segment.maximum_segment_size,
                                 syn_window_scale_multiplier: segment.window_scale_multiplier,
                                 syn_options: segment.options.clone(),
+                                syn_ip_id: segment.ip_id,
+                                syn_timestamp_value: segment.timestamp_value,
+                                syn_timestamp_echo: segment.timestamp_echo,
+                                latest_client_timestamp_value: segment.timestamp_value,
+                                latest_client_timestamp_time: segment.timestamp_value.map(|_| segment.timestamp),
+                                latest_client_ip_id: Some(segment.ip_id),
+                                segments_count_client_to_server: 1,
+                                syn_ack: None,
                                 tags: HashSet::new(),
                                 tagging_fingerprint: None
                             };
@@ -771,6 +839,14 @@ mod tests {
             syn_maximum_segment_size: None,
             syn_window_scale_multiplier: None,
             syn_options: Vec::new(),
+            syn_ip_id: 0,
+            syn_timestamp_value: None,
+            syn_timestamp_echo: None,
+            latest_client_timestamp_value: None,
+            latest_client_timestamp_time: None,
+            latest_client_ip_id: None,
+            segments_count_client_to_server: 1,
+            syn_ack: None,
             tags: HashSet::new(),
             tagging_fingerprint: None
         })
@@ -804,10 +880,13 @@ mod tests {
             ip_ttl: 64,
             ip_tos: 0,
             ip_df: true,
+            ip_id: 0,
             window_size: 1024,
             maximum_segment_size: None,
             window_scale_multiplier: None,
             options,
+            timestamp_value: None,
+            timestamp_echo: None,
             size: 54,
             timestamp: Utc::now()
         }

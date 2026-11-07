@@ -3,7 +3,8 @@ package app.nzyme.core.tables.ethernet;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
-import app.nzyme.core.ethernet.l4.tcp.TCPFingerprint;
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
+import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSynAckReport;
 import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
 import app.nzyme.core.ethernet.l4.tcp.db.TcpSessionEntry;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
@@ -162,7 +163,13 @@ public class TCPTable implements DataTable {
                 "destination_address_geo_city, destination_address_geo_country_code, " +
                 "destination_address_geo_latitude, destination_address_geo_longitude, ip_ttl, ip_tos, ip_df, " +
                 "tcp_syn_window_size, tcp_syn_maximum_segment_size, tcp_syn_window_scale_multiplier, tcp_syn_cwr, " +
-                "tcp_syn_ece, tcp_syn_options, fingerprint, tags, created_at) " +
+                "tcp_syn_ece, tcp_syn_options, fingerprint, signature, ip_hop_distance, ip_id, ip_id_behavior, " +
+                "tcp_syn_timestamp_value, tcp_syn_timestamp_echo, tcp_client_timestamp_value, " +
+                "tcp_client_timestamp_time, tcp_client_ip_id, tcp_timestamp_rate, segments_count_client_to_server, " +
+                "server_fingerprint, server_signature, server_ip_hop_distance, tcp_synack_ip_ttl, tcp_synack_ip_tos, " +
+                "tcp_synack_ip_df, tcp_synack_ip_id, tcp_synack_cwr, tcp_synack_ece, tcp_synack_window_size, " +
+                "tcp_synack_maximum_segment_size, tcp_synack_window_scale_multiplier, tcp_synack_options, " +
+                "tcp_synack_timestamp_value, tcp_synack_timestamp_echo, tags, created_at) " +
                 "VALUES(:tap_uuid, :l4_type, :session_key, :untimed_session_key, :source_mac, :source_address::inet, " +
                 ":source_address_is_site_local, :source_address_is_loopback, :source_address_is_multicast, " +
                 ":source_port, :destination_mac, :destination_address::inet, " +
@@ -177,9 +184,37 @@ public class TCPTable implements DataTable {
                 ":destination_address_geo_city, :destination_address_geo_country_code, " +
                 ":destination_address_geo_latitude, :destination_address_geo_longitude, :ip_ttl, :ip_tos, :ip_df, " +
                 ":tcp_syn_window_size, :tcp_syn_maximum_segment_size, :tcp_syn_window_scale_multiplier, " +
-                ":tcp_syn_cwr, :tcp_syn_ece, :tcp_syn_options::jsonb, :fingerprint, :tags::jsonb, :created_at) " +
+                ":tcp_syn_cwr, :tcp_syn_ece, :tcp_syn_options::jsonb, :fingerprint, :signature, :ip_hop_distance, " +
+                ":ip_id, :ip_id_behavior, :tcp_syn_timestamp_value, :tcp_syn_timestamp_echo, " +
+                ":tcp_client_timestamp_value, :tcp_client_timestamp_time, :tcp_client_ip_id, :tcp_timestamp_rate, " +
+                ":segments_count_client_to_server, :server_fingerprint, :server_signature, :server_ip_hop_distance, " +
+                ":tcp_synack_ip_ttl, :tcp_synack_ip_tos, :tcp_synack_ip_df, :tcp_synack_ip_id, :tcp_synack_cwr, " +
+                ":tcp_synack_ece, :tcp_synack_window_size, :tcp_synack_maximum_segment_size, " +
+                ":tcp_synack_window_scale_multiplier, :tcp_synack_options::jsonb, :tcp_synack_timestamp_value, " +
+                ":tcp_synack_timestamp_echo, :tags::jsonb, :created_at) " +
                 "ON CONFLICT (tap_uuid, l4_type, session_key) DO UPDATE SET " +
                 "state = EXCLUDED.state, " +
+                "ip_id_behavior = EXCLUDED.ip_id_behavior, " +
+                "tcp_client_timestamp_value = EXCLUDED.tcp_client_timestamp_value, " +
+                "tcp_client_timestamp_time = EXCLUDED.tcp_client_timestamp_time, " +
+                "tcp_client_ip_id = EXCLUDED.tcp_client_ip_id, " +
+                "tcp_timestamp_rate = EXCLUDED.tcp_timestamp_rate, " +
+                "segments_count_client_to_server = EXCLUDED.segments_count_client_to_server, " +
+                "server_fingerprint = COALESCE(EXCLUDED.server_fingerprint, l4_sessions.server_fingerprint), " +
+                "server_signature = COALESCE(EXCLUDED.server_signature, l4_sessions.server_signature), " +
+                "server_ip_hop_distance = COALESCE(EXCLUDED.server_ip_hop_distance, l4_sessions.server_ip_hop_distance), " +
+                "tcp_synack_ip_ttl = COALESCE(EXCLUDED.tcp_synack_ip_ttl, l4_sessions.tcp_synack_ip_ttl), " +
+                "tcp_synack_ip_tos = COALESCE(EXCLUDED.tcp_synack_ip_tos, l4_sessions.tcp_synack_ip_tos), " +
+                "tcp_synack_ip_df = COALESCE(EXCLUDED.tcp_synack_ip_df, l4_sessions.tcp_synack_ip_df), " +
+                "tcp_synack_ip_id = COALESCE(EXCLUDED.tcp_synack_ip_id, l4_sessions.tcp_synack_ip_id), " +
+                "tcp_synack_cwr = COALESCE(EXCLUDED.tcp_synack_cwr, l4_sessions.tcp_synack_cwr), " +
+                "tcp_synack_ece = COALESCE(EXCLUDED.tcp_synack_ece, l4_sessions.tcp_synack_ece), " +
+                "tcp_synack_window_size = COALESCE(EXCLUDED.tcp_synack_window_size, l4_sessions.tcp_synack_window_size), " +
+                "tcp_synack_maximum_segment_size = COALESCE(EXCLUDED.tcp_synack_maximum_segment_size, l4_sessions.tcp_synack_maximum_segment_size), " +
+                "tcp_synack_window_scale_multiplier = COALESCE(EXCLUDED.tcp_synack_window_scale_multiplier, l4_sessions.tcp_synack_window_scale_multiplier), " +
+                "tcp_synack_options = COALESCE(EXCLUDED.tcp_synack_options, l4_sessions.tcp_synack_options), " +
+                "tcp_synack_timestamp_value = COALESCE(EXCLUDED.tcp_synack_timestamp_value, l4_sessions.tcp_synack_timestamp_value), " +
+                "tcp_synack_timestamp_echo = COALESCE(EXCLUDED.tcp_synack_timestamp_echo, l4_sessions.tcp_synack_timestamp_echo), " +
                 "bytes_rx_count = EXCLUDED.bytes_rx_count, " +
                 "bytes_tx_count = EXCLUDED.bytes_tx_count, " +
                 "segments_count = EXCLUDED.segments_count, " +
@@ -259,15 +294,68 @@ public class TCPTable implements DataTable {
                     throw new RuntimeException("Could not serialize SYN options: " + session.synOptions(), e);
                 }
 
-                String fingerprint = new TCPFingerprint(
+                // Older taps send no IP ID. -1 keeps the zero-ID quirk off in that case.
+                int synIpId = session.synIpId() == null ? -1 : session.synIpId();
+                TcpSignature client = new TcpSignature(
                         session.synIpTtl(),
                         session.synIpTos(),
                         session.synIpDf(),
+                        synIpId,
+                        session.synCwr(),
+                        session.synEce(),
                         session.synWindowSize(),
                         session.synMaximumSegmentSize(),
                         session.synMaximumScaleMultiplier(),
-                        session.synOptions()
-                ).generate();
+                        session.synOptions(),
+                        session.synTimestampValue(),
+                        session.synTimestampEcho()
+                );
+
+                TcpSynAckReport synAck = session.synAck();
+                TcpSignature server = null;
+                String synAckOptions = null;
+                if (synAck != null) {
+                    server = new TcpSignature(
+                            synAck.ipTtl(),
+                            synAck.ipTos(),
+                            synAck.ipDf(),
+                            synAck.ipId(),
+                            synAck.cwr(),
+                            synAck.ece(),
+                            synAck.windowSize(),
+                            synAck.maximumSegmentSize(),
+                            synAck.windowScaleMultiplier(),
+                            synAck.options(),
+                            synAck.timestampValue(),
+                            synAck.timestampEcho()
+                    );
+
+                    try {
+                        synAckOptions = om.writeValueAsString(synAck.options());
+                    } catch (JacksonException e) {
+                        throw new RuntimeException("Could not serialize SYN-ACK options: " + synAck.options(), e);
+                    }
+                }
+
+                Integer timestampRate = TcpSignature.timestampRate(
+                        session.synTimestampValue(),
+                        session.startTime(),
+                        session.latestClientTimestampValue(),
+                        session.latestClientTimestampTime()
+                );
+                String ipIdBehavior = session.synIpId() == null ? null : TcpSignature.ipIdBehavior(
+                        session.synIpId(),
+                        session.latestClientIpId(),
+                        session.segmentsCountClientToServer() == null ? 0 : session.segmentsCountClientToServer()
+                );
+
+                AssetProfileBatch.TcpIdentity identity = new AssetProfileBatch.TcpIdentity(
+                        client,
+                        session.sourcePort(),
+                        TcpSignature.timestampRateBucket(timestampRate),
+                        ipIdBehavior,
+                        server
+                );
 
                 upsertBatch
                         .bind("tap_uuid", tap.uuid())
@@ -316,7 +404,33 @@ public class TCPTable implements DataTable {
                         .bind("tcp_syn_cwr", session.synCwr())
                         .bind("tcp_syn_ece", session.synEce())
                         .bind("tcp_syn_options", synOptions)
-                        .bind("fingerprint", fingerprint)
+                        .bind("fingerprint", client.fingerprint())
+                        .bind("signature", client.signature())
+                        .bind("ip_hop_distance", client.hopDistance())
+                        .bind("ip_id", session.synIpId())
+                        .bind("ip_id_behavior", ipIdBehavior)
+                        .bind("tcp_syn_timestamp_value", session.synTimestampValue())
+                        .bind("tcp_syn_timestamp_echo", session.synTimestampEcho())
+                        .bind("tcp_client_timestamp_value", session.latestClientTimestampValue())
+                        .bind("tcp_client_timestamp_time", session.latestClientTimestampTime())
+                        .bind("tcp_client_ip_id", session.latestClientIpId())
+                        .bind("tcp_timestamp_rate", timestampRate)
+                        .bind("segments_count_client_to_server", session.segmentsCountClientToServer())
+                        .bind("server_fingerprint", server == null ? null : server.fingerprint())
+                        .bind("server_signature", server == null ? null : server.signature())
+                        .bind("server_ip_hop_distance", server == null ? null : server.hopDistance())
+                        .bind("tcp_synack_ip_ttl", synAck == null ? null : synAck.ipTtl())
+                        .bind("tcp_synack_ip_tos", synAck == null ? null : synAck.ipTos())
+                        .bind("tcp_synack_ip_df", synAck == null ? null : synAck.ipDf())
+                        .bind("tcp_synack_ip_id", synAck == null ? null : synAck.ipId())
+                        .bind("tcp_synack_cwr", synAck == null ? null : synAck.cwr())
+                        .bind("tcp_synack_ece", synAck == null ? null : synAck.ece())
+                        .bind("tcp_synack_window_size", synAck == null ? null : synAck.windowSize())
+                        .bind("tcp_synack_maximum_segment_size", synAck == null ? null : synAck.maximumSegmentSize())
+                        .bind("tcp_synack_window_scale_multiplier", synAck == null ? null : synAck.windowScaleMultiplier())
+                        .bind("tcp_synack_options", synAckOptions)
+                        .bind("tcp_synack_timestamp_value", synAck == null ? null : synAck.timestampValue())
+                        .bind("tcp_synack_timestamp_echo", synAck == null ? null : synAck.timestampEcho())
                         .bind("tags", tags)
                         .bind("created_at", timestamp)
                         .add();
@@ -348,7 +462,7 @@ public class TCPTable implements DataTable {
                         session.mostRecentSegmentTime(),
                         sourceGeo,
                         destinationGeo,
-                        fingerprint
+                        identity
                 );
             } catch (Exception e) {
                 LOG.error("Could not handle TCP session.", e);
@@ -469,16 +583,6 @@ public class TCPTable implements DataTable {
             if (session.sourceMac() == null || session.sourceMac().equals("00:00:00:00:00:00")) {
                 continue;
             }
-
-            String fingerprint = new TCPFingerprint(
-                    session.synIpTtl(),
-                    session.synIpTos(),
-                    session.synIpDf(),
-                    session.synWindowSize(),
-                    session.synMaximumSegmentSize(),
-                    session.synMaximumScaleMultiplier(),
-                    session.synOptions()
-            ).generate();
 
             AssetInformation existingAsset = assets.get(session.sourceMac());
             if (existingAsset != null) {

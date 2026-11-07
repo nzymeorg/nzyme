@@ -30,6 +30,16 @@ public abstract class Dhcpv4TransactionReport {
     @Nullable
     public abstract String vendorClass();
     public abstract Set<String> additionalVendorClasses();
+
+    // Older taps do not send these.
+    @Nullable
+    public abstract List<Integer> parameterRequestList();
+    @Nullable
+    public abstract String clientIdentifier();
+    @Nullable
+    public abstract String hostname();
+    @Nullable
+    public abstract String fqdn();
     @Nullable
     public abstract Map<String, List<String>> timestamps(); // String not DateTime, because we need microsecond resolution.
     public abstract DateTime firstPacket();
@@ -56,6 +66,10 @@ public abstract class Dhcpv4TransactionReport {
                                                  @JsonProperty("additional_options") Set<List<Integer>> additionalOptions,
                                                  @JsonProperty("vendor_class") String vendorClass,
                                                  @JsonProperty("additional_vendor_classes") List<String> additionalVendorClasses,
+                                                 @JsonProperty("parameter_request_list") List<Integer> parameterRequestList,
+                                                 @JsonProperty("client_identifier") String clientIdentifier,
+                                                 @JsonProperty("hostname") String hostname,
+                                                 @JsonProperty("fqdn") String fqdn,
                                                  @JsonProperty("timestamps") Map<String, List<String>> timestamps,
                                                  @JsonProperty("first_packet") DateTime firstPacket,
                                                  @JsonProperty("latest_packet") DateTime latestPacket,
@@ -77,6 +91,10 @@ public abstract class Dhcpv4TransactionReport {
                 .additionalOptions(additionalOptions)
                 .vendorClass(vendorClass)
                 .additionalVendorClasses(additionalVendorClasses)
+                .parameterRequestList(parameterRequestList)
+                .clientIdentifier(clientIdentifier)
+                .hostname(hostname)
+                .fqdn(fqdn)
                 .timestamps(timestamps)
                 .firstPacket(firstPacket)
                 .latestPacket(latestPacket)
@@ -117,6 +135,10 @@ public abstract class Dhcpv4TransactionReport {
         public abstract Builder vendorClass(String vendorClass);
 
         public abstract Builder additionalVendorClasses(List<String> additionalVendorClasses);
+        public abstract Builder parameterRequestList(List<Integer> parameterRequestList);
+        public abstract Builder clientIdentifier(String clientIdentifier);
+        public abstract Builder hostname(String hostname);
+        public abstract Builder fqdn(String fqdn);
 
         public abstract Builder timestamps(Map<String, List<String>> timestamps);
 

@@ -1,5 +1,7 @@
 package app.nzyme.core.assets.profile;
 
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
+
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.taps.Tap;
 import com.google.common.base.Strings;
@@ -22,13 +24,24 @@ public class AssetProfileBatch {
     public static final String NULL_MAC = "00:00:00:00:00:00";
 
     private static final Set<String> CAPPED_DIMENSIONS = Set.of(
-            AssetAttributeDimension.INBOUND_PORT.name(), AssetAttributeDimension.INBOUND_PORT_PROTOCOL.name()
+            AssetAttributeDimension.INBOUND_PORT.name(), AssetAttributeDimension.INBOUND_PORT_PROTOCOL.name(),
+            AssetAttributeDimension.TCP_STACK.name(), AssetAttributeDimension.TCP_FINGERPRINT.name(),
+            AssetAttributeDimension.TCP_SIGNATURE.name(), AssetAttributeDimension.TCP_FINGERPRINT_FORWARDED.name(),
+            AssetAttributeDimension.TCP_SERVER_FINGERPRINT.name(), AssetAttributeDimension.TCP_SERVER_SIGNATURE.name(),
+            AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST.name(), AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER.name(),
+            AssetAttributeDimension.JA4.name()
     );
-    private static final int MAX_PORT_VALUES = 1000;
+    private static final int MAX_VALUES_PER_DIMENSION = 1000;
     private static final int MAX_PORTS_PER_EDGE = 64;
     public static final String BROADCAST_MAC = "FF:FF:FF:FF:FF:FF";
 
     public enum ActivityKind { ARP, DHCP, DNS, TCP, UDP }
+
+    public record TcpIdentity(@Nullable TcpSignature client,
+                              int sourcePort,
+                              @Nullable String timestampRateBucket,
+                              @Nullable String ipIdBehavior,
+                              @Nullable TcpSignature server) { }
     public enum Direction { OUTBOUND, INBOUND }
     public enum L4Type { TCP, UDP }
     public enum PeerType { INTERNAL, EXTERNAL }
@@ -185,7 +198,7 @@ public class AssetProfileBatch {
                           @Nullable DateTime mostRecentSegmentTime,
                           Optional<GeoIpLookupResult> sourceGeo,
                           Optional<GeoIpLookupResult> destinationGeo,
-                          @Nullable String tcpFingerprint) {
+                          @Nullable TcpIdentity tcpIdentity) {
         if (sourceAddress == null || destinationAddress == null) {
             return;
         }
@@ -214,8 +227,23 @@ public class AssetProfileBatch {
             activity(sourceMac, timestamp, activityKind, sessionCount, bytesRxIncremental, bytesTxIncremental);
             tap(sourceMac, timestamp, sessionCount);
 
-            if (l4Type == L4Type.TCP && !Strings.isNullOrEmpty(tcpFingerprint)) {
-                attribute(sourceMac, AssetAttributeDimension.TCP_FINGERPRINT, tcpFingerprint, timestamp, sessionCount);
+            if (l4Type == L4Type.TCP && tcpIdentity != null && tcpIdentity.client() != null) {
+                TcpSignature client = tcpIdentity.client();
+                if (client.isNative()) {
+                    attribute(sourceMac, AssetAttributeDimension.TCP_STACK, client.stack(), timestamp, sessionCount);
+                    attribute(sourceMac, AssetAttributeDimension.TCP_FINGERPRINT, client.fingerprint(), timestamp, sessionCount);
+                    attribute(sourceMac, AssetAttributeDimension.TCP_SIGNATURE, client.signature(), timestamp, sessionCount);
+                    attribute(sourceMac, AssetAttributeDimension.SOURCE_PORT_RANGE,
+                            TcpSignature.sourcePortRange(tcpIdentity.sourcePort()), timestamp, sessionCount);
+                    attribute(sourceMac, AssetAttributeDimension.TCP_TIMESTAMP_RATE, tcpIdentity.timestampRateBucket(),
+                            timestamp, sessionCount);
+                    attribute(sourceMac, AssetAttributeDimension.IP_ID_BEHAVIOR, tcpIdentity.ipIdBehavior(),
+                            timestamp, sessionCount);
+                } else {
+                    // The MAC forwards for this stack.
+                    attribute(sourceMac, AssetAttributeDimension.TCP_FINGERPRINT_FORWARDED, client.fingerprint(),
+                            timestamp, sessionCount);
+                }
             }
 
             // Multicast and broadcast sessions are not client protocol use: mDNS is tagged DNS by the tap but never
@@ -275,6 +303,14 @@ public class AssetProfileBatch {
             tap(destinationMac, timestamp, sessionCount);
             attribute(destinationMac, AssetAttributeDimension.INBOUND_PORT, l4Type.name() + "/" + destinationPort,
                     timestamp, sessionCount, sessionBytes);
+
+            if (l4Type == L4Type.TCP && tcpIdentity != null && tcpIdentity.server() != null
+                    && tcpIdentity.server().isNative()) {
+                attribute(destinationMac, AssetAttributeDimension.TCP_SERVER_FINGERPRINT,
+                        tcpIdentity.server().fingerprint(), timestamp, sessionCount);
+                attribute(destinationMac, AssetAttributeDimension.TCP_SERVER_SIGNATURE,
+                        tcpIdentity.server().signature(), timestamp, sessionCount);
+            }
 
             if (tags != null) {
                 for (String tag : tags) {
@@ -430,7 +466,7 @@ public class AssetProfileBatch {
             return;
         }
 
-        capPortAttributes(handle);
+        capAttributes(handle);
         if (attributes.isEmpty()) {
             return;
         }
@@ -520,8 +556,8 @@ public class AssetProfileBatch {
         batch.execute();
     }
 
-    // Past MAX_PORT_VALUES values per asset and dimension, new values are dropped and existing ones still updated.
-    private void capPortAttributes(Handle handle) {
+    // Past MAX_VALUES_PER_DIMENSION values per asset and dimension, new values are dropped and existing ones still updated.
+    private void capAttributes(Handle handle) {
         Set<String> macs = new HashSet<>();
         for (Object[] a : attributes.values()) {
             if (CAPPED_DIMENSIONS.contains((String) a[1])) {
@@ -541,7 +577,7 @@ public class AssetProfileBatch {
                 .bind("tenant_id", tenantId)
                 .bindList("dimensions", new ArrayList<>(CAPPED_DIMENSIONS))
                 .bindList("macs", new ArrayList<>(macs))
-                .bind("cap", MAX_PORT_VALUES)
+                .bind("cap", MAX_VALUES_PER_DIMENSION)
                 .mapToMap()
                 .list();
 

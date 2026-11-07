@@ -4,10 +4,16 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import {dimensionTitle, formatCount} from "./AssetProfileHelpers";
+import TcpFingerprint from "../identity/TcpFingerprint";
 
 const IDENTITY_DIMENSIONS = [
-  "DHCP_VENDOR_CLASS", "DHCP_FINGERPRINT", "TCP_FINGERPRINT", "JA4", "TLS_VERSION", "NTP_CLIENT_VERSION"
+  "DHCP_VENDOR_CLASS", "DHCP_FINGERPRINT", "DHCP_PARAMETER_REQUEST_LIST", "DHCP_CLIENT_IDENTIFIER",
+  "TCP_STACK", "TCP_FINGERPRINT", "TCP_SIGNATURE", "TCP_FINGERPRINT_FORWARDED", "TCP_SERVER_FINGERPRINT",
+  "TCP_SERVER_SIGNATURE",
+  "SOURCE_PORT_RANGE", "TCP_TIMESTAMP_RATE", "IP_ID_BEHAVIOR", "JA4", "TLS_VERSION", "NTP_CLIENT_VERSION"
 ];
+
+const isTcpStackDimension = (dimension) => dimension.startsWith("TCP_") && dimension !== "TCP_TIMESTAMP_RATE";
 
 export default function AssetIdentityCard({attributes, onRefresh}) {
 
@@ -28,6 +34,7 @@ export default function AssetIdentityCard({attributes, onRefresh}) {
     IDENTITY_DIMENSIONS.forEach((dimension) => {
       (attributes.attributes[dimension] || []).forEach((v) => {
         result.push({
+          dimension: dimension,
           attribute: dimensionTitle(dimension),
           value: v.value,
           count: v.count,
@@ -52,7 +59,11 @@ export default function AssetIdentityCard({attributes, onRefresh}) {
     return sortedRows().map((row) => (
       <tr key={row.attribute + "-" + row.value}>
         <td>{row.attribute}</td>
-        <td><span className="machine-data">{row.value}</span></td>
+        <td>
+          {isTcpStackDimension(row.dimension)
+            ? <TcpFingerprint value={row.value} />
+            : <span className="machine-data">{row.value}</span>}
+        </td>
         <td>{formatCount(row.count)}</td>
         <td title={moment(row.first_seen).format()}>{moment(row.first_seen).fromNow()}</td>
         <td title={moment(row.last_seen).format()}>{moment(row.last_seen).fromNow()}</td>
@@ -67,7 +78,11 @@ export default function AssetIdentityCard({attributes, onRefresh}) {
       <CardTitleWithControls title="Identity"
                              refreshAction={onRefresh} />
 
-      <p className="text-muted">Fingerprints and client software presented by this asset, kept long-term.</p>
+      <p className="text-muted">
+        Fingerprints and client software presented by this asset, kept long-term. The TCP stack describes how the
+        operating system opens connections. A TCP fingerprint adds the MSS and window scale, which follow the
+        link, so one stack can have several fingerprints. Hover over a value for the meaning of its fields.
+      </p>
     </React.Fragment>
   );
 

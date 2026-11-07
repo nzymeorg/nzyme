@@ -41,6 +41,25 @@ public abstract class TcpSessionReport {
     @Nullable
     public abstract Integer synMaximumScaleMultiplier();
     public abstract List<Integer> synOptions();
+
+    // Older taps do not send these.
+    @Nullable
+    public abstract Integer synIpId();
+    @Nullable
+    public abstract Long synTimestampValue();
+    @Nullable
+    public abstract Long synTimestampEcho();
+    @Nullable
+    public abstract Long latestClientTimestampValue();
+    @Nullable
+    public abstract DateTime latestClientTimestampTime();
+    @Nullable
+    public abstract Integer latestClientIpId();
+    @Nullable
+    public abstract Long segmentsCountClientToServer();
+    @Nullable
+    public abstract TcpSynAckReport synAck();
+
     @Nullable
     public abstract List<String> tags();
 
@@ -70,6 +89,14 @@ public abstract class TcpSessionReport {
                                           @JsonProperty("syn_maximum_segment_size") Integer synMaximumSegmentSize,
                                           @JsonProperty("syn_window_scale_multiplier") Integer synMaximumScaleMultiplier,
                                           @JsonProperty("syn_options") List<Integer> synOptions,
+                                          @JsonProperty("syn_ip_id") Integer synIpId,
+                                          @JsonProperty("syn_timestamp_value") Long synTimestampValue,
+                                          @JsonProperty("syn_timestamp_echo") Long synTimestampEcho,
+                                          @JsonProperty("latest_client_timestamp_value") Long latestClientTimestampValue,
+                                          @JsonProperty("latest_client_timestamp_time") DateTime latestClientTimestampTime,
+                                          @JsonProperty("latest_client_ip_id") Integer latestClientIpId,
+                                          @JsonProperty("segments_count_client_to_server") Long segmentsCountClientToServer,
+                                          @JsonProperty("syn_ack") TcpSynAckReport synAck,
                                           @JsonProperty("tags") List<String> tags) {
         return builder()
                 .state(state)
@@ -97,6 +124,14 @@ public abstract class TcpSessionReport {
                 .synMaximumSegmentSize(synMaximumSegmentSize)
                 .synMaximumScaleMultiplier(synMaximumScaleMultiplier)
                 .synOptions(synOptions)
+                .synIpId(synIpId)
+                .synTimestampValue(synTimestampValue)
+                .synTimestampEcho(synTimestampEcho)
+                .latestClientTimestampValue(latestClientTimestampValue)
+                .latestClientTimestampTime(latestClientTimestampTime)
+                .latestClientIpId(latestClientIpId)
+                .segmentsCountClientToServer(segmentsCountClientToServer)
+                .synAck(synAck)
                 .tags(tags)
                 .build();
     }
@@ -156,6 +191,14 @@ public abstract class TcpSessionReport {
         public abstract Builder synMaximumScaleMultiplier(Integer synMaximumScaleMultiplier);
 
         public abstract Builder synOptions(List<Integer> synOptions);
+        public abstract Builder synIpId(Integer synIpId);
+        public abstract Builder synTimestampValue(Long synTimestampValue);
+        public abstract Builder synTimestampEcho(Long synTimestampEcho);
+        public abstract Builder latestClientTimestampValue(Long latestClientTimestampValue);
+        public abstract Builder latestClientTimestampTime(DateTime latestClientTimestampTime);
+        public abstract Builder latestClientIpId(Integer latestClientIpId);
+        public abstract Builder segmentsCountClientToServer(Long segmentsCountClientToServer);
+        public abstract Builder synAck(TcpSynAckReport synAck);
 
         public abstract Builder tags(List<String> tags);
 

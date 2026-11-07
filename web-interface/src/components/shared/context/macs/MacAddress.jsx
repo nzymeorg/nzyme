@@ -26,6 +26,7 @@ function MacAddress(props) {
   const showOui = props.showOui;
   const highlighted = props.highlighted;
   const filterElement = props.filterElement;
+  const suffixElement = props.suffixElement;
 
   const [overlayTimeout, setOverlayTimeout] = useState(null);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -114,7 +115,7 @@ function MacAddress(props) {
   return (
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
         {hideActiveIndicator ? null : <AssetActiveIndicator active={assetIsActive} hideText={true} />}
-        {typeElement()}{addressElement()} {randomizedIcon()}{contextElement()}{ouiElement()}{assetNameElement()}{filterElement ? filterElement : null}
+        {typeElement()}{addressElement()} {randomizedIcon()}{contextElement()}{ouiElement()}{assetNameElement()}{filterElement ? filterElement : null}{suffixElement ? suffixElement : null}
 
         {overlay ? <ContextOverlayVisibilityWrapper visible={overlayVisible} overlay={overlay} /> : null }
       </span>

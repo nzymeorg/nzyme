@@ -46,6 +46,8 @@ fn parse(packet: &[u8],
     // Type of Service. (DSCP + ECN)
     let ip_tos = packet[1];
 
+    let identification = BigEndian::read_u16(&packet[4..6]);
+
     // Flags and Fragment Offset. (16 bits)
     let flags_frag = BigEndian::read_u16(&packet[6..8]);
     // Don't Fragment flag is 0x4000.
@@ -73,5 +75,6 @@ fn parse(packet: &[u8],
         timestamp,
         ip_tos,
         df,
+        identification
     })
 }

@@ -226,6 +226,14 @@ import DHCPFingerprintExclusionsPage from "./components/ethernet/assets/dhcp/exc
 import CreateDHCPFingerprintExclusionPage from "./components/ethernet/assets/dhcp/exclusions/CreateDHCPFingerprintExclusionPage";
 import DHCPFingerprintExclusionDetailsPage from "./components/ethernet/assets/dhcp/exclusions/DHCPFingerprintExclusionDetailsPage";
 import EditDHCPFingerprintExclusionPage from "./components/ethernet/assets/dhcp/exclusions/EditDHCPFingerprintExclusionPage";
+import AssetIdentityPage from "./components/ethernet/assets/identity/AssetIdentityPage";
+import DuplicateMacFindingDetailsPage from "./components/ethernet/assets/identity/DuplicateMacFindingDetailsPage";
+import IdentityChangeFindingDetailsPage from "./components/ethernet/assets/identity/IdentityChangeFindingDetailsPage";
+import AssetLinkDetailsPage from "./components/ethernet/assets/identity/AssetLinkDetailsPage";
+import AssetIdentityExclusionsPage from "./components/ethernet/assets/identity/exclusions/AssetIdentityExclusionsPage";
+import CreateAssetIdentityExclusionPage from "./components/ethernet/assets/identity/exclusions/CreateAssetIdentityExclusionPage";
+import AssetIdentityExclusionDetailsPage from "./components/ethernet/assets/identity/exclusions/AssetIdentityExclusionDetailsPage";
+import EditAssetIdentityExclusionPage from "./components/ethernet/assets/identity/exclusions/EditAssetIdentityExclusionPage";
 import {NTPOverviewPage} from "./components/ethernet/time/ntp/NTPOverviewPage";
 import NTPTransactionDetailsPage from "./components/ethernet/time/ntp/NTPTransactionDetailsPage";
 import Dot11MonitorsPage from "./components/dot11/monitoring/Dot11MonitorsPage";
@@ -649,6 +657,16 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.DETAILS(':uuid')} element={<DHCPFingerprintExclusionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.EDIT(':uuid')} element={<EditDHCPFingerprintExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.ARP.INDEX} element={<ARPPacketsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES} element={<AssetIdentityPage key="duplicates" tab="duplicates" />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES} element={<AssetIdentityPage key="changes" tab="changes" />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINKS} element={<AssetIdentityPage key="links" tab="links" />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATE_DETAILS(':uuid')} element={<DuplicateMacFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGE_DETAILS(':uuid')} element={<IdentityChangeFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINK_DETAILS(':uuid')} element={<AssetLinkDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.INDEX} element={<AssetIdentityExclusionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.CREATE} element={<CreateAssetIdentityExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.DETAILS(':uuid')} element={<AssetIdentityExclusionDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.EDIT(':uuid')} element={<EditAssetIdentityExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.SETTINGS} element={<EthernetAssetsSettingsPage />}/>
 
                                 { /* Ethernet/DNS. */}

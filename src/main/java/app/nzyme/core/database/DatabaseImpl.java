@@ -28,6 +28,10 @@ import app.nzyme.core.dot11.tracks.db.TrackDetectorConfigMapper;
 import app.nzyme.core.ethernet.arp.db.ARPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.arp.db.ArpPacketEntryMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPFingerprintExclusionEntryMapper;
+import app.nzyme.core.assets.identity.db.DuplicateMacFindingEntryMapper;
+import app.nzyme.core.assets.identity.db.IdentityChangeFindingEntryMapper;
+import app.nzyme.core.assets.identity.db.AssetLinkEntryMapper;
+import app.nzyme.core.assets.identity.db.AssetIdentityExclusionEntryMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPFlakyFingerprintAssetMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPStatisticsBucketMapper;
 import app.nzyme.core.ethernet.dhcp.db.DHCPTransactionMapper;
@@ -293,6 +297,10 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new DHCPStatisticsBucketMapper())
                 .registerRowMapper(new DHCPFlakyFingerprintAssetMapper())
                 .registerRowMapper(new DHCPFingerprintExclusionEntryMapper())
+                .registerRowMapper(new DuplicateMacFindingEntryMapper())
+                .registerRowMapper(new IdentityChangeFindingEntryMapper())
+                .registerRowMapper(new AssetLinkEntryMapper())
+                .registerRowMapper(new AssetIdentityExclusionEntryMapper())
                 .registerRowMapper(new NTPTransactionEntryMapper())
                 .registerRowMapper(new StringDoubleDoubleNumberAggregationResultMapper())
                 .registerRowMapper(new StringStringNumberAggregationResultMapper())
@@ -663,6 +671,32 @@ public class DatabaseImpl implements Database {
                         "assets_statistics",
                         "SELECT COUNT(*) FROM assets_statistics WHERE <scope>",
                         "DELETE FROM assets_statistics WHERE <scope> AND timestamp < :since",
+                        true
+                ));
+            }
+            case ASSET_IDENTITY -> {
+                tables.add(new DataTableInformation(
+                        "assets_identity_duplicate_findings",
+                        "SELECT COUNT(*) FROM assets_identity_duplicate_findings WHERE <scope>",
+                        "DELETE FROM assets_identity_duplicate_findings WHERE <scope> AND last_seen < :since",
+                        true
+                ));
+                tables.add(new DataTableInformation(
+                        "assets_identity_change_findings",
+                        "SELECT COUNT(*) FROM assets_identity_change_findings WHERE <scope>",
+                        "DELETE FROM assets_identity_change_findings WHERE <scope> AND last_seen < :since",
+                        true
+                ));
+                tables.add(new DataTableInformation(
+                        "assets_links",
+                        "SELECT COUNT(*) FROM assets_links WHERE <scope>",
+                        "DELETE FROM assets_links WHERE <scope> AND status <> 'CONFIRMED' AND detected_at < :since",
+                        true
+                ));
+                tables.add(new DataTableInformation(
+                        "assets_identity_successor_checks",
+                        "SELECT COUNT(*) FROM assets_identity_successor_checks WHERE <scope>",
+                        "DELETE FROM assets_identity_successor_checks WHERE <scope> AND created_at < :since",
                         true
                 ));
             }

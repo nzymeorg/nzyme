@@ -1,5 +1,6 @@
 package app.nzyme.core.briefing.collectors;
 
+import app.nzyme.core.assets.identity.AssetIdentityConfiguration;
 import app.nzyme.core.briefing.*;
 import app.nzyme.core.ethernet.beacons.BeaconsConfiguration;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelConfiguration;
@@ -44,6 +45,9 @@ public class EthernetCollector {
     private boolean dhcpLearningActive;
     private long dhcpServersTrusted;
     private long dhcpServersUntrusted;
+
+    private boolean macChangeDetectionEnabled;
+    private long openAssetLinks;
 
     public EthernetCollector(BriefingContext ctx, AlertsCollector alerts) {
         this.ctx = ctx;
@@ -93,6 +97,12 @@ public class EthernetCollector {
                     .bind("organization_id", ctx.organizationId())
                     .bind("tenant_id", ctx.tenantId())
                     .mapTo(Long.class).one();
+
+            openAssetLinks = handle.createQuery("SELECT COUNT(*) FROM assets_links " +
+                            "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND status = 'OPEN'")
+                    .bind("organization_id", ctx.organizationId())
+                    .bind("tenant_id", ctx.tenantId())
+                    .mapTo(Long.class).one();
         });
 
         loadDetectionMethods();
@@ -110,6 +120,7 @@ public class EthernetCollector {
         SpoofingConfiguration spoofing = ctx.nzyme().getEthernet().spoofing().getConfiguration(ctx.organizationId(), ctx.tenantId());
         DnsTunnelConfiguration dnsTunnels = ctx.nzyme().getEthernet().dnsTunnels().getConfiguration(ctx.organizationId(), ctx.tenantId());
         IcmpConfiguration icmp = ctx.nzyme().getEthernet().icmp().getConfiguration(ctx.organizationId(), ctx.tenantId());
+        AssetIdentityConfiguration identity = ctx.nzyme().getAssetsManager().identity().getConfiguration(ctx.organizationId(), ctx.tenantId());
 
         method("beacons", beacons.detectionEnabled());
         method("recon scans", recon.detectionEnabled());
@@ -120,9 +131,13 @@ public class EthernetCollector {
         method("DNS tunnels", dnsTunnels.detectionEnabled());
         method("ICMP redirects", icmp.redirectDetectionEnabled());
         method("ICMP tunnels", icmp.tunnelDetectionEnabled());
+        method("duplicate MAC addresses", identity.duplicateDetectionEnabled());
+        method("asset identity changes", identity.changeDetectionEnabled());
+        method("MAC address changes", identity.successorDetectionEnabled());
 
         beaconDetectionEnabled = beacons.detectionEnabled();
         dhcpDetectionEnabled = spoofing.dhcpDetectionEnabled();
+        macChangeDetectionEnabled = identity.successorDetectionEnabled();
 
         Spoofing spoofingService = ctx.nzyme().getEthernet().spoofing();
         DateTime learningStart = spoofingService.findDhcpLearningStartedAt(ctx.organizationId(), ctx.tenantId())
@@ -236,6 +251,19 @@ public class EthernetCollector {
                 checks.add(BriefingItems.ok("dhcp_learning", dhcpServersTrusted + " trusted DHCP "
                                 + plural(dhcpServersTrusted, "server", "servers") + ", learning complete",
                         null, BriefingLinks.to("SPOOFING_DHCP")));
+            }
+        }
+
+        if (macChangeDetectionEnabled) {
+            if (openAssetLinks > 0) {
+                checks.add(BriefingItems.info("asset_links_review", openAssetLinks + " MAC address "
+                                + plural(openAssetLinks, "change waits", "changes wait") + " for review",
+                        "Each one says a new asset is probably a known device under a new address. Confirm the ones "
+                                + "that are, dismiss the rest.",
+                        BriefingLinks.to("ASSET_IDENTITY_LINKS")));
+            } else {
+                checks.add(BriefingItems.ok("asset_links_review", "No MAC address changes wait for review", null,
+                        BriefingLinks.to("ASSET_IDENTITY_LINKS")));
             }
         }
 

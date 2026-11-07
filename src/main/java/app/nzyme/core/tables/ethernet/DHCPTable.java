@@ -1,5 +1,7 @@
 package app.nzyme.core.tables.ethernet;
 
+import com.google.common.base.Joiner;
+
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.assets.profile.AssetRole;
@@ -96,6 +98,7 @@ public class DHCPTable implements DataTable {
             String timestamps;
             String notes;
             String serverResponses;
+            String parameterRequestList;
 
             try {
                 additionalClientMacs = om.writeValueAsString(tx.additionalClientMacs());
@@ -107,6 +110,8 @@ public class DHCPTable implements DataTable {
                 additionalFingerprints = "[]";
                 additionalVendorClasses = om.writeValueAsString(tx.additionalVendorClasses());
                 notes = om.writeValueAsString(tx.notes());
+                parameterRequestList = tx.parameterRequestList() == null
+                        ? null : om.writeValueAsString(tx.parameterRequestList());
                 serverResponses = DHCPServerResponses.toJson(tx.serverResponses().stream()
                         .map(r -> DHCPServerResponseEntry.create(r.messageType(), r.serverMac(), r.serverAddress(),
                                 r.serverIdentifier(), r.offeredAddress(), r.subnetMask(), r.routers(), r.dnsServers(),
@@ -142,7 +147,8 @@ public class DHCPTable implements DataTable {
                                 "additional_server_macs, offered_ip_addresses, requested_ip_address, options, " +
                                 "additional_options, fingerprint, additional_fingerprints, vendor_class, " +
                                 "additional_vendor_classes, timestamps, first_packet, latest_packet, notes, " +
-                                "server_responses, selected_server_address, " +
+                                "server_responses, selected_server_address, parameter_request_list, " +
+                                "client_identifier, hostname, fqdn, " +
                                 "is_successful, is_complete, updated_at, created_at) VALUES(:uuid, :tap_uuid, " +
                                 ":transaction_id, :transaction_type, :client_mac, :additional_client_macs::jsonb, " +
                                 ":server_mac, :additional_server_macs::jsonb, :offered_ip_addresses::jsonb, " +
@@ -150,7 +156,8 @@ public class DHCPTable implements DataTable {
                                 ":fingerprint, :additional_fingerprints::jsonb, :vendor_class, " +
                                 ":additional_vendor_classes::jsonb, :timestamps::jsonb, :first_packet, " +
                                 ":latest_packet, :notes::jsonb, :server_responses::jsonb, " +
-                                ":selected_server_address::inet, :is_successful, :is_complete, NOW(), NOW())")
+                                ":selected_server_address::inet, :parameter_request_list::jsonb, " +
+                                ":client_identifier, :hostname, :fqdn, :is_successful, :is_complete, NOW(), NOW())")
                         .bind("uuid", UUID.randomUUID())
                         .bind("tap_uuid", tap.uuid())
                         .bind("transaction_id", tx.transactionId())
@@ -173,6 +180,10 @@ public class DHCPTable implements DataTable {
                         .bind("notes", notes)
                         .bind("server_responses", serverResponses)
                         .bind("selected_server_address", tx.selectedServerAddress())
+                        .bind("parameter_request_list", parameterRequestList)
+                        .bind("client_identifier", tx.clientIdentifier())
+                        .bind("hostname", tx.hostname())
+                        .bind("fqdn", tx.fqdn())
                         .bind("is_successful", tx.successful())
                         .bind("is_complete", tx.complete())
                         .execute();
@@ -191,6 +202,10 @@ public class DHCPTable implements DataTable {
                                 "latest_packet = :latest_packet, notes = :notes::jsonb, " +
                                 "server_responses = :server_responses::jsonb, " +
                                 "selected_server_address = :selected_server_address::inet, " +
+                                "parameter_request_list = COALESCE(:parameter_request_list::jsonb, parameter_request_list), " +
+                                "client_identifier = COALESCE(:client_identifier, client_identifier), " +
+                                "hostname = COALESCE(:hostname, hostname), " +
+                                "fqdn = COALESCE(:fqdn, fqdn), " +
                                 "is_complete = :is_complete, " +
                                 "is_successful = :is_successful, updated_at = NOW() WHERE id = :id")
                         .bind("id", existingTx.get())
@@ -210,6 +225,10 @@ public class DHCPTable implements DataTable {
                         .bind("notes", notes)
                         .bind("server_responses", serverResponses)
                         .bind("selected_server_address", tx.selectedServerAddress())
+                        .bind("parameter_request_list", parameterRequestList)
+                        .bind("client_identifier", tx.clientIdentifier())
+                        .bind("hostname", tx.hostname())
+                        .bind("fqdn", tx.fqdn())
                         .bind("is_successful", tx.successful())
                         .bind("is_complete", tx.complete())
                         .execute();
@@ -363,6 +382,11 @@ public class DHCPTable implements DataTable {
             new DHCPFingerprint(tx.options(), tx.vendorClass()).generate().ifPresent(fp ->
                     profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_FINGERPRINT, fp, timestamp));
             profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_VENDOR_CLASS, tx.vendorClass(), timestamp);
+            if (tx.parameterRequestList() != null && !tx.parameterRequestList().isEmpty()) {
+                profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST,
+                        Joiner.on(",").join(tx.parameterRequestList()), timestamp);
+            }
+            profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER, tx.clientIdentifier(), timestamp);
 
             String server = tx.selectedServerAddress() != null ? tx.selectedServerAddress() : tx.serverMac();
             profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_SERVER, server, timestamp);

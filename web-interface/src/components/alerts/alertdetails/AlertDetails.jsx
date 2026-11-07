@@ -24,6 +24,9 @@ import NameResolutionSpoofingAlertDetails from "./ethernet/NameResolutionSpoofin
 import DnsSpoofingAlertDetails from "./ethernet/DnsSpoofingAlertDetails";
 import DnsTunnelAlertDetails from "./ethernet/DnsTunnelAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
+import AssetNewAlertDetails from "./ethernet/AssetNewAlertDetails";
+import AssetDhcpFingerprintAlertDetails from "./ethernet/AssetDhcpFingerprintAlertDetails";
+import AssetIdentityAlertDetails from "./ethernet/AssetIdentityAlertDetails";
 
 function AlertDetails(props) {
 
@@ -90,7 +93,16 @@ function AlertDetails(props) {
       return <DnsTunnelAlertDetails alert={alert} />
     case "ICMP_REDIRECT":
     case "ICMP_TRACEROUTE":
+    case "ICMP_TUNNEL":
       return <IcmpAlertDetails alert={alert} />
+    case "ASSETS_NEW":
+      return <AssetNewAlertDetails alert={alert} />
+    case "ASSETS_DHCP_FINGERPRINT_NEW":
+      return <AssetDhcpFingerprintAlertDetails alert={alert} />
+    case "ASSETS_MAC_DUPLICATE":
+    case "ASSETS_IDENTITY_CHANGED":
+    case "ASSETS_MAC_CHANGED":
+      return <AssetIdentityAlertDetails alert={alert} />
     default:
       return <GenericAlertDetails alert={alert} />
   }

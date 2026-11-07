@@ -20,6 +20,7 @@ import app.nzyme.core.security.authentication.db.TenantEntry;
 import app.nzyme.core.timelines.TimelinesRegistryKeys;
 import app.nzyme.core.uav.UavRegistryKeys;
 import app.nzyme.core.assets.AssetRegistryKeys;
+import app.nzyme.core.assets.identity.AssetIdentityRegistryKeys;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
@@ -368,6 +369,7 @@ public class DatabaseResource extends UserAuthenticatedResource {
             case ASSET_ATTRIBUTES -> key = AssetRegistryKeys.ASSETS_ATTRIBUTES_RETENTION_TIME_DAYS.key();
             case ASSET_COMMUNICATION -> key = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.key();
             case ASSET_STATISTICS -> key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
+            case ASSET_IDENTITY -> key = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.key();
         }
 
         nzyme.getDatabaseCoreRegistry()

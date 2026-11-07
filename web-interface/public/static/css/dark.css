@@ -1339,3 +1339,12 @@ tr:hover a.classification-edit, a.classification-edit:hover {
     color: #ffffff;
     background-color: #26262e;
 }
+
+/* Layers of a TCP fingerprint. */
+.tcp-fp-link {
+    color: #7aa2f7;
+}
+
+.tcp-fp-app {
+    color: #e0a458;
+}

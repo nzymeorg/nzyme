@@ -7,6 +7,9 @@ public enum DetectionType {
     // Assets.
     ASSETS_NEW("New asset detected", Subsystem.ETHERNET),
     ASSETS_DHCP_FINGERPRINT_NEW("Asset is presenting a new DHCP fingerprint", Subsystem.ETHERNET),
+    ASSETS_MAC_DUPLICATE("Multiple devices behind one MAC address", Subsystem.ETHERNET),
+    ASSETS_IDENTITY_CHANGED("Asset identity changed", Subsystem.ETHERNET),
+    ASSETS_MAC_CHANGED("Asset moved to a new MAC address", Subsystem.ETHERNET),
 
     BEACON_NEW("New beacon detected", Subsystem.ETHERNET),
     BEACON_NEW_SOURCE("New device joined a known beacon", Subsystem.ETHERNET),

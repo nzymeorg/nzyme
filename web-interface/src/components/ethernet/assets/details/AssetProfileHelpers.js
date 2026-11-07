@@ -24,10 +24,20 @@ export function formatCount(count) {
 }
 
 export const DIMENSION_TITLES = {
+  TCP_STACK: "TCP Stack",
   TCP_FINGERPRINT: "TCP Fingerprint",
+  TCP_SIGNATURE: "TCP Signature",
+  TCP_FINGERPRINT_FORWARDED: "Forwarded TCP Fingerprint",
+  TCP_SERVER_FINGERPRINT: "TCP Server Fingerprint",
+  TCP_SERVER_SIGNATURE: "TCP Server Signature",
+  SOURCE_PORT_RANGE: "Source Port Range",
+  TCP_TIMESTAMP_RATE: "TCP Timestamp Rate (Hz)",
+  IP_ID_BEHAVIOR: "IP ID Behavior",
   JA4: "JA4 (TLS Client)",
   DHCP_FINGERPRINT: "DHCP Fingerprint",
   DHCP_VENDOR_CLASS: "DHCP Vendor Class",
+  DHCP_PARAMETER_REQUEST_LIST: "DHCP Parameter Request List",
+  DHCP_CLIENT_IDENTIFIER: "DHCP Client Identifier",
   NTP_CLIENT_VERSION: "NTP Client Version",
   TLS_VERSION: "TLS Version",
   PROTOCOL_CLIENT: "Protocol (as Client)",
@@ -70,7 +80,17 @@ export function roleTitle(role) {
 }
 
 const ATTRIBUTE_CHANGES = {
-  TCP_FINGERPRINT: { action: "New TCP fingerprint", explanation: () => "The asset's TCP stack presented a fingerprint not seen from it before, which can mean a different operating system or network stack." },
+  TCP_STACK: { action: "New TCP stack", explanation: () => "The asset's TCP stack opened connections in a way not seen from it before, which can mean a different operating system or a changed network stack." },
+  TCP_FINGERPRINT: { action: "New TCP fingerprint", explanation: () => "The asset's TCP stack presented a fingerprint not seen from it before. A fingerprint includes the MSS and window scale, which follow the link the asset is on, so a new fingerprint with the same stack usually means a different link." },
+  TCP_SIGNATURE: { action: "New TCP signature", explanation: () => "The asset's TCP stack presented a signature not seen from it before. Signatures include the window size and TOS, which applications can change." },
+  TCP_FINGERPRINT_FORWARDED: { action: "New forwarded TCP fingerprint", explanation: () => "The asset forwarded SYNs of a stack it had not forwarded before. The stack sits behind the asset, which acts as a router, NAT or hotspot." },
+  TCP_SERVER_FINGERPRINT: { action: "New TCP server fingerprint", explanation: () => "The asset answered connections with a SYN-ACK fingerprint not seen from it before." },
+  TCP_SERVER_SIGNATURE: { action: "New TCP server signature", explanation: () => "The asset answered connections with a SYN-ACK signature not seen from it before." },
+  SOURCE_PORT_RANGE: { action: "New source port range", explanation: () => "The asset started picking client ports from a range it had not used before, which stacks usually do not change." },
+  TCP_TIMESTAMP_RATE: { action: "New TCP timestamp rate", explanation: () => "The asset's TCP timestamp clock ticked at a rate not measured from it before." },
+  IP_ID_BEHAVIOR: { action: "New IP ID behavior", explanation: () => "The asset started picking IP identification values in a way not seen from it before." },
+  DHCP_PARAMETER_REQUEST_LIST: { action: "New DHCP parameter request list", explanation: () => "The asset requested a set of DHCP options not seen from it before, which usually means a different DHCP client." },
+  DHCP_CLIENT_IDENTIFIER: { action: "New DHCP client identifier", explanation: () => "The asset identified itself to DHCP servers with a client identifier not seen from it before." },
   JA4: { action: "New TLS client fingerprint", explanation: () => "The asset's TLS client presented a JA4 fingerprint not seen from it before, which usually means different client software." },
   DHCP_FINGERPRINT: { action: "New DHCP fingerprint", explanation: () => "The asset sent DHCP requests with an option fingerprint not seen from it before." },
   DHCP_VENDOR_CLASS: { action: "New DHCP vendor class", explanation: () => "The asset identified itself to DHCP servers with a vendor class not seen from it before." },
@@ -174,6 +194,9 @@ export function severityBadgeClass(severity) {
 }
 
 export const FINDING_TITLES = {
+  IDENTITY_DUPLICATE_MAC: "Duplicate MAC Address",
+  IDENTITY_CHANGE: "Identity Changes",
+  IDENTITY_MAC_CHANGE: "MAC Address Changes",
   RECON_SCAN: "Network Scans",
   BEACON_UNKNOWN: "Beacons (Unclassified)",
   BEACON_BENIGN: "Beacons (Benign)",
@@ -195,6 +218,7 @@ export function findingTitle(type) {
 
 export const EXCLUSION_TITLES = {
   DHCP_FINGERPRINT: "DHCP Fingerprint",
+  ASSET_IDENTITY: "Asset Identity",
   SPOOFING: "Spoofing",
   BEACON: "Beacons",
   ICMP: "ICMP",
@@ -211,6 +235,7 @@ export function alertRoleTitle(role) {
   switch (role) {
     case "ACTOR": return "Actor";
     case "VICTIM": return "Victim";
+    case "SUBJECT": return "Subject";
     case "ACTOR_AND_VICTIM": return "Actor and Victim";
     default: return "Subject";
   }

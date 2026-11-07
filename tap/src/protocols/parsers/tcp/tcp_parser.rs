@@ -46,6 +46,8 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
     let mut options = Vec::new();
     let mut maximum_segment_size: Option<u16> = None;
     let mut window_scale_multiplier: Option<u8> = None;
+    let mut timestamp_value: Option<u32> = None;
+    let mut timestamp_echo: Option<u32> = None;
 
     while cursor < header_length {
         let kind = packet.payload[cursor];
@@ -86,6 +88,12 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
                         let shift = packet.payload[cursor + 2];
                         window_scale_multiplier = Some(shift);
                     }
+                    8 if length == 10 => {
+                        // Timestamps: TSval and TSecr, 4 bytes each after kind+len.
+                        let start = cursor + 2;
+                        timestamp_value = Some(BigEndian::read_u32(&packet.payload[start..start + 4]));
+                        timestamp_echo = Some(BigEndian::read_u32(&packet.payload[start + 4..start + 8]));
+                    }
                     _ => {
                         // Other options - NOOP.
                     }
@@ -114,6 +122,7 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
         ip_ttl: packet.ttl,
         ip_tos: packet.ip_tos,
         ip_df: packet.df,
+        ip_id: packet.identification,
         source_mac: packet.source_mac,
         destination_mac: packet.destination_mac,
         source_address: packet.source_address,
@@ -129,7 +138,9 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
         maximum_segment_size,
         window_scale_multiplier,
         options,
-        size, 
-        timestamp: Utc::now() 
+        timestamp_value,
+        timestamp_echo,
+        size,
+        timestamp: Utc::now()
     })
 }

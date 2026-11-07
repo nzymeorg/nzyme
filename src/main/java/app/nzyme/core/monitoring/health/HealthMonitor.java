@@ -59,6 +59,7 @@ public class HealthMonitor {
                 .add(new MessageBusMessageFailureIndicator(nzyme.getMessageBus()))
                 .add(new MessageBusMessageStuckIndicator(nzyme.getMessageBus()))
                 .add(new ConnectIndicator(nzyme))
+                .add(new AssetIdentityBacklogIndicator(nzyme.getAssetsManager().identity()))
                 .build();
 
         // Pull all indicators status and active/inactive state.

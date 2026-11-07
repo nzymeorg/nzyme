@@ -12,6 +12,7 @@ const assetsService = new AssetsService();
 const detailsRoute = (type, uuid) => {
   switch (type) {
     case "DHCP_FINGERPRINT": return ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.DETAILS(uuid);
+    case "ASSET_IDENTITY": return ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.DETAILS(uuid);
     case "SPOOFING": return ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.DETAILS(uuid);
     case "BEACON": return ApiRoutes.ETHERNET.BEACONS.EXCLUSIONS.DETAILS(uuid);
     case "ICMP": return ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.DETAILS(uuid);

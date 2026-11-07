@@ -1,4 +1,5 @@
 import {Link} from "react-router-dom";
+import TcpFingerprint from "../assets/identity/TcpFingerprint";
 import React, {useContext, useEffect, useState} from "react";
 import ColumnSorting from "../../shared/ColumnSorting";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
@@ -189,7 +190,7 @@ export default function L4SessionsTable(props) {
                   </td>
                   <td><L4SessionTags tags={s.tags} setFilters={setFilters} /></td>
                   <td className="hide-narrow">
-                    <FullCopy shortValue={s.fingerprint ? <span className="machine-data">{s.fingerprint.substr(0,8)}</span> : null} fullValue={s.fingerprint} />
+                    <TcpFingerprint value={s.fingerprint} id={s.fingerprint_id} compact />
 
                     <FilterValueIcon setFilters={setFilters}
                                      fields={L4_SESSIONS_FILTER_FIELDS}

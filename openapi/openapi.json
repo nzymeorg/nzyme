@@ -99,6 +99,12 @@
     "description" : "ARP requests and replies that taps recorded on the Ethernet network, with statistics and histograms of the most active requesters and responders. Nzyme also uses ARP traffic to enrich the asset inventory.",
     "name" : "ARP"
   }, {
+    "description" : "Exclusions keep assets from raising asset identity findings: duplicate MAC address, identity change and MAC address change. An exclusion is a MAC address or a vendor prefix, optionally limited to certain detection types. Use them for devices that legitimately look like several stacks, such as wireless bridges that masquerade their clients behind one address, for dual-boot machines, or for fleets whose devices are swapped often.",
+    "name" : "Asset Identity Exclusions"
+  }, {
+    "description" : "Who is really behind a MAC address. Three detections run over the identity attributes of assets: duplicate MAC findings, where several directly attached TCP stacks used one address at the same time; identity change findings, where an established asset started presenting a different stack, hostname or behaviour and the old one stopped; and links between assets that are probably one device that moved to a new MAC address. Every detection has its own thresholds and alert switch, and exclusions by MAC address or vendor prefix.",
+    "name" : "Asset Identity"
+  }, {
     "description" : "An asset is a device Nzyme detected in the monitored Ethernet traffic, identified by its MAC address. Nzyme builds this inventory passively and uses it to enrich MAC addresses with the hostnames and IP addresses of the asset, its DHCP fingerprints and when it was first and last seen.",
     "name" : "Assets"
   }, {
@@ -7554,6 +7560,1281 @@
         },
         "summary" : "List recently disappeared assets",
         "tags" : [ "Assets" ]
+      }
+    },
+    "/api/ethernet/assets/identity/asset/{asset_uuid}" : {
+      "get" : {
+        "description" : "Returns the recent duplicate MAC and identity change findings of the asset and every link that involves it, for the notices on the asset details page.",
+        "operationId" : "findAssetIdentitySummary",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentitySummaryResponse"
+                }
+              }
+            },
+            "description" : "Summary found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the identity findings and links of one asset",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/changes" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. A finding is one established asset whose identity changed enough inside the detection window to reach the score threshold. Results are paginated.",
+        "operationId" : "findIdentityChangeFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: mac, score, previous_fingerprint, new_fingerprint.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: MAC, SCORE, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IdentityChangeFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, page size above 250 or negative offset."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List identity change findings of a tenant",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/changes/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding. It is created again while the changes stay inside the detection window. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteIdentityChangeFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete an identity change finding",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/changes/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with every scored change: what was presented before, what is presented now, and when the new value was first seen.",
+        "operationId" : "findIdentityChangeFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IdentityChangeFindingResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get an identity change finding",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/duplicates" : {
+      "get" : {
+        "description" : "Returns the findings of the tenant that were active at any point inside the time range, most recently seen first by default. A finding is one MAC address and the TCP stacks that used it at the same time. Results are paginated.",
+        "operationId" : "findDuplicateMacFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: mac, stack_count, session_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker. A finding matches when it was active at any point inside the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: MAC, STACK_COUNT, SESSION_COUNT, FIRST_SEEN or LAST_SEEN. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DuplicateMacFindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, page size above 250 or negative offset."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List duplicate MAC findings of a tenant",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/duplicates/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a finding. It is created again if the stacks keep sharing the address. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteDuplicateMacFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a duplicate MAC finding",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/duplicates/show/{finding_uuid}" : {
+      "get" : {
+        "description" : "Returns one finding with every stack that used the address, their sessions, sample destinations and source port range.",
+        "operationId" : "findDuplicateMacFinding",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "finding_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DuplicateMacFindingResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a duplicate MAC finding",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions" : {
+      "get" : {
+        "description" : "Returns the exclusions of the tenant, sorted by name by default. Each exclusion includes which known assets it currently covers. Results are paginated.",
+        "operationId" : "findAssetIdentityExclusions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: name, description, enabled, mac, match_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, ENABLED, MAC, LAST_MATCHED_AT, MATCH_COUNT, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityExclusionsListResponse"
+                }
+              }
+            },
+            "description" : "Exclusions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, page size above 250 or negative offset."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List asset identity exclusions of a tenant",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates an exclusion. It takes effect with the next detection run. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "createAssetIdentityExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssetIdentityExclusionRequest"
+              }
+            }
+          },
+          "description" : "The exclusion.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Create a asset identity exclusion",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions/organization/{organization_id}/tenant/{tenant_id}/preview" : {
+      "post" : {
+        "description" : "Validates the criteria and returns the known assets they match, without saving anything. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "previewAssetIdentityExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssetIdentityExclusionRequest"
+              }
+            }
+          },
+          "description" : "The criteria. Name and description are ignored.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityExclusionImpactResponse"
+                }
+              }
+            },
+            "description" : "Impact calculated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Preview which known assets an exclusion would cover",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}" : {
+      "delete" : {
+        "description" : "Deletes an exclusion. Findings for the assets it covered are detected again. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteAssetIdentityExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a asset identity exclusion",
+        "tags" : [ "Asset Identity Exclusions" ]
+      },
+      "put" : {
+        "description" : "Replaces name, description, enabled state and all criteria of an exclusion. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "updateAssetIdentityExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssetIdentityExclusionRequest"
+              }
+            }
+          },
+          "description" : "The new exclusion data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or criteria. The response body contains the reason."
+          }
+        },
+        "summary" : "Update a asset identity exclusion",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions/organization/{organization_id}/tenant/{tenant_id}/show/{exclusion_uuid}/enabled/{enabled}" : {
+      "put" : {
+        "description" : "A disabled exclusion is kept but no longer applied. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "setAssetIdentityExclusionEnabled",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Enable or disable a asset identity exclusion",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/exclusions/show/{exclusion_uuid}" : {
+      "get" : {
+        "description" : "Returns one exclusion, including which known assets it currently covers.",
+        "operationId" : "findAssetIdentityExclusion",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityExclusionResponse"
+                }
+              }
+            },
+            "description" : "Exclusion found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a asset identity exclusion",
+        "tags" : [ "Asset Identity Exclusions" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links" : {
+      "get" : {
+        "description" : "Returns the links detected inside the time range, newest first by default. A link says that a new asset is probably a known device that moved to a new MAC address (kind SUCCESSOR), or a device that alternates between two addresses (kind ALTERNATE). Links are OPEN until a user confirms or dismisses them. Results are paginated.",
+        "operationId" : "findAssetLinks",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: predecessor_mac, successor_mac, kind, status, confidence.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector over the detection time. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: PREDECESSOR_MAC, SUCCESSOR_MAC, KIND, CONFIDENCE, STATUS, SUCCESSOR_FIRST_SEEN or DETECTED_AT. Defaults to DETECTED_AT.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetLinksListResponse"
+                }
+              }
+            },
+            "description" : "Links found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, page size above 250 or negative offset."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List links between assets of a tenant",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/show/{link_uuid}" : {
+      "delete" : {
+        "description" : "Deletes a link. It can be detected again while the successor is inside the lookback. Dismiss a link instead to keep it from coming back. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteAssetLink",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Link UUID.",
+          "in" : "path",
+          "name" : "link_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Link deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Link, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a link between two assets",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/show/{link_uuid}/status/{status}" : {
+      "put" : {
+        "description" : "Sets the status of a link to CONFIRMED, DISMISSED or OPEN. A dismissed link is not detected again, a confirmed link is kept beyond the finding retention. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "setAssetLinkStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Link UUID.",
+          "in" : "path",
+          "name" : "link_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "CONFIRMED, DISMISSED or OPEN.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Status updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown status."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Link, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Confirm, dismiss or reopen a link between two assets",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/show/{link_uuid}" : {
+      "get" : {
+        "description" : "Returns one link with the evidence that the two assets are one device.",
+        "operationId" : "findAssetLink",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Link UUID.",
+          "in" : "path",
+          "name" : "link_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetLinkResponse"
+                }
+              }
+            },
+            "description" : "Link found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Link, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a link between two assets",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the settings of the three asset identity detections as one section per detection, each with its detection parameters and alerting settings, plus the finding retention. Requires the ethernet_assets_manage feature permission.",
+        "externalDocs" : {
+          "description" : "Asset identity in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/assets-identity"
+        },
+        "operationId" : "findAssetIdentityConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetIdentityConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the asset identity detection configuration of a tenant",
+        "tags" : [ "Asset Identity" ]
+      },
+      "put" : {
+        "description" : "Updates one or more asset identity settings. Accepted keys are the keys returned by the configuration endpoint. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "updateAssetIdentityConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains an unknown key or a value violates the constraints of its key."
+          }
+        },
+        "summary" : "Update the asset identity detection configuration of a tenant",
+        "tags" : [ "Asset Identity" ]
       }
     },
     "/api/ethernet/assets/latest/histogram" : {
@@ -33794,6 +35075,208 @@
           }
         }
       },
+      "AssetIdentityConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "sections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetIdentityConfigurationSectionResponse"
+            }
+          }
+        }
+      },
+      "AssetIdentityConfigurationSectionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alerting" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "detection" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AssetIdentityExclusionImpactResponse" : {
+        "type" : "object",
+        "properties" : {
+          "assets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetIdentityExclusionMatchedAssetResponse"
+            }
+          },
+          "matching_assets" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AssetIdentityExclusionMatchedAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mac" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetIdentityExclusionReferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetIdentityExclusionRequest" : {
+        "type" : "object",
+        "description" : "Body for creating, updating or previewing an asset identity exclusion. The MAC address or vendor prefix is required. The types are optional and limit the exclusion to those detections.",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Optional description of why the exclusion exists.",
+            "writeOnly" : true
+          },
+          "enabled" : {
+            "type" : "boolean",
+            "description" : "Whether the exclusion is active. Defaults to true.",
+            "writeOnly" : true
+          },
+          "mac" : {
+            "type" : "string",
+            "description" : "Full MAC address like AA:BB:CC:DD:EE:FF, or a vendor prefix like AA:BB:CC that covers every device of that vendor.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the exclusion. Required when creating or updating, ignored for previews.",
+            "writeOnly" : true
+          },
+          "types" : {
+            "type" : "array",
+            "description" : "Detection types the exclusion is limited to: DUPLICATE_MAC, IDENTITY_CHANGE or MAC_CHANGE. Empty or omitted covers all types.",
+            "items" : {
+              "type" : "string",
+              "description" : "Detection types the exclusion is limited to: DUPLICATE_MAC, IDENTITY_CHANGE or MAC_CHANGE. Empty or omitted covers all types."
+            },
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "mac" ]
+      },
+      "AssetIdentityExclusionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "created_by_email" : {
+            "type" : "string"
+          },
+          "created_by_name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "impact" : {
+            "$ref" : "#/components/schemas/AssetIdentityExclusionImpactResponse"
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_is_prefix" : {
+            "type" : "boolean"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetIdentityExclusionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetIdentityExclusionResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetIdentitySummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IdentityChangeFindingResponse"
+            }
+          },
+          "duplicates" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateMacFindingResponse"
+            }
+          },
+          "links" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetLinkResponse"
+            }
+          }
+        }
+      },
       "AssetInboundPortProtocolResponse" : {
         "type" : "object",
         "properties" : {
@@ -33910,6 +35393,89 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/AssetIpAddressDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AssetLinkEvidenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "signal" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          },
+          "weight" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "AssetLinkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "confidence" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "detected_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "evidence" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetLinkEvidenceResponse"
+            }
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "predecessor_last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "predecessor_mac" : {
+            "type" : "string"
+          },
+          "predecessor_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "successor_first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "successor_mac" : {
+            "type" : "string"
+          },
+          "successor_mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetLinksListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "links" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetLinkResponse"
             }
           },
           "total" : {
@@ -38311,6 +39877,156 @@
           }
         }
       },
+      "DuplicateMacDestinationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DuplicateMacFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetIdentityExclusionReferenceResponse"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "session_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "stack_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stacks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateMacStackResponse"
+            }
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SpoofingTapResponse"
+            }
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DuplicateMacFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateMacFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DuplicateMacStackResponse" : {
+        "type" : "object",
+        "properties" : {
+          "destination_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "destinations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateMacDestinationResponse"
+            }
+          },
+          "fingerprint" : {
+            "type" : "string"
+          },
+          "fingerprint_id" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "signatures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "source_addresses" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/L4AddressResponse"
+            }
+          },
+          "source_port_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source_port_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "EncryptedConfigurationEntryResponse" : {
         "type" : "object",
         "properties" : {
@@ -39302,6 +41018,99 @@
           }
         }
       },
+      "IdentityChangeFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IdentityChangeResponse"
+            }
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetIdentityExclusionReferenceResponse"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "mac_data" : {
+            "$ref" : "#/components/schemas/EthernetMacAddressResponse"
+          },
+          "new_fingerprint" : {
+            "type" : "string"
+          },
+          "previous_fingerprint" : {
+            "type" : "string"
+          },
+          "recent" : {
+            "type" : "boolean"
+          },
+          "score" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "threshold" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "IdentityChangeFindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IdentityChangeFindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IdentityChangeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "new_value" : {
+            "type" : "string"
+          },
+          "previous_value" : {
+            "type" : "string"
+          },
+          "seen_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "signal" : {
+            "type" : "string"
+          },
+          "weight" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "ImportMonitoredNetworkDataBSSIDRequest" : {
         "type" : "object",
         "description" : "A BSSID and its fingerprints inside a monitored WiFi network data import.",
@@ -39593,6 +41402,9 @@
             "format" : "date-time"
           },
           "fingerprint" : {
+            "type" : "string"
+          },
+          "fingerprint_id" : {
             "type" : "string"
           },
           "l4_type" : {

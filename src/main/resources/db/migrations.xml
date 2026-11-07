@@ -11251,7 +11251,7 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="58" author="lennartkoopmann">
+    <changeSet id="create_assets_activity" author="lennartkoopmann">
         <createTable tableName="assets_activity">
             <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false" />
@@ -11305,7 +11305,7 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="59" author="lennartkoopmann">
+    <changeSet id="create_assets_attributes" author="lennartkoopmann">
         <createTable tableName="assets_attributes">
             <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false" />
@@ -11353,7 +11353,7 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="60" author="lennartkoopmann">
+    <changeSet id="create_assets_communication" author="lennartkoopmann">
         <createTable tableName="assets_communication">
             <column name="id" type="bigint" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false" />
@@ -11418,7 +11418,7 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="61" author="lennartkoopmann">
+    <changeSet id="add_assets_attributes_bytes" author="lennartkoopmann">
         <addColumn tableName="assets_attributes">
             <column name="bytes" type="bigint" defaultValueNumeric="0">
                 <constraints nullable="false" />
@@ -11426,7 +11426,7 @@
         </addColumn>
     </changeSet>
 
-    <changeSet id="62" author="lennartkoopmann">
+    <changeSet id="add_assets_communication_port_protocol" author="lennartkoopmann">
         <addColumn tableName="assets_communication">
             <column name="port" type="integer" defaultValueNumeric="0">
                 <constraints nullable="false" />
@@ -11450,12 +11450,318 @@
         </createIndex>
     </changeSet>
 
-    <changeSet id="63" author="lennartkoopmann">
+    <changeSet id="add_assets_communication_peer_location" author="lennartkoopmann">
         <addColumn tableName="assets_communication">
             <column name="peer_city" type="text" />
             <column name="peer_latitude" type="double" />
             <column name="peer_longitude" type="double" />
         </addColumn>
+    </changeSet>
+
+    <changeSet id="create_asset_identity_detection" author="lennartkoopmann">
+        <modifyDataType tableName="l4_sessions" columnName="fingerprint" newDataType="text" />
+        <addColumn tableName="l4_sessions">
+            <column name="signature" type="text" />
+            <column name="ip_hop_distance" type="smallint" />
+            <column name="ip_id" type="integer" />
+            <column name="ip_id_behavior" type="text" />
+            <column name="tcp_syn_timestamp_value" type="bigint" />
+            <column name="tcp_syn_timestamp_echo" type="bigint" />
+            <column name="tcp_client_timestamp_value" type="bigint" />
+            <column name="tcp_client_timestamp_time" type="timestamptz" />
+            <column name="tcp_client_ip_id" type="integer" />
+            <column name="tcp_timestamp_rate" type="integer" />
+            <column name="segments_count_client_to_server" type="bigint" />
+            <column name="server_fingerprint" type="text" />
+            <column name="server_signature" type="text" />
+            <column name="server_ip_hop_distance" type="smallint" />
+            <column name="tcp_synack_ip_ttl" type="smallint" />
+            <column name="tcp_synack_ip_tos" type="smallint" />
+            <column name="tcp_synack_ip_df" type="boolean" />
+            <column name="tcp_synack_ip_id" type="integer" />
+            <column name="tcp_synack_cwr" type="boolean" />
+            <column name="tcp_synack_ece" type="boolean" />
+            <column name="tcp_synack_window_size" type="integer" />
+            <column name="tcp_synack_maximum_segment_size" type="integer" />
+            <column name="tcp_synack_window_scale_multiplier" type="smallint" />
+            <column name="tcp_synack_options" type="jsonb" />
+            <column name="tcp_synack_timestamp_value" type="bigint" />
+            <column name="tcp_synack_timestamp_echo" type="bigint" />
+        </addColumn>
+        <createIndex tableName="l4_sessions" indexName="l4_sessions_identity_lookup">
+            <column name="source_mac" />
+            <column name="fingerprint" />
+            <column name="start_time" />
+        </createIndex>
+
+        <addColumn tableName="dhcp_transactions">
+            <column name="parameter_request_list" type="jsonb" />
+            <column name="client_identifier" type="text" />
+            <column name="hostname" type="text" />
+            <column name="fqdn" type="text" />
+        </addColumn>
+
+        <createTable tableName="assets_identity_duplicate_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="stacks" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="stack_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="session_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_identity_duplicate_findings" indexName="assets_identity_duplicate_findings_uuid">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="assets_identity_duplicate_findings" indexName="assets_identity_duplicate_findings_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="assets_identity_duplicate_findings" indexName="assets_identity_duplicate_findings_mac">
+            <column name="mac" />
+        </createIndex>
+
+        <createTable tableName="assets_identity_change_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="score" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="changes" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="previous_fingerprint" type="text" />
+            <column name="new_fingerprint" type="text" />
+            <column name="first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_identity_change_findings" indexName="assets_identity_change_findings_uuid">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="assets_identity_change_findings" indexName="assets_identity_change_findings_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="assets_identity_change_findings" indexName="assets_identity_change_findings_mac">
+            <column name="mac" />
+        </createIndex>
+
+        <createTable tableName="assets_links">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="predecessor_mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="successor_mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="kind" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="confidence" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="evidence" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="status" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="predecessor_last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="successor_first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="detected_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="assets_links" constraintName="assets_links_pair"
+                             columnNames="organization_id, tenant_id, predecessor_mac, successor_mac" />
+        <createIndex tableName="assets_links" indexName="assets_links_uuid">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="assets_links" indexName="assets_links_successor">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="successor_mac" />
+        </createIndex>
+        <createIndex tableName="assets_links" indexName="assets_links_predecessor">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="predecessor_mac" />
+        </createIndex>
+
+        <createTable tableName="assets_identity_exclusions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="enabled" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+            <column name="types" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="match_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_matched_at" type="timestamptz" />
+            <column name="created_by_user_id" type="uuid" />
+            <column name="created_by_name" type="text" />
+            <column name="created_by_email" type="text" />
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_identity_exclusions" indexName="assets_identity_exclusions_uuid">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="assets_identity_exclusions" indexName="assets_identity_exclusions_tenant">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+        <createTable tableName="assets_identity_successor_checks">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="mac" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="asset_first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="checks_done" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="next_check_at" type="timestamptz" />
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="assets_identity_successor_checks"
+                             constraintName="assets_identity_successor_checks_asset"
+                             columnNames="organization_id, tenant_id, mac" />
+        <createIndex tableName="assets_identity_successor_checks" indexName="assets_identity_successor_checks_due">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="next_check_at" />
+        </createIndex>
+        <createIndex tableName="assets_identity_successor_checks" indexName="assets_identity_successor_checks_backlog">
+            <column name="next_check_at" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="clean_legacy_tcp_fingerprints" author="lennartkoopmann">
+        <sql>
+            DELETE FROM assets_attributes WHERE dimension IN ('TCP_STACK', 'TCP_FINGERPRINT', 'TCP_SIGNATURE',
+                'TCP_FINGERPRINT_FORWARDED', 'TCP_SERVER_FINGERPRINT', 'TCP_SERVER_SIGNATURE');
+            DELETE FROM assets_identity_change_findings;
+            DELETE FROM assets_identity_duplicate_findings;
+            UPDATE l4_sessions SET fingerprint = NULL, signature = NULL, server_fingerprint = NULL,
+                server_signature = NULL WHERE fingerprint IS NOT NULL OR server_fingerprint IS NOT NULL;
+        </sql>
     </changeSet>
 
 </databaseChangeLog>

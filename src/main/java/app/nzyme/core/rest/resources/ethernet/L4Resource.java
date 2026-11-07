@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.ethernet;
 
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
@@ -511,7 +512,8 @@ public class L4Resource extends TapDataHandlingResource  {
                 session.durationMs(),
                 session.state(),
                 session.tags(),
-                session.fingerprint()
+                session.fingerprint(),
+                TcpSignature.shortId(session.fingerprint())
         );
     }
 

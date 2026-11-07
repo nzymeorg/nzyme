@@ -131,6 +131,14 @@ pub mod tests {
             syn_maximum_segment_size: Some(1460),
             syn_window_scale_multiplier: Some(7),
             syn_options: vec![],
+            syn_ip_id: 0,
+            syn_timestamp_value: None,
+            syn_timestamp_echo: None,
+            latest_client_timestamp_value: None,
+            latest_client_timestamp_time: None,
+            latest_client_ip_id: None,
+            segments_count_client_to_server: 6,
+            syn_ack: None,
             tags: HashSet::new(),
             tagging_fingerprint: None
         }

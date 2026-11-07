@@ -39,6 +39,12 @@ function NodeTimers(props) {
           <TimerRow title="DNS Spoofing Detection: Run per Tenant" timer={timers.spoofing_dns_detection_run} />
           {timers.dns_tunnel_detection_run ?
             <TimerRow title="DNS Tunnel Detection: Run per Tenant" timer={timers.dns_tunnel_detection_run} /> : null}
+          {timers.identity_duplicate_mac_detection_run ?
+            <TimerRow title="Duplicate MAC Address Detection: Run per Tenant" timer={timers.identity_duplicate_mac_detection_run} /> : null}
+          {timers.identity_change_detection_run ?
+            <TimerRow title="Identity Change Detection: Run per Tenant" timer={timers.identity_change_detection_run} /> : null}
+          {timers.identity_successor_detection_run ?
+            <TimerRow title="MAC Address Change Detection: Run per Tenant" timer={timers.identity_successor_detection_run} /> : null}
         </tbody>
       </table>
   )

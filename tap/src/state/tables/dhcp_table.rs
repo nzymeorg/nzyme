@@ -64,6 +64,7 @@ impl DhcpTable {
                                         tx.latest_packet = dhcp.timestamp;
                                         tx.record_timestamp(Dhcpv4MessageType::Request, dhcp.timestamp);
                                         tx.record_options(dhcp.options.clone());
+                                        tx.record_client_identity(&dhcp);
 
                                         let requested_ip_address = match (dhcp.dhcp_client_address,
                                                                           dhcp.requested_ip_address) {
@@ -177,7 +178,7 @@ impl DhcpTable {
                         let mut timestamps = HashMap::new();
                         timestamps.insert(dhcp.message_type.clone(), vec![dhcp.timestamp]);
 
-                        let tx = Dhcpv4Transaction {
+                        let mut tx = Dhcpv4Transaction {
                             transaction_type: tx_type,
                             transaction_id: dhcp.transaction_id,
                             client_mac: dhcp.client_mac_address.clone(),
@@ -194,11 +195,18 @@ impl DhcpTable {
                             additional_options: HashSet::new(),
                             vendor_class: dhcp.vendor_class.clone(),
                             additional_vendor_classes: HashSet::new(),
+                            parameter_request_list: Vec::new(),
+                            client_identifier: None,
+                            hostname: None,
+                            fqdn: None,
                             server_responses: Vec::new(),
                             selected_server_address: dhcp.server_identifier,
                             successful,
                             complete
                         };
+
+                        // All new-transaction packets are client messages.
+                        tx.record_client_identity(&dhcp);
 
                         tracemark!("New DHCP transaction started: {:?}", tx);
 

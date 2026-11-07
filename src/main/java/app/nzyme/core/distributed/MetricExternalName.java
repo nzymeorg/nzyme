@@ -30,6 +30,9 @@ public enum MetricExternalName {
     SPOOFING_NAMERES_DETECTION_RUN_TIMER("spoofing_nameres_detection_run_timer"),
     SPOOFING_DNS_DETECTION_RUN_TIMER("spoofing_dns_detection_run_timer"),
     DNS_TUNNEL_DETECTION_RUN_TIMER("dns_tunnel_detection_run_timer"),
+    IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER("identity_duplicate_mac_detection_run_timer"),
+    IDENTITY_CHANGE_DETECTION_RUN_TIMER("identity_change_detection_run_timer"),
+    IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER("identity_successor_detection_run_timer"),
 
     GEOIP_CACHE_SIZE("geoip_cache_size"),
     CONTEXT_MAC_CACHE_SIZE("context_mac_cache_size"),

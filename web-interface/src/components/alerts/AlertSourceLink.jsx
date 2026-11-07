@@ -16,6 +16,12 @@ export default function AlertSourceLink({alert}) {
     case "ASSETS_NEW":
     case "ASSETS_DHCP_FINGERPRINT_NEW":
       return a.asset_uuid ? link(ApiRoutes.ETHERNET.ASSETS.DETAILS(a.asset_uuid), "Asset") : null;
+    case "ASSETS_MAC_DUPLICATE":
+      return a.finding_uuid ? link(ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATE_DETAILS(a.finding_uuid), "Finding") : null;
+    case "ASSETS_IDENTITY_CHANGED":
+      return a.finding_uuid ? link(ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGE_DETAILS(a.finding_uuid), "Finding") : null;
+    case "ASSETS_MAC_CHANGED":
+      return a.link_uuid ? link(ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINK_DETAILS(a.link_uuid), "Link") : null;
     case "BEACON_NEW":
     case "BEACON_NEW_SOURCE":
     case "BEACON_ACTIVITY_SUSPICIOUS":

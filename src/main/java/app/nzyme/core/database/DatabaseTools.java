@@ -2,6 +2,7 @@ package app.nzyme.core.database;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.AssetRegistryKeys;
+import app.nzyme.core.assets.identity.AssetIdentityRegistryKeys;
 import app.nzyme.core.dot11.Dot11RegistryKeys;
 import app.nzyme.core.ethernet.EthernetRegistryKeys;
 import app.nzyme.core.rest.responses.bluetooth.BluetoothRegistryKeys;
@@ -63,6 +64,10 @@ public class DatabaseTools {
             case ASSET_STATISTICS -> {
                 key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
                 defaultValue = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
+            }
+            case ASSET_IDENTITY -> {
+                key = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.key();
+                defaultValue = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
             }
             case TIMELINE_EVENTS_DOT11 -> {
                 key = TimelinesRegistryKeys.DOT11_EVENTS_RETENTION_TIME_DAYS.key();

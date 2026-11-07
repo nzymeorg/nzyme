@@ -182,6 +182,8 @@ public class NzymeHttpServer {
         resourceConfig.register(UavResource.class);
         resourceConfig.register(DHCPResource.class);
         resourceConfig.register(DHCPFingerprintExclusionsResource.class);
+        resourceConfig.register(AssetIdentityResource.class);
+        resourceConfig.register(AssetIdentityExclusionsResource.class);
         resourceConfig.register(AssetsResource.class);
         resourceConfig.register(BeaconsResource.class);
         resourceConfig.register(BeaconExclusionsResource.class);

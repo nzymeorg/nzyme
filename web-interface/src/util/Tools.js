@@ -390,6 +390,8 @@ export function humanReadableDatabaseCategoryName(category) {
       return "Assets: Communication"
     case "ASSET_STATISTICS":
       return "Assets: Statistics"
+    case "ASSET_IDENTITY":
+      return "Assets: Identity"
   }
 
   return category;

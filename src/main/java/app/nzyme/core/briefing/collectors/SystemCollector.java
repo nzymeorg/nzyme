@@ -327,6 +327,7 @@ public class SystemCollector {
             case "tap_file_permissions" -> "A tap has files with unsafe permissions.";
             case "node_file_permissions" -> "A node has files with unsafe permissions.";
             case "connect" -> "Connect is enabled but the cluster cannot reach it. Data from Connect is not updated.";
+            case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
             default -> "See the health page for details.";
         };
     }
@@ -378,6 +379,7 @@ public class SystemCollector {
             case "tap_file_permissions" -> "Tap File Permissions";
             case "node_file_permissions" -> "Node File Permissions";
             case "connect" -> "Connect";
+            case "asset_identity_backlog" -> "Asset Identity Backlog";
             default -> id;
         };
     }

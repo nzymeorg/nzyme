@@ -880,6 +880,15 @@ h1 .machine-data {
     font-size: 18px;
 }
 
+/* Layers of a TCP fingerprint: stack keeps the text color, link and application parts are colored. */
+.tcp-fp-link {
+    color: #1f6fd0;
+}
+
+.tcp-fp-app {
+    color: #b3541e;
+}
+
 h1 small {
     font-size: 16px;
 }

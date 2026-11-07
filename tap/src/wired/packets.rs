@@ -93,6 +93,7 @@ pub struct IPv4Packet {
     pub ttl: u8,
     pub ip_tos: u8,
     pub df: bool,
+    pub identification: u16,
     pub protocol: u8,
     pub payload: Vec<u8>,
     pub size: u32,
@@ -115,10 +116,13 @@ pub struct TcpSegment {
     pub ip_ttl: u8,
     pub ip_tos: u8,
     pub ip_df: bool,
+    pub ip_id: u16,
     pub window_size: u16,
     pub maximum_segment_size: Option<u16>,
     pub window_scale_multiplier: Option<u8>,
     pub options: Vec<u8>,
+    pub timestamp_value: Option<u32>,
+    pub timestamp_echo: Option<u32>,
     pub size: u32,
     pub timestamp: DateTime<Utc>
 }
@@ -603,6 +607,9 @@ pub struct Dhcpv4Packet {
     pub requested_ip_address: Option<IpAddr>,
     pub hostname: Option<String>,
     pub parameter_request_list: Vec<u8>,
+    // Option 61 as colon-separated hex bytes.
+    pub client_identifier: Option<String>,
+    pub fqdn: Option<String>,
 
     // Option 54 is also set by clients in REQUEST messages to name the server whose offer they accept.
     pub server_identifier: Option<IpAddr>,
@@ -638,10 +645,17 @@ impl Dhcpv4Packet {
         size += mem::size_of::<IpAddr>() as u32 * self.assigned_address.is_some() as u32;
         size += mem::size_of::<IpAddr>() as u32 * self.requested_ip_address.is_some() as u32;
 
-        // Option<String> fields (hostname)
+        // Option<String> fields (hostname, client identifier, FQDN)
         if let Some(ref hostname) = self.hostname {
             size += hostname.len() as u32;
         }
+        if let Some(ref client_identifier) = self.client_identifier {
+            size += client_identifier.len() as u32;
+        }
+        if let Some(ref fqdn) = self.fqdn {
+            size += fqdn.len() as u32;
+        }
+        size += self.parameter_request_list.len() as u32;
 
         size += mem::size_of::<IpAddr>() as u32 * self.server_identifier.is_some() as u32;
         size += mem::size_of::<IpAddr>() as u32 * self.subnet_mask.is_some() as u32;
@@ -691,6 +705,10 @@ pub struct Dhcpv4Transaction {
     pub additional_options: HashSet<Vec<u8>>,
     pub vendor_class: Option<String>,
     pub additional_vendor_classes: HashSet<String>,
+    pub parameter_request_list: Vec<u8>,
+    pub client_identifier: Option<String>,
+    pub hostname: Option<String>,
+    pub fqdn: Option<String>,
     pub server_responses: Vec<Dhcpv4ServerResponse>,
     pub selected_server_address: Option<IpAddr>,
     pub successful: Option<bool>,
@@ -811,6 +829,25 @@ impl Dhcpv4Transaction {
             .entry(msg_type)
             .or_default()
             .push(time);
+    }
+
+    // The first value seen wins.
+    pub fn record_client_identity(&mut self, dhcp: &Dhcpv4Packet) {
+        if self.parameter_request_list.is_empty() && !dhcp.parameter_request_list.is_empty() {
+            self.parameter_request_list = dhcp.parameter_request_list.clone();
+        }
+
+        if self.client_identifier.is_none() && dhcp.client_identifier.is_some() {
+            self.client_identifier = dhcp.client_identifier.clone();
+        }
+
+        if self.hostname.is_none() && dhcp.hostname.is_some() {
+            self.hostname = dhcp.hostname.clone();
+        }
+
+        if self.fqdn.is_none() && dhcp.fqdn.is_some() {
+            self.fqdn = dhcp.fqdn.clone();
+        }
     }
 
 }

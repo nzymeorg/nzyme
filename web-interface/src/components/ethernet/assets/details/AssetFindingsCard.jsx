@@ -12,6 +12,9 @@ const assetsService = new AssetsService();
 
 const findingLink = (type, mac) => {
   switch (type) {
+    case "IDENTITY_DUPLICATE_MAC": return filteredLink(ApiRoutes.ETHERNET.ASSETS.IDENTITY.TAB("duplicates"), macFilter("mac", mac));
+    case "IDENTITY_CHANGE": return filteredLink(ApiRoutes.ETHERNET.ASSETS.IDENTITY.TAB("changes"), macFilter("mac", mac));
+    case "IDENTITY_MAC_CHANGE": return ApiRoutes.ETHERNET.ASSETS.IDENTITY.TAB("links");
     case "RECON_SCAN": return filteredLink(ApiRoutes.ETHERNET.RECON.SCANS.INDEX, macFilter("source_mac", mac));
     case "DNS_TUNNEL": return filteredLink(ApiRoutes.ETHERNET.DNS.TUNNELS.INDEX, macFilter("client_mac", mac));
     case "ICMP_TUNNEL": return filteredLink(ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX, macFilter("source_mac", mac));
@@ -73,7 +76,7 @@ export default function AssetFindingsCard({asset, organizationId, tenantId, revi
       {title}
 
       {findings.findings.length === 0
-        ? <div className="alert alert-info mb-0">No scans, beacons, tunnels or spoofing findings involve this asset.</div>
+        ? <div className="alert alert-info mb-0">No scans, beacons, tunnels, spoofing or identity findings involve this asset.</div>
         : <table className="table table-sm table-hover table-striped mb-0">
             <thead>
             <tr>

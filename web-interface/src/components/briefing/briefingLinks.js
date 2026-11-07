@@ -1,6 +1,6 @@
 import ApiRoutes from "../../util/ApiRoutes";
 import {serializeTimeRange} from "../shared/timerange/TimeRangeUrl";
-import {Absolute} from "../shared/timerange/TimeRange";
+import {Absolute, Presets} from "../shared/timerange/TimeRange";
 
 const encodeRange = (window) => {
   if (!window) {
@@ -37,6 +37,13 @@ const alertsPath = (params, window) => {
   }
 
   return path;
+}
+
+// Open links are a review queue, not events of the window, so the page opens with the status filter and all time.
+const openAssetLinksPath = () => {
+  const filters = {status: [{field: "status", operator: "equals", value: "OPEN"}]};
+  return ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINKS + "?filters=" + encodeURIComponent(JSON.stringify(filters))
+    + "&tr_identity=" + encodeURIComponent(JSON.stringify(serializeTimeRange(Presets.ALL_TIME)));
 }
 
 export function resolveBriefingLink(link, window) {
@@ -106,6 +113,7 @@ export function resolveBriefingLink(link, window) {
     case "L4": return withRange(ApiRoutes.ETHERNET.L4.OVERVIEW, window);
     case "DNS": return withRange(ApiRoutes.ETHERNET.DNS.INDEX, window);
     case "DHCP": return withRange(ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX, window);
+    case "ASSET_IDENTITY_LINKS": return openAssetLinksPath();
     case "CONTEXT_NETWORKS": return ApiRoutes.CONTEXT.NETWORKS.INDEX;
     case "BLUETOOTH_DEVICES": return withRange(ApiRoutes.BLUETOOTH.DEVICES.INDEX, window);
     case "BLUETOOTH_DEVICE": return ApiRoutes.BLUETOOTH.DEVICES.DETAILS(p.mac);
@@ -135,6 +143,7 @@ const LINK_LABELS = {
   DNS_TUNNELS_SETTINGS: "DNS tunnel settings", ICMP_SETTINGS: "ICMP settings", ETHERNET_MONITORS: "Monitors",
   SSH: "SSH sessions", SOCKS: "SOCKS tunnels", VPN: "VPN tunnels", RTSP: "RTSP streams", WEBRTC: "WebRTC",
   L4: "Connections", DNS: "DNS", DHCP: "DHCP", CONTEXT_NETWORKS: "Internal networks",
+  ASSET_IDENTITY_LINKS: "MAC address changes",
   BLUETOOTH_DEVICES: "Bluetooth devices", BLUETOOTH_DEVICE: "Bluetooth device", UAVS: "UAVs", UAV: "UAV"
 }
 

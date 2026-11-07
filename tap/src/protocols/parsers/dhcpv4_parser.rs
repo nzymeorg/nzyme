@@ -78,6 +78,8 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
     let mut requested_ip_address = None;
     let mut hostname = None;
     let mut parameter_request_list = Vec::new();
+    let mut client_identifier = None;
+    let mut fqdn = None;
     let mut options: Vec<u8> = Vec::new();
     let mut vendor_class = None;
     let mut server_identifier = None;
@@ -193,7 +195,13 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
                 vendor_class = Some(
                     from_utf8_lossy(&udp.payload[cursor..cursor+length]).to_string()
                 );
-            }
+            },
+            61 => {
+                client_identifier = Some(to_hex_string(&udp.payload[cursor..cursor+length]));
+            },
+            81 => {
+                fqdn = parse_fqdn(&udp.payload[cursor..cursor+length]);
+            },
             255 => break, // End tag.
             _ => { /* NOOP */}
         }
@@ -222,6 +230,8 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
         requested_ip_address,
         hostname,
         parameter_request_list,
+        client_identifier,
+        fqdn,
         server_identifier,
         subnet_mask,
         routers,
@@ -234,4 +244,71 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
 // Trailing bytes that do not form a full address are ignored.
 fn parse_address_list(bytes: &[u8]) -> Vec<IpAddr> {
     bytes.chunks_exact(4).map(to_ipv4_address).collect()
+}
+
+fn to_hex_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<String>>().join(":")
+}
+
+// RFC 4702: flags, two RCODE bytes, then the name. The E flag (0x04) means DNS wire format, otherwise ASCII.
+fn parse_fqdn(bytes: &[u8]) -> Option<String> {
+    if bytes.len() < 4 {
+        return None;
+    }
+
+    let flags = bytes[0];
+    let name = &bytes[3..];
+
+    let decoded = if flags & 0x04 != 0 {
+        let mut labels: Vec<String> = Vec::new();
+        let mut cursor = 0;
+        while cursor < name.len() {
+            let label_length = name[cursor] as usize;
+            cursor += 1;
+
+            if label_length == 0 || cursor + label_length > name.len() {
+                break;
+            }
+
+            labels.push(from_utf8_lossy(&name[cursor..cursor+label_length]).to_string());
+            cursor += label_length;
+        }
+
+        labels.join(".")
+    } else {
+        from_utf8_lossy(name).trim_end_matches('\0').trim_end_matches('.').to_string()
+    };
+
+    match decoded.trim().is_empty() {
+        true => None,
+        false => Some(decoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_wire_format_fqdn() {
+        let bytes = [0x05, 0x00, 0x00, 0x04, b'h', b'o', b's', b't', 0x03, b'l', b'a', b'n', 0x00];
+        assert_eq!(parse_fqdn(&bytes), Some("host.lan".to_string()));
+    }
+
+    #[test]
+    fn parses_ascii_fqdn() {
+        let bytes = [0x01, 0x00, 0x00, b'h', b'o', b's', b't', b'.', b'l', b'a', b'n', b'.'];
+        assert_eq!(parse_fqdn(&bytes), Some("host.lan".to_string()));
+    }
+
+    #[test]
+    fn rejects_empty_fqdn() {
+        assert_eq!(parse_fqdn(&[0x00, 0x00, 0x00]), None);
+        assert_eq!(parse_fqdn(&[0x00, 0x00, 0x00, 0x00]), None);
+    }
+
+    #[test]
+    fn formats_client_identifier() {
+        assert_eq!(to_hex_string(&[0x01, 0xaa, 0x0b]), "01:aa:0b");
+    }
 }
