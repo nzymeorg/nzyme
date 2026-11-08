@@ -7707,6 +7707,119 @@
         "tags" : [ "Asset Identity" ]
       }
     },
+    "/api/ethernet/assets/identity/changes/organization/{organization_id}/tenant/{tenant_id}/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every finding of the tenant that was active at any point inside the time range and matches the filters, not only the findings of one page. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteFilteredIdentityChangeFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Matching findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching findings",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/changes/organization/{organization_id}/tenant/{tenant_id}/many/delete" : {
+      "put" : {
+        "description" : "Deletes every finding in the list that belongs to the tenant. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteIdentityChangeFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the findings to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Identitychangefindings deleted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple findings",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
     "/api/ethernet/assets/identity/changes/organization/{organization_id}/tenant/{tenant_id}/show/{finding_uuid}" : {
       "delete" : {
         "description" : "Deletes a finding. It is created again while the changes stay inside the detection window. Requires the ethernet_assets_manage feature permission.",
@@ -7899,6 +8012,119 @@
           }
         },
         "summary" : "List duplicate MAC findings of a tenant",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/duplicates/organization/{organization_id}/tenant/{tenant_id}/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every finding of the tenant that was active at any point inside the time range and matches the filters, not only the findings of one page. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteFilteredDuplicateMacFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Matching findings deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching findings",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/duplicates/organization/{organization_id}/tenant/{tenant_id}/many/delete" : {
+      "put" : {
+        "description" : "Deletes every finding in the list that belongs to the tenant. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteDuplicateMacFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the findings to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Duplicatemacfindings deleted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple findings",
         "tags" : [ "Asset Identity" ]
       }
     },
@@ -8563,6 +8789,254 @@
           }
         },
         "summary" : "List links between assets of a tenant",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every link of the tenant that was detected inside the time range and matches the filters, not only the links of one page. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteFilteredAssetLinks",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Matching links deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching links",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/filtered/status/{status}" : {
+      "put" : {
+        "description" : "Sets the status of every link of the tenant that was detected inside the time range and matches the filters, not only the links of one page. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "setFilteredAssetLinksStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "CONFIRMED, DISMISSED or OPEN.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Status updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown status."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Confirm, dismiss or reopen all matching links",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/many/delete" : {
+      "put" : {
+        "description" : "Deletes every link in the list that belongs to the tenant. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteAssetLinks",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the links to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Assetlinks deleted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple links",
+        "tags" : [ "Asset Identity" ]
+      }
+    },
+    "/api/ethernet/assets/identity/links/organization/{organization_id}/tenant/{tenant_id}/many/status/{status}" : {
+      "put" : {
+        "description" : "Sets the status of every link in the list that belongs to the tenant to CONFIRMED, DISMISSED or OPEN. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "setAssetLinksStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "CONFIRMED, DISMISSED or OPEN.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the links.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Status updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown status, missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Confirm, dismiss or reopen multiple links",
         "tags" : [ "Asset Identity" ]
       }
     },

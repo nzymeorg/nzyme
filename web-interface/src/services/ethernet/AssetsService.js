@@ -279,6 +279,16 @@ export default class AssetsService {
       successCallback);
   }
 
+  deleteDuplicateMacFindings(uuids, organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/duplicates/organization/${organizationId}/tenant/${tenantId}/many/delete`,
+      {uuids: uuids}, successCallback);
+  }
+
+  deleteFilteredDuplicateMacFindings(organizationId, tenantId, filters, timeRange, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/duplicates/organization/${organizationId}/tenant/${tenantId}/filtered/delete?`
+      + this.identityFilteredQuery(filters, timeRange), {}, successCallback);
+  }
+
   findAllIdentityChangeFindings(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setFindings) {
     RESTClient.get("/ethernet/assets/identity/changes", {
       organization_id: organizationId, tenant_id: tenantId, filters: filters, time_range: timeRange,
@@ -294,6 +304,16 @@ export default class AssetsService {
   deleteIdentityChangeFinding(uuid, organizationId, tenantId, successCallback) {
     RESTClient.delete(`/ethernet/assets/identity/changes/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
       successCallback);
+  }
+
+  deleteIdentityChangeFindings(uuids, organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/changes/organization/${organizationId}/tenant/${tenantId}/many/delete`,
+      {uuids: uuids}, successCallback);
+  }
+
+  deleteFilteredIdentityChangeFindings(organizationId, tenantId, filters, timeRange, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/changes/organization/${organizationId}/tenant/${tenantId}/filtered/delete?`
+      + this.identityFilteredQuery(filters, timeRange), {}, successCallback);
   }
 
   findAllAssetLinks(organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, limit, offset, setLinks) {
@@ -316,6 +336,36 @@ export default class AssetsService {
   deleteAssetLink(uuid, organizationId, tenantId, successCallback) {
     RESTClient.delete(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/show/${uuid}`,
       successCallback);
+  }
+
+  setAssetLinksStatus(uuids, organizationId, tenantId, status, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/many/status/${status}`,
+      {uuids: uuids}, successCallback);
+  }
+
+  setFilteredAssetLinksStatus(organizationId, tenantId, filters, timeRange, status, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/filtered/status/${status}?`
+      + this.identityFilteredQuery(filters, timeRange), {}, successCallback);
+  }
+
+  deleteAssetLinks(uuids, organizationId, tenantId, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/many/delete`,
+      {uuids: uuids}, successCallback);
+  }
+
+  deleteFilteredAssetLinks(organizationId, tenantId, filters, timeRange, successCallback) {
+    RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/filtered/delete?`
+      + this.identityFilteredQuery(filters, timeRange), {}, successCallback);
+  }
+
+  identityFilteredQuery(filters, timeRange) {
+    const params = new URLSearchParams();
+    params.set("time_range", JSON.stringify(timeRange));
+    if (filters) {
+      params.set("filters", JSON.stringify(filters));
+    }
+
+    return params.toString();
   }
 
   getAssetIdentitySummary(assetId, organizationId, tenantId, setSummary) {

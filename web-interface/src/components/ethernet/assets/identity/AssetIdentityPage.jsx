@@ -130,7 +130,11 @@ export default function AssetIdentityPage({tab}) {
   const table = () => {
     const props = {
       page: page, setPage: setPage, perPage: PER_PAGE, orderColumn: orderColumn, setOrderColumn: applyOrderColumn,
-      orderDirection: orderDirection, setOrderDirection: applyOrderDirection, filterFields: fields, setFilters: applyFilters
+      orderDirection: orderDirection, setOrderDirection: applyOrderDirection, filterFields: fields, setFilters: applyFilters,
+      bulk: {
+        organizationId: organizationId, tenantId: tenantId, filters: filters, timeRange: timeRange,
+        onChanged: () => setRevision(new Date())
+      }
     };
 
     const response = data && data.tab === tab ? data.response : null;

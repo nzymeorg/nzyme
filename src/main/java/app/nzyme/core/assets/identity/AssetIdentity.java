@@ -250,6 +250,33 @@ public class AssetIdentity {
         );
     }
 
+    public void deleteDuplicateFindings(List<UUID> uuids, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_identity_duplicate_findings WHERE uuid IN (<uuids>) " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bindList("uuids", uuids)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteDuplicateFindings(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new DuplicateMacFindingFilters());
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_identity_duplicate_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .execute()
+        );
+    }
+
     public enum ChangeOrderColumn {
         MAC("mac"),
         SCORE("score"),
@@ -409,6 +436,33 @@ public class AssetIdentity {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("DELETE FROM assets_identity_change_findings WHERE id = :id")
                         .bind("id", id)
+                        .execute()
+        );
+    }
+
+    public void deleteChangeFindings(List<UUID> uuids, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_identity_change_findings WHERE uuid IN (<uuids>) " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bindList("uuids", uuids)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteChangeFindings(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new IdentityChangeFindingFilters());
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_identity_change_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
                         .execute()
         );
     }
@@ -600,10 +654,67 @@ public class AssetIdentity {
         );
     }
 
+    public void setLinksStatus(List<UUID> uuids, String status, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE assets_links SET status = :status, updated_at = NOW() " +
+                                "WHERE uuid IN (<uuids>) AND organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id")
+                        .bindList("uuids", uuids)
+                        .bind("status", status)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void setLinksStatus(Filters filters, TimeRange timeRange, String status, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetLinkFilters());
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE assets_links SET status = :status, updated_at = NOW() " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                LINK_TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("status", status)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .execute()
+        );
+    }
+
     public void deleteLink(long id) {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("DELETE FROM assets_links WHERE id = :id")
                         .bind("id", id)
+                        .execute()
+        );
+    }
+
+    public void deleteLinks(List<UUID> uuids, UUID organizationId, UUID tenantId) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_links WHERE uuid IN (<uuids>) " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bindList("uuids", uuids)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .execute()
+        );
+    }
+
+    public void deleteLinks(Filters filters, TimeRange timeRange, UUID organizationId, UUID tenantId) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new AssetLinkFilters());
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM assets_links " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                LINK_TIME_RANGE_CONDITION + filterFragment.whereSql())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
                         .execute()
         );
     }

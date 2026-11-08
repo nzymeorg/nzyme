@@ -8,6 +8,7 @@ import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
+import app.nzyme.core.rest.requests.UUIDListRequest;
 import app.nzyme.core.rest.responses.ethernet.assets.identity.*;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
@@ -286,6 +287,57 @@ public class AssetIdentityResource extends TapDataHandlingResource {
         return Response.ok().build();
     }
 
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/duplicates/organization/{organization_id}/tenant/{tenant_id}/many/delete")
+    @Operation(operationId = "deleteDuplicateMacFindings", summary = "Delete multiple findings",
+            description = "Deletes every finding in the list that belongs to the tenant. Unknown UUIDs are skipped. "
+                    + "At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Duplicatemacfindings deleted.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Missing request body or more than 250 UUIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteDuplicateMacFindings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                   @RequestBody(description = "The UUIDs of the findings to delete.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req == null || req.uuids() == null || req.uuids().size() > MAXIMUM_PAGE_SIZE) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        if (!req.uuids().isEmpty()) {
+            nzyme.getAssetsManager().identity().deleteDuplicateFindings(req.uuids(), organizationId, tenantId);
+        }
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/duplicates/organization/{organization_id}/tenant/{tenant_id}/filtered/delete")
+    @Operation(operationId = "deleteFilteredDuplicateMacFindings", summary = "Delete all matching findings",
+            description = "Deletes every finding of the tenant that was active at any point inside the time range and matches the filters, "
+                    + "not only the findings of one page. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Matching findings deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFilteredDuplicateMacFindings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getAssetsManager().identity().deleteDuplicateFindings(parseFiltersQueryParameter(filtersParameter),
+                parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
+
+        return Response.ok().build();
+    }
+
     @GET
     @Path("/changes")
     @Operation(operationId = "findIdentityChangeFindings", summary = "List identity change findings of a tenant",
@@ -402,6 +454,57 @@ public class AssetIdentityResource extends TapDataHandlingResource {
         return Response.ok().build();
     }
 
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/changes/organization/{organization_id}/tenant/{tenant_id}/many/delete")
+    @Operation(operationId = "deleteIdentityChangeFindings", summary = "Delete multiple findings",
+            description = "Deletes every finding in the list that belongs to the tenant. Unknown UUIDs are skipped. "
+                    + "At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Identitychangefindings deleted.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Missing request body or more than 250 UUIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteIdentityChangeFindings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                   @RequestBody(description = "The UUIDs of the findings to delete.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req == null || req.uuids() == null || req.uuids().size() > MAXIMUM_PAGE_SIZE) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        if (!req.uuids().isEmpty()) {
+            nzyme.getAssetsManager().identity().deleteChangeFindings(req.uuids(), organizationId, tenantId);
+        }
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/changes/organization/{organization_id}/tenant/{tenant_id}/filtered/delete")
+    @Operation(operationId = "deleteFilteredIdentityChangeFindings", summary = "Delete all matching findings",
+            description = "Deletes every finding of the tenant that was active at any point inside the time range and matches the filters, "
+                    + "not only the findings of one page. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Matching findings deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFilteredIdentityChangeFindings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getAssetsManager().identity().deleteChangeFindings(parseFiltersQueryParameter(filtersParameter),
+                parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
+
+        return Response.ok().build();
+    }
+
     @GET
     @Path("/links")
     @Operation(operationId = "findAssetLinks", summary = "List links between assets of a tenant",
@@ -499,9 +602,8 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        String normalized = status == null ? "" : status.trim().toUpperCase();
-        if (!normalized.equals(AssetIdentity.LINK_STATUS_OPEN) && !normalized.equals(AssetIdentity.LINK_STATUS_CONFIRMED)
-                && !normalized.equals(AssetIdentity.LINK_STATUS_DISMISSED)) {
+        String normalized = normalizeLinkStatus(status);
+        if (normalized == null) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
@@ -540,6 +642,130 @@ public class AssetIdentityResource extends TapDataHandlingResource {
         }
 
         identity.deleteLink(link.get().id());
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/links/organization/{organization_id}/tenant/{tenant_id}/many/status/{status}")
+    @Operation(operationId = "setAssetLinksStatus", summary = "Confirm, dismiss or reopen multiple links",
+            description = "Sets the status of every link in the list that belongs to the tenant to CONFIRMED, "
+                    + "DISMISSED or OPEN. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the "
+                    + "ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Status updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Unknown status, missing request body or more than 250 UUIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response setLinksStatus(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                   @Parameter(description = "CONFIRMED, DISMISSED or OPEN.") @PathParam("status") String status,
+                                   @RequestBody(description = "The UUIDs of the links.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        String normalized = normalizeLinkStatus(status);
+        if (normalized == null || req == null || req.uuids() == null || req.uuids().size() > MAXIMUM_PAGE_SIZE) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        if (!req.uuids().isEmpty()) {
+            nzyme.getAssetsManager().identity().setLinksStatus(req.uuids(), normalized, organizationId, tenantId);
+        }
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/links/organization/{organization_id}/tenant/{tenant_id}/filtered/status/{status}")
+    @Operation(operationId = "setFilteredAssetLinksStatus", summary = "Confirm, dismiss or reopen all matching links",
+            description = "Sets the status of every link of the tenant that was detected inside the time range and "
+                    + "matches the filters, not only the links of one page. Requires the ethernet_assets_manage "
+                    + "feature permission.")
+    @ApiResponse(responseCode = "200", description = "Status updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Unknown status.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response setFilteredLinksStatus(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                           @Parameter(description = "CONFIRMED, DISMISSED or OPEN.") @PathParam("status") String status,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        String normalized = normalizeLinkStatus(status);
+        if (normalized == null) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        nzyme.getAssetsManager().identity().setLinksStatus(parseFiltersQueryParameter(filtersParameter),
+                parseTimeRangeQueryParameter(timeRangeParameter), normalized, organizationId, tenantId);
+
+        return Response.ok().build();
+    }
+
+    @Nullable
+    private static String normalizeLinkStatus(@Nullable String status) {
+        String normalized = status == null ? "" : status.trim().toUpperCase();
+        if (!normalized.equals(AssetIdentity.LINK_STATUS_OPEN) && !normalized.equals(AssetIdentity.LINK_STATUS_CONFIRMED)
+                && !normalized.equals(AssetIdentity.LINK_STATUS_DISMISSED)) {
+            return null;
+        }
+
+        return normalized;
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/links/organization/{organization_id}/tenant/{tenant_id}/many/delete")
+    @Operation(operationId = "deleteAssetLinks", summary = "Delete multiple links",
+            description = "Deletes every link in the list that belongs to the tenant. Unknown UUIDs are skipped. "
+                    + "At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Assetlinks deleted.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Missing request body or more than 250 UUIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteAssetLinks(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                   @RequestBody(description = "The UUIDs of the links to delete.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req == null || req.uuids() == null || req.uuids().size() > MAXIMUM_PAGE_SIZE) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        if (!req.uuids().isEmpty()) {
+            nzyme.getAssetsManager().identity().deleteLinks(req.uuids(), organizationId, tenantId);
+        }
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Path("/links/organization/{organization_id}/tenant/{tenant_id}/filtered/delete")
+    @Operation(operationId = "deleteFilteredAssetLinks", summary = "Delete all matching links",
+            description = "Deletes every link of the tenant that was detected inside the time range and matches the filters, "
+                    + "not only the links of one page. Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Matching links deleted.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteFilteredAssetLinks(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getAssetsManager().identity().deleteLinks(parseFiltersQueryParameter(filtersParameter),
+                parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
 
         return Response.ok().build();
     }

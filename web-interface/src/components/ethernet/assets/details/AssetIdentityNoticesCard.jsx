@@ -32,15 +32,7 @@ export default function AssetIdentityNoticesCard({asset, organizationId, tenantI
     });
   }
 
-  const title = (
-    <React.Fragment>
-      <CardTitleWithControls title="Identity Notices" refreshAction={onRefresh} />
-      <p className="text-muted">
-        Who is behind this MAC address: other devices using it, changes of the device behind it, and other
-        addresses this device may have used.
-      </p>
-    </React.Fragment>
-  );
+  const title = <CardTitleWithControls title="Identity Notices" refreshAction={onRefresh} />;
 
   if (!summary) {
     return <React.Fragment>{title}<LoadingSpinner /></React.Fragment>
