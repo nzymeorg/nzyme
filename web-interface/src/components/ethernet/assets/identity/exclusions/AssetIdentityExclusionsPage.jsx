@@ -59,13 +59,9 @@ export default function AssetIdentityExclusionsPage() {
   return (
     <React.Fragment>
       <div className="row">
-        <div className="col-md-10">
+        <div className="col-md-12">
           <SectionMenuBar items={ASSETS_MENU_ITEMS}
                           activeRoute={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.INDEX}/>
-        </div>
-
-        <div className="col-md-2">
-          <a href="https://go.nzyme.org/ethernet-assets-identity-exclusions" className="btn btn-secondary float-end">Help</a>
         </div>
       </div>
 
@@ -73,7 +69,8 @@ export default function AssetIdentityExclusionsPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Filters" />
+              <CardTitleWithControls title="Filters"
+                                     helpLink="https://go.nzyme.org/ethernet-assets-identity-exclusions" />
 
               <Filters filters={filters}
                        setFilters={applyFilters}
@@ -92,11 +89,8 @@ export default function AssetIdentityExclusionsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Exclusions keep assets from raising identity findings: duplicate MAC address, identity change and
-                MAC address change. Nzyme keeps tracking the identity attributes of excluded assets, it only stops
-                reporting findings for them. Use them for wireless bridges that masquerade their clients behind
-                one address, for dual-boot machines, for virtual machine hosts, or for a vendor prefix whose
-                devices are swapped often. Each exclusion can be limited to some of the three detections.
+                Exclusions keep assets from raising identity findings. Nzyme keeps tracking the identity attributes
+                of excluded assets, it only stops reporting findings for them.
               </p>
 
               {canEdit ?

@@ -144,7 +144,9 @@ export default function IdentityChangeFindingDetailsPage() {
         <div className="col-4">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Asset" refreshAction={() => setRevision(new Date())} />
+              <CardTitleWithControls title="Asset"
+                                     refreshAction={() => setRevision(new Date())}
+                                     helpLink="https://go.nzyme.org/ethernet-assets-identity-changes" />
 
               <dl className="mb-0">
                 <dt>MAC Address</dt>

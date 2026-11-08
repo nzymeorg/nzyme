@@ -21,9 +21,18 @@ import AssetLinksTable from "./AssetLinksTable";
 const assetsService = new AssetsService();
 
 const PAGES = {
-  duplicates: { title: "Duplicate MAC Addresses", fields: DUPLICATE_MAC_FILTER_FIELDS, defaultOrder: "last_seen" },
-  changes: { title: "Identity Changes", fields: IDENTITY_CHANGE_FILTER_FIELDS, defaultOrder: "last_seen" },
-  links: { title: "MAC Address Changes", fields: ASSET_LINK_FILTER_FIELDS, defaultOrder: "detected_at" }
+  duplicates: {
+    title: "Duplicate MAC Addresses", fields: DUPLICATE_MAC_FILTER_FIELDS, defaultOrder: "last_seen",
+    help: "https://go.nzyme.org/ethernet-assets-identity-duplicates"
+  },
+  changes: {
+    title: "Identity Changes", fields: IDENTITY_CHANGE_FILTER_FIELDS, defaultOrder: "last_seen",
+    help: "https://go.nzyme.org/ethernet-assets-identity-changes"
+  },
+  links: {
+    title: "MAC Address Changes", fields: ASSET_LINK_FILTER_FIELDS, defaultOrder: "detected_at",
+    help: "https://go.nzyme.org/ethernet-assets-identity-mac-changes"
+  }
 };
 
 const PER_PAGE = 25;
@@ -90,38 +99,23 @@ export default function AssetIdentityPage({tab}) {
       case "duplicates":
         return (
           <p className="text-muted">
-            Two devices used the same MAC address <strong>at the same time</strong>. Both were active in the same
-            detection window, so this is not an asset that changed over time but two that overlap. Nzyme tells
-            devices apart by how their TCP stacks open connections, and only counts stacks that sent their packets
-            directly, not through a router, NAT box, hotspot or VM host that forwards traffic for other devices.
-            A wireless bridge that hides its clients behind one address is the common legitimate cause. Add an
-            exclusion for it. An asset whose old identity disappeared and was replaced by a new one is an{' '}
-            <Link to={ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES}>identity change</Link> instead. The detection
-            runs every minute, so a finding appears about a minute after the taps reported the sessions.
+            Two or more TCP stacks used the same MAC address <strong>at the same time</strong>, none of them behind
+            a router or NAT box. An identity that was replaced over time is an{' '}
+            <Link to={ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES}>identity change</Link> instead.
           </p>
         );
       case "changes":
         return (
           <p className="text-muted">
-            An established asset <strong>became a different device over time</strong>: the identity it had is gone
-            and a new one took its place under the same MAC address. Signals are a TCP stack that replaced the old
-            one, a new hostname, a different DHCP client or new server ports. Each change is scored and a finding
-            is raised at the threshold. Reinstalled machines, dual-boot systems and a network card moved to
-            another machine look like this too, as does an attacker who cloned the address of a device that is now
-            offline. Two identities that are active at the same time are a{' '}
-            <Link to={ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES}>duplicate MAC address</Link> instead. The
-            detection runs every minute.
+            An established asset <strong>became a different device over time</strong> under the same MAC address.
+            Two identities that are active at the same time are a{' '}
+            <Link to={ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES}>duplicate MAC address</Link> instead.
           </p>
         );
       default:
         return (
           <p className="text-muted">
-            A new asset looks like a device that recently went silent under another MAC address. The evidence is
-            shared hostnames, addresses, DHCP identity, TCP stacks, TLS clients and inbound ports, with rare values
-            counting more than ones a whole fleet shares. Confirm a link when it is right, dismiss it when it is not.
-            Devices whose old address comes back later are shown as alternating between both. The detection runs
-            every minute, but a new asset is first evaluated once it has existed for the quiet period, and again at
-            6 hours, 24 hours and the end of the lookback as it collects more identity.
+            A new asset looks like a device that recently went silent under another MAC address.
           </p>
         );
     }
@@ -149,13 +143,9 @@ export default function AssetIdentityPage({tab}) {
   return (
     <React.Fragment>
       <div className="row">
-        <div className="col-md-10">
+        <div className="col-md-12">
           <SectionMenuBar items={ASSETS_MENU_ITEMS}
                           activeRoute={ApiRoutes.ETHERNET.ASSETS.IDENTITY.TAB(tab)}/>
-        </div>
-
-        <div className="col-md-2">
-          <a href="https://go.nzyme.org/ethernet-assets-identity" className="btn btn-secondary float-end">Help</a>
         </div>
       </div>
 
@@ -166,7 +156,8 @@ export default function AssetIdentityPage({tab}) {
               <CardTitleWithControls title="Filters"
                                      timeRange={timeRange}
                                      setTimeRange={applyTimeRange}
-                                     doNotPersistTimeRange={true} />
+                                     doNotPersistTimeRange={true}
+                                     helpLink={current.help} />
 
               <Filters key={tab}
                        filters={filters}

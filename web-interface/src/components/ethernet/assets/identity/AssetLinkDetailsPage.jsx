@@ -124,7 +124,9 @@ export default function AssetLinkDetailsPage() {
         <div className="col-4">
           <div className="card h-100">
             <div className="card-body">
-              <CardTitleWithControls title="Previous Address" refreshAction={() => setRevision(new Date())} />
+              <CardTitleWithControls title="Previous Address"
+                                     refreshAction={() => setRevision(new Date())}
+                                     helpLink="https://go.nzyme.org/ethernet-assets-identity-mac-changes" />
 
               <dl className="mb-0">
                 <dt>MAC Address</dt>

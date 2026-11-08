@@ -11764,4 +11764,24 @@
         </sql>
     </changeSet>
 
+    <changeSet id="add_beacon_detection_indexes" author="lennartkoopmann">
+        <createIndex tableName="l4_sessions" indexName="l4_sessions_tap_start_time">
+            <column name="tap_uuid" />
+            <column name="start_time" />
+        </createIndex>
+        <createIndex tableName="l4_sessions" indexName="l4_sessions_pair_lookup">
+            <column name="source_address" />
+            <column name="destination_address" />
+            <column name="destination_port" />
+            <column name="start_time" />
+        </createIndex>
+        <sql>
+            CREATE INDEX dns_log_client_domain
+                ON dns_log (client_address, (COALESCE(data_value_etld, data_value)), timestamp);
+        </sql>
+        <rollback>
+            <sql>DROP INDEX IF EXISTS dns_log_client_domain;</sql>
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

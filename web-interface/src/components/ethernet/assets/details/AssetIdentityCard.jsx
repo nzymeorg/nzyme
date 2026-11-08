@@ -76,12 +76,12 @@ export default function AssetIdentityCard({attributes, onRefresh}) {
   const title = (
     <React.Fragment>
       <CardTitleWithControls title="Identity"
-                             refreshAction={onRefresh} />
+                             refreshAction={onRefresh}
+                             helpLink="https://go.nzyme.org/ethernet-assets-identity-attributes" />
 
       <p className="text-muted">
-        Fingerprints and client software presented by this asset, kept long-term. The TCP stack describes how the
-        operating system opens connections. A TCP fingerprint adds the MSS and window scale, which follow the
-        link, so one stack can have several fingerprints. Hover over a value for the meaning of its fields.
+        Fingerprints and client software presented by this asset, kept long-term. Hover over a value for the meaning
+        of its fields.
       </p>
     </React.Fragment>
   );

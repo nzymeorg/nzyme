@@ -235,22 +235,6 @@ function NodeDetailsPage() {
                 </div>
               </div>
             </div>
-
-            <div className="row mt-3">
-              <div className="col-12">
-                <div className="card">
-                  <div className="card-body">
-                    <h3>Metrics</h3>
-
-                    <h4>Timers</h4>
-                    <NodeTimers timers={node.metrics_timers} />
-
-                    <h4>Gauges</h4>
-                    <NodeGauges gauges={node.metrics_gauges} />
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="col-6">
@@ -268,6 +252,22 @@ function NodeDetailsPage() {
                     <button className="btn btn-danger" onClick={deleteNode} disabled={node.deleted}>Delete Node</button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h3>Metrics</h3>
+
+                <h4>Timers</h4>
+                <NodeTimers timers={node.metrics_timers} />
+
+                <h4>Gauges</h4>
+                <NodeGauges gauges={node.metrics_gauges} />
               </div>
             </div>
           </div>

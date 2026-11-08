@@ -39,12 +39,18 @@ public class BeaconDetector {
 
     private static final Duration MAXIMUM_COLLAPSE_WINDOW = Duration.standardSeconds(5);
 
+    private static final Duration ACTIVITY_MARGIN = Duration.standardMinutes(5);
+
+    private static final int DETAIL_CHUNK_SIZE = 100;
+
     private final NzymeNode nzyme;
     private final Beacons beacons;
     private final ObjectMapper om;
 
     private final Timer runTimer;
     private final Timer candidateDiscoveryTimer;
+
+    private final Map<String, DateTime> lastRuns = Maps.newConcurrentMap();
 
     public BeaconDetector(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -53,6 +59,8 @@ public class BeaconDetector {
         this.runTimer = nzyme.getMetrics().timer(MetricNames.BEACON_DETECTION_RUN_TIMER);
         this.candidateDiscoveryTimer = nzyme.getMetrics().timer(MetricNames.BEACON_CANDIDATE_DISCOVERY_TIMER);
     }
+
+    private enum DetailSource { L4, TLS, SOCKS, DNS }
 
     private static class Candidate {
         final BeaconType type;
@@ -63,22 +71,16 @@ public class BeaconDetector {
         final boolean siteLocal;
         final String sourceAddress;
         @Nullable final String sourceMac;
+        final String groupHost;
+        @Nullable final Integer groupPort;
+        @Nullable final String l4Type;
         final List<DateTime> timestamps;
-        final List<String> checkinDestinationAddresses;
-        final List<String> checkinTapUuids;
         final Map<String, Object> enrichment;
 
-        @Nullable String l4Type = null;
-        @Nullable List<String> checkinDestinationMacs = null;
-        @Nullable List<String> checkinSessionKeys = null;
-        @Nullable List<Long> checkinBytesRx = null;
-        @Nullable List<Long> checkinBytesTx = null;
-        @Nullable List<Long> checkinBytesTotal = null;
-
-        Candidate(BeaconType type, String destinationKey, String destinationHost, String destinationAddress,
-                  Integer destinationPort, boolean siteLocal, String sourceAddress, String sourceMac,
-                  List<DateTime> timestamps, List<String> checkinDestinationAddresses, List<String> checkinTapUuids,
-                  Map<String, Object> enrichment) {
+        Candidate(BeaconType type, String destinationKey, @Nullable String destinationHost,
+                  @Nullable String destinationAddress, @Nullable Integer destinationPort, boolean siteLocal,
+                  String sourceAddress, @Nullable String sourceMac, String groupHost, @Nullable Integer groupPort,
+                  @Nullable String l4Type, List<DateTime> timestamps, Map<String, Object> enrichment) {
             this.type = type;
             this.destinationKey = destinationKey;
             this.destinationHost = destinationHost;
@@ -87,12 +89,37 @@ public class BeaconDetector {
             this.siteLocal = siteLocal;
             this.sourceAddress = sourceAddress;
             this.sourceMac = sourceMac;
+            this.groupHost = groupHost;
+            this.groupPort = groupPort;
+            this.l4Type = l4Type;
             this.timestamps = timestamps;
-            this.checkinDestinationAddresses = checkinDestinationAddresses;
-            this.checkinTapUuids = checkinTapUuids;
             this.enrichment = enrichment;
         }
+
+        DetailSource detailSource() {
+            switch (type) {
+                case TLS: return DetailSource.TLS;
+                case SOCKS: return DetailSource.SOCKS;
+                case DNS: return DetailSource.DNS;
+                default: return DetailSource.L4;
+            }
+        }
     }
+
+    private record Detail(DateTime timestamp,
+                          @Nullable String destinationAddress,
+                          @Nullable String destinationMac,
+                          @Nullable String tapUuid,
+                          @Nullable String sessionKey,
+                          @Nullable Long bytesRx,
+                          @Nullable Long bytesTx,
+                          @Nullable Long bytesTotal) { }
+
+    private record Pending(Candidate candidate,
+                           long beaconId,
+                           long sourceId,
+                           IntervalAnalysis.Result analysis,
+                           DateTime detailSince) { }
 
     public void runForTenant(UUID organizationId, UUID tenantId) {
         BeaconsConfiguration config = beacons.getConfiguration(organizationId, tenantId);
@@ -117,18 +144,25 @@ public class BeaconDetector {
         DateTime until = DateTime.now();
         DateTime since = until.minusMinutes(config.detectionWindowMinutes());
 
+        String runKey = organizationId + "/" + tenantId;
+        DateTime lastRun = lastRuns.get(runKey);
+        DateTime activitySince = lastRun == null ? since : later(since, lastRun.minus(ACTIVITY_MARGIN));
+
         try (Timer.Context ignored = runTimer.time()) {
-            runDetection(config, taps, since, until, organizationId, tenantId);
+            if (runDetection(config, taps, since, activitySince, until, organizationId, tenantId)) {
+                lastRuns.put(runKey, until);
+            }
         }
     }
 
-    private void runDetection(BeaconsConfiguration config,
-                              List<UUID> taps,
-                              DateTime since,
-                              DateTime until,
-                              UUID organizationId,
-                              UUID tenantId) {
-        nzyme.getDatabase().useTransaction(handle -> {
+    private boolean runDetection(BeaconsConfiguration config,
+                                 List<UUID> taps,
+                                 DateTime since,
+                                 DateTime activitySince,
+                                 DateTime until,
+                                 UUID organizationId,
+                                 UUID tenantId) {
+        return nzyme.getDatabase().inTransaction(handle -> {
             /*
              * All nodes of a cluster run this detector. The advisory lock makes sure that only one node processes
              * a tenant at a time. Another node that finds the lock taken simply skips this run.
@@ -141,35 +175,41 @@ public class BeaconDetector {
             if (!locked) {
                 LOG.debug("Beacon detection for tenant [{}/{}] is running on another node. Skipping.",
                         organizationId, tenantId);
-                return;
+                return false;
             }
 
             List<Candidate> candidates = Lists.newArrayList();
 
             try (Timer.Context ignored = candidateDiscoveryTimer.time()) {
                 if (config.enabledSources().contains(BeaconType.TLS)) {
-                    readSource(handle, "TLS", candidates, () -> readTlsCandidates(handle, taps, since, until, config));
+                    readSource(handle, "TLS", candidates,
+                            () -> readTlsCandidates(handle, taps, since, activitySince, until, config));
                 }
 
                 if (config.enabledSources().contains(BeaconType.SOCKS)) {
-                    readSource(handle, "SOCKS", candidates, () -> readSocksCandidates(handle, taps, since, until, config));
+                    readSource(handle, "SOCKS", candidates,
+                            () -> readSocksCandidates(handle, taps, since, activitySince, until, config));
                 }
 
                 if (config.enabledSources().contains(BeaconType.DNS)) {
-                    readSource(handle, "DNS", candidates, () -> readDnsCandidates(handle, taps, since, until, config));
+                    readSource(handle, "DNS", candidates,
+                            () -> readDnsCandidates(handle, taps, since, activitySince, until, config));
                 }
 
                 if (config.enabledSources().contains(BeaconType.TCP) || config.enabledSources().contains(BeaconType.UDP)
                         || config.enabledSources().contains(BeaconType.HTTP)
                         || config.enabledSources().contains(BeaconType.SSH)) {
-                    readSource(handle, "L4", candidates, () -> readL4Candidates(handle, taps, since, until, config));
+                    readSource(handle, "L4", candidates,
+                            () -> readL4Candidates(handle, taps, since, activitySince, until, config));
                 }
             }
 
             LOG.debug("Analyzing [{}] beacon candidates of tenant [{}/{}].",
                     candidates.size(), organizationId, tenantId);
 
-            processCandidates(handle, candidates, config, organizationId, tenantId);
+            processCandidates(handle, candidates, config, taps, since, until, organizationId, tenantId);
+
+            return true;
         });
     }
 
@@ -188,6 +228,9 @@ public class BeaconDetector {
     private void processCandidates(Handle handle,
                                    List<Candidate> candidates,
                                    BeaconsConfiguration config,
+                                   List<UUID> taps,
+                                   DateTime since,
+                                   DateTime until,
                                    UUID organizationId,
                                    UUID tenantId) {
         Map<String, BeaconEntry> knownBeacons = Maps.newHashMap();
@@ -210,6 +253,7 @@ public class BeaconDetector {
 
         Map<Long, Candidate> touchedBeacons = Maps.newHashMap();
         Set<Long> beaconsWithNewCheckins = new HashSet<>();
+        Map<DetailSource, List<Pending>> pending = new EnumMap<>(DetailSource.class);
 
         for (Candidate candidate : candidates) {
             try {
@@ -260,6 +304,7 @@ public class BeaconDetector {
 
                 boolean newBeacon = false;
                 boolean newSource = false;
+                DateTime detailSince = since;
 
                 if (source == null) {
                     // Unknown source. Only becomes part of a beacon if it is actually beaconing.
@@ -291,16 +336,13 @@ public class BeaconDetector {
                     );
                     knownSources.put(sourceKey(beacon.id(), source.sourceAddress(), source.sourceMac()), source);
                     newSource = true;
+                } else {
+                    detailSince = later(since, source.lastSeen().minus(MAXIMUM_COLLAPSE_WINDOW));
                 }
 
-                // Record the check-ins of this source. Skips check-ins already recorded by a previous run.
-                int newCheckins = recordCheckins(handle, beacon.id(), source.id(), candidate, analysis);
-                beacons.updateSourceStatistics(handle, source.id(), analysis, newCheckins);
-
+                pending.computeIfAbsent(candidate.detailSource(), k -> Lists.newArrayList())
+                        .add(new Pending(candidate, beacon.id(), source.id(), analysis, detailSince));
                 touchedBeacons.put(beacon.id(), candidate);
-                if (newCheckins > 0) {
-                    beaconsWithNewCheckins.add(beacon.id());
-                }
 
                 if (newBeacon && config.alertOnNewBeacon()) {
                     raiseNewBeaconAlert(beacon, candidate, organizationId, tenantId);
@@ -310,6 +352,29 @@ public class BeaconDetector {
             } catch (Exception e) {
                 LOG.error("Could not process beacon candidate [{}/{}] of tenant [{}/{}]. Skipping.",
                         candidate.type, candidate.destinationKey, organizationId, tenantId, e);
+            }
+        }
+
+        for (Map.Entry<DetailSource, List<Pending>> entry : pending.entrySet()) {
+            for (List<Pending> chunk : Lists.partition(entry.getValue(), DETAIL_CHUNK_SIZE)) {
+                String savepoint = "beacon_details_" + entry.getKey().name().toLowerCase();
+                handle.savepoint(savepoint);
+                try {
+                    Map<Integer, List<Detail>> details = readDetails(handle, entry.getKey(), chunk, taps, until);
+                    for (int i = 0; i < chunk.size(); i++) {
+                        Pending p = chunk.get(i);
+                        int newCheckins = recordCheckins(handle, p, details.getOrDefault(i, List.of()));
+                        beacons.updateSourceStatistics(handle, p.sourceId(), p.analysis(), newCheckins);
+                        if (newCheckins > 0) {
+                            beaconsWithNewCheckins.add(p.beaconId());
+                        }
+                    }
+                    handle.release(savepoint);
+                } catch (Exception e) {
+                    LOG.error("Could not record [{}] beacon check-ins of tenant [{}/{}]. Skipping.",
+                            entry.getKey(), organizationId, tenantId, e);
+                    handle.rollbackToSavepoint(savepoint);
+                }
             }
         }
 
@@ -366,60 +431,59 @@ public class BeaconDetector {
         return null;
     }
 
-    private int recordCheckins(Handle handle,
-                               long beaconId,
-                               long sourceId,
-                               Candidate candidate,
-                               IntervalAnalysis.Result analysis) {
-        List<DateTime> checkins = analysis.checkins();
+    private int recordCheckins(Handle handle, Pending pending, List<Detail> details) {
+        List<DateTime> checkins = pending.analysis().checkins().stream()
+                .filter(c -> !c.isBefore(pending.detailSince()))
+                .collect(Collectors.toList());
         if (checkins.isEmpty()) {
             return 0;
         }
 
         List<BeaconCheckinRecord> records = Lists.newArrayList();
         for (DateTime checkin : checkins) {
-            records.add(new BeaconCheckinRecord(checkin, candidate.l4Type));
+            records.add(new BeaconCheckinRecord(checkin, pending.candidate().l4Type));
         }
-
-        List<Integer> order = new ArrayList<>();
-        for (int i = 0; i < candidate.timestamps.size(); i++) {
-            order.add(i);
-        }
-        order.sort(Comparator.comparing(candidate.timestamps::get));
 
         int j = 0;
-        for (int i : order) {
-            DateTime ts = candidate.timestamps.get(i);
-            while (j + 1 < checkins.size() && !checkins.get(j + 1).isAfter(ts)) {
+        for (Detail detail : details) {
+            if (detail.timestamp().isBefore(checkins.get(0))) {
+                continue;
+            }
+
+            while (j + 1 < checkins.size() && !checkins.get(j + 1).isAfter(detail.timestamp())) {
                 j++;
             }
 
             records.get(j).addConnection(
-                    elementAt(candidate.checkinDestinationAddresses, i),
-                    elementAt(candidate.checkinDestinationMacs, i),
-                    elementAt(candidate.checkinTapUuids, i),
-                    elementAt(candidate.checkinSessionKeys, i),
-                    elementAt(candidate.checkinBytesRx, i),
-                    elementAt(candidate.checkinBytesTx, i),
-                    elementAt(candidate.checkinBytesTotal, i)
+                    detail.destinationAddress(),
+                    detail.destinationMac(),
+                    detail.tapUuid(),
+                    detail.sessionKey(),
+                    detail.bytesRx(),
+                    detail.bytesTx(),
+                    detail.bytesTotal()
             );
         }
 
-        return beacons.insertCheckins(handle, beaconId, sourceId, records);
+        return beacons.insertCheckins(handle, pending.beaconId(), pending.sourceId(), records);
     }
 
-    @Nullable
-    private static <T> T elementAt(@Nullable List<T> list, int index) {
-        if (list == null || index >= list.size()) {
-            return null;
-        }
+    private static DateTime later(DateTime a, DateTime b) {
+        return a.isAfter(b) ? a : b;
+    }
 
-        return list.get(index);
+    private static DateTime earlier(DateTime a, DateTime b) {
+        return a.isBefore(b) ? a : b;
+    }
+
+    private static String l4TagCondition(String alias) {
+        return "AND NOT jsonb_exists_any(COALESCE(" + alias + "tags, '[]'::jsonb), string_to_array(:excluded_tags, ',')) ";
     }
 
     private List<Candidate> readL4Candidates(Handle handle,
                                              List<UUID> taps,
                                              DateTime since,
+                                             DateTime activitySince,
                                              DateTime until,
                                              BeaconsConfiguration config) {
         // Multicast destinations (mDNS, SSDP, etc) are periodic by nature and never a beacon.
@@ -427,37 +491,29 @@ public class BeaconDetector {
                 (config.includeSiteLocalDestinations()
                         ? "" : "AND destination_address_is_site_local = false AND destination_address_is_loopback = false ");
 
-        String excludedTags = String.join(",", EXCLUDED_L4_TAGS);
-
         List<Candidate> result = Lists.newArrayList();
-        handle.createQuery("WITH candidates AS (SELECT l4_type, source_address, source_mac, destination_address, " +
-                        "destination_port FROM l4_sessions WHERE tap_uuid IN (<taps>) AND start_time >= :since " +
-                        "AND start_time <= :until " + siteLocalCondition +
-                        "AND NOT jsonb_exists_any(COALESCE(tags, '[]'::jsonb), string_to_array(:excluded_tags, ',')) " +
-                        "GROUP BY l4_type, source_address, source_mac, destination_address, destination_port " +
-                        "HAVING COUNT(*) >= :minimum_checkins) " +
+        handle.createQuery("WITH active AS (SELECT DISTINCT l4_type, source_address, source_mac, destination_address, " +
+                        "destination_port FROM l4_sessions WHERE tap_uuid IN (<taps>) AND start_time >= :activity_since " +
+                        "AND start_time <= :until " + siteLocalCondition + l4TagCondition("") + ") " +
                         "SELECT s.l4_type, host(s.source_address) AS source_address, s.source_mac, " +
                         "host(s.destination_address) AS destination_address, s.destination_port, " +
                         "bool_or(s.destination_address_is_site_local) AS site_local, " +
                         "bool_or(jsonb_exists(COALESCE(s.tags, '[]'::jsonb), 'HTTP')) AS has_http, " +
                         "bool_or(jsonb_exists(COALESCE(s.tags, '[]'::jsonb), 'SSH')) AS has_ssh, " +
                         "(array_agg(s.fingerprint ORDER BY s.start_time DESC))[1] AS fingerprint, " +
-                        "array_agg(s.start_time ORDER BY s.start_time) AS timestamps, " +
-                        "array_agg(s.tap_uuid::text ORDER BY s.start_time) AS tap_uuids, " +
-                        "array_agg(s.session_key ORDER BY s.start_time) AS session_keys, " +
-                        "array_agg(s.destination_mac ORDER BY s.start_time) AS destination_macs, " +
-                        "array_agg(s.bytes_rx_count ORDER BY s.start_time) AS bytes_rx, " +
-                        "array_agg(s.bytes_tx_count ORDER BY s.start_time) AS bytes_tx " +
-                        "FROM l4_sessions s JOIN candidates c ON c.l4_type = s.l4_type " +
-                        "AND c.source_address = s.source_address AND c.source_mac IS NOT DISTINCT FROM s.source_mac " +
-                        "AND c.destination_address = s.destination_address AND c.destination_port = s.destination_port " +
+                        "array_agg(s.start_time ORDER BY s.start_time) AS timestamps " +
+                        "FROM l4_sessions s JOIN active a ON a.l4_type = s.l4_type " +
+                        "AND a.source_address = s.source_address AND a.source_mac IS NOT DISTINCT FROM s.source_mac " +
+                        "AND a.destination_address = s.destination_address AND a.destination_port = s.destination_port " +
                         "WHERE s.tap_uuid IN (<taps>) AND s.start_time >= :since AND s.start_time <= :until " +
-                        "AND NOT jsonb_exists_any(COALESCE(s.tags, '[]'::jsonb), string_to_array(:excluded_tags, ',')) " +
-                        "GROUP BY s.l4_type, s.source_address, s.source_mac, s.destination_address, s.destination_port")
+                        l4TagCondition("s.") +
+                        "GROUP BY s.l4_type, s.source_address, s.source_mac, s.destination_address, s.destination_port " +
+                        "HAVING COUNT(*) >= :minimum_checkins")
                 .bindList("taps", taps)
                 .bind("since", since)
+                .bind("activity_since", activitySince)
                 .bind("until", until)
-                .bind("excluded_tags", excludedTags)
+                .bind("excluded_tags", String.join(",", EXCLUDED_L4_TAGS))
                 .bind("minimum_checkins", config.minimumCheckins())
                 .mapToMap()
                 .forEach(row -> {
@@ -475,7 +531,6 @@ public class BeaconDetector {
 
                         String destinationAddress = (String) row.get("destination_address");
                         int destinationPort = (Integer) row.get("destination_port");
-                        List<DateTime> timestamps = timestampArray(row.get("timestamps"));
 
                         Map<String, Object> enrichment = Maps.newHashMap();
                         enrichment.put("l4_type", row.get("l4_type"));
@@ -483,7 +538,7 @@ public class BeaconDetector {
                             enrichment.put("fingerprint", row.get("fingerprint"));
                         }
 
-                        Candidate candidate = new Candidate(
+                        result.add(new Candidate(
                                 type,
                                 "ip:" + destinationAddress + ":" + destinationPort,
                                 null,
@@ -492,17 +547,12 @@ public class BeaconDetector {
                                 Boolean.TRUE.equals(row.get("site_local")),
                                 (String) row.get("source_address"),
                                 (String) row.get("source_mac"),
-                                timestamps,
-                                Collections.nCopies(timestamps.size(), destinationAddress),
-                                stringArray(row.get("tap_uuids")),
+                                destinationAddress,
+                                destinationPort,
+                                (String) row.get("l4_type"),
+                                timestampArray(row.get("timestamps")),
                                 enrichment
-                        );
-                        candidate.l4Type = (String) row.get("l4_type");
-                        candidate.checkinSessionKeys = stringArray(row.get("session_keys"));
-                        candidate.checkinDestinationMacs = stringArray(row.get("destination_macs"));
-                        candidate.checkinBytesRx = longArray(row.get("bytes_rx"));
-                        candidate.checkinBytesTx = longArray(row.get("bytes_tx"));
-                        result.add(candidate);
+                        ));
                     } catch (Exception e) {
                         LOG.error("Could not read L4 beacon candidate.", e);
                     }
@@ -514,15 +564,14 @@ public class BeaconDetector {
     private List<Candidate> readTlsCandidates(Handle handle,
                                               List<UUID> taps,
                                               DateTime since,
+                                              DateTime activitySince,
                                               DateTime until,
                                               BeaconsConfiguration config) {
         List<Candidate> result = Lists.newArrayList();
-        handle.createQuery("WITH candidates AS (SELECT source_address, source_mac, " +
+        handle.createQuery("WITH active AS (SELECT DISTINCT source_address, source_mac, " +
                         "COALESCE(server_name, host(destination_address)) AS destination_host, destination_port " +
-                        "FROM tls_sessions WHERE tap_uuid IN (<taps>) AND established_at >= :since " +
-                        "AND established_at <= :until " +
-                        "GROUP BY source_address, source_mac, COALESCE(server_name, host(destination_address)), destination_port " +
-                        "HAVING COUNT(*) >= :minimum_checkins) " +
+                        "FROM tls_sessions WHERE tap_uuid IN (<taps>) AND established_at >= :activity_since " +
+                        "AND established_at <= :until) " +
                         "SELECT host(t.source_address) AS source_address, t.source_mac, " +
                         "COALESCE(t.server_name, host(t.destination_address)) AS destination_host, t.destination_port, " +
                         "bool_or(t.server_name IS NOT NULL) AS has_server_name, " +
@@ -536,23 +585,19 @@ public class BeaconDetector {
                         "(array_agg(t.server_leaf_self_signed ORDER BY t.established_at DESC))[1] AS server_leaf_self_signed, " +
                         "(array_agg(t.chain_trusted ORDER BY t.established_at DESC))[1] AS chain_trusted, " +
                         "(array_agg(t.sni_matches_certificate ORDER BY t.established_at DESC))[1] AS sni_matches_certificate, " +
-                        "array_agg(t.established_at ORDER BY t.established_at) AS timestamps, " +
-                        "array_agg(host(t.destination_address) ORDER BY t.established_at) AS destination_addresses, " +
-                        "array_agg(t.tap_uuid::text ORDER BY t.established_at) AS tap_uuids, " +
-                        "array_agg(t.tcp_session_key ORDER BY t.established_at) AS session_keys, " +
-                        "array_agg(t.destination_mac ORDER BY t.established_at) AS destination_macs, " +
-                        "array_agg(t.server_app_data_bytes ORDER BY t.established_at) AS bytes_rx, " +
-                        "array_agg(t.client_app_data_bytes ORDER BY t.established_at) AS bytes_tx, " +
-                        "array_agg(t.bytes_count ORDER BY t.established_at) AS bytes_total " +
-                        "FROM tls_sessions t JOIN candidates c ON c.source_address = t.source_address " +
-                        "AND c.source_mac IS NOT DISTINCT FROM t.source_mac " +
-                        "AND c.destination_host = COALESCE(t.server_name, host(t.destination_address)) " +
-                        "AND c.destination_port = t.destination_port " +
+                        "array_agg(DISTINCT host(t.destination_address)) AS destination_addresses, " +
+                        "array_agg(t.established_at ORDER BY t.established_at) AS timestamps " +
+                        "FROM tls_sessions t JOIN active a ON a.source_address = t.source_address " +
+                        "AND a.source_mac IS NOT DISTINCT FROM t.source_mac " +
+                        "AND a.destination_host = COALESCE(t.server_name, host(t.destination_address)) " +
+                        "AND a.destination_port = t.destination_port " +
                         "LEFT JOIN certificates cert ON cert.sha256 = t.server_leaf_sha256 " +
                         "WHERE t.tap_uuid IN (<taps>) AND t.established_at >= :since AND t.established_at <= :until " +
-                        "GROUP BY t.source_address, t.source_mac, COALESCE(t.server_name, host(t.destination_address)), t.destination_port")
+                        "GROUP BY t.source_address, t.source_mac, COALESCE(t.server_name, host(t.destination_address)), t.destination_port " +
+                        "HAVING COUNT(*) >= :minimum_checkins")
                 .bindList("taps", taps)
                 .bind("since", since)
+                .bind("activity_since", activitySince)
                 .bind("until", until)
                 .bind("minimum_checkins", config.minimumCheckins())
                 .mapToMap()
@@ -562,7 +607,6 @@ public class BeaconDetector {
                         String destinationHost = (String) row.get("destination_host");
                         String destinationAddress = (String) row.get("destination_address");
                         int destinationPort = (Integer) row.get("destination_port");
-                        List<String> destinationAddresses = stringArray(row.get("destination_addresses"));
 
                         Map<String, Object> enrichment = Maps.newHashMap();
                         putIfNotNull(enrichment, "server_name", hasServerName ? destinationHost : null);
@@ -576,27 +620,21 @@ public class BeaconDetector {
                         putIfNotNull(enrichment, "chain_trusted", row.get("chain_trusted"));
                         putIfNotNull(enrichment, "sni_matches_certificate", row.get("sni_matches_certificate"));
 
-                        Candidate candidate = new Candidate(
+                        result.add(new Candidate(
                                 BeaconType.TLS,
                                 (hasServerName ? "sni:" : "ip:") + destinationHost + ":" + destinationPort,
                                 hasServerName ? destinationHost : null,
                                 destinationAddress,
                                 destinationPort,
-                                anySiteLocal(destinationAddresses),
+                                anySiteLocal(stringArray(row.get("destination_addresses"))),
                                 (String) row.get("source_address"),
                                 (String) row.get("source_mac"),
+                                destinationHost,
+                                destinationPort,
+                                "TCP",
                                 timestampArray(row.get("timestamps")),
-                                destinationAddresses,
-                                stringArray(row.get("tap_uuids")),
                                 enrichment
-                        );
-                        candidate.l4Type = "TCP";
-                        candidate.checkinSessionKeys = stringArray(row.get("session_keys"));
-                        candidate.checkinDestinationMacs = stringArray(row.get("destination_macs"));
-                        candidate.checkinBytesRx = longArray(row.get("bytes_rx"));
-                        candidate.checkinBytesTx = longArray(row.get("bytes_tx"));
-                        candidate.checkinBytesTotal = longArray(row.get("bytes_total"));
-                        result.add(candidate);
+                        ));
                     } catch (Exception e) {
                         LOG.error("Could not read TLS beacon candidate.", e);
                     }
@@ -605,24 +643,26 @@ public class BeaconDetector {
         return result;
     }
 
+    private static final String SOCKS_TUNNELS_CTE = "tunnels AS (SELECT l.source_address, l.source_mac, " +
+            "l.destination_address AS proxy_address, l.destination_port AS proxy_port, l.destination_mac AS proxy_mac, " +
+            "COALESCE(s.tunneled_destination_host, host(s.tunneled_destination_address)) AS destination_host, " +
+            "host(s.tunneled_destination_address) AS destination_address, s.tunneled_destination_port AS destination_port, " +
+            "s.socks_type, s.username, s.established_at, s.tap_uuid, s.tcp_session_key, s.tunneled_bytes " +
+            "FROM socks_tunnels s JOIN l4_sessions l ON l.tap_uuid = s.tap_uuid " +
+            "AND l.session_key = s.tcp_session_key AND l.l4_type = 'TCP' " +
+            "WHERE s.tap_uuid IN (<taps>) AND s.established_at >= :since AND s.established_at <= :until " +
+            "AND COALESCE(s.tunneled_destination_host, host(s.tunneled_destination_address)) IS NOT NULL) ";
+
     private List<Candidate> readSocksCandidates(Handle handle,
                                                 List<UUID> taps,
                                                 DateTime since,
+                                                DateTime activitySince,
                                                 DateTime until,
                                                 BeaconsConfiguration config) {
         List<Candidate> result = Lists.newArrayList();
-        handle.createQuery("WITH tunnels AS (SELECT l.source_address, l.source_mac, " +
-                        "l.destination_address AS proxy_address, l.destination_port AS proxy_port, l.destination_mac AS proxy_mac, " +
-                        "COALESCE(s.tunneled_destination_host, host(s.tunneled_destination_address)) AS destination_host, " +
-                        "host(s.tunneled_destination_address) AS destination_address, s.tunneled_destination_port AS destination_port, " +
-                        "s.socks_type, s.username, s.established_at, s.tap_uuid, s.tcp_session_key, s.tunneled_bytes " +
-                        "FROM socks_tunnels s JOIN l4_sessions l ON l.tap_uuid = s.tap_uuid " +
-                        "AND l.session_key = s.tcp_session_key AND l.l4_type = 'TCP' " +
-                        "WHERE s.tap_uuid IN (<taps>) AND s.established_at >= :since AND s.established_at <= :until " +
-                        "AND COALESCE(s.tunneled_destination_host, host(s.tunneled_destination_address)) IS NOT NULL), " +
-                        "candidates AS (SELECT source_address, source_mac, destination_host, destination_port " +
-                        "FROM tunnels GROUP BY source_address, source_mac, destination_host, destination_port " +
-                        "HAVING COUNT(*) >= :minimum_checkins) " +
+        handle.createQuery("WITH " + SOCKS_TUNNELS_CTE +
+                        ", active AS (SELECT DISTINCT source_address, source_mac, destination_host, destination_port " +
+                        "FROM tunnels WHERE established_at >= :activity_since) " +
                         "SELECT host(t.source_address) AS source_address, t.source_mac, t.destination_host, " +
                         "t.destination_port, " +
                         "(array_agg(t.destination_address ORDER BY t.established_at DESC))[1] AS destination_address, " +
@@ -630,18 +670,15 @@ public class BeaconDetector {
                         "(array_agg(t.proxy_port ORDER BY t.established_at DESC))[1] AS proxy_port, " +
                         "(array_agg(t.socks_type ORDER BY t.established_at DESC))[1] AS socks_type, " +
                         "(array_agg(t.username ORDER BY t.established_at DESC))[1] AS username, " +
-                        "array_agg(t.established_at ORDER BY t.established_at) AS timestamps, " +
-                        "array_agg(host(t.proxy_address) ORDER BY t.established_at) AS proxy_addresses, " +
-                        "array_agg(t.tap_uuid::text ORDER BY t.established_at) AS tap_uuids, " +
-                        "array_agg(t.tcp_session_key ORDER BY t.established_at) AS session_keys, " +
-                        "array_agg(t.proxy_mac ORDER BY t.established_at) AS destination_macs, " +
-                        "array_agg(t.tunneled_bytes ORDER BY t.established_at) AS bytes_total " +
-                        "FROM tunnels t JOIN candidates c ON c.source_address = t.source_address " +
-                        "AND c.source_mac IS NOT DISTINCT FROM t.source_mac " +
-                        "AND c.destination_host = t.destination_host AND c.destination_port = t.destination_port " +
-                        "GROUP BY t.source_address, t.source_mac, t.destination_host, t.destination_port")
+                        "array_agg(t.established_at ORDER BY t.established_at) AS timestamps " +
+                        "FROM tunnels t JOIN active a ON a.source_address = t.source_address " +
+                        "AND a.source_mac IS NOT DISTINCT FROM t.source_mac " +
+                        "AND a.destination_host = t.destination_host AND a.destination_port = t.destination_port " +
+                        "GROUP BY t.source_address, t.source_mac, t.destination_host, t.destination_port " +
+                        "HAVING COUNT(*) >= :minimum_checkins")
                 .bindList("taps", taps)
                 .bind("since", since)
+                .bind("activity_since", activitySince)
                 .bind("until", until)
                 .bind("minimum_checkins", config.minimumCheckins())
                 .mapToMap()
@@ -664,7 +701,7 @@ public class BeaconDetector {
                         putIfNotNull(enrichment, "proxy_port", row.get("proxy_port"));
                         putIfNotNull(enrichment, "tunneled_destination_host", row.get("destination_host"));
 
-                        Candidate candidate = new Candidate(
+                        result.add(new Candidate(
                                 BeaconType.SOCKS,
                                 "socks:" + destinationHost + ":" + destinationPort,
                                 destinationHost,
@@ -673,16 +710,12 @@ public class BeaconDetector {
                                 siteLocal,
                                 (String) row.get("source_address"),
                                 (String) row.get("source_mac"),
+                                destinationHost,
+                                destinationPort,
+                                "TCP",
                                 timestampArray(row.get("timestamps")),
-                                stringArray(row.get("proxy_addresses")),
-                                stringArray(row.get("tap_uuids")),
                                 enrichment
-                        );
-                        candidate.l4Type = "TCP";
-                        candidate.checkinSessionKeys = stringArray(row.get("session_keys"));
-                        candidate.checkinDestinationMacs = stringArray(row.get("destination_macs"));
-                        candidate.checkinBytesTotal = longArray(row.get("bytes_total"));
-                        result.add(candidate);
+                        ));
                     } catch (Exception e) {
                         LOG.error("Could not read SOCKS beacon candidate.", e);
                     }
@@ -694,32 +727,30 @@ public class BeaconDetector {
     private List<Candidate> readDnsCandidates(Handle handle,
                                               List<UUID> taps,
                                               DateTime since,
+                                              DateTime activitySince,
                                               DateTime until,
                                               BeaconsConfiguration config) {
         List<Candidate> result = Lists.newArrayList();
-        handle.createQuery("WITH candidates AS (SELECT client_address, client_mac, " +
+        handle.createQuery("WITH active AS (SELECT DISTINCT client_address, client_mac, " +
                         "COALESCE(data_value_etld, data_value) AS domain FROM dns_log " +
-                        "WHERE tap_uuid IN (<taps>) AND data_type = 'query' AND timestamp >= :since " +
-                        "AND timestamp <= :until AND data_value IS NOT NULL " +
-                        "GROUP BY client_address, client_mac, COALESCE(data_value_etld, data_value) " +
-                        "HAVING COUNT(*) >= :minimum_checkins) " +
+                        "WHERE tap_uuid IN (<taps>) AND dns_type = 'query' AND timestamp >= :activity_since " +
+                        "AND timestamp <= :until AND data_value IS NOT NULL) " +
                         "SELECT host(d.client_address) AS source_address, d.client_mac AS source_mac, " +
                         "COALESCE(d.data_value_etld, d.data_value) AS domain, " +
-                        "array_agg(DISTINCT d.dns_type) AS dns_types, " +
+                        "array_agg(DISTINCT d.data_type) AS dns_types, " +
                         "array_agg(DISTINCT host(d.server_address)) AS servers, " +
                         "array_agg(DISTINCT d.data_value) AS names, " +
-                        "array_agg(d.timestamp ORDER BY d.timestamp) AS timestamps, " +
-                        "array_agg(host(d.server_address) ORDER BY d.timestamp) AS server_addresses, " +
-                        "array_agg(d.tap_uuid::text ORDER BY d.timestamp) AS tap_uuids, " +
-                        "array_agg(d.server_mac ORDER BY d.timestamp) AS destination_macs " +
-                        "FROM dns_log d JOIN candidates c ON c.client_address = d.client_address " +
-                        "AND c.client_mac IS NOT DISTINCT FROM d.client_mac " +
-                        "AND c.domain = COALESCE(d.data_value_etld, d.data_value) " +
-                        "WHERE d.tap_uuid IN (<taps>) AND d.data_type = 'query' AND d.timestamp >= :since " +
+                        "array_agg(d.timestamp ORDER BY d.timestamp) AS timestamps " +
+                        "FROM dns_log d JOIN active a ON a.client_address = d.client_address " +
+                        "AND a.client_mac IS NOT DISTINCT FROM d.client_mac " +
+                        "AND a.domain = COALESCE(d.data_value_etld, d.data_value) " +
+                        "WHERE d.tap_uuid IN (<taps>) AND d.dns_type = 'query' AND d.timestamp >= :since " +
                         "AND d.timestamp <= :until " +
-                        "GROUP BY d.client_address, d.client_mac, COALESCE(d.data_value_etld, d.data_value)")
+                        "GROUP BY d.client_address, d.client_mac, COALESCE(d.data_value_etld, d.data_value) " +
+                        "HAVING COUNT(*) >= :minimum_checkins")
                 .bindList("taps", taps)
                 .bind("since", since)
+                .bind("activity_since", activitySince)
                 .bind("until", until)
                 .bind("minimum_checkins", config.minimumCheckins())
                 .mapToMap()
@@ -740,7 +771,7 @@ public class BeaconDetector {
                         // Enough names to show what the beacon queries, without blowing up the enrichment.
                         enrichment.put("names", names.stream().limit(25).collect(Collectors.toList()));
 
-                        Candidate candidate = new Candidate(
+                        result.add(new Candidate(
                                 BeaconType.DNS,
                                 "dns:" + domain,
                                 domain,
@@ -749,20 +780,154 @@ public class BeaconDetector {
                                 isLocalDomainName(domain),
                                 (String) row.get("source_address"),
                                 (String) row.get("source_mac"),
+                                domain,
+                                null,
+                                "UDP",
                                 timestampArray(row.get("timestamps")),
-                                stringArray(row.get("server_addresses")),
-                                stringArray(row.get("tap_uuids")),
                                 enrichment
-                        );
-                        candidate.l4Type = "UDP";
-                        candidate.checkinDestinationMacs = stringArray(row.get("destination_macs"));
-                        result.add(candidate);
+                        ));
                     } catch (Exception e) {
                         LOG.error("Could not read DNS beacon candidate.", e);
                     }
                 });
 
         return result;
+    }
+
+    /*
+     * Reads the connections of the pending candidates from each one's detail start on. The candidates are passed as
+     * a VALUES list and the result rows carry the index of their candidate in the chunk.
+     */
+    private Map<Integer, List<Detail>> readDetails(Handle handle,
+                                                   DetailSource source,
+                                                   List<Pending> chunk,
+                                                   List<UUID> taps,
+                                                   DateTime until) {
+        StringBuilder values = new StringBuilder();
+        DateTime minimumSince = null;
+        for (int i = 0; i < chunk.size(); i++) {
+            if (i > 0) {
+                values.append(", ");
+            }
+            values.append("(").append(i)
+                    .append(", CAST(:src").append(i).append(" AS inet)")
+                    .append(", CAST(:mac").append(i).append(" AS text)")
+                    .append(", CAST(:host").append(i).append(" AS text)")
+                    .append(", CAST(:port").append(i).append(" AS integer)")
+                    .append(", CAST(:l4type").append(i).append(" AS text)")
+                    .append(", CAST(:since").append(i).append(" AS timestamptz))");
+            DateTime since = chunk.get(i).detailSince();
+            minimumSince = minimumSince == null ? since : earlier(minimumSince, since);
+        }
+
+        String candidates = "(VALUES " + values + ") AS v(i, source_address, source_mac, destination_host, " +
+                "destination_port, l4_type, since) ";
+
+        String sql;
+        switch (source) {
+            case L4:
+                sql = "SELECT v.i, s.start_time AS ts, host(s.destination_address) AS destination_address, " +
+                        "s.destination_mac, s.tap_uuid::text AS tap_uuid, s.session_key, " +
+                        "s.bytes_rx_count AS bytes_rx, s.bytes_tx_count AS bytes_tx, NULL::bigint AS bytes_total " +
+                        "FROM " + candidates + "JOIN l4_sessions s ON s.l4_type = v.l4_type " +
+                        "AND s.source_address = v.source_address AND s.source_mac IS NOT DISTINCT FROM v.source_mac " +
+                        "AND s.destination_address = v.destination_host::inet AND s.destination_port = v.destination_port " +
+                        "WHERE s.tap_uuid IN (<taps>) AND s.start_time >= :minimum_since AND s.start_time >= v.since " +
+                        "AND s.start_time <= :until " + l4TagCondition("s.") + "ORDER BY s.start_time";
+                break;
+            case TLS:
+                sql = "SELECT v.i, t.established_at AS ts, host(t.destination_address) AS destination_address, " +
+                        "t.destination_mac, t.tap_uuid::text AS tap_uuid, t.tcp_session_key AS session_key, " +
+                        "t.server_app_data_bytes AS bytes_rx, t.client_app_data_bytes AS bytes_tx, t.bytes_count AS bytes_total " +
+                        "FROM " + candidates + "JOIN tls_sessions t ON t.source_address = v.source_address " +
+                        "AND t.source_mac IS NOT DISTINCT FROM v.source_mac " +
+                        "AND COALESCE(t.server_name, host(t.destination_address)) = v.destination_host " +
+                        "AND t.destination_port = v.destination_port " +
+                        "WHERE t.tap_uuid IN (<taps>) AND t.established_at >= :minimum_since " +
+                        "AND t.established_at >= v.since AND t.established_at <= :until ORDER BY t.established_at";
+                break;
+            case SOCKS:
+                sql = "WITH " + SOCKS_TUNNELS_CTE +
+                        "SELECT v.i, t.established_at AS ts, host(t.proxy_address) AS destination_address, " +
+                        "t.proxy_mac AS destination_mac, t.tap_uuid::text AS tap_uuid, t.tcp_session_key AS session_key, " +
+                        "NULL::bigint AS bytes_rx, NULL::bigint AS bytes_tx, t.tunneled_bytes AS bytes_total " +
+                        "FROM " + candidates + "JOIN tunnels t ON t.source_address = v.source_address " +
+                        "AND t.source_mac IS NOT DISTINCT FROM v.source_mac " +
+                        "AND t.destination_host = v.destination_host AND t.destination_port = v.destination_port " +
+                        "WHERE t.established_at >= v.since ORDER BY t.established_at";
+                break;
+            default:
+                sql = "SELECT v.i, d.timestamp AS ts, host(d.server_address) AS destination_address, " +
+                        "d.server_mac AS destination_mac, d.tap_uuid::text AS tap_uuid, NULL::text AS session_key, " +
+                        "NULL::bigint AS bytes_rx, NULL::bigint AS bytes_tx, NULL::bigint AS bytes_total " +
+                        "FROM " + candidates + "JOIN dns_log d ON d.client_address = v.source_address " +
+                        "AND d.client_mac IS NOT DISTINCT FROM v.source_mac " +
+                        "AND COALESCE(d.data_value_etld, d.data_value) = v.destination_host " +
+                        "WHERE d.tap_uuid IN (<taps>) AND d.dns_type = 'query' AND d.timestamp >= :minimum_since " +
+                        "AND d.timestamp >= v.since AND d.timestamp <= :until ORDER BY d.timestamp";
+                break;
+        }
+
+        org.jdbi.v3.core.statement.Query query = handle.createQuery(sql)
+                .bindList("taps", taps)
+                .bind("until", until);
+
+        // JDBI rejects bindings a statement does not use.
+        switch (source) {
+            case L4:
+                query.bind("minimum_since", minimumSince).bind("excluded_tags", String.join(",", EXCLUDED_L4_TAGS));
+                break;
+            case SOCKS:
+                query.bind("since", minimumSince);
+                break;
+            default:
+                query.bind("minimum_since", minimumSince);
+                break;
+        }
+
+        for (int i = 0; i < chunk.size(); i++) {
+            Candidate c = chunk.get(i).candidate();
+            query.bind("src" + i, c.sourceAddress)
+                    .bind("mac" + i, c.sourceMac)
+                    .bind("host" + i, c.groupHost)
+                    .bind("port" + i, c.groupPort)
+                    .bind("l4type" + i, c.l4Type)
+                    .bind("since" + i, chunk.get(i).detailSince());
+        }
+
+        Map<Integer, List<Detail>> result = Maps.newHashMap();
+        query.mapToMap().forEach(row -> {
+            int i = ((Number) row.get("i")).intValue();
+            result.computeIfAbsent(i, k -> Lists.newArrayList()).add(new Detail(
+                    toDateTime(row.get("ts")),
+                    (String) row.get("destination_address"),
+                    (String) row.get("destination_mac"),
+                    (String) row.get("tap_uuid"),
+                    (String) row.get("session_key"),
+                    toLong(row.get("bytes_rx")),
+                    toLong(row.get("bytes_tx")),
+                    toLong(row.get("bytes_total"))
+            ));
+        });
+
+        return result;
+    }
+
+    private static DateTime toDateTime(Object value) {
+        if (value instanceof Timestamp) {
+            return new DateTime(((Timestamp) value).getTime());
+        }
+
+        if (value instanceof java.time.OffsetDateTime) {
+            return new DateTime(((java.time.OffsetDateTime) value).toInstant().toEpochMilli());
+        }
+
+        return new DateTime(value);
+    }
+
+    @Nullable
+    private static Long toLong(@Nullable Object value) {
+        return value == null ? null : ((Number) value).longValue();
     }
 
     private void raiseNewBeaconAlert(BeaconEntry beacon, Candidate candidate, UUID organizationId, UUID tenantId) {
@@ -891,19 +1056,6 @@ public class BeaconDetector {
             if (o != null) {
                 result.add(new DateTime(((Timestamp) o).getTime()));
             }
-        }
-
-        return result;
-    }
-
-    private static List<Long> longArray(Object value) throws SQLException {
-        List<Long> result = Lists.newArrayList();
-        if (value == null) {
-            return result;
-        }
-
-        for (Object o : (Object[]) ((Array) value).getArray()) {
-            result.add(o == null ? null : ((Number) o).longValue());
         }
 
         return result;
