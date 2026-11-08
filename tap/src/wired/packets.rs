@@ -121,6 +121,7 @@ pub struct TcpSegment {
     pub maximum_segment_size: Option<u16>,
     pub window_scale_multiplier: Option<u8>,
     pub options: Vec<u8>,
+    pub options_truncated: bool,
     pub timestamp_value: Option<u32>,
     pub timestamp_echo: Option<u32>,
     pub size: u32,

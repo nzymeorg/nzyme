@@ -131,6 +131,7 @@ pub mod tests {
             syn_maximum_segment_size: Some(1460),
             syn_window_scale_multiplier: Some(7),
             syn_options: vec![],
+            syn_options_truncated: false,
             syn_ip_id: 0,
             syn_timestamp_value: None,
             syn_timestamp_echo: None,

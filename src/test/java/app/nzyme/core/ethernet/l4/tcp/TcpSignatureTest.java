@@ -23,7 +23,7 @@ public class TcpSignatureTest {
     @Test
     public void testFingerprintAndSignature() {
         TcpSignature s = new TcpSignature(64, 0, true, 12345, false, false, 64240, 1460, 7,
-                List.of(2, 4, 8, 1, 3), 100L, 0L);
+                List.of(2, 4, 8, 1, 3), false, 100L, 0L);
 
         assertEquals(s.stack(), "64:1:0:mss,sok,ts,nop,ws:-");
         assertEquals(s.fingerprint(), "64:1:0:mss,sok,ts,nop,ws:-:1460:7");
@@ -35,22 +35,46 @@ public class TcpSignatureTest {
     @Test
     public void testForwardedStackAndQuirks() {
         TcpSignature s = new TcpSignature(63, 0, true, 0, false, false, 65535, 1460, 7,
-                List.of(2, 4, 8, 1, 3), 0L, 5L);
+                List.of(2, 4, 8, 1, 3), true, 0L, 5L);
 
-        assertEquals(s.stack(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0");
-        assertEquals(s.fingerprint(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0:1460:7");
-        assertEquals(s.signature(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0:1460:7:max:0");
+        assertEquals(s.stack(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0,bad");
+        assertEquals(s.fingerprint(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0,bad:1460:7");
+        assertEquals(s.signature(), "64:1:0:mss,sok,ts,nop,ws:ts0,ecr,id0,bad:1460:7:max:0");
         assertEquals(s.hopDistance(), 1);
         assertFalse(s.isNative());
     }
 
     @Test
     public void testAbsentOptionsAndRawWindow() {
-        TcpSignature s = new TcpSignature(128, 16, false, 7, true, true, 8192, null, null, List.of(), null, null);
+        TcpSignature s = new TcpSignature(128, 16, false, 7, true, true, 8192, null, null, List.of(), false, null, null);
 
         assertEquals(s.stack(), "128:0:1::-");
         assertEquals(s.fingerprint(), "128:0:1::-:0:-");
         assertEquals(s.signature(), "128:0:1::-:0:-:8192:16");
+    }
+
+    @Test
+    public void testFastOpenAndPaddingDoNotChangeStack() {
+        // Linux: plain SYN and SYN with a TFO cookie request padded to the word boundary.
+        TcpSignature linux = new TcpSignature(64, 0, true, 1, false, false, 65535, 1460, 6,
+                List.of(2, 4, 8, 1, 3), false, 1L, 0L);
+        TcpSignature linuxFastOpen = new TcpSignature(64, 0, true, 1, false, false, 65535, 1460, 6,
+                List.of(2, 4, 8, 1, 3, 34, 1, 1), false, 1L, 0L);
+        assertEquals(linux.stack(), "64:1:0:mss,sok,ts,nop,ws:-");
+        assertEquals(linuxFastOpen.stack(), linux.stack());
+
+        // Apple: the TFO option takes the place of the end-of-list padding.
+        TcpSignature apple = new TcpSignature(64, 0, true, 0, false, false, 65535, 1460, 6,
+                List.of(2, 1, 3, 1, 1, 8, 4, 0), false, 1L, 0L);
+        TcpSignature appleFastOpen = new TcpSignature(64, 0, true, 0, false, false, 65535, 1460, 6,
+                List.of(2, 1, 3, 1, 1, 8, 4, 34), false, 1L, 0L);
+        assertEquals(apple.stack(), "64:1:0:mss,nop,ws,nop,nop,ts,sok:id0");
+        assertEquals(appleFastOpen.stack(), apple.stack());
+
+        // Padding and no-ops between options stay.
+        TcpSignature windows = new TcpSignature(128, 0, true, 1, false, false, 65535, 1460, 8,
+                List.of(2, 1, 3, 1, 1, 4), false, null, null);
+        assertEquals(windows.stack(), "128:1:0:mss,nop,ws,nop,nop,sok:-");
     }
 
     @Test

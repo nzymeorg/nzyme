@@ -46,6 +46,8 @@ public abstract class TcpSessionReport {
     @Nullable
     public abstract Integer synIpId();
     @Nullable
+    public abstract Boolean synOptionsTruncated();
+    @Nullable
     public abstract Long synTimestampValue();
     @Nullable
     public abstract Long synTimestampEcho();
@@ -90,6 +92,7 @@ public abstract class TcpSessionReport {
                                           @JsonProperty("syn_window_scale_multiplier") Integer synMaximumScaleMultiplier,
                                           @JsonProperty("syn_options") List<Integer> synOptions,
                                           @JsonProperty("syn_ip_id") Integer synIpId,
+                                          @JsonProperty("syn_options_truncated") Boolean synOptionsTruncated,
                                           @JsonProperty("syn_timestamp_value") Long synTimestampValue,
                                           @JsonProperty("syn_timestamp_echo") Long synTimestampEcho,
                                           @JsonProperty("latest_client_timestamp_value") Long latestClientTimestampValue,
@@ -125,6 +128,7 @@ public abstract class TcpSessionReport {
                 .synMaximumScaleMultiplier(synMaximumScaleMultiplier)
                 .synOptions(synOptions)
                 .synIpId(synIpId)
+                .synOptionsTruncated(synOptionsTruncated)
                 .synTimestampValue(synTimestampValue)
                 .synTimestampEcho(synTimestampEcho)
                 .latestClientTimestampValue(latestClientTimestampValue)
@@ -192,6 +196,7 @@ public abstract class TcpSessionReport {
 
         public abstract Builder synOptions(List<Integer> synOptions);
         public abstract Builder synIpId(Integer synIpId);
+        public abstract Builder synOptionsTruncated(Boolean synOptionsTruncated);
         public abstract Builder synTimestampValue(Long synTimestampValue);
         public abstract Builder synTimestampEcho(Long synTimestampEcho);
         public abstract Builder latestClientTimestampValue(Long latestClientTimestampValue);

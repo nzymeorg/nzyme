@@ -37,6 +37,7 @@ pub struct TcpSessionReport {
     pub syn_maximum_segment_size: Option<u16>,
     pub syn_window_scale_multiplier: Option<u8>,
     pub syn_options: Vec<u8>,
+    pub syn_options_truncated: bool,
     pub syn_ip_id: u16,
     pub syn_timestamp_value: Option<u32>,
     pub syn_timestamp_echo: Option<u32>,
@@ -60,6 +61,7 @@ pub struct TcpSynAckReport {
     pub maximum_segment_size: Option<u16>,
     pub window_scale_multiplier: Option<u8>,
     pub options: Vec<u8>,
+    pub options_truncated: bool,
     pub timestamp_value: Option<u32>,
     pub timestamp_echo: Option<u32>
 }
@@ -77,6 +79,7 @@ impl TcpSynAckReport {
             maximum_segment_size: s.maximum_segment_size,
             window_scale_multiplier: s.window_scale_multiplier,
             options: s.options.clone(),
+            options_truncated: s.options_truncated,
             timestamp_value: s.timestamp_value,
             timestamp_echo: s.timestamp_echo
         }
@@ -113,6 +116,7 @@ pub fn generate(s: &MutexGuard<HashMap<L4Key, TcpSession>>) -> TcpSessionsReport
             syn_maximum_segment_size: session.syn_maximum_segment_size,
             syn_window_scale_multiplier: session.syn_window_scale_multiplier,
             syn_options: session.syn_options.clone(),
+            syn_options_truncated: session.syn_options_truncated,
             syn_ip_id: session.syn_ip_id,
             syn_timestamp_value: session.syn_timestamp_value,
             syn_timestamp_echo: session.syn_timestamp_echo,

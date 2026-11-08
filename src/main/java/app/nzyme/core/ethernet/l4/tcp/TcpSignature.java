@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /*
  * TCP stack signature format. Each form is a prefix of the next:
@@ -16,10 +17,16 @@ import java.util.Map;
  *   signature    fingerprint:window:tos       (application)
  * Quirks: ts0 zero timestamp value, ecr non-zero timestamp echo in the opening segment, id0 zero IP ID
  * with DF set, bad options could not be read to the end.
+ *
+ * The option layout leaves out TCP Fast Open (kind 34 and the experimental kind 254) and the padding after the
+ * last real option. A stack only adds the TFO option on connections to servers it knows support it, which
+ * shifts the padding, so the same device would otherwise show up as two stacks.
  */
 public class TcpSignature {
 
     private static final int[] INITIAL_TTLS = {32, 64, 128, 255};
+
+    private static final Set<Integer> IGNORED_OPTIONS = Set.of(34, 254);
 
     private static final Map<Integer, String> OPTION_NAMES = Map.of(
             0, "eol",
@@ -53,6 +60,7 @@ public class TcpSignature {
                         @Nullable Integer mss,
                         @Nullable Integer windowScale,
                         @Nullable List<Integer> options,
+                        boolean optionsTruncated,
                         @Nullable Long timestampValue,
                         @Nullable Long timestampEcho) {
         this.initialTtl = guessInitialTtl(ttl);
@@ -61,7 +69,7 @@ public class TcpSignature {
         this.mss = mss == null ? 0 : mss;
         this.windowScale = windowScale;
         this.ecn = cwr && ece;
-        this.options = options == null ? List.of() : options;
+        this.options = normalizeOptions(options);
         this.windowSize = windowSize;
         this.tos = tos;
 
@@ -75,7 +83,7 @@ public class TcpSignature {
         if (df && ipId == 0) {
             q.add("id0");
         }
-        if (optionsTruncated(this.options)) {
+        if (optionsTruncated) {
             q.add("bad");
         }
         this.quirks = q;
@@ -91,14 +99,23 @@ public class TcpSignature {
         return 255;
     }
 
-    // The tap keeps the kind of an option it could not read and stops, so a trailing unknown kind means a broken parse.
-    private static boolean optionsTruncated(List<Integer> options) {
-        if (options.isEmpty()) {
-            return false;
+    private static List<Integer> normalizeOptions(@Nullable List<Integer> options) {
+        if (options == null) {
+            return List.of();
         }
 
-        int last = options.get(options.size() - 1);
-        return last != 0 && last != 1 && last != 2 && last != 3 && last != 4 && last != 8 && last != 5;
+        List<Integer> result = new ArrayList<>();
+        for (Integer kind : options) {
+            if (!IGNORED_OPTIONS.contains(kind)) {
+                result.add(kind);
+            }
+        }
+
+        while (!result.isEmpty() && (result.get(result.size() - 1) == 0 || result.get(result.size() - 1) == 1)) {
+            result.remove(result.size() - 1);
+        }
+
+        return result;
     }
 
     public int initialTtl() {

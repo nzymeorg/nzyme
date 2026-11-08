@@ -44,6 +44,7 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
 
     let mut cursor = 20;
     let mut options = Vec::new();
+    let mut options_truncated = false;
     let mut maximum_segment_size: Option<u16> = None;
     let mut window_scale_multiplier: Option<u8> = None;
     let mut timestamp_value: Option<u32> = None;
@@ -65,6 +66,7 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
             _ => {
                 // Need at least 2 bytes for kind + length.
                 if cursor + 1 >= header_length {
+                    options_truncated = true;
                     break;
                 }
                 
@@ -72,6 +74,7 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
                 
                 // Length must be >= 2 and not run past the header.
                 if length < 2 || cursor + length > header_length {
+                    options_truncated = true;
                     break;
                 }
 
@@ -138,6 +141,7 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
         maximum_segment_size,
         window_scale_multiplier,
         options,
+        options_truncated,
         timestamp_value,
         timestamp_echo,
         size,

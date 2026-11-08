@@ -307,6 +307,7 @@ public class TCPTable implements DataTable {
                         session.synMaximumSegmentSize(),
                         session.synMaximumScaleMultiplier(),
                         session.synOptions(),
+                        Boolean.TRUE.equals(session.synOptionsTruncated()),
                         session.synTimestampValue(),
                         session.synTimestampEcho()
                 );
@@ -326,6 +327,7 @@ public class TCPTable implements DataTable {
                             synAck.maximumSegmentSize(),
                             synAck.windowScaleMultiplier(),
                             synAck.options(),
+                            Boolean.TRUE.equals(synAck.optionsTruncated()),
                             synAck.timestampValue(),
                             synAck.timestampEcho()
                     );

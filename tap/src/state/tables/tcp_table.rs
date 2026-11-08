@@ -125,6 +125,7 @@ pub struct TcpSession {
     pub syn_maximum_segment_size: Option<u16>,
     pub syn_window_scale_multiplier: Option<u8>,
     pub syn_options: Vec<u8>,
+    pub syn_options_truncated: bool,
     pub syn_ip_id: u16,
     pub syn_timestamp_value: Option<u32>,
     pub syn_timestamp_echo: Option<u32>,
@@ -153,6 +154,7 @@ pub struct TcpSynAck {
     pub maximum_segment_size: Option<u16>,
     pub window_scale_multiplier: Option<u8>,
     pub options: Vec<u8>,
+    pub options_truncated: bool,
     pub timestamp_value: Option<u32>,
     pub timestamp_echo: Option<u32>
 }
@@ -170,6 +172,7 @@ impl TcpSynAck {
             maximum_segment_size: segment.maximum_segment_size,
             window_scale_multiplier: segment.window_scale_multiplier,
             options: segment.options.clone(),
+            options_truncated: segment.options_truncated,
             timestamp_value: segment.timestamp_value,
             timestamp_echo: segment.timestamp_echo
         }
@@ -332,6 +335,7 @@ impl TcpTable {
                                 syn_maximum_segment_size: segment.maximum_segment_size,
                                 syn_window_scale_multiplier: segment.window_scale_multiplier,
                                 syn_options: segment.options.clone(),
+                                syn_options_truncated: segment.options_truncated,
                                 syn_ip_id: segment.ip_id,
                                 syn_timestamp_value: segment.timestamp_value,
                                 syn_timestamp_echo: segment.timestamp_echo,
@@ -839,6 +843,7 @@ mod tests {
             syn_maximum_segment_size: None,
             syn_window_scale_multiplier: None,
             syn_options: Vec::new(),
+            syn_options_truncated: false,
             syn_ip_id: 0,
             syn_timestamp_value: None,
             syn_timestamp_echo: None,
@@ -885,6 +890,7 @@ mod tests {
             maximum_segment_size: None,
             window_scale_multiplier: None,
             options,
+            options_truncated: false,
             timestamp_value: None,
             timestamp_echo: None,
             size: 54,

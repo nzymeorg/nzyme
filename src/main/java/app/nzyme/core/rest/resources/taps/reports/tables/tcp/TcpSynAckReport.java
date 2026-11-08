@@ -22,6 +22,9 @@ public abstract class TcpSynAckReport {
     @Nullable
     public abstract Integer windowScaleMultiplier();
     public abstract List<Integer> options();
+    // Older taps do not send this.
+    @Nullable
+    public abstract Boolean optionsTruncated();
     @Nullable
     public abstract Long timestampValue();
     @Nullable
@@ -38,6 +41,7 @@ public abstract class TcpSynAckReport {
                                          @JsonProperty("maximum_segment_size") Integer maximumSegmentSize,
                                          @JsonProperty("window_scale_multiplier") Integer windowScaleMultiplier,
                                          @JsonProperty("options") List<Integer> options,
+                                         @JsonProperty("options_truncated") Boolean optionsTruncated,
                                          @JsonProperty("timestamp_value") Long timestampValue,
                                          @JsonProperty("timestamp_echo") Long timestampEcho) {
         return builder()
@@ -51,6 +55,7 @@ public abstract class TcpSynAckReport {
                 .maximumSegmentSize(maximumSegmentSize)
                 .windowScaleMultiplier(windowScaleMultiplier)
                 .options(options == null ? List.of() : options)
+                .optionsTruncated(optionsTruncated)
                 .timestampValue(timestampValue)
                 .timestampEcho(timestampEcho)
                 .build();
@@ -72,6 +77,7 @@ public abstract class TcpSynAckReport {
         public abstract Builder maximumSegmentSize(Integer maximumSegmentSize);
         public abstract Builder windowScaleMultiplier(Integer windowScaleMultiplier);
         public abstract Builder options(List<Integer> options);
+        public abstract Builder optionsTruncated(Boolean optionsTruncated);
         public abstract Builder timestampValue(Long timestampValue);
         public abstract Builder timestampEcho(Long timestampEcho);
         public abstract TcpSynAckReport build();
