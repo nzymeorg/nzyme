@@ -13,6 +13,7 @@ export default function FilterValueIcon(props) {
 
   const field = props.field;
   const value = props.value;
+  const operator = props.operator;
 
   const fields = props.fields;
   const setFilters = props.setFilters;
@@ -106,7 +107,8 @@ export default function FilterValueIcon(props) {
                            hideAppliedFilters={true}
                            onMonitorsReady={() => {}}
                            preSelectedField={field}
-                           preSelectedValue={value} />
+                           preSelectedValue={value}
+                           preSelectedOperator={operator} />
 
                   {modeSelector(existing)}
                 </div>

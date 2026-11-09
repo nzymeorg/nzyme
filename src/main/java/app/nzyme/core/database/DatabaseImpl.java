@@ -39,6 +39,7 @@ import app.nzyme.core.ethernet.dns.db.*;
 import app.nzyme.core.ethernet.l4.db.L4AddressDataMapper;
 import app.nzyme.core.ethernet.l4.db.L4NumbersMapper;
 import app.nzyme.core.ethernet.l4.db.L4SessionMapper;
+import app.nzyme.core.ethernet.l4.db.L4SessionsTimelineBucketMapper;
 import app.nzyme.core.ethernet.l4.db.L4StatisticsBucketMapper;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntryMapper;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryHistogramBucketMapper;
@@ -299,6 +300,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new TapMetricsTimerAggregationMapper())
                 .registerRowMapper(new EngagementLogEntryMapper())
                 .registerRowMapper(new L4StatisticsBucketMapper())
+                .registerRowMapper(new L4SessionsTimelineBucketMapper())
                 .registerRowMapper(new L4NumbersMapper())
                 .registerRowMapper(new NumberNumberAggregationResultMapper())
                 .registerRowMapper(new StringNumberAggregationResultMapper())

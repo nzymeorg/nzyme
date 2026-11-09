@@ -838,6 +838,7 @@ export default function Filters(props) {
   const hideAppliedFilters = props.hideAppliedFilters === undefined || props.hideAppliedFilters === null ? false : props.hideAppliedFilters;
   const preSelectedField = props.preSelectedField;
   const preSelectedValue = props.preSelectedValue;
+  const preSelectedOperator = props.preSelectedOperator;
 
   const onSaveAsMonitor = props.onSaveAsMonitor;
   const monitorType = props.monitorType;
@@ -1116,9 +1117,11 @@ export default function Filters(props) {
   }
 
   useEffect(() => {
-    // Select first allowed operator if allowed operators change (after filter selection)
+    // Select the pre-selected operator if allowed, else the first allowed operator (after filter selection)
     if (allowedOperators.length > 0) {
-      setSelectedOperator(allowedOperators[0]);
+      const preSelected = preSelectedOperator
+          ? allowedOperators.find((operator) => operator.name === preSelectedOperator) : null;
+      setSelectedOperator(preSelected ? preSelected : allowedOperators[0]);
     }
   }, [allowedOperators]);
 

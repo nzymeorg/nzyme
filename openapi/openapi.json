@@ -16973,6 +16973,48 @@
         "tags" : [ "L4" ]
       }
     },
+    "/api/ethernet/l4/sessions/histograms/durations" : {
+      "get" : {
+        "description" : "Returns the number of sessions and their total bytes for each of six fixed duration buckets, from under one second to over one hour, limited to the sessions matching the filters. All buckets are returned, shortest first, including empty ones. The metadata of each bucket carries the boundary in milliseconds and the operator (smaller_than for the first bucket, greater_than otherwise) that a duration filter can be built from.",
+        "operationId" : "findL4SessionDurations",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          }
+        },
+        "summary" : "Get session count per duration bucket",
+        "tags" : [ "L4" ]
+      }
+    },
     "/api/ethernet/l4/sessions/histograms/ports/destination/all/top" : {
       "get" : {
         "description" : "Returns the destination ports with the most sessions, including the session count and the total bytes per port. Busiest first. Results are paginated.",
@@ -17086,6 +17128,100 @@
           }
         },
         "summary" : "List least common destination ports",
+        "tags" : [ "L4" ]
+      }
+    },
+    "/api/ethernet/l4/sessions/histograms/sources/fanout/top" : {
+      "get" : {
+        "description" : "Returns source addresses with the number of distinct destination addresses and distinct destination ports they communicated with, limited to the sessions matching the filters. Sorted by distinct destination ports, most first, unless a sorting column is passed. Results are paginated.",
+        "operationId" : "findL4SourceFanOut",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. One of KEY, VALUE1 (distinct destination addresses) or VALUE2 (distinct destination ports). Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List source addresses by fan-out",
         "tags" : [ "L4" ]
       }
     },
@@ -17246,6 +17382,48 @@
           }
         },
         "summary" : "List top traffic source MAC addresses",
+        "tags" : [ "L4" ]
+      }
+    },
+    "/api/ethernet/l4/sessions/histograms/timeline" : {
+      "get" : {
+        "description" : "Returns the number of sessions and the bytes they transferred per time bucket, limited to the sessions matching the filters. A session is placed in the bucket of its most recent activity. Buckets without sessions are included with zero values. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findL4SessionsTimeline",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/L4SessionsTimelineResponse"
+                }
+              }
+            },
+            "description" : "Timeline found."
+          }
+        },
+        "summary" : "Get sessions and traffic over time",
         "tags" : [ "L4" ]
       }
     },
@@ -42689,6 +42867,34 @@
           "total" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "L4SessionsTimelineBucketResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "L4SessionsTimelineResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket_size_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "buckets" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/L4SessionsTimelineBucketResponse"
+            }
           }
         }
       },

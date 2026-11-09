@@ -5,11 +5,13 @@ import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.NumberNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.db.L4Numbers;
 import app.nzyme.core.ethernet.l4.db.L4Session;
+import app.nzyme.core.ethernet.l4.db.L4SessionsTimelineBucket;
 import app.nzyme.core.ethernet.l4.db.L4StatisticsBucket;
 import app.nzyme.core.ethernet.l4.filters.L4Filters;
 import app.nzyme.core.util.Bucketing;
@@ -27,6 +29,20 @@ import java.util.UUID;
 import java.util.function.LongSupplier;
 
 public class L4 {
+
+    // Key columns of histograms grouped by source address, mapped to L4AddressData.
+    private static final String SOURCE_ADDRESS_KEY_COLUMNS = "source_address AS key_address, " +
+                    "MIN(source_mac) AS key_mac, NULL as key_port, " +
+                    "MIN(source_address_geo_asn_number) AS key_address_geo_asn_number, " +
+                    "MIN(source_address_geo_asn_name) AS key_address_geo_asn_name, " +
+                    "MIN(source_address_geo_asn_domain) AS key_address_geo_asn_domain, " +
+                    "MIN(source_address_geo_city) AS key_address_geo_city, " +
+                    "MIN(source_address_geo_country_code) AS key_address_geo_country_code, " +
+                    "MIN(source_address_geo_latitude) AS key_address_geo_latitude, " +
+                    "MIN(source_address_geo_longitude) AS key_address_geo_longitude, " +
+                    "BOOL_AND(source_address_is_site_local) AS key_address_is_site_local, " +
+                    "BOOL_AND(source_address_is_loopback) AS key_address_is_loopback, " +
+                    "BOOL_AND(source_address_is_multicast) AS key_address_is_multicast, ";
 
     private static final String SESSION_AGGREGATES = "MIN(source_mac) AS source_mac, " +
                     "MIN(source_address) AS source_address, MIN(source_port) AS source_port, " +
@@ -511,18 +527,7 @@ public class L4 {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
 
         List<AggregationRow<L4AddressDataAddressNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT source_address AS key_address, " +
-                                "MIN(source_mac) AS key_mac, NULL as key_port, " +
-                                "MIN(source_address_geo_asn_number) AS key_address_geo_asn_number, " +
-                                "MIN(source_address_geo_asn_name) AS key_address_geo_asn_name, " +
-                                "MIN(source_address_geo_asn_domain) AS key_address_geo_asn_domain, " +
-                                "MIN(source_address_geo_city) AS key_address_geo_city, " +
-                                "MIN(source_address_geo_country_code) AS key_address_geo_country_code, " +
-                                "MIN(source_address_geo_latitude) AS key_address_geo_latitude, " +
-                                "MIN(source_address_geo_longitude) AS key_address_geo_longitude, " +
-                                "BOOL_AND(source_address_is_site_local) AS key_address_is_site_local, " +
-                                "BOOL_AND(source_address_is_loopback) AS key_address_is_loopback, " +
-                                "BOOL_AND(source_address_is_multicast) AS key_address_is_multicast, " +
+                handle.createQuery("SELECT " + SOURCE_ADDRESS_KEY_COLUMNS +
                                 "SUM(bytes_rx_count) AS value1, SUM(bytes_tx_count) AS value2, " +
                                 "COUNT(*) OVER () AS total_groups " +
                                 "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
@@ -719,6 +724,155 @@ public class L4 {
         );
 
         return toPage(rows, offset, () -> countLeastCommonNonEphemeralDestinationPorts(timeRange, filters, taps));
+    }
+
+    /*
+     * Fan-out per source address: how many distinct destination addresses and destination ports a source talked
+     * to. Groups like the top traffic source addresses, so that count query is reused for paging.
+     */
+    public AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> getSourceFanOut(TimeRange timeRange,
+                                                                                               Filters filters,
+                                                                                               int limit,
+                                                                                               int offset,
+                                                                                               ThreeColumnWithKeyHistogramOrderColumn orderColumn,
+                                                                                               OrderDirection orderDirection,
+                                                                                               List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return AggregationPage.empty();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
+
+        String orderSql = orderColumn == ThreeColumnWithKeyHistogramOrderColumn.KEY
+                ? "key_address" : orderColumn.getColumnName();
+
+        List<AggregationRow<L4AddressDataAddressNumberNumberAggregationResult>> rows = nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT " + SOURCE_ADDRESS_KEY_COLUMNS +
+                                "COUNT(DISTINCT destination_address) AS value1, " +
+                                "COUNT(DISTINCT destination_port) AS value2, " +
+                                "COUNT(*) OVER () AS total_groups " +
+                                "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
+                                "AND most_recent_segment_time <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                "GROUP BY source_address HAVING 1=1 " + filterFragment.havingSql() + " " +
+                                "ORDER BY <order_column> <order_direction>, key_address ASC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .bindMap(filterFragment.bindings())
+                        .bindList("taps", taps)
+                        .define("order_column", orderSql)
+                        .define("order_direction", orderDirection)
+                        .map(withTotal(L4AddressDataAddressNumberNumberAggregationResult.class))
+                        .list()
+        );
+
+        return toPage(rows, offset, () -> countTopTrafficSourceAddresses(timeRange, filters, taps));
+    }
+
+    /*
+     * Sessions are grouped by their key first so that a session seen by more than one tap is counted once and the
+     * duration filter (a HAVING filter) applies per session. A session lands in the bucket of its most recent
+     * activity, which is also the column the time range is applied to.
+     */
+    public List<L4SessionsTimelineBucket> getSessionsTimeline(TimeRange timeRange,
+                                                               Bucketing.BucketingConfiguration bucketing,
+                                                               Filters filters,
+                                                               List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" +
+                                "SELECT MAX(most_recent_segment_time) AS most_recent_segment_time, " +
+                                "MAX(bytes_rx_count) + MAX(bytes_tx_count) AS bytes " +
+                                "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
+                                "AND most_recent_segment_time <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                "GROUP BY session_key, l4_type, state HAVING 1=1 " + filterFragment.havingSql() +
+                                "), " +
+                                // An "all time" range spans from 1970 far into the future. Bound the series by
+                                // the data in that case instead of generating hundreds of thousands of buckets.
+                                "bounds AS (" +
+                                "SELECT CASE WHEN :all_time THEN COALESCE(MIN(most_recent_segment_time), NOW()) " +
+                                "ELSE :tr_from::timestamptz END AS series_from, " +
+                                "CASE WHEN :all_time THEN COALESCE(MAX(most_recent_segment_time), NOW()) " +
+                                "ELSE :tr_to::timestamptz END AS series_to FROM sess" +
+                                "), " +
+                                "buckets AS (" +
+                                "SELECT generate_series(" +
+                                "date_trunc(:date_trunc, series_from), " +
+                                "date_trunc(:date_trunc, series_to), " +
+                                "make_interval(secs => :bucket_size_s)" +
+                                ") AS bucket FROM bounds" +
+                                "), " +
+                                "per_bucket AS (" +
+                                "SELECT date_trunc(:date_trunc, most_recent_segment_time) AS bucket, " +
+                                "COUNT(*) AS sessions, SUM(bytes) AS bytes FROM sess GROUP BY bucket" +
+                                ") " +
+                                "SELECT b.bucket AS bucket, COALESCE(p.sessions, 0) AS sessions, " +
+                                "COALESCE(p.bytes, 0) AS bytes " +
+                                "FROM buckets AS b LEFT JOIN per_bucket AS p ON p.bucket = b.bucket " +
+                                "ORDER BY b.bucket DESC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bind("all_time", timeRange.isAllTime())
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("bucket_size_s", bucketing.bucketSizeMs() / 1000.0)
+                        .bindMap(filterFragment.bindings())
+                        .bindList("taps", taps)
+                        .mapTo(L4SessionsTimelineBucket.class)
+                        .list()
+        );
+    }
+
+    /*
+     * Returns the number of sessions and their traffic per duration bucket. The key is the index into
+     * DURATION_BUCKET_UPPER_BOUNDS_MS; the last index collects everything above the last bound. Buckets without
+     * sessions are not returned.
+     */
+    public static final long[] DURATION_BUCKET_UPPER_BOUNDS_MS = {1_000, 10_000, 60_000, 600_000, 3_600_000};
+
+    public List<NumberNumberNumberAggregationResult> getDurationHistogram(TimeRange timeRange,
+                                                                          Filters filters,
+                                                                          List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
+
+        StringBuilder bucketCase = new StringBuilder("CASE ");
+        for (int i = 0; i < DURATION_BUCKET_UPPER_BOUNDS_MS.length; i++) {
+            bucketCase.append("WHEN duration_ms < ").append(DURATION_BUCKET_UPPER_BOUNDS_MS[i])
+                    .append(" THEN ").append(i).append(" ");
+        }
+        bucketCase.append("ELSE ").append(DURATION_BUCKET_UPPER_BOUNDS_MS.length).append(" END");
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" +
+                                "SELECT GREATEST(EXTRACT(EPOCH FROM (MAX(most_recent_segment_time) - " +
+                                "MIN(start_time))) * 1000, 0) AS duration_ms, " +
+                                "MAX(bytes_rx_count) + MAX(bytes_tx_count) AS bytes " +
+                                "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
+                                "AND most_recent_segment_time <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                "GROUP BY session_key, l4_type, state HAVING 1=1 " + filterFragment.havingSql() +
+                                ") " +
+                                "SELECT " + bucketCase + " AS key, COUNT(*) AS value1, SUM(bytes) AS value2 " +
+                                "FROM sess GROUP BY key ORDER BY key ASC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .bindList("taps", taps)
+                        .mapTo(NumberNumberNumberAggregationResult.class)
+                        .list()
+        );
     }
 
     public Optional<L4AddressData> findMostRecentDestinationAddressData(List<UUID> taps, String address) {

@@ -78,10 +78,15 @@ function TwoColumnHistogram(props) {
       selectedValue = value.value;
     }
 
+    // An optional metadata field can carry the operator to pre-select, e.g. "greater_than" for a bucket boundary.
+    const operator = element.metadataOperatorField && value.metadata
+        ? value.metadata[element.metadataOperatorField] : undefined;
+
     return <FilterValueIcon setFilters={element.setFilters}
                             fields={element.fields}
                             field={element.field}
-                            value={selectedValue} />
+                            value={selectedValue}
+                            operator={operator} />
   }
 
   const orderElement = (column) => {

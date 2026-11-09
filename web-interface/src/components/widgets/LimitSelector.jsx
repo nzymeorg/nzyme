@@ -11,6 +11,11 @@ function LimitSelector(props) {
     setLimit(limit);
   }
 
+  // Histograms with a fixed set of rows have no limit to select.
+  if (!setLimit) {
+    return null;
+  }
+
   return (
       <div className="btn-group" style={style}>
         <button className="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">

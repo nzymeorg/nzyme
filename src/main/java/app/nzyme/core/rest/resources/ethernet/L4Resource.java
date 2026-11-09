@@ -8,10 +8,12 @@ import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.NumberNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
+import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.l4.db.L4Numbers;
 import app.nzyme.core.ethernet.l4.db.L4Session;
+import app.nzyme.core.ethernet.l4.db.L4SessionsTimelineBucket;
 import app.nzyme.core.ethernet.l4.db.L4StatisticsBucket;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.TapDataHandlingResource;
@@ -19,6 +21,8 @@ import app.nzyme.core.rest.responses.ethernet.*;
 import app.nzyme.core.rest.responses.ethernet.l4.L4NumbersResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsListResponse;
+import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineBucketResponse;
+import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4StatisticsBucketResponse;
 import app.nzyme.core.rest.responses.shared.*;
 import app.nzyme.core.util.Bucketing;
@@ -206,6 +210,147 @@ public class L4Resource extends TapDataHandlingResource  {
         response.put("numbers", numbers);
 
         return Response.ok(response).build();
+    }
+
+    @GET
+    @Path("/sessions/histograms/timeline")
+    @Operation(operationId = "findL4SessionsTimeline", summary = "Get sessions and traffic over time",
+            description = "Returns the number of sessions and the bytes they transferred per time bucket, limited "
+                    + "to the sessions matching the filters. A session is placed in the bucket of its most recent "
+                    + "activity. Buckets without sessions are included with zero values. The bucket size is chosen "
+                    + "automatically from the time range.")
+    @ApiResponse(responseCode = "200", description = "Timeline found.",
+            content = @Content(schema = @Schema(implementation = L4SessionsTimelineResponse.class)))
+    public Response sessionsTimeline(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                     @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        Map<DateTime, L4SessionsTimelineBucketResponse> buckets = Maps.newHashMap();
+        for (L4SessionsTimelineBucket b : nzyme.getEthernet().l4()
+                .getSessionsTimeline(timeRange, bucketing, filters, taps)) {
+            buckets.put(b.bucket(), L4SessionsTimelineBucketResponse.create(b.sessions(), b.bytes()));
+        }
+
+        return Response.ok(L4SessionsTimelineResponse.create(buckets, bucketing.bucketSizeMs())).build();
+    }
+
+    private static final String[] DURATION_BUCKET_NAMES = {
+            "Under 1 second", "1 to 10 seconds", "10 seconds to 1 minute", "1 to 10 minutes",
+            "10 minutes to 1 hour", "Over 1 hour"
+    };
+
+    @GET
+    @Path("/sessions/histograms/durations")
+    @Operation(operationId = "findL4SessionDurations", summary = "Get session count per duration bucket",
+            description = "Returns the number of sessions and their total bytes for each of six fixed duration "
+                    + "buckets, from under one second to over one hour, limited to the sessions matching the "
+                    + "filters. All buckets are returned, shortest first, including empty ones. The metadata of "
+                    + "each bucket carries the boundary in milliseconds and the operator (smaller_than for the "
+                    + "first bucket, greater_than otherwise) that a duration filter can be built from.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    public Response sessionDurations(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                     @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        long[] sessions = new long[DURATION_BUCKET_NAMES.length];
+        long[] bytes = new long[DURATION_BUCKET_NAMES.length];
+        for (NumberNumberNumberAggregationResult bucket : nzyme.getEthernet().l4()
+                .getDurationHistogram(timeRange, filters, taps)) {
+            int idx = (int) bucket.key();
+            sessions[idx] = bucket.value1();
+            bytes[idx] = bucket.value2();
+        }
+
+        long[] bounds = L4.DURATION_BUCKET_UPPER_BOUNDS_MS;
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (int i = 0; i < DURATION_BUCKET_NAMES.length; i++) {
+            // The first bucket has no lower bound, so it filters for durations below its upper bound. All other
+            // buckets filter for durations above their lower bound.
+            Map<String, Object> metadata = Maps.newHashMap();
+            metadata.put("filter_value_ms", i == 0 ? bounds[0] : bounds[i - 1]);
+            metadata.put("filter_operator", i == 0 ? "smaller_than" : "greater_than");
+
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(DURATION_BUCKET_NAMES[i], HistogramValueType.GENERIC, metadata),
+                    HistogramValueStructureResponse.create(sessions[i], HistogramValueType.INTEGER, null),
+                    HistogramValueStructureResponse.create(bytes[i], HistogramValueType.BYTES, null),
+                    DURATION_BUCKET_NAMES[i]
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(values.size(), true, values)).build();
+    }
+
+    @GET
+    @Path("/sessions/histograms/sources/fanout/top")
+    @Operation(operationId = "findL4SourceFanOut", summary = "List source addresses by fan-out",
+            description = "Returns source addresses with the number of distinct destination addresses and distinct "
+                    + "destination ports they communicated with, limited to the sessions matching the filters. "
+                    + "Sorted by distinct destination ports, most first, unless a sorting column is passed. "
+                    + "Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response sourceFanOut(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                 @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                 @Parameter(description = "Sorting column. One of KEY, VALUE1 (distinct destination addresses) or VALUE2 (distinct destination ports). Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                 @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
+                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        ThreeColumnWithKeyHistogramOrderColumn orderColumn = ThreeColumnWithKeyHistogramOrderColumn.VALUE2;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnWithKeyHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        L4.AggregationPage<L4AddressDataAddressNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
+                .getSourceFanOut(timeRange, filters, limit, offset, orderColumn, orderDirection, taps);
+
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (L4AddressDataAddressNumberNumberAggregationResult source : page.results()) {
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            RestHelpers.L4AddressDataToResponse(
+                                    nzyme, organizationId, tenantId, L4Type.NONE, source.key()
+                            ),
+                            HistogramValueType.L4_ADDRESS_NO_PORT,
+                            null
+                    ),
+                    HistogramValueStructureResponse.create(source.value1(), HistogramValueType.INTEGER, null),
+                    HistogramValueStructureResponse.create(source.value2(), HistogramValueType.INTEGER, null),
+                    source.key().address()
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(page.total(), true, values)).build();
     }
 
     @GET

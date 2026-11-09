@@ -39,6 +39,42 @@ export default class L4Service {
     )
   }
 
+  getSessionsTimeline(taps, filters, timeRange, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/l4/sessions/histograms/timeline",
+        { taps: tapsList, filters: filters, time_range: timeRange },
+        (response) => setData(response.data)
+    )
+  }
+
+  getDurationHistogram(taps, filters, timeRange, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/l4/sessions/histograms/durations",
+        { taps: tapsList, filters: filters, time_range: timeRange },
+        (response) => setData(response.data)
+    )
+  }
+
+  getSourceFanOut(organizationId, tenantId, taps, filters, timeRange, orderColumn, orderDirection, limit, offset, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/l4/sessions/histograms/sources/fanout/top", {
+          organization_id: organizationId,
+          tenant_id: tenantId,
+          taps: tapsList,
+          filters: filters,
+          time_range: timeRange,
+          order_column: orderColumn,
+          order_direction: orderDirection,
+          limit: limit,
+          offset: offset
+        },
+        (response) => setData(response.data)
+    )
+  }
+
   getTopTrafficSourceMacs(organizationId, tenantId, taps, filters, timeRange, limit, offset, setData) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

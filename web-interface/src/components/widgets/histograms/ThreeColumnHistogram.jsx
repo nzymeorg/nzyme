@@ -69,7 +69,10 @@ function ThreeColumnHistogram(props) {
     }
 
     let selectedValue;
-    if (Array.isArray(value.value)) {
+    if (element.metadataField) {
+      // The filter value lives in the metadata, e.g. a bucket label whose filterable boundary is a number.
+      selectedValue = value.metadata ? value.metadata[element.metadataField] : null;
+    } else if (Array.isArray(value.value)) {
       // If the value is an array, pick the first value if there is one.
       selectedValue = value.value[0];
     } else {
@@ -80,10 +83,15 @@ function ThreeColumnHistogram(props) {
       selectedValue = element.valueSubField ? value.value[element.valueSubField] : value.value;
     }
 
+    // An optional metadata field can carry the operator to pre-select, e.g. "greater_than" for a bucket boundary.
+    const operator = element.metadataOperatorField && value.metadata
+        ? value.metadata[element.metadataOperatorField] : undefined;
+
     return <FilterValueIcon setFilters={element.setFilters}
                             fields={element.fields}
                             field={element.field}
-                            value={selectedValue} />
+                            value={selectedValue}
+                            operator={operator} />
   }
 
   const orderElement = (column) => {

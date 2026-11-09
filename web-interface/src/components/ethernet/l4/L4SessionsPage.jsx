@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import {Presets} from "../../shared/timerange/TimeRange";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
@@ -17,6 +17,14 @@ import {L4_MENU_ITEMS} from "./L4MenuItems";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../misc/RenderConditionally";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
+import {TapContext} from "../../../App";
+import L4Service from "../../../services/ethernet/L4Service";
+import L4SessionsTimelineSessionsChart from "./L4SessionsTimelineSessionsChart";
+import L4SessionsTimelineBytesChart from "./L4SessionsTimelineBytesChart";
+import L4SessionsDurationHistogram from "./L4SessionsDurationHistogram";
+import L4SessionsSourceFanOutHistogram from "./L4SessionsSourceFanOutHistogram";
+
+const l4Service = new L4Service();
 
 
 export default function L4SessionsPage() {
@@ -30,6 +38,21 @@ export default function L4SessionsPage() {
 
   const [filters, setFilters] = useUrlFilters(L4_SESSIONS_FILTER_FIELDS);
   const [monitorsReady, setMonitorsReady] = useState(false);
+
+  const tapContext = useContext(TapContext);
+  const selectedTaps = tapContext.taps;
+
+  // One request feeds both timeline charts.
+  const [timeline, setTimeline] = useState(null);
+
+  useEffect(() => {
+    if (!monitorsReady) {
+      return;
+    }
+
+    setTimeline(null);
+    l4Service.getSessionsTimeline(selectedTaps, filters, timeRange, setTimeline);
+  }, [monitorsReady, selectedTaps, filters, timeRange, revision]);
 
   return (
       <React.Fragment>
@@ -61,6 +84,42 @@ export default function L4SessionsPage() {
         </div>
 
         <RenderConditionally render={monitorsReady}>
+          <div className="row mt-3">
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Sessions"
+                                         timeRange={timeRange}
+                                         setTimeRange={setTimeRange}
+                                         refreshAction={() => setRevision(new Date())} />
+
+                  <p className="help-text">Placed at the time of last activity.</p>
+
+                  <L4SessionsTimelineSessionsChart timeline={timeline}
+                                                   timeRange={timeRange}
+                                                   setTimeRange={setTimeRange} />
+                </div>
+              </div>
+            </div>
+
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Traffic"
+                                         timeRange={timeRange}
+                                         setTimeRange={setTimeRange}
+                                         refreshAction={() => setRevision(new Date())} />
+
+                  <p className="help-text">Placed at the time of last activity.</p>
+
+                  <L4SessionsTimelineBytesChart timeline={timeline}
+                                                timeRange={timeRange}
+                                                setTimeRange={setTimeRange} />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="row mt-3">
             <div className="col-md-6">
               <div className="card">
@@ -128,6 +187,44 @@ export default function L4SessionsPage() {
                                                                               setFilters={setFilters}
                                                                               timeRange={timeRange}
                                                                               revision={revision} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="row mt-3">
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Session Durations"
+                                         timeRange={timeRange}
+                                         setTimeRange={setTimeRange}
+                                         refreshAction={() => setRevision(new Date())} />
+
+                  <p className="help-text">The filter icon pre-fills the bucket boundary.</p>
+
+                  <L4SessionsDurationHistogram filters={filters}
+                                               setFilters={setFilters}
+                                               timeRange={timeRange}
+                                               revision={revision} />
+                </div>
+              </div>
+            </div>
+
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Source Fan-Out"
+                                         timeRange={timeRange}
+                                         setTimeRange={setTimeRange}
+                                         refreshAction={() => setRevision(new Date())} />
+
+                  <p className="help-text">Distinct destination addresses and ports per source address.</p>
+
+                  <L4SessionsSourceFanOutHistogram filters={filters}
+                                                   setFilters={setFilters}
+                                                   timeRange={timeRange}
+                                                   revision={revision} />
                 </div>
               </div>
             </div>
