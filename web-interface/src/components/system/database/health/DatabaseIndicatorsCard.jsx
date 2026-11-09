@@ -31,8 +31,7 @@ export default function DatabaseIndicatorsCard({indicators}) {
     return !indicator || (indicator.active && isPending(indicator));
   });
 
-  const pendingTitle = "Not calculated yet. The first database statistics are collected within a minute of node " +
-    "start, the performance indicator needs five minutes of samples and 15 minutes after a PostgreSQL restart.";
+  const pendingTitle = "Not calculated yet.";
 
   let alert;
   if (illuminated.length > 0) {
@@ -44,8 +43,7 @@ export default function DatabaseIndicatorsCard({indicators}) {
   } else if (pending.length > 0) {
     alert = <div className="alert alert-info mt-3 mb-0">
       {pending.length} of {DATABASE_INDICATORS.length} database health indicators have not been calculated yet.
-      The first database statistics are collected within a minute of node start, and the performance indicator
-      needs five minutes of samples and 15 minutes after a PostgreSQL restart. This page refreshes automatically.
+      This page refreshes automatically.
     </div>
   } else {
     alert = <div className="alert alert-success mt-3 mb-0">All database health indicators are green.</div>
@@ -53,11 +51,6 @@ export default function DatabaseIndicatorsCard({indicators}) {
 
   return (
     <React.Fragment>
-      <p>
-        This card shows the database related indicators of the <Link to={ApiRoutes.SYSTEM.HEALTH.INDEX}>system health
-        console</Link>. Resolution procedures for red and orange indicators are available on the health page.
-      </p>
-
       <div className="health-console">
         <div className="hc-row">
           {DATABASE_INDICATORS.map((i) => <Indicator key={i.id} indicator={indicators[i.id]} name={i.name} unavailableTitle={pendingTitle} />)}

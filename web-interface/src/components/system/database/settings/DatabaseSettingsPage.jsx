@@ -24,7 +24,8 @@ export default function DatabaseSettingsPage() {
         <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Database Maintenance Settings" />
+              <CardTitleWithControls title="Database Maintenance Settings"
+                                     helpLink="https://go.nzyme.org/database-maintenance-config" />
 
               <MaintenanceSettings />
             </div>
@@ -36,7 +37,8 @@ export default function DatabaseSettingsPage() {
         <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Maintenance Window" />
+              <CardTitleWithControls title="Maintenance Window"
+                                     helpLink="https://go.nzyme.org/database-maintenance-window" />
 
               <MaintenanceWindowSettings />
             </div>
@@ -47,10 +49,6 @@ export default function DatabaseSettingsPage() {
       <div className="row mt-3">
         <div className="col-12">
           <h2>Table Classes</h2>
-          <p className="text-muted">
-            Every Nzyme table belongs to one of three classes with their own autovacuum thresholds and page fill factor. The
-            percentages are relative to the row count of each table. Changes are applied to the tables immediately.
-          </p>
         </div>
       </div>
 

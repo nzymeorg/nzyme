@@ -31,14 +31,6 @@ export default function DatabaseIndexesTable({indexes, reindexThresholdPercent, 
 
   return (
     <React.Fragment>
-      <p>
-        Indexes do not release space on their own and can consist mostly of empty space after many updates and deletes.
-        The bloat column is an estimate based on planner statistics. Indexes of at least {reindexMinimumMb} MB that are
-        above the {reindexThresholdPercent}% bloat threshold are highlighted and rebuilt automatically during the
-        maintenance window if automatic reindexing is enabled. Both values can be changed in the Settings tab. Indexes
-        with zero scans since the statistics started are candidates for removal in a future release.
-      </p>
-
       <table className="table table-sm table-hover table-striped mb-2">
         <thead>
         <tr>

@@ -43,8 +43,7 @@ export default function MaintenanceWindowSettings() {
   return (
     <React.Fragment>
       <p>
-        Automatic index rebuilds run daily inside this window. The window is configured in full hours in UTC and applies
-        to the whole cluster. The right column shows the same window in the time zone of this browser.
+        Automatic index rebuilds run inside this window. Configured in full hours in UTC for the whole cluster.
       </p>
 
       <table className="table table-sm table-hover table-striped mb-0">

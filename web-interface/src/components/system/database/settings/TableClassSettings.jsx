@@ -3,6 +3,7 @@ import SystemService from "../../../../services/SystemService";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ConfigurationValue from "../../../configuration/ConfigurationValue";
 import ConfigurationModal from "../../../configuration/modal/ConfigurationModal";
+import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 
 const systemService = new SystemService();
 
@@ -32,7 +33,9 @@ export default function TableClassSettings() {
         <div className="col-xl-4" key={c.key}>
           <div className="card mb-3">
             <div className="card-body">
-              <h3>{c.title}</h3>
+              <CardTitleWithControls title={c.title}
+                                     slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-table-classes" />
               <p>{c.description}</p>
               <p className="text-muted small" title={c.tables.join(", ")}>
                 {c.tables.length} tables: {c.tables.slice(0, 6).join(", ")}{c.tables.length > 6 ? ", …" : ""}

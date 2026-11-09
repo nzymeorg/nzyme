@@ -59,13 +59,6 @@ export default function DatabaseTablesTable({tables, indexes, reindexThresholdPe
 
   return (
     <React.Fragment>
-      <p>
-        Dead rows are outdated row versions that remain after updates and deletes until vacuum removes them. A table that
-        stays above 20% dead rows is vacuumed automatically if automatic vacuum is enabled. You can also trigger a vacuum
-        or a rebuild of all indexes of a table manually. A warning next to the index size means that at least one index of
-        the table is above the automatic reindex threshold.
-      </p>
-
       <table className="table table-sm table-hover table-striped mb-2">
         <thead>
         <tr>

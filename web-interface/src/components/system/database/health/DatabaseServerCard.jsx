@@ -28,14 +28,14 @@ export default function DatabaseServerCard({server, collectedAt, nodeName}) {
   const collecting = window < 5;
 
   const windowed = (content, className = "") => collecting
-    ? <dd className="text-muted">Collecting. Needs five minutes of samples after a node start.</dd>
+    ? <dd className="text-muted">Collecting.</dd>
     : <dd className={className}>{content}</dd>;
 
   return (
     <React.Fragment>
       <p className="text-muted">
         Snapshot taken {moment(collectedAt).fromNow()} by node {nodeName}. Rates and ratios cover the
-        last {window} {window === 1 ? "minute" : "minutes"}.{collecting ? " The window grows to 15 minutes after a node start." : ""}
+        last {window} {window === 1 ? "minute" : "minutes"}.
       </p>
 
       <dl className="mb-0">
@@ -57,13 +57,11 @@ export default function DatabaseServerCard({server, collectedAt, nodeName}) {
         <dt>Cache hit ratio <span className="text-muted">(shared_buffers)</span></dt>
         {server.warming_up ?
           <dd className="text-muted">
-            Warming up. PostgreSQL restarted {moment(server.server_started_at).fromNow()} with an empty cache, the
-            ratio is meaningful again 15 minutes after a restart.
+            Warming up. PostgreSQL restarted {moment(server.server_started_at).fromNow()}.
           </dd>
           : windowed(
             <span>
-              {ratio(server.cache_hit_ratio_recent)} of block reads were served from memory. Below 95% means the
-              server reads from disk for most queries.
+              {ratio(server.cache_hit_ratio_recent)} of block reads were served from memory.
             </span>,
             hitRatioClass(server.cache_hit_ratio_recent))}
 
@@ -71,7 +69,7 @@ export default function DatabaseServerCard({server, collectedAt, nodeName}) {
         {windowed(
           <span>
             {numeral(server.temp_bytes_per_minute).format("0.0b")} per minute in{' '}
-            {numeral(server.temp_files_per_minute).format("0.0")} files. Sorts and hashes that did not fit into memory.
+            {numeral(server.temp_files_per_minute).format("0.0")} files.
           </span>,
           server.temp_bytes_per_minute >= 100 * 1024 * 1024 ? "text-warning" : "")}
 
@@ -83,14 +81,14 @@ export default function DatabaseServerCard({server, collectedAt, nodeName}) {
 
         <dt>Disk wait <span className="text-muted">(track_io_timing)</span></dt>
         {!server.io_timing_enabled ?
-          <dd className="text-muted">Not measured. Enable track_io_timing on the server to see how long queries wait for disk.</dd>
+          <dd className="text-muted">Not measured. Requires track_io_timing.</dd>
           : (server.warming_up ?
-            <dd className="text-muted">Warming up. Disk wait is meaningful again 15 minutes after a PostgreSQL restart.</dd>
+            <dd className="text-muted">Warming up.</dd>
             : windowed(
               <span>
                 {numeral(server.io_read_wait_ms_per_minute / 1000).format("0.0")} s reading,{' '}
                 {numeral(server.io_write_wait_ms_per_minute / 1000).format("0.0")} s writing per minute, summed over
-                all connections. Reads that wait while the cache hit ratio is high point at slow storage.
+                all connections.
               </span>,
               server.io_read_wait_ms_per_minute + server.io_write_wait_ms_per_minute >= 30000 ? "text-warning" : ""))}
 
@@ -102,7 +100,7 @@ export default function DatabaseServerCard({server, collectedAt, nodeName}) {
 
         <dt>Transaction ID age</dt>
         <dd className={server.xid_age >= 1000000000 ? "text-danger" : ""}>
-          {numeral(server.xid_age).format("0,0")} of 2,147,483,647. Vacuum resets this. Writes stop at the maximum.
+          {numeral(server.xid_age).format("0,0")} of 2,147,483,647.
         </dd>
 
         <dt>Oldest open transaction</dt>

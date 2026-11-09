@@ -36,11 +36,7 @@ export default function DatabaseSettingsTable({settings}) {
   return (
     <React.Fragment>
       <p>
-        Nzyme can only change settings of its own connections and tables. Settings marked <em>postgresql.conf</em> have to
-        be changed by the database administrator in <code>postgresql.conf</code>, followed by a reload or restart of
-        PostgreSQL. Most of these parameters already exist in that file and should be changed in place, with values
-        adjusted to the memory and disk of the server. The <em>Database Configuration</em> health indicator is orange
-        while a required setting is missing. Values are read once a minute.
+        Settings marked <em>postgresql.conf</em> must be changed by the database administrator.
       </p>
 
       {required.length > 0 || recommended.length > 0 ?

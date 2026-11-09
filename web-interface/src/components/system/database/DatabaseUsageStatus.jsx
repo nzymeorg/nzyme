@@ -29,11 +29,11 @@ export default function DatabaseUsageStatus({sizes, onRefresh, children}) {
 
   let status;
   if (sizes.calculating) {
-    status = <span><i className="fa-solid fa-play text-success" /> Counting rows now. Refresh the page in a minute to see the result.</span>;
+    status = <span><i className="fa-solid fa-play text-success" /> Counting rows now. Reload the page in a minute.</span>;
   } else if (sizes.estimated || !sizes.calculated_at) {
-    status = <span>Rows have not been counted yet. The first count runs shortly after node start. Global row counts marked with &asymp; are planner estimates.</span>;
+    status = <span>Rows have not been counted yet.</span>;
   } else {
-    status = <span>Rows counted <span title={moment(sizes.calculated_at).format()}>{moment(sizes.calculated_at).fromNow()}</span>. Counts are refreshed every hour and after every purge. Sizes marked with &asymp; are shares of the table sizes, split by row count.</span>;
+    status = <span>Rows counted <span title={moment(sizes.calculated_at).format()}>{moment(sizes.calculated_at).fromNow()}</span>.</span>;
   }
 
   return (
@@ -54,13 +54,13 @@ export default function DatabaseUsageStatus({sizes, onRefresh, children}) {
 
 export function formatRows(entry) {
   if (!entry || entry.rows === null || entry.rows === undefined) {
-    return <span className="text-muted" title="Not counted yet. The first count runs shortly after node start.">not counted yet</span>;
+    return <span className="text-muted">not counted yet</span>;
   }
 
   const formatted = new Intl.NumberFormat().format(entry.rows);
 
   if (entry.rows_estimated) {
-    return <span title="Estimate from the PostgreSQL planner statistics, refreshed by every analyze. The exact count follows with the first usage calculation.">&asymp; {formatted}</span>;
+    return <span title="Planner estimate">&asymp; {formatted}</span>;
   }
 
   return formatted;
@@ -68,13 +68,13 @@ export function formatRows(entry) {
 
 export function formatBytes(entry) {
   if (!entry || entry.bytes === null || entry.bytes === undefined) {
-    return <span className="text-muted" title="Not calculated yet. The first calculation runs shortly after node start.">not calculated yet</span>;
+    return <span className="text-muted">not calculated yet</span>;
   }
 
   const formatted = numeral(entry.bytes).format("0,0b");
 
   if (entry.bytes_estimated) {
-    return <span title="Tables are shared between all tenants, so this size cannot be measured. It is the share of each table size that matches the share of rows.">&asymp; {formatted}</span>;
+    return <span title="Estimate based on the share of rows">&asymp; {formatted}</span>;
   }
 
   return formatted;

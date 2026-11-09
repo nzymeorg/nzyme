@@ -66,8 +66,7 @@ export default function DatabaseHealthPage() {
           <div className="col-12">
             <h1>Database Health &amp; Maintenance</h1>
             <div className="alert alert-info mt-3">
-              Nzyme has not collected database statistics yet. The first snapshot is taken within a minute of
-              node startup. This page refreshes automatically.
+              No database statistics collected yet. This page refreshes automatically.
             </div>
           </div>
         </div>
@@ -96,7 +95,8 @@ export default function DatabaseHealthPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Database Health Indicators" slim={true}
-                                     internalLink={ApiRoutes.SYSTEM.HEALTH.INDEX} />
+                                     internalLink={ApiRoutes.SYSTEM.HEALTH.INDEX}
+                                     helpLink="https://go.nzyme.org/database-maintenance-indicators" />
               <DatabaseIndicatorsCard indicators={indicators} />
             </div>
           </div>
@@ -107,7 +107,8 @@ export default function DatabaseHealthPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Maintenance Activity" slim={true} />
+              <CardTitleWithControls title="Maintenance Activity" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-activity" />
               <MaintenanceActivity health={health} />
             </div>
           </div>
@@ -118,7 +119,8 @@ export default function DatabaseHealthPage() {
         <div className="col-xl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Server" slim={true} />
+              <CardTitleWithControls title="Server" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-server" />
               <DatabaseServerCard server={health.server} collectedAt={health.collected_at} nodeName={health.node_name} />
             </div>
           </div>
@@ -126,7 +128,8 @@ export default function DatabaseHealthPage() {
         <div className="col-xl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Trends" slim={true} />
+              <CardTitleWithControls title="Trends" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-trends" />
               <DatabaseTrendsCard />
             </div>
           </div>
@@ -137,7 +140,8 @@ export default function DatabaseHealthPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Server Configuration" slim={true} />
+              <CardTitleWithControls title="Server Configuration" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-server-config" />
               <DatabaseSettingsTable settings={health.settings} />
             </div>
           </div>
@@ -148,7 +152,8 @@ export default function DatabaseHealthPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Tables" slim={true} />
+              <CardTitleWithControls title="Tables" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-tables" />
               <DatabaseTablesTable tables={health.tables}
                                    indexes={health.indexes}
                                    reindexThresholdPercent={health.reindex_bloat_threshold_percent}
@@ -166,7 +171,8 @@ export default function DatabaseHealthPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Indexes" slim={true} />
+              <CardTitleWithControls title="Indexes" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-indexes" />
               <DatabaseIndexesTable indexes={health.indexes}
                                     reindexThresholdPercent={health.reindex_bloat_threshold_percent}
                                     reindexMinimumMb={health.reindex_minimum_index_mb}
@@ -182,7 +188,8 @@ export default function DatabaseHealthPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Maintenance Log" slim={true} />
+              <CardTitleWithControls title="Maintenance Log" slim={true}
+                                     helpLink="https://go.nzyme.org/database-maintenance-log" />
               <MaintenanceLogTable revision={revision} />
             </div>
           </div>

@@ -93,7 +93,9 @@ export default function TenantDatabasePage() {
         <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Tenant Database Usage per Subsystem" slim={true} />
+              <CardTitleWithControls title="Tenant Database Usage per Subsystem"
+                                     slim={true}
+                                     helpLink="https://go.nzyme.org/database-usage" />
 
               <SubsystemDatabaseUsageTable sizes={sizes ? sizes.subsystem_sizes : null} />
             </div>
