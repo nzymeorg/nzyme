@@ -123,8 +123,14 @@ public class UDPTable implements DataTable {
                 "tags = EXCLUDED.tags, " +
                 "end_time = COALESCE(EXCLUDED.end_time, l4_sessions.end_time), " +
                 "most_recent_segment_time = EXCLUDED.most_recent_segment_time " +
-                "WHERE l4_sessions.most_recent_segment_time IS NULL " +
-                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time");
+                "WHERE (l4_sessions.most_recent_segment_time IS NULL " +
+                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time) " +
+                // Skip the write when the report carries nothing new.
+                "AND (l4_sessions.most_recent_segment_time, l4_sessions.state, l4_sessions.end_time, " +
+                "l4_sessions.segments_count, l4_sessions.bytes_rx_count, l4_sessions.bytes_tx_count, " +
+                "l4_sessions.tags) IS DISTINCT FROM (EXCLUDED.most_recent_segment_time, EXCLUDED.state, " +
+                "COALESCE(EXCLUDED.end_time, l4_sessions.end_time), EXCLUDED.segments_count, " +
+                "EXCLUDED.bytes_rx_count, EXCLUDED.bytes_tx_count, EXCLUDED.tags)");
 
         Map<String, UdpConversationReport> deduplicated = new LinkedHashMap<>();
         for (UdpConversationReport conversation : conversations) {

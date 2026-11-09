@@ -221,8 +221,41 @@ public class TCPTable implements DataTable {
                 "tags = EXCLUDED.tags, " +
                 "end_time = COALESCE(EXCLUDED.end_time, l4_sessions.end_time), " +
                 "most_recent_segment_time = EXCLUDED.most_recent_segment_time " +
-                "WHERE l4_sessions.most_recent_segment_time IS NULL " +
-                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time");
+                "WHERE (l4_sessions.most_recent_segment_time IS NULL " +
+                "OR l4_sessions.most_recent_segment_time <= EXCLUDED.most_recent_segment_time) " +
+                // Skip the write when the report carries nothing new.
+                "AND (l4_sessions.state, l4_sessions.ip_id_behavior, l4_sessions.tcp_client_timestamp_value, " +
+                "l4_sessions.tcp_client_timestamp_time, l4_sessions.tcp_client_ip_id, " +
+                "l4_sessions.tcp_timestamp_rate, l4_sessions.segments_count_client_to_server, " +
+                "l4_sessions.server_fingerprint, l4_sessions.server_signature, " +
+                "l4_sessions.server_ip_hop_distance, l4_sessions.tcp_synack_ip_ttl, " +
+                "l4_sessions.tcp_synack_ip_tos, l4_sessions.tcp_synack_ip_df, l4_sessions.tcp_synack_ip_id, " +
+                "l4_sessions.tcp_synack_cwr, l4_sessions.tcp_synack_ece, l4_sessions.tcp_synack_window_size, " +
+                "l4_sessions.tcp_synack_maximum_segment_size, l4_sessions.tcp_synack_window_scale_multiplier, " +
+                "l4_sessions.tcp_synack_options, l4_sessions.tcp_synack_timestamp_value, " +
+                "l4_sessions.tcp_synack_timestamp_echo, l4_sessions.bytes_rx_count, l4_sessions.bytes_tx_count, " +
+                "l4_sessions.segments_count, l4_sessions.tags, l4_sessions.end_time, " +
+                "l4_sessions.most_recent_segment_time) IS DISTINCT FROM (EXCLUDED.state, EXCLUDED.ip_id_behavior, " +
+                "EXCLUDED.tcp_client_timestamp_value, EXCLUDED.tcp_client_timestamp_time, " +
+                "EXCLUDED.tcp_client_ip_id, EXCLUDED.tcp_timestamp_rate, " +
+                "EXCLUDED.segments_count_client_to_server, COALESCE(EXCLUDED.server_fingerprint, " +
+                "l4_sessions.server_fingerprint), COALESCE(EXCLUDED.server_signature, " +
+                "l4_sessions.server_signature), COALESCE(EXCLUDED.server_ip_hop_distance, " +
+                "l4_sessions.server_ip_hop_distance), COALESCE(EXCLUDED.tcp_synack_ip_ttl, " +
+                "l4_sessions.tcp_synack_ip_ttl), COALESCE(EXCLUDED.tcp_synack_ip_tos, " +
+                "l4_sessions.tcp_synack_ip_tos), COALESCE(EXCLUDED.tcp_synack_ip_df, " +
+                "l4_sessions.tcp_synack_ip_df), COALESCE(EXCLUDED.tcp_synack_ip_id, " +
+                "l4_sessions.tcp_synack_ip_id), COALESCE(EXCLUDED.tcp_synack_cwr, l4_sessions.tcp_synack_cwr), " +
+                "COALESCE(EXCLUDED.tcp_synack_ece, l4_sessions.tcp_synack_ece), " +
+                "COALESCE(EXCLUDED.tcp_synack_window_size, l4_sessions.tcp_synack_window_size), " +
+                "COALESCE(EXCLUDED.tcp_synack_maximum_segment_size, l4_sessions.tcp_synack_maximum_segment_size), " +
+                "COALESCE(EXCLUDED.tcp_synack_window_scale_multiplier, " +
+                "l4_sessions.tcp_synack_window_scale_multiplier), COALESCE(EXCLUDED.tcp_synack_options, " +
+                "l4_sessions.tcp_synack_options), COALESCE(EXCLUDED.tcp_synack_timestamp_value, " +
+                "l4_sessions.tcp_synack_timestamp_value), COALESCE(EXCLUDED.tcp_synack_timestamp_echo, " +
+                "l4_sessions.tcp_synack_timestamp_echo), EXCLUDED.bytes_rx_count, EXCLUDED.bytes_tx_count, " +
+                "EXCLUDED.segments_count, EXCLUDED.tags, COALESCE(EXCLUDED.end_time, l4_sessions.end_time), " +
+                "EXCLUDED.most_recent_segment_time)");
 
         DateTime activityCutoff = DateTime.now().minusMinutes(1);
         Map<String, TcpSessionReport> deduplicated = new LinkedHashMap<>();

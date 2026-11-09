@@ -110,6 +110,10 @@ import app.nzyme.core.crypto.database.PGPKeyFingerprintMapper;
 import app.nzyme.core.taps.db.*;
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.collect.Lists;
+import java.util.Optional;
+import com.google.common.collect.Maps;
+import app.nzyme.core.database.maintenance.DatabaseMaintenanceRegistryKeys;
+import app.nzyme.core.database.maintenance.ServerSettingRecommendations;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import liquibase.*;
@@ -168,12 +172,19 @@ public class DatabaseImpl implements Database {
             }
         }
 
+        assertSupportedServerVersion(probe);
+
         HikariConfig poolConfig = new HikariConfig();
         poolConfig.setJdbcUrl("jdbc:" + configuration.databasePath());
         poolConfig.setPoolName(POOL_NAME);
         poolConfig.setMaximumPoolSize(configuration.performance().databasePoolSize());
         poolConfig.setConnectionTimeout(5_000);
         poolConfig.setValidationTimeout(3_000);
+
+        buildConnectionInitSql(probe).ifPresent(sql -> {
+            LOG.info("Applying session settings to all pooled database connections: [{}]", sql);
+            poolConfig.setConnectionInitSql(sql);
+        });
 
         LOG.info("Initializing database connection pool with <{}> maximum connections.",
                 configuration.performance().databasePoolSize());
@@ -402,6 +413,8 @@ public class DatabaseImpl implements Database {
             }
         }
 
+        assertSupportedServerVersion(migrationJdbi);
+
         Liquibase liquibase = null;
         try {
             LOG.info("Running database migrations.");
@@ -423,6 +436,74 @@ public class DatabaseImpl implements Database {
                 migrationConnection.close();
             }
         }
+    }
+
+    private static void assertSupportedServerVersion(Jdbi jdbi) {
+        int versionNumber = jdbi.withHandle(handle ->
+                handle.createQuery("SELECT current_setting('server_version_num')::int").mapTo(Integer.class).one()
+        );
+        String version = jdbi.withHandle(handle ->
+                handle.createQuery("SELECT current_setting('server_version')").mapTo(String.class).one()
+        );
+
+        assertSupportedServerVersion(versionNumber, version);
+        LOG.info("Connected to PostgreSQL {}.", version);
+    }
+
+    static void assertSupportedServerVersion(int versionNumber, String version) {
+        if (versionNumber < ServerSettingRecommendations.REQUIRED_VERSION) {
+            String message = "PostgreSQL " + version + " is not supported. Nzyme needs PostgreSQL "
+                    + ServerSettingRecommendations.majorVersion(ServerSettingRecommendations.REQUIRED_VERSION)
+                    + " or newer, and recommends "
+                    + ServerSettingRecommendations.majorVersion(ServerSettingRecommendations.RECOMMENDED_VERSION)
+                    + " or newer. Upgrade the database server before starting Nzyme.";
+            LOG.fatal(message);
+            throw new RuntimeException(message);
+        }
+
+        if (versionNumber < ServerSettingRecommendations.RECOMMENDED_VERSION) {
+            LOG.warn("PostgreSQL {} is older than the recommended release {}. It still works, but is at or past "
+                            + "the end of its upstream support. The Database Configuration health indicator will "
+                            + "point this out.", version,
+                    ServerSettingRecommendations.majorVersion(ServerSettingRecommendations.RECOMMENDED_VERSION));
+        }
+    }
+
+    // Read with a plain connection: the registry service does not exist yet when the pool is built.
+    static Optional<String> buildConnectionInitSql(Jdbi probe) {
+        try {
+            Map<String, String> values = Maps.newHashMap();
+            probe.useHandle(handle -> handle.createQuery("SELECT key, value FROM registry WHERE key IN (<keys>) " +
+                            "AND organization_id IS NULL AND tenant_id IS NULL")
+                    .bindList("keys", List.of(
+                            "core." + DatabaseMaintenanceRegistryKeys.SESSION_TUNING_ENABLED.key(),
+                            "core." + DatabaseMaintenanceRegistryKeys.SESSION_WORK_MEM_MB.key()))
+                    .map((rs, ctx) -> values.put(rs.getString("key"), rs.getString("value")))
+                    .list());
+
+            boolean enabled = Boolean.parseBoolean(values.getOrDefault(
+                    "core." + DatabaseMaintenanceRegistryKeys.SESSION_TUNING_ENABLED.key(),
+                    DatabaseMaintenanceRegistryKeys.SESSION_TUNING_ENABLED.defaultValue().orElse("true")));
+
+            if (!enabled) {
+                return Optional.empty();
+            }
+
+            int workMemMb = Integer.parseInt(values.getOrDefault(
+                    "core." + DatabaseMaintenanceRegistryKeys.SESSION_WORK_MEM_MB.key(),
+                    DatabaseMaintenanceRegistryKeys.SESSION_WORK_MEM_MB.defaultValue().orElse("64")));
+
+            return Optional.of(buildConnectionInitSql(workMemMb));
+        } catch (Exception e) {
+            // The registry table does not exist before the first migration.
+            LOG.debug("Could not read session settings from registry. Using defaults.", e);
+            return Optional.of(buildConnectionInitSql(
+                    Integer.parseInt(DatabaseMaintenanceRegistryKeys.SESSION_WORK_MEM_MB.defaultValue().orElse("64"))));
+        }
+    }
+
+    static String buildConnectionInitSql(int workMemMb) {
+        return "SET work_mem = '" + Math.max(4, Math.min(4096, workMemMb)) + "MB'; SET jit = off";
     }
 
     public long getTotalSize() {

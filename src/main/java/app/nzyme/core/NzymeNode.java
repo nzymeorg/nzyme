@@ -31,6 +31,7 @@ import app.nzyme.core.environment.EnvironmentService;
 import app.nzyme.core.events.EventEngine;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitoring.health.HealthMonitor;
+import app.nzyme.core.database.maintenance.DatabaseMaintenance;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.ouis.OuiService;
 import app.nzyme.core.quota.QuotaService;
@@ -69,6 +70,7 @@ public interface NzymeNode extends PluginEntryPoint, DatabaseProvider, NodeIdent
     Subsystems getSubsystems();
 
     HealthMonitor getHealthMonitor();
+    DatabaseMaintenance getDatabaseMaintenance();
 
     Ethernet getEthernet();
     Dot11 getDot11();

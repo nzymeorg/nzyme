@@ -78,6 +78,8 @@ import OrganizationEventSubscriptionDetailsPage
   from "./components/system/authentication/management/organizations/events/subscriptions/OrganizationEventSubscriptionDetailsPage";
 import BSSIDsPage from "./components/dot11/bssids/BSSIDsPage";
 import DatabasePage from "./components/system/database/DatabasePage";
+import DatabaseHealthPage from "./components/system/database/health/DatabaseHealthPage";
+import DatabaseSettingsPage from "./components/system/database/settings/DatabaseSettingsPage";
 import SSIDDetailsPage from "./components/dot11/bssids/ssids/SSIDDetailsPage";
 import ClientsPage from "./components/dot11/clients/ClientsPage";
 import BeaconsPage from "./components/ethernet/beacons/BeaconsPage";
@@ -623,6 +625,8 @@ function App() {
 
                               { /* System/Database */ }
                               <Route path={ApiRoutes.SYSTEM.DATABASE.INDEX} element={<DatabasePage />} />
+                              <Route path={ApiRoutes.SYSTEM.DATABASE.HEALTH} element={<DatabaseHealthPage />} />
+                              <Route path={ApiRoutes.SYSTEM.DATABASE.SETTINGS} element={<DatabaseSettingsPage />} />
 
                               { /* System/Misc. */}
                               <Route path={ApiRoutes.SYSTEM.VERSION} element={<VersionPage />}/>

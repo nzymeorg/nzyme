@@ -17,6 +17,7 @@
 
 package app.nzyme.core.util;
 
+import app.nzyme.core.database.maintenance.DatabaseMaintenance;
 import app.nzyme.core.ethernet.beacons.BeaconDetector;
 import app.nzyme.core.ethernet.recon.ReconDetector;
 import app.nzyme.core.ethernet.spoofing.ArpSpoofingDetector;
@@ -121,6 +122,9 @@ public class MetricNames {
     public static final String PORTAL_INTEGRITY_URL_REPORT_PROCESSING_TIMER = name(PortalIntegrityTable.class, "url-report-processing-timing");
 
     public static final String UAV_TOTAL_REPORT_PROCESSING_TIMER = name(UAVTable.class, "total-report-processing-timing");
+
+    public static final String DATABASE_STATISTICS_COLLECTION_TIMER = name(DatabaseMaintenance.class, "statistics-collection-timing");
+    public static final String DATABASE_USAGE_CALCULATION_TIMER = name(DatabaseMaintenance.class, "usage-calculation-timing");
 
     public static final String BEACON_DETECTION_RUN_TIMER = name(BeaconDetector.class, "detection-run-timing");
     public static final String BEACON_CANDIDATE_DISCOVERY_TIMER = name(BeaconDetector.class, "candidate-discovery-timing");

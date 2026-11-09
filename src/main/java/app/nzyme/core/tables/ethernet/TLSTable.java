@@ -134,7 +134,34 @@ public class TLSTable implements DataTable {
             "chain_trust_error = EXCLUDED.chain_trust_error, ja4 = EXCLUDED.ja4, " +
             "terminated_at = EXCLUDED.terminated_at, " +
             "most_recent_segment_time = EXCLUDED.most_recent_segment_time, updated_at = NOW() " +
-            "WHERE EXCLUDED.most_recent_segment_time >= tls_sessions.most_recent_segment_time";
+            "WHERE EXCLUDED.most_recent_segment_time >= tls_sessions.most_recent_segment_time " +
+            // Skip the write when the report carries nothing new.
+            "AND (tls_sessions.connection_status, tls_sessions.bytes_count, tls_sessions.server_name, " +
+            "tls_sessions.version, tls_sessions.client_max_version, tls_sessions.cipher_suite, " +
+            "tls_sessions.alpn_selected, tls_sessions.session_resumed, tls_sessions.hello_retry_request, " +
+            "tls_sessions.encrypted_client_hello, tls_sessions.client_certificate_requested, " +
+            "tls_sessions.client_change_cipher_spec, tls_sessions.server_change_cipher_spec, " +
+            "tls_sessions.client_app_data_records, tls_sessions.client_app_data_bytes, " +
+            "tls_sessions.server_app_data_records, tls_sessions.server_app_data_bytes, " +
+            "tls_sessions.client_hello, tls_sessions.server_hello, tls_sessions.alerts, " +
+            "tls_sessions.server_leaf_sha256, tls_sessions.server_chain_sha256, " +
+            "tls_sessions.client_leaf_sha256, tls_sessions.client_chain_sha256, " +
+            "tls_sessions.server_leaf_self_signed, tls_sessions.server_chain_length, " +
+            "tls_sessions.sni_matches_certificate, tls_sessions.leaf_valid_at_handshake, " +
+            "tls_sessions.chain_trusted, tls_sessions.chain_trust_error, tls_sessions.ja4, " +
+            "tls_sessions.terminated_at, tls_sessions.most_recent_segment_time) IS DISTINCT FROM " +
+            "(EXCLUDED.connection_status, EXCLUDED.bytes_count, EXCLUDED.server_name, EXCLUDED.version, " +
+            "EXCLUDED.client_max_version, EXCLUDED.cipher_suite, EXCLUDED.alpn_selected, " +
+            "EXCLUDED.session_resumed, EXCLUDED.hello_retry_request, EXCLUDED.encrypted_client_hello, " +
+            "EXCLUDED.client_certificate_requested, EXCLUDED.client_change_cipher_spec, " +
+            "EXCLUDED.server_change_cipher_spec, EXCLUDED.client_app_data_records, " +
+            "EXCLUDED.client_app_data_bytes, EXCLUDED.server_app_data_records, " +
+            "EXCLUDED.server_app_data_bytes, EXCLUDED.client_hello, EXCLUDED.server_hello, EXCLUDED.alerts, " +
+            "EXCLUDED.server_leaf_sha256, EXCLUDED.server_chain_sha256, EXCLUDED.client_leaf_sha256, " +
+            "EXCLUDED.client_chain_sha256, EXCLUDED.server_leaf_self_signed, EXCLUDED.server_chain_length, " +
+            "EXCLUDED.sni_matches_certificate, EXCLUDED.leaf_valid_at_handshake, EXCLUDED.chain_trusted, " +
+            "EXCLUDED.chain_trust_error, EXCLUDED.ja4, EXCLUDED.terminated_at, " +
+            "EXCLUDED.most_recent_segment_time)";
 
     private void writeSessions(Handle handle,
                                UUID tapUuid,

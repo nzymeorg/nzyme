@@ -112,7 +112,9 @@ const ApiRoutes = {
       INDEX: '/system/health'
     },
     DATABASE: {
-      INDEX: '/system/database'
+      INDEX: '/system/database',
+      HEALTH: '/system/database/health',
+      SETTINGS: '/system/database/settings'
     },
     INTEGRATIONS: {
       INDEX: '/system/integrations',

@@ -96,7 +96,18 @@ public class WebRTCTable implements DataTable {
                 "stream_count = GREATEST(webrtc_conversations.stream_count, EXCLUDED.stream_count), " +
                 "rtp_streams = EXCLUDED.rtp_streams, " +
                 "dtls_app_data_records = EXCLUDED.dtls_app_data_records, " +
-                "last_activity = EXCLUDED.last_activity, updated_at = NOW()");
+                "last_activity = EXCLUDED.last_activity, updated_at = NOW() " +
+                // Skip the write when the report carries nothing new.
+                "WHERE (webrtc_conversations.has_rtp, webrtc_conversations.has_dtls, " +
+                "webrtc_conversations.has_audio, webrtc_conversations.has_video, " +
+                "webrtc_conversations.stream_count, webrtc_conversations.rtp_streams, " +
+                "webrtc_conversations.dtls_app_data_records, webrtc_conversations.last_activity) " +
+                "IS DISTINCT FROM (webrtc_conversations.has_rtp OR EXCLUDED.has_rtp, " +
+                "webrtc_conversations.has_dtls OR EXCLUDED.has_dtls, " +
+                "webrtc_conversations.has_audio OR EXCLUDED.has_audio, " +
+                "webrtc_conversations.has_video OR EXCLUDED.has_video, " +
+                "GREATEST(webrtc_conversations.stream_count, EXCLUDED.stream_count), EXCLUDED.rtp_streams, " +
+                "EXCLUDED.dtls_app_data_records, EXCLUDED.last_activity)");
 
         for (WebRTCConversationReport c : deduped.values()) {
             try {

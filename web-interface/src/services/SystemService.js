@@ -76,6 +76,42 @@ class SystemService {
     RESTClient.put(`/system/database/configuration/organization/${organizationId}/tenant/${tenantId}/category/${category}/retention`, {retention_time_days: retentionTimeDays}, onSuccess)
   }
 
+  recalculateDatabaseUsage(onSuccess, onError) {
+    RESTClient.post("/system/database/usage/recalculate", {}, onSuccess, onError)
+  }
+
+  getDatabaseHealth(setHealth, onNotReady) {
+    RESTClient.get("/system/database/maintenance/health", {}, (response) => setHealth(response.data), onNotReady)
+  }
+
+  getDatabaseMetricHistogram(metric, setHistogram) {
+    RESTClient.get(`/system/database/maintenance/histogram/${metric}`, {}, (response) => setHistogram(response.data))
+  }
+
+  getDatabaseMaintenanceLog(limit, offset, setLog) {
+    RESTClient.get("/system/database/maintenance/log", {limit: limit, offset: offset}, (response) => setLog(response.data))
+  }
+
+  getDatabaseMaintenanceConfiguration(setConfiguration) {
+    RESTClient.get("/system/database/maintenance/configuration", {}, (response) => setConfiguration(response.data))
+  }
+
+  updateDatabaseMaintenanceConfiguration(newConfig, successCallback, errorCallback) {
+    RESTClient.put("/system/database/maintenance/configuration", {change: newConfig}, successCallback, errorCallback)
+  }
+
+  vacuumDatabaseTable(table, onSuccess) {
+    RESTClient.post(`/system/database/maintenance/actions/tables/${table}/vacuum`, {}, onSuccess)
+  }
+
+  reindexDatabaseTable(table, onSuccess) {
+    RESTClient.post(`/system/database/maintenance/actions/tables/${table}/reindex`, {}, onSuccess)
+  }
+
+  reindexDatabaseIndex(index, onSuccess) {
+    RESTClient.post(`/system/database/maintenance/actions/indexes/${index}/reindex`, {}, onSuccess)
+  }
+
   getSidebarTitle(setSidebarTitle, setSidebarSubtitle) {
     RESTClient.get('/system/lookandfeel/sidebartitle', {}, function (response) {
       setSidebarTitle(response.data.title);

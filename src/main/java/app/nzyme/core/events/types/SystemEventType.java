@@ -252,6 +252,41 @@ public enum SystemEventType {
             SystemEventScope.SYSTEM,
             "\"Asset Identity Backlog\" Health Indicator was toggled",
             "The state of the \"Asset Identity Backlog\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_DB_CONFIGURATION_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Database Configuration\" Health Indicator was toggled",
+            "The state of the \"Database Configuration\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_DB_VACUUM_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Database Vacuum\" Health Indicator was toggled",
+            "The state of the \"Database Vacuum\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_DB_BLOAT_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Database Index Bloat\" Health Indicator was toggled",
+            "The state of the \"Database Index Bloat\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_DB_PERFORMANCE_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Database Performance\" Health Indicator was toggled",
+            "The state of the \"Database Performance\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_DB_TRANSACTIONS_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Database Transactions\" Health Indicator was toggled",
+            "The state of the \"Database Transactions\" system health indicator has changed from a previously different state."
     );
 
     private final SystemEventCategory category;

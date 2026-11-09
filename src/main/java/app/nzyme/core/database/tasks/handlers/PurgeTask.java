@@ -56,6 +56,12 @@ public class PurgeTask {
             LOG.error("Could not purge data.", e);
         }
 
+        try {
+            nzyme.getDatabaseMaintenance().requestUsageCalculation();
+        } catch (Exception e) {
+            LOG.warn("Could not request database usage recalculation after purge.", e);
+        }
+
         return TaskProcessingResult.SUCCESS;
     }
 

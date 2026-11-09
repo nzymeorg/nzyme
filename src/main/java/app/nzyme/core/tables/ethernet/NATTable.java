@@ -100,7 +100,11 @@ public class NATTable implements DataTable  {
                 ":mapped_addresses::jsonb, :status, :most_recent_segment_time, :first_seen, NOW(), NOW()) " +
                 "ON CONFLICT (tap_uuid, l4_session_key, first_seen) DO UPDATE SET " +
                 "mapped_addresses = EXCLUDED.mapped_addresses, status = EXCLUDED.status, " +
-                "most_recent_segment_time = EXCLUDED.most_recent_segment_time, updated_at = NOW()");
+                "most_recent_segment_time = EXCLUDED.most_recent_segment_time, updated_at = NOW() " +
+                // Skip the write when the report carries nothing new.
+                "WHERE (nat_traversal_discoveries.mapped_addresses, nat_traversal_discoveries.status, " +
+                "nat_traversal_discoveries.most_recent_segment_time) IS DISTINCT FROM " +
+                "(EXCLUDED.mapped_addresses, EXCLUDED.status, EXCLUDED.most_recent_segment_time)");
 
         for (StunDiscoveryReport discovery : deduped.values()) {
             try {
@@ -185,7 +189,17 @@ public class NATTable implements DataTable  {
                 "mapped_addresses = EXCLUDED.mapped_addresses, " +
                 "relayed_addresses = EXCLUDED.relayed_addresses, " +
                 "peer_addresses = EXCLUDED.peer_addresses, " +
-                "last_activity = EXCLUDED.last_activity, updated_at = NOW()");
+                "last_activity = EXCLUDED.last_activity, updated_at = NOW() " +
+                // Skip the write when the report carries nothing new.
+                "WHERE (nat_stun_negotiation_flows.ufrags, nat_stun_negotiation_flows.successful, " +
+                "nat_stun_negotiation_flows.is_turn, nat_stun_negotiation_flows.turn_usernames, " +
+                "nat_stun_negotiation_flows.mapped_addresses, nat_stun_negotiation_flows.relayed_addresses, " +
+                "nat_stun_negotiation_flows.peer_addresses, nat_stun_negotiation_flows.last_activity) " +
+                "IS DISTINCT FROM (EXCLUDED.ufrags, " +
+                "nat_stun_negotiation_flows.successful OR EXCLUDED.successful, " +
+                "nat_stun_negotiation_flows.is_turn OR EXCLUDED.is_turn, EXCLUDED.turn_usernames, " +
+                "EXCLUDED.mapped_addresses, EXCLUDED.relayed_addresses, EXCLUDED.peer_addresses, " +
+                "EXCLUDED.last_activity)");
 
         for (StunNegotiationFlowReport negotiation : deduped.values()) {
             try {

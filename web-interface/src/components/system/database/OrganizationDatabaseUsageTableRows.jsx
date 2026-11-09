@@ -1,7 +1,7 @@
 import {Link} from "react-router-dom";
 import React from "react";
 
-import numeral from "numeral";
+import {formatBytes, formatRows} from "./DatabaseUsageStatus";
 import TenantDatabaseUsageTableRows from "./TenantDatabaseUsageTableRows";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SystemService from "../../../services/SystemService";
@@ -41,10 +41,8 @@ export default function OrganizationDatabaseUsageTableRows(props) {
                 </Link>
               </span>
             </td>
-            <td className="text-muted" title="Data size not available for individual organizations and tenants.">
-              n/a
-            </td>
-            <td>{numeral(org.total_sizes[category].rows).format("0,0")}</td>
+            <td>{formatBytes(org.total_sizes[category])}</td>
+            <td>{formatRows(org.total_sizes[category])}</td>
             <td className="text-muted" title="Retention time is configured per tenant only.">
               n/a
             </td>

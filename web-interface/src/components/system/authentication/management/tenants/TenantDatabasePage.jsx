@@ -9,8 +9,11 @@ import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import AuthenticationManagementService from "../../../../../services/AuthenticationManagementService";
 import TenantDatabaseTable from "./TenantDatabaseTable";
 import usePageTitle from "../../../../../util/UsePageTitle";
+import SystemService from "../../../../../services/SystemService";
+import SubsystemDatabaseUsageTable from "../../../database/SubsystemDatabaseUsageTable";
 
 const authenticationManagementService = new AuthenticationManagementService();
+const systemService = new SystemService();
 
 export default function TenantDatabasePage() {
 
@@ -21,11 +24,18 @@ export default function TenantDatabasePage() {
 
   const [organization, setOrganization] = useState(null);
   const [tenant, setTenant] = useState(null);
+  const [sizes, setSizes] = useState(null);
+  const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {
     authenticationManagementService.findOrganization(organizationId, setOrganization);
     authenticationManagementService.findTenantOfOrganization(organizationId, tenantId, setTenant);
   }, [organizationId, tenantId])
+
+  useEffect(() => {
+    setSizes(null);
+    systemService.getDatabaseTenantSizes(setSizes, organizationId, tenantId);
+  }, [organizationId, tenantId, revision])
 
   if (!organization || !tenant) {
     return <LoadingSpinner />
@@ -80,12 +90,24 @@ export default function TenantDatabasePage() {
       </div>
 
       <div className="row mt-3">
-        <div className="col-md-12">
+        <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Database" slim={true}/>
+              <CardTitleWithControls title="Tenant Database Usage per Subsystem" slim={true} />
 
-              <TenantDatabaseTable tenant={tenant} />
+              <SubsystemDatabaseUsageTable sizes={sizes ? sizes.subsystem_sizes : null} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Tenant Database Usage" slim={true}/>
+
+              <TenantDatabaseTable tenant={tenant} sizes={sizes} onRefresh={() => setRevision(new Date())} />
             </div>
           </div>
         </div>

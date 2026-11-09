@@ -11784,4 +11784,663 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="create_database_maintenance_log" author="lennartkoopmann">
+        <createTable tableName="database_maintenance_log">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="node_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="action" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+            <column name="target" type="varchar(255)" />
+            <column name="initiator" type="varchar(32)">
+                <constraints nullable="false" />
+            </column>
+            <column name="details" type="text" />
+            <column name="success" type="boolean" />
+            <column name="started_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="finished_at" type="timestamptz" />
+            <column name="size_before_bytes" type="bigint" />
+            <column name="size_after_bytes" type="bigint" />
+        </createTable>
+        <createIndex tableName="database_maintenance_log" indexName="database_maintenance_log_started_at_idx">
+            <column name="started_at" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="tune_table_storage_parameters_20261108" author="lennartkoopmann">
+        <sql>
+            -- upsert tables
+            ALTER TABLE l4_sessions SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE tls_sessions SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE nat_traversal_discoveries SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE nat_stun_negotiation_flows SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE vpn_tunnels SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE ssh_sessions SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE socks_tunnels SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE rtsp_streams SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE dhcp_transactions SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE webrtc_conversations SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE tcp_probes SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE assets_attributes SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE assets_communication SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE assets_activity SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE beacon_checkins SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE tasks_queue SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            ALTER TABLE recon_probe_history SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+            -- append tables
+            ALTER TABLE database_maintenance_log SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE arp_packets SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE icmp_packets SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dns_log SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dns_pairs SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dns_statistics SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE l4_statistics SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE ntp_transactions SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE name_resolution_responses SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE portal_integrity_reports SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE portal_integrity_hops SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE portal_integrity_dhcp_leases SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE assets_statistics SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_ssids SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_bssids SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_channels SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_channel_histograms SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_bssid_clients SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_clients SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_client_probereq_ssids SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_disco_activity SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_disco_activity_receivers SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE dot11_timeline_events SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE bluetooth_devices SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE uavs SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE uavs_timelines SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE uavs_vectors SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE tap_metrics_gauges SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE tap_metrics_timers SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE node_metrics_gauges SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE node_metrics_timers SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE tap_captures_frequencies SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            ALTER TABLE events SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, autovacuum_vacuum_insert_scale_factor = 0.05, fillfactor = 100);
+            -- hot tables
+            ALTER TABLE assets SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE assets_hostnames SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE assets_ip_addresses SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE nodes SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE taps SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE tap_buses SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE tap_captures SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE bus_channels SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE health_indicators SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE registry SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE context_mac_addresses SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE context_mac_addresses_transparent SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE auth_users SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE dot11_known_networks SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE monitors SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE beacons SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE beacon_sources SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE beacon_exclusions SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE recon_scan_targets SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE recon_scans SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE detection_alerts SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE detection_alert_attributes SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE detection_alert_timeline SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE certificates SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+            ALTER TABLE spoofing_dhcp_detection_state SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_vacuum_threshold = 50, autovacuum_analyze_scale_factor = 0.10, fillfactor = 50);
+        </sql>
+        <rollback>
+            <sql>
+                ALTER TABLE l4_sessions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tls_sessions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE nat_traversal_discoveries RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE nat_stun_negotiation_flows RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE vpn_tunnels RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE ssh_sessions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE socks_tunnels RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE rtsp_streams RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dhcp_transactions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE webrtc_conversations RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tcp_probes RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_attributes RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_communication RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_activity RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE beacon_checkins RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tasks_queue RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE recon_probe_history RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE database_maintenance_log RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE arp_packets RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE icmp_packets RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dns_log RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dns_pairs RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dns_statistics RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE l4_statistics RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE ntp_transactions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE name_resolution_responses RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE portal_integrity_reports RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE portal_integrity_hops RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE portal_integrity_dhcp_leases RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_statistics RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_ssids RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_bssids RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_channels RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_channel_histograms RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_bssid_clients RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_clients RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_client_probereq_ssids RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_disco_activity RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_disco_activity_receivers RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_timeline_events RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE bluetooth_devices RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE uavs RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE uavs_timelines RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE uavs_vectors RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tap_metrics_gauges RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tap_metrics_timers RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE node_metrics_gauges RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE node_metrics_timers RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tap_captures_frequencies RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE events RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_hostnames RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE assets_ip_addresses RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE nodes RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE taps RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tap_buses RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE tap_captures RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE bus_channels RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE health_indicators RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE registry RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE context_mac_addresses RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE context_mac_addresses_transparent RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE auth_users RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE dot11_known_networks RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE monitors RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE beacons RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE beacon_sources RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE beacon_exclusions RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE recon_scan_targets RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE recon_scans RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE detection_alerts RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE detection_alert_attributes RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE detection_alert_timeline RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE certificates RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+                ALTER TABLE spoofing_dhcp_detection_state RESET (autovacuum_vacuum_scale_factor, autovacuum_vacuum_threshold, autovacuum_analyze_scale_factor, autovacuum_vacuum_cost_delay, autovacuum_vacuum_insert_scale_factor, fillfactor);
+            </sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="drop_unused_indexes_20261108" author="lennartkoopmann">
+        <dropPrimaryKey tableName="dot11_channel_histograms" />
+        <dropPrimaryKey tableName="dot11_channels" />
+        <dropPrimaryKey tableName="dns_log" />
+        <dropPrimaryKey tableName="dot11_timeline_events" />
+        <dropPrimaryKey tableName="arp_packets" />
+        <dropPrimaryKey tableName="tap_metrics_gauges" />
+        <dropPrimaryKey tableName="tap_metrics_timers" />
+        <dropIndex tableName="arp_packets" indexName="arp_ethsource_mac" />
+        <dropIndex tableName="tls_sessions" indexName="tls_sessions_client_leaf" />
+        <dropIndex tableName="tls_sessions" indexName="tls_sessions_untrusted" />
+        <rollback>
+            <addPrimaryKey tableName="dot11_channel_histograms" columnNames="id" />
+            <addPrimaryKey tableName="dot11_channels" columnNames="id" />
+            <addPrimaryKey tableName="dns_log" columnNames="id" />
+            <addPrimaryKey tableName="dot11_timeline_events" columnNames="id" />
+            <addPrimaryKey tableName="arp_packets" columnNames="id" />
+            <addPrimaryKey tableName="tap_metrics_gauges" columnNames="id" />
+            <addPrimaryKey tableName="tap_metrics_timers" columnNames="id" />
+            <createIndex tableName="arp_packets" indexName="arp_ethsource_mac">
+                <column name="ethernet_source_mac" />
+            </createIndex>
+            <createIndex tableName="tls_sessions" indexName="tls_sessions_client_leaf">
+                <column name="client_leaf_sha256" />
+            </createIndex>
+            <sql>CREATE INDEX tls_sessions_untrusted ON tls_sessions (chain_trusted) WHERE chain_trusted = false</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="rename_indexes_to_naming_schema_20261108" author="lennartkoopmann">
+        <sql>
+            ALTER INDEX arp_sender_address_timestamp RENAME TO arp_packets_arp_sender_address_timestamp_idx;
+            ALTER INDEX arp_tap RENAME TO arp_packets_tap_uuid_idx;
+            ALTER INDEX arp_timestamp RENAME TO arp_packets_timestamp_idx;
+            ALTER INDEX assets_mac_lookup RENAME TO assets_mac_idx;
+            ALTER INDEX assets_org_lookup RENAME TO assets_organization_id_idx;
+            ALTER INDEX assets_single_lookup RENAME TO assets_uuid_idx;
+            ALTER INDEX assets_tenant_lookup RENAME TO assets_tenant_id_idx;
+            ALTER INDEX assets_activity_bucket RENAME TO assets_activity_bucket_idx;
+            ALTER INDEX assets_activity_bucket_key RENAME TO assets_activity_org_tenant_id_mac_tap_uuid_bucket_key;
+            ALTER INDEX assets_attributes_dimension_value RENAME TO assets_attributes_organization_id_tenant_id_dimension_value_idx;
+            ALTER INDEX assets_attributes_key RENAME TO assets_attributes_org_tenant_id_mac_dimension_value_key;
+            ALTER INDEX assets_attributes_last_seen RENAME TO assets_attributes_last_seen_idx;
+            ALTER INDEX assets_communication_bucket RENAME TO assets_communication_bucket_idx;
+            ALTER INDEX assets_communication_key RENAME TO assets_communication_org_tenant_mac_direction_l4_type_key;
+            ALTER INDEX assets_identity_change_findings_mac RENAME TO assets_identity_change_findings_mac_idx;
+            ALTER INDEX assets_identity_change_findings_tenant RENAME TO assets_identity_change_findings_org_tenant_id_last_seen_idx;
+            ALTER INDEX assets_identity_change_findings_uuid RENAME TO assets_identity_change_findings_uuid_idx;
+            ALTER INDEX assets_identity_duplicate_findings_mac RENAME TO assets_identity_duplicate_findings_mac_idx;
+            ALTER INDEX assets_identity_duplicate_findings_tenant RENAME TO assets_identity_duplicate_findings_org_tenant_id_last_seen_idx;
+            ALTER INDEX assets_identity_duplicate_findings_uuid RENAME TO assets_identity_duplicate_findings_uuid_idx;
+            ALTER INDEX assets_identity_exclusions_tenant RENAME TO assets_identity_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX assets_identity_exclusions_uuid RENAME TO assets_identity_exclusions_uuid_idx;
+            ALTER TABLE assets_identity_successor_checks RENAME CONSTRAINT assets_identity_successor_checks_asset TO assets_identity_successor_checks_org_tenant_id_mac_key;
+            ALTER INDEX assets_identity_successor_checks_backlog RENAME TO assets_identity_successor_checks_next_check_at_idx;
+            ALTER INDEX assets_identity_successor_checks_due RENAME TO assets_identity_successor_checks_org_tenant_next_check_at_idx;
+            ALTER TABLE assets_links RENAME CONSTRAINT assets_links_pair TO assets_links_org_tenant_id_predecessor_mac_successor_mac_key;
+            ALTER INDEX assets_links_predecessor RENAME TO assets_links_organization_id_tenant_id_predecessor_mac_idx;
+            ALTER INDEX assets_links_successor RENAME TO assets_links_organization_id_tenant_id_successor_mac_idx;
+            ALTER INDEX assets_links_uuid RENAME TO assets_links_uuid_idx;
+            ALTER INDEX assets_statistics_lookup RENAME TO assets_statistics_timestamp_organization_id_tenant_id_idx;
+            ALTER INDEX apikeys_user_id RENAME TO auth_users_api_keys_user_id_idx;
+            ALTER INDEX beacon_checkins_beacon_timestamp RENAME TO beacon_checkins_beacon_id_timestamp_idx;
+            ALTER INDEX beacon_checkins_source_timestamp RENAME TO beacon_checkins_beacon_source_id_timestamp_key;
+            ALTER INDEX beacon_exclusions_tenant RENAME TO beacon_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX beacon_exclusions_uuid RENAME TO beacon_exclusions_uuid_key;
+            ALTER INDEX beacon_notes_beacon_id RENAME TO beacon_notes_beacon_id_idx;
+            ALTER INDEX beacon_notes_uuid RENAME TO beacon_notes_uuid_key;
+            ALTER INDEX beacon_sources_beacon RENAME TO beacon_sources_beacon_id_idx;
+            ALTER INDEX beacon_sources_identity RENAME TO beacon_sources_beacon_id_source_address_source_mac_key;
+            ALTER INDEX beacon_sources_uuid RENAME TO beacon_sources_uuid_key;
+            ALTER INDEX beacons_destination RENAME TO beacons_organization_id_tenant_id_type_destination_key_key;
+            ALTER INDEX beacons_tenant_name RENAME TO beacons_organization_id_tenant_id_name_key;
+            ALTER INDEX beacons_uuid RENAME TO beacons_uuid_key;
+            ALTER INDEX bluetooth_devices_filter_tap RENAME TO bluetooth_devices_tap_uuid_idx;
+            ALTER INDEX bluetooth_devices_lookup_timestamp RENAME TO bluetooth_devices_last_seen_idx;
+            ALTER TABLE briefing_visits RENAME CONSTRAINT briefing_visits_unique_user_type TO briefing_visits_user_id_briefing_type_key;
+            ALTER INDEX certificates_aki RENAME TO certificates_authority_key_identifier_idx;
+            ALTER INDEX certificates_issuer RENAME TO certificates_issuer_idx;
+            ALTER INDEX certificates_not_after RENAME TO certificates_not_after_idx;
+            ALTER INDEX certificates_not_before RENAME TO certificates_not_before_idx;
+            ALTER INDEX certificates_san_array RENAME TO certificates_subject_alternative_names_idx;
+            ALTER INDEX certificates_sha1 RENAME TO certificates_sha1_idx;
+            ALTER INDEX certificates_unparsed RENAME TO certificates_parsed_at_idx;
+            ALTER INDEX direct_uuid RENAME TO context_mac_addresses_uuid_idx;
+            ALTER INDEX organization RENAME TO context_mac_addresses_organization_id_idx;
+            ALTER INDEX tenant RENAME TO context_mac_addresses_tenant_id_idx;
+            ALTER INDEX context_mac_addresses_transparent_context_lookup RENAME TO context_mac_addresses_transparent_context_id_idx;
+            ALTER INDEX context_networks_directlookup RENAME TO context_networks_organization_id_tenant_id_uuid_idx;
+            ALTER INDEX context_networks_stdlookup RENAME TO context_networks_organization_id_tenant_id_network_idx;
+            ALTER INDEX compound_active_uuid_lookup RENAME TO detection_alerts_uuid_last_seen_idx;
+            ALTER INDEX detectionalerts_type RENAME TO detection_alerts_detection_type_idx;
+            ALTER INDEX dhcp_fingerprint_exclusions_tenant RENAME TO dhcp_fingerprint_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX dhcp_fingerprint_exclusions_uuid RENAME TO dhcp_fingerprint_exclusions_uuid_key;
+            ALTER INDEX dhcptx_first_packet RENAME TO dhcp_transactions_first_packet_idx;
+            ALTER INDEX dhcptx_tap RENAME TO dhcp_transactions_tap_uuid_idx;
+            ALTER INDEX dhcptx_tap_latest_packet RENAME TO dhcp_transactions_tap_uuid_latest_packet_idx;
+            ALTER INDEX dhcptx_ts RENAME TO dhcp_transactions_latest_packet_idx;
+            ALTER INDEX dhcptx_tx_id RENAME TO dhcp_transactions_transaction_id_idx;
+            ALTER INDEX dns_log_client_domain RENAME TO dns_log_client_address_data_value_etld_timestamp_idx;
+            ALTER INDEX dns_log_filter_tap RENAME TO dns_log_tap_uuid_idx;
+            ALTER INDEX dns_log_lookup_timestamp RENAME TO dns_log_timestamp_idx;
+            ALTER INDEX dns_log_lookup_transaction RENAME TO dns_log_transaction_id_idx;
+            ALTER INDEX dns_tunnel_exclusions_tenant RENAME TO dns_tunnel_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX dns_tunnel_exclusions_uuid RENAME TO dns_tunnel_exclusions_uuid_key;
+            ALTER INDEX dns_tunnel_findings_tenant RENAME TO dns_tunnel_findings_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX dns_tunnel_findings_uuid RENAME TO dns_tunnel_findings_uuid_key;
+            ALTER INDEX bssidclients_bssid_lookup RENAME TO dot11_bssid_clients_bssid_id_idx;
+            ALTER INDEX bssids_bssid_timestamp RENAME TO dot11_bssids_created_at_idx;
+            ALTER INDEX bssids_single_lookup RENAME TO dot11_bssids_bssid_created_at_idx;
+            ALTER INDEX bssids_table_lookup RENAME TO dot11_bssids_tap_uuid_created_at_idx;
+            ALTER INDEX channelhistos_rellookup RENAME TO dot11_channel_histograms_ssid_id_frequency_idx;
+            ALTER INDEX channel_ssid_id_lookup RENAME TO dot11_channels_ssid_id_idx;
+            ALTER INDEX probereq_client_id_lookup RENAME TO dot11_client_probereq_ssids_client_id_idx;
+            ALTER INDEX clients_directlookup RENAME TO dot11_clients_tap_uuid_client_mac_created_at_idx;
+            ALTER INDEX clients_stdlookup RENAME TO dot11_clients_tap_uuid_created_at_idx;
+            ALTER INDEX default_lookup RENAME TO dot11_disco_activity_tap_uuid_bssid_created_at_idx;
+            ALTER INDEX discotype RENAME TO dot11_disco_activity_disco_type_idx;
+            ALTER INDEX known_clients_mac RENAME TO dot11_known_clients_mac_idx;
+            ALTER INDEX ssids_bssid_direct_lookup RENAME TO dot11_ssids_tap_uuid_bssid_ssid_created_at_idx;
+            ALTER INDEX ssids_bssid_lookup RENAME TO dot11_ssids_bssid_id_idx;
+            ALTER INDEX ssids_by_bssid_lookup RENAME TO dot11_ssids_created_at_bssid_id_idx;
+            ALTER INDEX ssids_join_distinct RENAME TO dot11_ssids_bssid_id_ssid_idx;
+            ALTER INDEX d11tle_backcompare RENAME TO dot11_timeline_events_org_tenant_addr_type_addr_timestamp_idx;
+            ALTER INDEX idx_healthindicators_indicatorid RENAME TO health_indicators_indicator_id_key;
+            ALTER INDEX icmp_exclusions_tenant RENAME TO icmp_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX icmp_exclusions_uuid RENAME TO icmp_exclusions_uuid_key;
+            ALTER INDEX icmp_packets_quoted_destination RENAME TO icmp_packets_quoted_dst_addr_quoted_destination_port_idx;
+            ALTER INDEX icmp_packets_source_last_seen RENAME TO icmp_packets_source_address_last_seen_idx;
+            ALTER INDEX icmp_packets_tap_last_seen RENAME TO icmp_packets_tap_uuid_last_seen_idx;
+            ALTER INDEX icmp_packets_type_code_last_seen RENAME TO icmp_packets_icmp_type_icmp_code_last_seen_idx;
+            ALTER INDEX icmp_redirects_identity RENAME TO icmp_redirects_org_tenant_sender_addr_gateway_addr_key;
+            ALTER INDEX icmp_redirects_uuid RENAME TO icmp_redirects_uuid_key;
+            ALTER INDEX icmp_traceroutes_tenant_last_seen RENAME TO icmp_traceroutes_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX icmp_traceroutes_uuid RENAME TO icmp_traceroutes_uuid_key;
+            ALTER INDEX icmp_tunnels_identity RENAME TO icmp_tunnels_org_tenant_source_address_destination_address_key;
+            ALTER INDEX icmp_tunnels_uuid RENAME TO icmp_tunnels_uuid_key;
+            ALTER INDEX idx_l4_sessions_join RENAME TO l4_sessions_session_key_idx;
+            ALTER INDEX idx_l4_sessions_tap_mrst RENAME TO l4_sessions_tap_uuid_most_recent_segment_time_idx;
+            ALTER INDEX l4_sessions_destination_address_mrst RENAME TO l4_sessions_destination_address_most_recent_segment_time_idx;
+            ALTER INDEX l4_sessions_filter_type RENAME TO l4_sessions_l4_type_idx;
+            ALTER INDEX l4_sessions_identity_lookup RENAME TO l4_sessions_source_mac_fingerprint_start_time_idx;
+            ALTER INDEX l4_sessions_lookup_timestamp RENAME TO l4_sessions_most_recent_segment_time_idx;
+            ALTER INDEX l4_sessions_lookup_untimed_session_key RENAME TO l4_sessions_untimed_session_key_idx;
+            ALTER INDEX l4_sessions_pair_lookup RENAME TO l4_sessions_src_addr_dst_addr_destination_port_start_time_idx;
+            ALTER INDEX l4_sessions_source_address_mrst RENAME TO l4_sessions_source_address_most_recent_segment_time_idx;
+            ALTER INDEX l4_sessions_tap_start_time RENAME TO l4_sessions_tap_uuid_start_time_idx;
+            ALTER TABLE l4_sessions RENAME CONSTRAINT l4_sessions_unique_session_key TO l4_sessions_tap_uuid_l4_type_session_key_key;
+            ALTER INDEX l4_statistics_lookup RENAME TO l4_statistics_tap_uuid_timestamp_idx;
+            ALTER INDEX idx_msgbus_nack_lookup RENAME TO message_bus_messages_status_idx;
+            ALTER INDEX idx_msgbus_std_lookup RENAME TO message_bus_messages_receiver_node_id_status_cycle_limiter_idx;
+            ALTER INDEX nameres_responses_responder_last_seen RENAME TO name_resolution_responses_responder_mac_last_seen_idx;
+            ALTER INDEX nameres_responses_tap_last_seen RENAME TO name_resolution_responses_tap_uuid_last_seen_idx;
+            ALTER INDEX nat_stun_neg_negotiation_key RENAME TO nat_stun_negotiation_flows_negotiation_key_idx;
+            ALTER INDEX nat_stun_neg_tap_first_seen RENAME TO nat_stun_negotiation_flows_tap_uuid_first_seen_idx;
+            ALTER TABLE nat_stun_negotiation_flows RENAME CONSTRAINT uniq_nat_neg_tap_session_seen TO nat_stun_negotiation_flows_tap_uuid_l4_skey_first_seen_key;
+            ALTER TABLE nat_stun_negotiation_flows RENAME CONSTRAINT uniq_nat_stun_neg_tap_l4session TO nat_stun_negotiation_flows_tap_uuid_l4_session_key_key;
+            ALTER INDEX nat_disc_time_tap RENAME TO nat_traversal_discoveries_most_recent_segment_time_tap_uuid_idx;
+            ALTER TABLE nat_traversal_discoveries RENAME CONSTRAINT uniq_nat_disc_tap_session_seen TO nat_traversal_discoveries_tap_uuid_l4_skey_first_seen_key;
+            ALTER INDEX idx_nodemetrics_std_lookup RENAME TO node_metrics_gauges_metric_name_node_id_created_at_idx;
+            ALTER INDEX idx_nodemetricstimers_std_lookup RENAME TO node_metrics_timers_metric_name_node_id_created_at_idx;
+            ALTER INDEX idx_node_uuid RENAME TO nodes_uuid_key;
+            ALTER INDEX ntp_transactions_session_key RENAME TO ntp_transactions_transaction_key_idx;
+            ALTER INDEX ntp_transactions_tap_lookup RENAME TO ntp_transactions_tap_uuid_idx;
+            ALTER INDEX ntp_transactions_ts_lookup RENAME TO ntp_transactions_ts_client_transmit_ts_server_receive_idx;
+            ALTER INDEX portal_integrity_dhcp_leases_lookup RENAME TO portal_integrity_dhcp_leases_report_uuid_idx;
+            ALTER INDEX portal_integrity_hops_lookup RENAME TO portal_integrity_hops_report_uuid_idx;
+            ALTER INDEX portal_integrity_reports_portal_lookup RENAME TO portal_integrity_reports_tap_uuid_control_url_probed_at_idx;
+            ALTER INDEX portal_integrity_reports_retention RENAME TO portal_integrity_reports_tap_uuid_probed_at_idx;
+            ALTER INDEX recon_exclusions_tenant RENAME TO recon_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX recon_exclusions_uuid RENAME TO recon_exclusions_uuid_key;
+            ALTER INDEX recon_probe_history_identity RENAME TO recon_probe_history_org_tenant_src_addr_source_mac_l4_type_key;
+            ALTER INDEX recon_probe_history_target RENAME TO recon_probe_history_org_tenant_id_target_address_last_seen_idx;
+            ALTER INDEX recon_probe_history_tenant_last_seen RENAME TO recon_probe_history_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX recon_scan_targets_identity RENAME TO recon_scan_targets_scan_id_target_address_target_port_key;
+            ALTER INDEX recon_scan_targets_scan RENAME TO recon_scan_targets_scan_id_idx;
+            ALTER INDEX recon_scans_tenant_last_seen RENAME TO recon_scans_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX recon_scans_uuid RENAME TO recon_scans_uuid_key;
+            ALTER TABLE rtsp_streams RENAME CONSTRAINT rtsp_sessions_pkey TO rtsp_streams_pkey;
+            ALTER INDEX socks_tunnels_filter_tap RENAME TO socks_tunnels_tap_uuid_idx;
+            ALTER INDEX socks_tunnels_lookup_timestamp RENAME TO socks_tunnels_most_recent_segment_time_idx;
+            ALTER INDEX spoofing_arp_findings_tenant_last_seen RENAME TO spoofing_arp_findings_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX spoofing_arp_findings_uuid RENAME TO spoofing_arp_findings_uuid_key;
+            ALTER INDEX spoofing_arp_victims_identity RENAME TO spoofing_arp_victims_finding_id_mac_key;
+            ALTER TABLE spoofing_dhcp_detection_state RENAME CONSTRAINT spoofing_dhcp_detection_state_pk TO spoofing_dhcp_detection_state_pkey;
+            ALTER INDEX spoofing_dhcp_findings_tenant_last_seen RENAME TO spoofing_dhcp_findings_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX spoofing_dhcp_findings_uuid RENAME TO spoofing_dhcp_findings_uuid_key;
+            ALTER INDEX spoofing_dhcp_servers_identity RENAME TO spoofing_dhcp_servers_organization_id_tenant_id_mac_address_key;
+            ALTER INDEX spoofing_dhcp_servers_uuid RENAME TO spoofing_dhcp_servers_uuid_key;
+            ALTER INDEX spoofing_dhcp_victims_identity RENAME TO spoofing_dhcp_victims_finding_id_mac_key;
+            ALTER INDEX spoofing_dns_findings_tenant_last_seen RENAME TO spoofing_dns_findings_organization_id_tenant_id_last_seen_idx;
+            ALTER INDEX spoofing_dns_findings_uuid RENAME TO spoofing_dns_findings_uuid_key;
+            ALTER INDEX spoofing_dns_victims_identity RENAME TO spoofing_dns_victims_finding_id_mac_key;
+            ALTER INDEX spoofing_exclusions_tenant RENAME TO spoofing_exclusions_organization_id_tenant_id_idx;
+            ALTER INDEX spoofing_exclusions_uuid RENAME TO spoofing_exclusions_uuid_key;
+            ALTER INDEX spoofing_nameres_findings_tenant_last_seen RENAME TO spoofing_nameres_findings_org_tenant_id_last_seen_idx;
+            ALTER INDEX spoofing_nameres_findings_uuid RENAME TO spoofing_nameres_findings_uuid_key;
+            ALTER INDEX spoofing_nameres_victims_identity RENAME TO spoofing_nameres_victims_finding_id_mac_key;
+            ALTER INDEX ssh_sessions_filter_tap RENAME TO ssh_sessions_tap_uuid_idx;
+            ALTER INDEX ssh_sessions_lookup_timestamp RENAME TO ssh_sessions_most_recent_segment_time_idx;
+            ALTER INDEX std_lookup RENAME TO tap_engagement_logs_tap_uuid_idx;
+            ALTER INDEX ts_order RENAME TO tap_engagement_logs_timestamp_idx;
+            ALTER INDEX idx_tap_metrics_gauges_lookup RENAME TO tap_metrics_gauges_tap_uuid_created_at_metric_name_idx;
+            ALTER INDEX timers_stdlookup RENAME TO tap_metrics_timers_metric_name_tap_uuid_created_at_idx;
+            ALTER INDEX idx_taps_active_lookup RENAME TO taps_name_updated_at_idx;
+            ALTER INDEX idx_tskque_status_lookup RENAME TO tasks_queue_status_idx;
+            ALTER INDEX tcp_probes_source_target RENAME TO tcp_probes_source_address_destination_address_last_seen_idx;
+            ALTER INDEX tcp_probes_tap_last_seen RENAME TO tcp_probes_tap_uuid_last_seen_idx;
+            ALTER INDEX tls_sessions_client_chain RENAME TO tls_sessions_client_chain_sha256_idx;
+            ALTER INDEX tls_sessions_destination RENAME TO tls_sessions_destination_address_idx;
+            ALTER INDEX tls_sessions_ja4 RENAME TO tls_sessions_ja4_idx;
+            ALTER INDEX tls_sessions_recent RENAME TO tls_sessions_most_recent_segment_time_idx;
+            ALTER INDEX tls_sessions_server_chain RENAME TO tls_sessions_server_chain_sha256_idx;
+            ALTER INDEX tls_sessions_server_leaf RENAME TO tls_sessions_server_leaf_sha256_idx;
+            ALTER INDEX tls_sessions_server_name RENAME TO tls_sessions_server_name_idx;
+            ALTER INDEX tls_sessions_source RENAME TO tls_sessions_source_address_idx;
+            ALTER INDEX tls_sessions_tap_key RENAME TO tls_sessions_tap_uuid_tcp_session_key_key;
+            ALTER INDEX tls_sessions_tap_time RENAME TO tls_sessions_tap_uuid_established_at_idx;
+            ALTER INDEX uavs_detection_source RENAME TO uavs_detection_source_idx;
+            ALTER INDEX uavs_identifier RENAME TO uavs_identifier_idx;
+            ALTER INDEX uavs_last_seen RENAME TO uavs_last_seen_idx;
+            ALTER INDEX uavs_classifications_identifier RENAME TO uavs_classifications_uav_identifier_idx;
+            ALTER TABLE uavs_classifications RENAME CONSTRAINT uavs_classifications_uav_identifier_organization_id_tenant__key TO uavs_classifications_uav_identifier_org_tenant_id_key;
+            ALTER INDEX uavs_timelines_identifier_lookup RENAME TO uavs_timelines_uav_identifier_idx;
+            ALTER INDEX uavs_timelines_tenant_lookup RENAME TO uavs_timelines_organization_id_tenant_id_idx;
+            ALTER INDEX uavs_vectors_timestamp RENAME TO uavs_vectors_timestamp_idx;
+            ALTER INDEX vpn_tunnels_lookup_timestamp RENAME TO vpn_tunnels_most_recent_segment_time_idx;
+            ALTER INDEX vpn_tunnels_lookup_untimed_session_key RENAME TO vpn_tunnels_untimed_session_key_idx;
+            ALTER TABLE vpn_tunnels RENAME CONSTRAINT vpn_tunnels_unique_session_key TO vpn_tunnels_tap_uuid_session_key_key;
+            ALTER TABLE webrtc_conversations RENAME CONSTRAINT uniq_webrtc_tap_session_seen TO webrtc_conversations_tap_uuid_l4_session_key_first_seen_key;
+            ALTER INDEX webrtc_l4_session_key RENAME TO webrtc_conversations_l4_session_key_idx;
+            ALTER INDEX webrtc_negotiation_key RENAME TO webrtc_conversations_negotiation_key_idx;
+            ALTER INDEX webrtc_tap_last_activity RENAME TO webrtc_conversations_tap_uuid_last_activity_idx;
+        </sql>
+        <rollback>
+            <sql>
+                ALTER INDEX arp_packets_arp_sender_address_timestamp_idx RENAME TO arp_sender_address_timestamp;
+                ALTER INDEX arp_packets_tap_uuid_idx RENAME TO arp_tap;
+                ALTER INDEX arp_packets_timestamp_idx RENAME TO arp_timestamp;
+                ALTER INDEX assets_mac_idx RENAME TO assets_mac_lookup;
+                ALTER INDEX assets_organization_id_idx RENAME TO assets_org_lookup;
+                ALTER INDEX assets_uuid_idx RENAME TO assets_single_lookup;
+                ALTER INDEX assets_tenant_id_idx RENAME TO assets_tenant_lookup;
+                ALTER INDEX assets_activity_bucket_idx RENAME TO assets_activity_bucket;
+                ALTER INDEX assets_activity_org_tenant_id_mac_tap_uuid_bucket_key RENAME TO assets_activity_bucket_key;
+                ALTER INDEX assets_attributes_organization_id_tenant_id_dimension_value_idx RENAME TO assets_attributes_dimension_value;
+                ALTER INDEX assets_attributes_org_tenant_id_mac_dimension_value_key RENAME TO assets_attributes_key;
+                ALTER INDEX assets_attributes_last_seen_idx RENAME TO assets_attributes_last_seen;
+                ALTER INDEX assets_communication_bucket_idx RENAME TO assets_communication_bucket;
+                ALTER INDEX assets_communication_org_tenant_mac_direction_l4_type_key RENAME TO assets_communication_key;
+                ALTER INDEX assets_identity_change_findings_mac_idx RENAME TO assets_identity_change_findings_mac;
+                ALTER INDEX assets_identity_change_findings_org_tenant_id_last_seen_idx RENAME TO assets_identity_change_findings_tenant;
+                ALTER INDEX assets_identity_change_findings_uuid_idx RENAME TO assets_identity_change_findings_uuid;
+                ALTER INDEX assets_identity_duplicate_findings_mac_idx RENAME TO assets_identity_duplicate_findings_mac;
+                ALTER INDEX assets_identity_duplicate_findings_org_tenant_id_last_seen_idx RENAME TO assets_identity_duplicate_findings_tenant;
+                ALTER INDEX assets_identity_duplicate_findings_uuid_idx RENAME TO assets_identity_duplicate_findings_uuid;
+                ALTER INDEX assets_identity_exclusions_organization_id_tenant_id_idx RENAME TO assets_identity_exclusions_tenant;
+                ALTER INDEX assets_identity_exclusions_uuid_idx RENAME TO assets_identity_exclusions_uuid;
+                ALTER TABLE assets_identity_successor_checks RENAME CONSTRAINT assets_identity_successor_checks_org_tenant_id_mac_key TO assets_identity_successor_checks_asset;
+                ALTER INDEX assets_identity_successor_checks_next_check_at_idx RENAME TO assets_identity_successor_checks_backlog;
+                ALTER INDEX assets_identity_successor_checks_org_tenant_next_check_at_idx RENAME TO assets_identity_successor_checks_due;
+                ALTER TABLE assets_links RENAME CONSTRAINT assets_links_org_tenant_id_predecessor_mac_successor_mac_key TO assets_links_pair;
+                ALTER INDEX assets_links_organization_id_tenant_id_predecessor_mac_idx RENAME TO assets_links_predecessor;
+                ALTER INDEX assets_links_organization_id_tenant_id_successor_mac_idx RENAME TO assets_links_successor;
+                ALTER INDEX assets_links_uuid_idx RENAME TO assets_links_uuid;
+                ALTER INDEX assets_statistics_timestamp_organization_id_tenant_id_idx RENAME TO assets_statistics_lookup;
+                ALTER INDEX auth_users_api_keys_user_id_idx RENAME TO apikeys_user_id;
+                ALTER INDEX beacon_checkins_beacon_id_timestamp_idx RENAME TO beacon_checkins_beacon_timestamp;
+                ALTER INDEX beacon_checkins_beacon_source_id_timestamp_key RENAME TO beacon_checkins_source_timestamp;
+                ALTER INDEX beacon_exclusions_organization_id_tenant_id_idx RENAME TO beacon_exclusions_tenant;
+                ALTER INDEX beacon_exclusions_uuid_key RENAME TO beacon_exclusions_uuid;
+                ALTER INDEX beacon_notes_beacon_id_idx RENAME TO beacon_notes_beacon_id;
+                ALTER INDEX beacon_notes_uuid_key RENAME TO beacon_notes_uuid;
+                ALTER INDEX beacon_sources_beacon_id_idx RENAME TO beacon_sources_beacon;
+                ALTER INDEX beacon_sources_beacon_id_source_address_source_mac_key RENAME TO beacon_sources_identity;
+                ALTER INDEX beacon_sources_uuid_key RENAME TO beacon_sources_uuid;
+                ALTER INDEX beacons_organization_id_tenant_id_type_destination_key_key RENAME TO beacons_destination;
+                ALTER INDEX beacons_organization_id_tenant_id_name_key RENAME TO beacons_tenant_name;
+                ALTER INDEX beacons_uuid_key RENAME TO beacons_uuid;
+                ALTER INDEX bluetooth_devices_tap_uuid_idx RENAME TO bluetooth_devices_filter_tap;
+                ALTER INDEX bluetooth_devices_last_seen_idx RENAME TO bluetooth_devices_lookup_timestamp;
+                ALTER TABLE briefing_visits RENAME CONSTRAINT briefing_visits_user_id_briefing_type_key TO briefing_visits_unique_user_type;
+                ALTER INDEX certificates_authority_key_identifier_idx RENAME TO certificates_aki;
+                ALTER INDEX certificates_issuer_idx RENAME TO certificates_issuer;
+                ALTER INDEX certificates_not_after_idx RENAME TO certificates_not_after;
+                ALTER INDEX certificates_not_before_idx RENAME TO certificates_not_before;
+                ALTER INDEX certificates_subject_alternative_names_idx RENAME TO certificates_san_array;
+                ALTER INDEX certificates_sha1_idx RENAME TO certificates_sha1;
+                ALTER INDEX certificates_parsed_at_idx RENAME TO certificates_unparsed;
+                ALTER INDEX context_mac_addresses_uuid_idx RENAME TO direct_uuid;
+                ALTER INDEX context_mac_addresses_organization_id_idx RENAME TO organization;
+                ALTER INDEX context_mac_addresses_tenant_id_idx RENAME TO tenant;
+                ALTER INDEX context_mac_addresses_transparent_context_id_idx RENAME TO context_mac_addresses_transparent_context_lookup;
+                ALTER INDEX context_networks_organization_id_tenant_id_uuid_idx RENAME TO context_networks_directlookup;
+                ALTER INDEX context_networks_organization_id_tenant_id_network_idx RENAME TO context_networks_stdlookup;
+                ALTER INDEX detection_alerts_uuid_last_seen_idx RENAME TO compound_active_uuid_lookup;
+                ALTER INDEX detection_alerts_detection_type_idx RENAME TO detectionalerts_type;
+                ALTER INDEX dhcp_fingerprint_exclusions_organization_id_tenant_id_idx RENAME TO dhcp_fingerprint_exclusions_tenant;
+                ALTER INDEX dhcp_fingerprint_exclusions_uuid_key RENAME TO dhcp_fingerprint_exclusions_uuid;
+                ALTER INDEX dhcp_transactions_first_packet_idx RENAME TO dhcptx_first_packet;
+                ALTER INDEX dhcp_transactions_tap_uuid_idx RENAME TO dhcptx_tap;
+                ALTER INDEX dhcp_transactions_tap_uuid_latest_packet_idx RENAME TO dhcptx_tap_latest_packet;
+                ALTER INDEX dhcp_transactions_latest_packet_idx RENAME TO dhcptx_ts;
+                ALTER INDEX dhcp_transactions_transaction_id_idx RENAME TO dhcptx_tx_id;
+                ALTER INDEX dns_log_client_address_data_value_etld_timestamp_idx RENAME TO dns_log_client_domain;
+                ALTER INDEX dns_log_tap_uuid_idx RENAME TO dns_log_filter_tap;
+                ALTER INDEX dns_log_timestamp_idx RENAME TO dns_log_lookup_timestamp;
+                ALTER INDEX dns_log_transaction_id_idx RENAME TO dns_log_lookup_transaction;
+                ALTER INDEX dns_tunnel_exclusions_organization_id_tenant_id_idx RENAME TO dns_tunnel_exclusions_tenant;
+                ALTER INDEX dns_tunnel_exclusions_uuid_key RENAME TO dns_tunnel_exclusions_uuid;
+                ALTER INDEX dns_tunnel_findings_organization_id_tenant_id_last_seen_idx RENAME TO dns_tunnel_findings_tenant;
+                ALTER INDEX dns_tunnel_findings_uuid_key RENAME TO dns_tunnel_findings_uuid;
+                ALTER INDEX dot11_bssid_clients_bssid_id_idx RENAME TO bssidclients_bssid_lookup;
+                ALTER INDEX dot11_bssids_created_at_idx RENAME TO bssids_bssid_timestamp;
+                ALTER INDEX dot11_bssids_bssid_created_at_idx RENAME TO bssids_single_lookup;
+                ALTER INDEX dot11_bssids_tap_uuid_created_at_idx RENAME TO bssids_table_lookup;
+                ALTER INDEX dot11_channel_histograms_ssid_id_frequency_idx RENAME TO channelhistos_rellookup;
+                ALTER INDEX dot11_channels_ssid_id_idx RENAME TO channel_ssid_id_lookup;
+                ALTER INDEX dot11_client_probereq_ssids_client_id_idx RENAME TO probereq_client_id_lookup;
+                ALTER INDEX dot11_clients_tap_uuid_client_mac_created_at_idx RENAME TO clients_directlookup;
+                ALTER INDEX dot11_clients_tap_uuid_created_at_idx RENAME TO clients_stdlookup;
+                ALTER INDEX dot11_disco_activity_tap_uuid_bssid_created_at_idx RENAME TO default_lookup;
+                ALTER INDEX dot11_disco_activity_disco_type_idx RENAME TO discotype;
+                ALTER INDEX dot11_known_clients_mac_idx RENAME TO known_clients_mac;
+                ALTER INDEX dot11_ssids_tap_uuid_bssid_ssid_created_at_idx RENAME TO ssids_bssid_direct_lookup;
+                ALTER INDEX dot11_ssids_bssid_id_idx RENAME TO ssids_bssid_lookup;
+                ALTER INDEX dot11_ssids_created_at_bssid_id_idx RENAME TO ssids_by_bssid_lookup;
+                ALTER INDEX dot11_ssids_bssid_id_ssid_idx RENAME TO ssids_join_distinct;
+                ALTER INDEX dot11_timeline_events_org_tenant_addr_type_addr_timestamp_idx RENAME TO d11tle_backcompare;
+                ALTER INDEX health_indicators_indicator_id_key RENAME TO idx_healthindicators_indicatorid;
+                ALTER INDEX icmp_exclusions_organization_id_tenant_id_idx RENAME TO icmp_exclusions_tenant;
+                ALTER INDEX icmp_exclusions_uuid_key RENAME TO icmp_exclusions_uuid;
+                ALTER INDEX icmp_packets_quoted_dst_addr_quoted_destination_port_idx RENAME TO icmp_packets_quoted_destination;
+                ALTER INDEX icmp_packets_source_address_last_seen_idx RENAME TO icmp_packets_source_last_seen;
+                ALTER INDEX icmp_packets_tap_uuid_last_seen_idx RENAME TO icmp_packets_tap_last_seen;
+                ALTER INDEX icmp_packets_icmp_type_icmp_code_last_seen_idx RENAME TO icmp_packets_type_code_last_seen;
+                ALTER INDEX icmp_redirects_org_tenant_sender_addr_gateway_addr_key RENAME TO icmp_redirects_identity;
+                ALTER INDEX icmp_redirects_uuid_key RENAME TO icmp_redirects_uuid;
+                ALTER INDEX icmp_traceroutes_organization_id_tenant_id_last_seen_idx RENAME TO icmp_traceroutes_tenant_last_seen;
+                ALTER INDEX icmp_traceroutes_uuid_key RENAME TO icmp_traceroutes_uuid;
+                ALTER INDEX icmp_tunnels_org_tenant_source_address_destination_address_key RENAME TO icmp_tunnels_identity;
+                ALTER INDEX icmp_tunnels_uuid_key RENAME TO icmp_tunnels_uuid;
+                ALTER INDEX l4_sessions_session_key_idx RENAME TO idx_l4_sessions_join;
+                ALTER INDEX l4_sessions_tap_uuid_most_recent_segment_time_idx RENAME TO idx_l4_sessions_tap_mrst;
+                ALTER INDEX l4_sessions_destination_address_most_recent_segment_time_idx RENAME TO l4_sessions_destination_address_mrst;
+                ALTER INDEX l4_sessions_l4_type_idx RENAME TO l4_sessions_filter_type;
+                ALTER INDEX l4_sessions_source_mac_fingerprint_start_time_idx RENAME TO l4_sessions_identity_lookup;
+                ALTER INDEX l4_sessions_most_recent_segment_time_idx RENAME TO l4_sessions_lookup_timestamp;
+                ALTER INDEX l4_sessions_untimed_session_key_idx RENAME TO l4_sessions_lookup_untimed_session_key;
+                ALTER INDEX l4_sessions_src_addr_dst_addr_destination_port_start_time_idx RENAME TO l4_sessions_pair_lookup;
+                ALTER INDEX l4_sessions_source_address_most_recent_segment_time_idx RENAME TO l4_sessions_source_address_mrst;
+                ALTER INDEX l4_sessions_tap_uuid_start_time_idx RENAME TO l4_sessions_tap_start_time;
+                ALTER TABLE l4_sessions RENAME CONSTRAINT l4_sessions_tap_uuid_l4_type_session_key_key TO l4_sessions_unique_session_key;
+                ALTER INDEX l4_statistics_tap_uuid_timestamp_idx RENAME TO l4_statistics_lookup;
+                ALTER INDEX message_bus_messages_status_idx RENAME TO idx_msgbus_nack_lookup;
+                ALTER INDEX message_bus_messages_receiver_node_id_status_cycle_limiter_idx RENAME TO idx_msgbus_std_lookup;
+                ALTER INDEX name_resolution_responses_responder_mac_last_seen_idx RENAME TO nameres_responses_responder_last_seen;
+                ALTER INDEX name_resolution_responses_tap_uuid_last_seen_idx RENAME TO nameres_responses_tap_last_seen;
+                ALTER INDEX nat_stun_negotiation_flows_negotiation_key_idx RENAME TO nat_stun_neg_negotiation_key;
+                ALTER INDEX nat_stun_negotiation_flows_tap_uuid_first_seen_idx RENAME TO nat_stun_neg_tap_first_seen;
+                ALTER TABLE nat_stun_negotiation_flows RENAME CONSTRAINT nat_stun_negotiation_flows_tap_uuid_l4_skey_first_seen_key TO uniq_nat_neg_tap_session_seen;
+                ALTER TABLE nat_stun_negotiation_flows RENAME CONSTRAINT nat_stun_negotiation_flows_tap_uuid_l4_session_key_key TO uniq_nat_stun_neg_tap_l4session;
+                ALTER INDEX nat_traversal_discoveries_most_recent_segment_time_tap_uuid_idx RENAME TO nat_disc_time_tap;
+                ALTER TABLE nat_traversal_discoveries RENAME CONSTRAINT nat_traversal_discoveries_tap_uuid_l4_skey_first_seen_key TO uniq_nat_disc_tap_session_seen;
+                ALTER INDEX node_metrics_gauges_metric_name_node_id_created_at_idx RENAME TO idx_nodemetrics_std_lookup;
+                ALTER INDEX node_metrics_timers_metric_name_node_id_created_at_idx RENAME TO idx_nodemetricstimers_std_lookup;
+                ALTER INDEX nodes_uuid_key RENAME TO idx_node_uuid;
+                ALTER INDEX ntp_transactions_transaction_key_idx RENAME TO ntp_transactions_session_key;
+                ALTER INDEX ntp_transactions_tap_uuid_idx RENAME TO ntp_transactions_tap_lookup;
+                ALTER INDEX ntp_transactions_ts_client_transmit_ts_server_receive_idx RENAME TO ntp_transactions_ts_lookup;
+                ALTER INDEX portal_integrity_dhcp_leases_report_uuid_idx RENAME TO portal_integrity_dhcp_leases_lookup;
+                ALTER INDEX portal_integrity_hops_report_uuid_idx RENAME TO portal_integrity_hops_lookup;
+                ALTER INDEX portal_integrity_reports_tap_uuid_control_url_probed_at_idx RENAME TO portal_integrity_reports_portal_lookup;
+                ALTER INDEX portal_integrity_reports_tap_uuid_probed_at_idx RENAME TO portal_integrity_reports_retention;
+                ALTER INDEX recon_exclusions_organization_id_tenant_id_idx RENAME TO recon_exclusions_tenant;
+                ALTER INDEX recon_exclusions_uuid_key RENAME TO recon_exclusions_uuid;
+                ALTER INDEX recon_probe_history_org_tenant_src_addr_source_mac_l4_type_key RENAME TO recon_probe_history_identity;
+                ALTER INDEX recon_probe_history_org_tenant_id_target_address_last_seen_idx RENAME TO recon_probe_history_target;
+                ALTER INDEX recon_probe_history_organization_id_tenant_id_last_seen_idx RENAME TO recon_probe_history_tenant_last_seen;
+                ALTER INDEX recon_scan_targets_scan_id_target_address_target_port_key RENAME TO recon_scan_targets_identity;
+                ALTER INDEX recon_scan_targets_scan_id_idx RENAME TO recon_scan_targets_scan;
+                ALTER INDEX recon_scans_organization_id_tenant_id_last_seen_idx RENAME TO recon_scans_tenant_last_seen;
+                ALTER INDEX recon_scans_uuid_key RENAME TO recon_scans_uuid;
+                ALTER TABLE rtsp_streams RENAME CONSTRAINT rtsp_streams_pkey TO rtsp_sessions_pkey;
+                ALTER INDEX socks_tunnels_tap_uuid_idx RENAME TO socks_tunnels_filter_tap;
+                ALTER INDEX socks_tunnels_most_recent_segment_time_idx RENAME TO socks_tunnels_lookup_timestamp;
+                ALTER INDEX spoofing_arp_findings_organization_id_tenant_id_last_seen_idx RENAME TO spoofing_arp_findings_tenant_last_seen;
+                ALTER INDEX spoofing_arp_findings_uuid_key RENAME TO spoofing_arp_findings_uuid;
+                ALTER INDEX spoofing_arp_victims_finding_id_mac_key RENAME TO spoofing_arp_victims_identity;
+                ALTER TABLE spoofing_dhcp_detection_state RENAME CONSTRAINT spoofing_dhcp_detection_state_pkey TO spoofing_dhcp_detection_state_pk;
+                ALTER INDEX spoofing_dhcp_findings_organization_id_tenant_id_last_seen_idx RENAME TO spoofing_dhcp_findings_tenant_last_seen;
+                ALTER INDEX spoofing_dhcp_findings_uuid_key RENAME TO spoofing_dhcp_findings_uuid;
+                ALTER INDEX spoofing_dhcp_servers_organization_id_tenant_id_mac_address_key RENAME TO spoofing_dhcp_servers_identity;
+                ALTER INDEX spoofing_dhcp_servers_uuid_key RENAME TO spoofing_dhcp_servers_uuid;
+                ALTER INDEX spoofing_dhcp_victims_finding_id_mac_key RENAME TO spoofing_dhcp_victims_identity;
+                ALTER INDEX spoofing_dns_findings_organization_id_tenant_id_last_seen_idx RENAME TO spoofing_dns_findings_tenant_last_seen;
+                ALTER INDEX spoofing_dns_findings_uuid_key RENAME TO spoofing_dns_findings_uuid;
+                ALTER INDEX spoofing_dns_victims_finding_id_mac_key RENAME TO spoofing_dns_victims_identity;
+                ALTER INDEX spoofing_exclusions_organization_id_tenant_id_idx RENAME TO spoofing_exclusions_tenant;
+                ALTER INDEX spoofing_exclusions_uuid_key RENAME TO spoofing_exclusions_uuid;
+                ALTER INDEX spoofing_nameres_findings_org_tenant_id_last_seen_idx RENAME TO spoofing_nameres_findings_tenant_last_seen;
+                ALTER INDEX spoofing_nameres_findings_uuid_key RENAME TO spoofing_nameres_findings_uuid;
+                ALTER INDEX spoofing_nameres_victims_finding_id_mac_key RENAME TO spoofing_nameres_victims_identity;
+                ALTER INDEX ssh_sessions_tap_uuid_idx RENAME TO ssh_sessions_filter_tap;
+                ALTER INDEX ssh_sessions_most_recent_segment_time_idx RENAME TO ssh_sessions_lookup_timestamp;
+                ALTER INDEX tap_engagement_logs_tap_uuid_idx RENAME TO std_lookup;
+                ALTER INDEX tap_engagement_logs_timestamp_idx RENAME TO ts_order;
+                ALTER INDEX tap_metrics_gauges_tap_uuid_created_at_metric_name_idx RENAME TO idx_tap_metrics_gauges_lookup;
+                ALTER INDEX tap_metrics_timers_metric_name_tap_uuid_created_at_idx RENAME TO timers_stdlookup;
+                ALTER INDEX taps_name_updated_at_idx RENAME TO idx_taps_active_lookup;
+                ALTER INDEX tasks_queue_status_idx RENAME TO idx_tskque_status_lookup;
+                ALTER INDEX tcp_probes_source_address_destination_address_last_seen_idx RENAME TO tcp_probes_source_target;
+                ALTER INDEX tcp_probes_tap_uuid_last_seen_idx RENAME TO tcp_probes_tap_last_seen;
+                ALTER INDEX tls_sessions_client_chain_sha256_idx RENAME TO tls_sessions_client_chain;
+                ALTER INDEX tls_sessions_destination_address_idx RENAME TO tls_sessions_destination;
+                ALTER INDEX tls_sessions_ja4_idx RENAME TO tls_sessions_ja4;
+                ALTER INDEX tls_sessions_most_recent_segment_time_idx RENAME TO tls_sessions_recent;
+                ALTER INDEX tls_sessions_server_chain_sha256_idx RENAME TO tls_sessions_server_chain;
+                ALTER INDEX tls_sessions_server_leaf_sha256_idx RENAME TO tls_sessions_server_leaf;
+                ALTER INDEX tls_sessions_server_name_idx RENAME TO tls_sessions_server_name;
+                ALTER INDEX tls_sessions_source_address_idx RENAME TO tls_sessions_source;
+                ALTER INDEX tls_sessions_tap_uuid_tcp_session_key_key RENAME TO tls_sessions_tap_key;
+                ALTER INDEX tls_sessions_tap_uuid_established_at_idx RENAME TO tls_sessions_tap_time;
+                ALTER INDEX uavs_detection_source_idx RENAME TO uavs_detection_source;
+                ALTER INDEX uavs_identifier_idx RENAME TO uavs_identifier;
+                ALTER INDEX uavs_last_seen_idx RENAME TO uavs_last_seen;
+                ALTER INDEX uavs_classifications_uav_identifier_idx RENAME TO uavs_classifications_identifier;
+                ALTER TABLE uavs_classifications RENAME CONSTRAINT uavs_classifications_uav_identifier_org_tenant_id_key TO uavs_classifications_uav_identifier_organization_id_tenant__key;
+                ALTER INDEX uavs_timelines_uav_identifier_idx RENAME TO uavs_timelines_identifier_lookup;
+                ALTER INDEX uavs_timelines_organization_id_tenant_id_idx RENAME TO uavs_timelines_tenant_lookup;
+                ALTER INDEX uavs_vectors_timestamp_idx RENAME TO uavs_vectors_timestamp;
+                ALTER INDEX vpn_tunnels_most_recent_segment_time_idx RENAME TO vpn_tunnels_lookup_timestamp;
+                ALTER INDEX vpn_tunnels_untimed_session_key_idx RENAME TO vpn_tunnels_lookup_untimed_session_key;
+                ALTER TABLE vpn_tunnels RENAME CONSTRAINT vpn_tunnels_tap_uuid_session_key_key TO vpn_tunnels_unique_session_key;
+                ALTER TABLE webrtc_conversations RENAME CONSTRAINT webrtc_conversations_tap_uuid_l4_session_key_first_seen_key TO uniq_webrtc_tap_session_seen;
+                ALTER INDEX webrtc_conversations_l4_session_key_idx RENAME TO webrtc_l4_session_key;
+                ALTER INDEX webrtc_conversations_negotiation_key_idx RENAME TO webrtc_negotiation_key;
+                ALTER INDEX webrtc_conversations_tap_uuid_last_activity_idx RENAME TO webrtc_tap_last_activity;
+            </sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create_database_usage_snapshots" author="lennartkoopmann">
+        <createTable tableName="database_usage_snapshots">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="scope" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid" />
+            <column name="tenant_id" type="uuid" />
+            <column name="category" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bytes" type="bigint" />
+            <column name="rows" type="bigint" />
+            <column name="calculated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="database_usage_snapshots" indexName="database_usage_snapshots_scope_organization_id_tenant_id_idx">
+            <column name="scope" />
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

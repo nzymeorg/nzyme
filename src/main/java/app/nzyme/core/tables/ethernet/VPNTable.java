@@ -116,7 +116,42 @@ public class VPNTable implements DataTable {
                 "destination_address_geo_longitude = EXCLUDED.destination_address_geo_longitude, " +
                 "terminated_at = EXCLUDED.terminated_at, " +
                 "most_recent_segment_time = GREATEST(vpn_tunnels.most_recent_segment_time, EXCLUDED.most_recent_segment_time), " +
-                "updated_at = NOW()");
+                "updated_at = NOW() " +
+                // Skip the write when the report carries nothing new.
+                "WHERE (vpn_tunnels.handshake_status, vpn_tunnels.message_types, vpn_tunnels.provider, " +
+                "vpn_tunnels.server_name, vpn_tunnels.details, vpn_tunnels.connection_status, " +
+                "vpn_tunnels.tunneled_bytes, vpn_tunnels.source_mac, vpn_tunnels.source_address, " +
+                "vpn_tunnels.source_port, vpn_tunnels.source_address_is_site_local, " +
+                "vpn_tunnels.source_address_is_loopback, vpn_tunnels.source_address_is_multicast, " +
+                "vpn_tunnels.source_address_geo_asn_number, vpn_tunnels.source_address_geo_asn_name, " +
+                "vpn_tunnels.source_address_geo_asn_domain, vpn_tunnels.source_address_geo_city, " +
+                "vpn_tunnels.source_address_geo_country_code, vpn_tunnels.source_address_geo_latitude, " +
+                "vpn_tunnels.source_address_geo_longitude, vpn_tunnels.destination_mac, " +
+                "vpn_tunnels.destination_address, vpn_tunnels.destination_port, " +
+                "vpn_tunnels.destination_address_is_site_local, vpn_tunnels.destination_address_is_loopback, " +
+                "vpn_tunnels.destination_address_is_multicast, vpn_tunnels.destination_address_geo_asn_number, " +
+                "vpn_tunnels.destination_address_geo_asn_name, vpn_tunnels.destination_address_geo_asn_domain, " +
+                "vpn_tunnels.destination_address_geo_city, vpn_tunnels.destination_address_geo_country_code, " +
+                "vpn_tunnels.destination_address_geo_latitude, vpn_tunnels.destination_address_geo_longitude, " +
+                "vpn_tunnels.terminated_at, vpn_tunnels.most_recent_segment_time) IS DISTINCT FROM " +
+                "(EXCLUDED.handshake_status, EXCLUDED.message_types, COALESCE(EXCLUDED.provider, " +
+                "vpn_tunnels.provider), COALESCE(EXCLUDED.server_name, vpn_tunnels.server_name), " +
+                "EXCLUDED.details, EXCLUDED.connection_status, GREATEST(vpn_tunnels.tunneled_bytes, " +
+                "EXCLUDED.tunneled_bytes), COALESCE(EXCLUDED.source_mac, vpn_tunnels.source_mac), " +
+                "EXCLUDED.source_address, EXCLUDED.source_port, EXCLUDED.source_address_is_site_local, " +
+                "EXCLUDED.source_address_is_loopback, EXCLUDED.source_address_is_multicast, " +
+                "EXCLUDED.source_address_geo_asn_number, EXCLUDED.source_address_geo_asn_name, " +
+                "EXCLUDED.source_address_geo_asn_domain, EXCLUDED.source_address_geo_city, " +
+                "EXCLUDED.source_address_geo_country_code, EXCLUDED.source_address_geo_latitude, " +
+                "EXCLUDED.source_address_geo_longitude, COALESCE(EXCLUDED.destination_mac, " +
+                "vpn_tunnels.destination_mac), EXCLUDED.destination_address, EXCLUDED.destination_port, " +
+                "EXCLUDED.destination_address_is_site_local, EXCLUDED.destination_address_is_loopback, " +
+                "EXCLUDED.destination_address_is_multicast, EXCLUDED.destination_address_geo_asn_number, " +
+                "EXCLUDED.destination_address_geo_asn_name, EXCLUDED.destination_address_geo_asn_domain, " +
+                "EXCLUDED.destination_address_geo_city, EXCLUDED.destination_address_geo_country_code, " +
+                "EXCLUDED.destination_address_geo_latitude, EXCLUDED.destination_address_geo_longitude, " +
+                "EXCLUDED.terminated_at, GREATEST(vpn_tunnels.most_recent_segment_time, " +
+                "EXCLUDED.most_recent_segment_time))");
 
         int count = 0;
         for (VpnTunnelReport tunnel : tunnels) {

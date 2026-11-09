@@ -9,8 +9,11 @@ import AuthenticationManagementService from "../../../../../services/Authenticat
 import OrganizationDatabaseTable from "./OrganizationDatabaseTable";
 import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import usePageTitle from "../../../../../util/UsePageTitle";
+import SystemService from "../../../../../services/SystemService";
+import SubsystemDatabaseUsageTable from "../../../database/SubsystemDatabaseUsageTable";
 
 const authenticationManagementService = new AuthenticationManagementService();
+const systemService = new SystemService();
 
 export default function OrganizationDatabasePage() {
 
@@ -19,10 +22,17 @@ export default function OrganizationDatabasePage() {
   const { organizationId } = useParams();
 
   const [organization, setOrganization] = useState(null);
+  const [sizes, setSizes] = useState(null);
+  const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {
     authenticationManagementService.findOrganization(organizationId, setOrganization);
   }, [organizationId])
+
+  useEffect(() => {
+    setSizes(null);
+    systemService.getDatabaseOrganizationSizes(setSizes, organizationId);
+  }, [organizationId, revision])
 
   if (!organization) {
     return <LoadingSpinner />
@@ -49,9 +59,21 @@ export default function OrganizationDatabasePage() {
         <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
+              <CardTitleWithControls title="Organization Database Usage per Subsystem" slim={true} />
+
+              <SubsystemDatabaseUsageTable sizes={sizes ? sizes.subsystem_sizes : null} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
               <CardTitleWithControls title="Organization Database Usage" slim={true} />
 
-              <OrganizationDatabaseTable organization={organization} />
+              <OrganizationDatabaseTable organization={organization} sizes={sizes} onRefresh={() => setRevision(new Date())} />
             </div>
           </div>
         </div>

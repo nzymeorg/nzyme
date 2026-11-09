@@ -16,7 +16,9 @@ const HEALTH_NAMES = {
   tasks_queue_task_failure: "Task failure", message_bus_message_failure: "Message failure",
   message_bus_message_stuck: "Message stuck", tap_file_permissions: "Tap file permissions",
   node_file_permissions: "Node file permissions", connect: "Connect",
-  asset_identity_backlog: "Asset identity backlog"
+  asset_identity_backlog: "Asset identity backlog", db_configuration: "DB configuration",
+  db_vacuum: "DB vacuum", db_bloat: "DB bloat", db_performance: "DB performance",
+  db_transactions: "DB transactions"
 }
 
 export default function MonitoringSection({monitoring}) {

@@ -244,6 +244,9 @@
     "description" : "The TLS certificates of the Nzyme web interface and API, and the PGP keys that Nzyme uses to encrypt sensitive data in the database.",
     "name" : "Crypto"
   }, {
+    "description" : "Health of the PostgreSQL server behind Nzyme: server settings compared with recommendations, table and index statistics, the automatic maintenance Nzyme runs on its own tables, and its log. All endpoints require super administrator permissions.",
+    "name" : "Database Maintenance"
+  }, {
     "description" : "Shows how much data Nzyme stores per data category, and lets you purge data or change its retention time.",
     "externalDocs" : {
       "description" : "Retention times in the Nzyme documentation",
@@ -31897,6 +31900,268 @@
         "tags" : [ "Database" ]
       }
     },
+    "/api/system/database/maintenance/actions/indexes/{index}/reindex" : {
+      "post" : {
+        "description" : "Queues a REINDEX INDEX CONCURRENTLY. The rebuild does not block reads or writes and needs free disk space for a second copy of the index while it runs.",
+        "operationId" : "reindexDatabaseIndex",
+        "parameters" : [ {
+          "description" : "Index name.",
+          "in" : "path",
+          "name" : "index",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Reindex queued."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown index."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The same action is already queued or running."
+          }
+        },
+        "summary" : "Rebuild one index now",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/actions/tables/{table}/reindex" : {
+      "post" : {
+        "description" : "Queues a REINDEX TABLE CONCURRENTLY. The rebuild does not block reads or writes but can take minutes on large tables and needs free disk space for a second copy of the indexes while it runs.",
+        "operationId" : "reindexDatabaseTable",
+        "parameters" : [ {
+          "description" : "Table name.",
+          "in" : "path",
+          "name" : "table",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Reindex queued."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown table."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The same action is already queued or running."
+          }
+        },
+        "summary" : "Rebuild all indexes of a table now",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/actions/tables/{table}/vacuum" : {
+      "post" : {
+        "description" : "Queues a VACUUM (ANALYZE) of the table in the cluster tasks queue. Any node picks it up, maintenance actions run one at a time, and it appears in the maintenance log and on the tasks page. Vacuum does not block reads or writes.",
+        "operationId" : "vacuumDatabaseTable",
+        "parameters" : [ {
+          "description" : "Table name.",
+          "in" : "path",
+          "name" : "table",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Vacuum queued."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown table."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The same action is already queued or running."
+          }
+        },
+        "summary" : "Vacuum a table now",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/configuration" : {
+      "get" : {
+        "description" : "General settings of the automatic database maintenance and the storage parameters of each table class. Settings marked as requiring a restart only take effect after all nodes were restarted.",
+        "operationId" : "findDatabaseMaintenanceConfiguration",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatabaseMaintenanceConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          }
+        },
+        "summary" : "Get database maintenance settings",
+        "tags" : [ "Database Maintenance" ]
+      },
+      "put" : {
+        "description" : "Each submitted value is validated against the constraints of its key before it is stored. Changed table storage parameters are applied to the tables right away. Session settings take effect after a node restart.",
+        "operationId" : "updateDatabaseMaintenanceConfiguration",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Configuration keys and their new values.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "No changes were submitted, a value failed validation, or an unknown configuration key was submitted."
+          }
+        },
+        "summary" : "Update database maintenance settings",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/health" : {
+      "get" : {
+        "description" : "Returns the latest statistics snapshot of the PostgreSQL server: version and size, cache and checkpoint behavior over the last minutes, every relevant server setting with its recommended value, all tables with their dead row share and last vacuum, all indexes of at least 1 MB with an estimate of their bloat, and the maintenance action that is running or queued. Statistics are collected once a minute.",
+        "operationId" : "findDatabaseHealth",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatabaseHealthResponse"
+                }
+              }
+            },
+            "description" : "Statistics found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "No statistics collected yet. Retry in a minute."
+          }
+        },
+        "summary" : "Get database health statistics",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/histogram/{metric}" : {
+      "get" : {
+        "description" : "Database metrics are reported by every node as node gauges. This endpoint averages them across all nodes into one minute buckets, ordered oldest first. Only metric names starting with database_ are accepted.",
+        "operationId" : "findDatabaseMetricHistogram",
+        "parameters" : [ {
+          "description" : "Database metric name, for example database_cache_hit_ratio.",
+          "in" : "path",
+          "name" : "metric",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NodeMetricsGaugeHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown metric name or no values recorded yet."
+          }
+        },
+        "summary" : "Get a 24 hour histogram of a database metric",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
+    "/api/system/database/maintenance/log" : {
+      "get" : {
+        "description" : "Every vacuum, reindex and storage parameter change Nzyme ran, newest first, with the node that ran it, whether it was automatic or requested by a user, and the result.",
+        "operationId" : "findDatabaseMaintenanceLog",
+        "parameters" : [ {
+          "description" : "Maximum number of entries to return, at most 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        }, {
+          "description" : "Number of entries to skip.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatabaseMaintenanceLogListResponse"
+                }
+              }
+            },
+            "description" : "Log entries found."
+          }
+        },
+        "summary" : "Get the database maintenance log",
+        "tags" : [ "Database Maintenance" ]
+      }
+    },
     "/api/system/database/purge/category/{category}" : {
       "post" : {
         "description" : "Submits a task that deletes all data of a category across every organization and tenant. The task runs in the background, so a successful response only means the request was queued. This cannot be undone. Requires super administrator permissions.",
@@ -32031,7 +32296,7 @@
     },
     "/api/system/database/sizes/global" : {
       "get" : {
-        "description" : "Returns the total size on disk and the row count of every data category, broken down by organization and tenant. Only the global entries carry a size on disk; the organization and tenant entries carry row counts and retention times. Requires super administrator permissions.",
+        "description" : "Returns the size on disk and the row count of every data category and of every subsystem, broken down by organization and tenant, from the last usage snapshot. Global sizes are measured. Organization and tenant sizes are apportioned by row share and flagged as estimates. Requires super administrator permissions.",
         "operationId" : "findGlobalDatabaseSizes",
         "responses" : {
           "200" : {
@@ -32051,7 +32316,7 @@
     },
     "/api/system/database/sizes/organization/{organization_id}" : {
       "get" : {
-        "description" : "Returns the row count of every data category of an organization, broken down by tenant. Sizes on disk are not reported at this level. Requires organization administrator permissions.",
+        "description" : "Returns the row count and apportioned size on disk of every data category and subsystem of an organization, broken down by tenant, from the last usage snapshot. Requires organization administrator permissions.",
         "operationId" : "findOrganizationDatabaseSizes",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -32093,7 +32358,7 @@
     },
     "/api/system/database/sizes/organization/{organization_id}/tenants/{tenant_id}" : {
       "get" : {
-        "description" : "Returns the row count and the configured retention time of every data category of a tenant. Sizes on disk are not reported at this level. Requires organization administrator permissions.",
+        "description" : "Returns the row count, apportioned size on disk and configured retention time of every data category of a tenant, plus sums per subsystem, from the last usage snapshot. Requires organization administrator permissions.",
         "operationId" : "findTenantDatabaseSizes",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -32139,6 +32404,34 @@
           }
         },
         "summary" : "Get database sizes of a tenant",
+        "tags" : [ "Database" ]
+      }
+    },
+    "/api/system/database/usage/recalculate" : {
+      "post" : {
+        "description" : "Queues a fresh count of all data categories for every organization and tenant. The count runs in the background as a database maintenance task and takes a few seconds on large databases. It also runs once an hour and after every purge. Manual requests are accepted at most once every 5 minutes across the cluster. Requires organization administrator permissions.",
+        "operationId" : "recalculateDatabaseUsage",
+        "responses" : {
+          "202" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Calculation queued."
+          },
+          "409" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "A calculation is already queued or running."
+          },
+          "429" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The last calculation finished less than 5 minutes ago."
+          }
+        },
+        "summary" : "Recalculate the database usage snapshot",
         "tags" : [ "Database" ]
       }
     },
@@ -39252,6 +39545,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "bytes_estimated" : {
+            "type" : "boolean"
+          },
           "retention_days" : {
             "type" : "integer",
             "format" : "int32"
@@ -39259,6 +39555,9 @@
           "rows" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "rows_estimated" : {
+            "type" : "boolean"
           }
         }
       },
@@ -39269,7 +39568,434 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "bytes_estimated" : {
+            "type" : "boolean"
+          },
           "rows" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rows_estimated" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DatabaseHealthResponse" : {
+        "type" : "object",
+        "properties" : {
+          "auto_reindex_enabled" : {
+            "type" : "boolean"
+          },
+          "auto_vacuum_enabled" : {
+            "type" : "boolean"
+          },
+          "collected_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "in_maintenance_window" : {
+            "type" : "boolean"
+          },
+          "indexes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseIndexResponse"
+            }
+          },
+          "maintenance_window_hours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maintenance_window_start_hour" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "node_name" : {
+            "type" : "string"
+          },
+          "queued_actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseMaintenanceActionResponse"
+            }
+          },
+          "reindex_bloat_threshold_percent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reindex_minimum_index_mb" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "running_action" : {
+            "$ref" : "#/components/schemas/DatabaseMaintenanceActionResponse"
+          },
+          "server" : {
+            "$ref" : "#/components/schemas/DatabaseServerResponse"
+          },
+          "settings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseServerSettingResponse"
+            }
+          },
+          "table_tuning_enabled" : {
+            "type" : "boolean"
+          },
+          "tables" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseTableResponse"
+            }
+          }
+        }
+      },
+      "DatabaseIndexResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bloat_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bloat_percent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primary" : {
+            "type" : "boolean"
+          },
+          "scans" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "table" : {
+            "type" : "string"
+          },
+          "unique" : {
+            "type" : "boolean"
+          },
+          "valid" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DatabaseMaintenanceActionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "initiator" : {
+            "type" : "string"
+          },
+          "queued_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "started_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "target" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseMaintenanceConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "classes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseTableClassConfigurationResponse"
+            }
+          },
+          "entries" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          }
+        }
+      },
+      "DatabaseMaintenanceLogEntryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "string"
+          },
+          "finished_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "initiator" : {
+            "type" : "string"
+          },
+          "node_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "node_name" : {
+            "type" : "string"
+          },
+          "started_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "success" : {
+            "type" : "boolean"
+          },
+          "target" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseMaintenanceLogListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "entries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseMaintenanceLogEntryResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DatabaseServerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "cache_hit_ratio_recent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "cache_hit_ratio_total" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "checkpoints_recent" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "checkpoints_requested_ratio_recent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "connections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "database_size_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deadlocks_per_minute" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "heap_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hot_update_ratio_recent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "index_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "io_read_wait_ms_per_minute" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "io_timing_enabled" : {
+            "type" : "boolean"
+          },
+          "io_write_wait_ms_per_minute" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "max_connections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "oldest_transaction_seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "server_started_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "statistics_since" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "temp_bytes_per_minute" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "temp_files_per_minute" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "version_number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "warming_up" : {
+            "type" : "boolean"
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "xid_age" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DatabaseServerSettingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "config_lines" : {
+            "type" : "string"
+          },
+          "current_value" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "ok" : {
+            "type" : "boolean"
+          },
+          "pending_restart" : {
+            "type" : "boolean"
+          },
+          "recommended_value" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseTableClassConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "entries" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "tables" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseTableResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dead_ratio_percent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "dead_tuples" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deletes_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "heap_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hot_updates_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "index_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "inserts_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_analyze" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_vacuum" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "live_tuples" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "table_class" : {
+            "type" : "string"
+          },
+          "table_class_title" : {
+            "type" : "string"
+          },
+          "total_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "updates_total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "vacuum_count" : {
             "type" : "integer",
             "format" : "int64"
           }
@@ -40822,6 +41548,19 @@
       "GlobalDatabaseCategoriesResponse" : {
         "type" : "object",
         "properties" : {
+          "calculated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "calculating" : {
+            "type" : "boolean"
+          },
+          "calculation_error" : {
+            "type" : "string"
+          },
+          "estimated" : {
+            "type" : "boolean"
+          },
           "global_sizes" : {
             "type" : "object",
             "additionalProperties" : {
@@ -40832,6 +41571,12 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/OrganizationDataCategoriesResponse"
+            }
+          },
+          "subsystem_sizes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DataCategorySizesResponse"
             }
           }
         }
@@ -43531,12 +44276,28 @@
       "OrganizationDataCategoriesResponse" : {
         "type" : "object",
         "properties" : {
+          "calculated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "calculating" : {
+            "type" : "boolean"
+          },
+          "calculation_error" : {
+            "type" : "string"
+          },
           "organization_id" : {
             "type" : "string",
             "format" : "uuid"
           },
           "organization_name" : {
             "type" : "string"
+          },
+          "subsystem_sizes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DataCategorySizesResponse"
+            }
           },
           "tenants" : {
             "type" : "array",
@@ -46731,7 +47492,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "TEST", "PROVIDE_PGP_KEYS", "PURGE_DATA_CATEGORY_GLOBAL", "PURGE_DATA_CATEGORY_ORGANIZATION", "PURGE_DATA_CATEGORY_TENANT", "MONITOR_EXECUTION", "TIMELINES_CALCULATION_DOT11_BSSID", "TIMELINES_CALCULATION_DOT11_SSID", "TIMELINES_CALCULATION_DOT11_CLIENT_CONNECTED", "TIMELINES_CALCULATION_DOT11_CLIENT_DISCONNECTED" ]
+            "enum" : [ "TEST", "PROVIDE_PGP_KEYS", "PURGE_DATA_CATEGORY_GLOBAL", "PURGE_DATA_CATEGORY_ORGANIZATION", "PURGE_DATA_CATEGORY_TENANT", "MONITOR_EXECUTION", "TIMELINES_CALCULATION_DOT11_BSSID", "TIMELINES_CALCULATION_DOT11_SSID", "TIMELINES_CALCULATION_DOT11_CLIENT_CONNECTED", "TIMELINES_CALCULATION_DOT11_CLIENT_DISCONNECTED", "DATABASE_MAINTENANCE" ]
           }
         }
       },
@@ -46753,6 +47514,16 @@
       "TenantDataCategoriesResponse" : {
         "type" : "object",
         "properties" : {
+          "calculated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "calculating" : {
+            "type" : "boolean"
+          },
+          "calculation_error" : {
+            "type" : "string"
+          },
           "categories" : {
             "type" : "object",
             "additionalProperties" : {
@@ -46765,6 +47536,12 @@
           },
           "organization_name" : {
             "type" : "string"
+          },
+          "subsystem_sizes" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DataCategorySizesResponse"
+            }
           },
           "tenant_id" : {
             "type" : "string",

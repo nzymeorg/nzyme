@@ -60,6 +60,11 @@ public class HealthMonitor {
                 .add(new MessageBusMessageStuckIndicator(nzyme.getMessageBus()))
                 .add(new ConnectIndicator(nzyme))
                 .add(new AssetIdentityBacklogIndicator(nzyme.getAssetsManager().identity()))
+                .add(new DatabaseConfigurationIndicator(nzyme.getDatabaseMaintenance()))
+                .add(new DatabaseVacuumIndicator(nzyme.getDatabaseMaintenance()))
+                .add(new DatabaseBloatIndicator(nzyme.getDatabaseMaintenance()))
+                .add(new DatabasePerformanceIndicator(nzyme.getDatabaseMaintenance()))
+                .add(new DatabaseTransactionsIndicator(nzyme.getDatabaseMaintenance()))
                 .build();
 
         // Pull all indicators status and active/inactive state.
@@ -77,6 +82,10 @@ public class HealthMonitor {
 
                 DateTime now = DateTime.now();
                 IndicatorStatus status = check.run();
+
+                if (status == Indicator.NO_RESULT) {
+                    continue;
+                }
 
                 // Write to database.
                 nzyme.getDatabase().useHandle(handle ->

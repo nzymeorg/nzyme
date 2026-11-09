@@ -328,6 +328,11 @@ public class SystemCollector {
             case "node_file_permissions" -> "A node has files with unsafe permissions.";
             case "connect" -> "Connect is enabled but the cluster cannot reach it. Data from Connect is not updated.";
             case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
+            case "db_configuration" -> "PostgreSQL server settings are below the Nzyme requirements.";
+            case "db_vacuum" -> "A large table has too many dead rows. Vacuum is not keeping up.";
+            case "db_bloat" -> "A large index consists mostly of empty space.";
+            case "db_performance" -> "The PostgreSQL server shows signs of insufficient memory, WAL size or disk speed.";
+            case "db_transactions" -> "A long open transaction or a high transaction ID age blocks vacuum.";
             default -> "See the health page for details.";
         };
     }
@@ -380,6 +385,11 @@ public class SystemCollector {
             case "node_file_permissions" -> "Node File Permissions";
             case "connect" -> "Connect";
             case "asset_identity_backlog" -> "Asset Identity Backlog";
+            case "db_configuration" -> "DB Configuration";
+            case "db_vacuum" -> "DB Vacuum";
+            case "db_bloat" -> "DB Bloat";
+            case "db_performance" -> "DB Performance";
+            case "db_transactions" -> "DB Transactions";
             default -> id;
         };
     }

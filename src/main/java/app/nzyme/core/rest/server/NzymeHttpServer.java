@@ -163,6 +163,7 @@ public class NzymeHttpServer {
         resourceConfig.register(EventActionsResource.class);
         resourceConfig.register(Dot11NetworksResource.class);
         resourceConfig.register(DatabaseResource.class);
+        resourceConfig.register(DatabaseMaintenanceResource.class);
         resourceConfig.register(Dot11ClientsResource.class);
         resourceConfig.register(Dot11MonitoredNetworksResource.class);
         resourceConfig.register(AlertsResource.class);

@@ -2,12 +2,13 @@ package app.nzyme.core.rest.resources.system;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.DataCategory;
-import app.nzyme.core.database.DataTableInformation;
-import app.nzyme.core.database.DatabaseImpl;
 import app.nzyme.core.database.DatabaseTools;
 import app.nzyme.core.database.tasks.GlobalPurgeCategoryTask;
 import app.nzyme.core.database.tasks.OrganizationPurgeCategoryTask;
 import app.nzyme.core.database.tasks.TenantPurgeCategoryTask;
+import app.nzyme.core.database.maintenance.DatabaseMaintenance;
+import app.nzyme.core.database.maintenance.db.MaintenanceLogEntry;
+import app.nzyme.core.database.usage.DatabaseUsage;
 import app.nzyme.core.dot11.Dot11RegistryKeys;
 import app.nzyme.core.ethernet.EthernetRegistryKeys;
 import app.nzyme.core.rest.UserAuthenticatedResource;
@@ -21,7 +22,7 @@ import app.nzyme.core.timelines.TimelinesRegistryKeys;
 import app.nzyme.core.uav.UavRegistryKeys;
 import app.nzyme.core.assets.AssetRegistryKeys;
 import app.nzyme.core.assets.identity.AssetIdentityRegistryKeys;
-import app.nzyme.core.util.Tools;
+import app.nzyme.plugin.Subsystem;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 
@@ -69,72 +70,39 @@ public class DatabaseResource extends UserAuthenticatedResource {
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/sizes/global")
     @Operation(operationId = "findGlobalDatabaseSizes", summary = "Get database sizes of the whole cluster",
-            description = "Returns the total size on disk and the row count of every data category, broken down by "
-                    + "organization and tenant. Only the global entries carry a size on disk; the organization and "
-                    + "tenant entries carry row counts and retention times. Requires super administrator "
-                    + "permissions.")
+            description = "Returns the size on disk and the row count of every data category and of every "
+                    + "subsystem, broken down by organization and tenant, from the last usage snapshot. Global sizes "
+                    + "are measured. Organization and tenant sizes are apportioned by row share and flagged as "
+                    + "estimates. Requires super administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Database sizes found.",
             content = @Content(schema = @Schema(implementation = GlobalDatabaseCategoriesResponse.class)))
     public Response globalDatabaseSizes() {
-        // Global/Total database size.
+        DatabaseUsage.Snapshot snapshot = nzyme.getDatabaseMaintenance().usage().getSnapshot();
+        boolean calculating = nzyme.getDatabaseMaintenance().isUsageCalculationPending();
+
         Map<String, DataCategorySizesResponse> globalSizes = Maps.newHashMap();
         for (DataCategory category : DataCategory.values()) {
-            globalSizes.put(category.name(), DataCategorySizesResponse.create(
-                    calculateDataCategorySize(category),
-                    countDataCategoryRows(category, null, null))
-            );
+            globalSizes.put(category.name(), sizes(snapshot, DatabaseUsage.Scope.GLOBAL, null, null, category));
         }
 
-        // Organizations.
         List<OrganizationDataCategoriesResponse> organizations = Lists.newArrayList();
         for (OrganizationEntry org : nzyme.getAuthenticationService().findAllOrganizations()) {
-            Map<String, DataCategorySizesResponse> orgSizes = Maps.newHashMap();
-            for (DataCategory category : DataCategory.values()) {
-                orgSizes.put(category.name(), DataCategorySizesResponse.create(
-                        null, countDataCategoryRows(category, org.uuid(), null)
-                ));
-            }
-
-            // Tenants.
-            List<TenantDataCategoriesResponse> tenants = Lists.newArrayList();
-            for (TenantEntry tenant : nzyme.getAuthenticationService().findAllTenantsOfOrganization(org.uuid())) {
-                Map<String, DataCategorySizesAndConfigurationResponse> tenantSizes = Maps.newHashMap();
-
-                for (DataCategory category : DataCategory.values()) {
-                    tenantSizes.put(category.name(), DataCategorySizesAndConfigurationResponse.create(
-                            null,
-                            countDataCategoryRows(category, org.uuid(), tenant.uuid()),
-                            DatabaseTools.getDataCategoryRetentionTimeDays(nzyme, category, org.uuid(), tenant.uuid())
-                    ));
-                }
-
-                tenants.add(TenantDataCategoriesResponse.create(
-                        tenant.uuid(),
-                        tenant.name(),
-                        org.uuid(),
-                        org.name(),
-                        tenantSizes
-                ));
-            }
-
-            organizations.add(OrganizationDataCategoriesResponse.create(
-                    org.uuid(),
-                    org.name(),
-                    orgSizes,
-                    tenants
-            ));
+            organizations.add(organizationResponse(snapshot, org, calculating));
         }
 
-        return Response.ok(GlobalDatabaseCategoriesResponse.create(globalSizes, organizations)).build();
+        return Response.ok(GlobalDatabaseCategoriesResponse.create(
+                globalSizes, bySubsystem(globalSizes), organizations, snapshot.estimated() ? null : snapshot.calculatedAt(),
+                snapshot.estimated(), calculating, calculationError()
+        )).build();
     }
 
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/sizes/organization/{organization_id}")
     @Operation(operationId = "findOrganizationDatabaseSizes", summary = "Get database sizes of an organization",
-            description = "Returns the row count of every data category of an organization, broken down by tenant. "
-                    + "Sizes on disk are not reported at this level. Requires organization administrator "
-                    + "permissions.")
+            description = "Returns the row count and apportioned size on disk of every data category and subsystem "
+                    + "of an organization, broken down by tenant, from the last usage snapshot. Requires organization "
+                    + "administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Database sizes found.",
             content = @Content(schema = @Schema(implementation = OrganizationDataCategoriesResponse.class)))
     @ApiResponse(responseCode = "403", description = "The calling user cannot administer this organization.",
@@ -155,47 +123,19 @@ public class DatabaseResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Map<String, DataCategorySizesResponse> orgSizes = Maps.newHashMap();
-        for (DataCategory category : DataCategory.values()) {
-            orgSizes.put(category.name(), DataCategorySizesResponse.create(
-                    null, countDataCategoryRows(category, org.get().uuid(), null)
-            ));
-        }
+        DatabaseUsage.Snapshot snapshot = nzyme.getDatabaseMaintenance().usage().getSnapshot();
+        boolean calculating = nzyme.getDatabaseMaintenance().isUsageCalculationPending();
 
-        // Tenants.
-        List<TenantDataCategoriesResponse> tenants = Lists.newArrayList();
-        for (TenantEntry tenant : nzyme.getAuthenticationService().findAllTenantsOfOrganization(org.get().uuid())) {
-            Map<String, DataCategorySizesAndConfigurationResponse> tenantSizes = Maps.newHashMap();
-
-            for (DataCategory category : DataCategory.values()) {
-                tenantSizes.put(category.name(), DataCategorySizesAndConfigurationResponse.create(
-                        null,
-                        countDataCategoryRows(category, org.get().uuid(), tenant.uuid()),
-                        DatabaseTools.getDataCategoryRetentionTimeDays(nzyme, category, org.get().uuid(), tenant.uuid())
-                ));
-            }
-
-            tenants.add(TenantDataCategoriesResponse.create(
-                    tenant.uuid(),
-                    tenant.name(),
-                    org.get().uuid(),
-                    org.get().name(),
-                    tenantSizes
-            ));
-        }
-
-        return Response.ok(
-                OrganizationDataCategoriesResponse.create(org.get().uuid(), org.get().name(), orgSizes, tenants)
-        ).build();
+        return Response.ok(organizationResponse(snapshot, org.get(), calculating)).build();
     }
 
     @GET
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/sizes/organization/{organization_id}/tenants/{tenant_id}")
     @Operation(operationId = "findTenantDatabaseSizes", summary = "Get database sizes of a tenant",
-            description = "Returns the row count and the configured retention time of every data category of a "
-                    + "tenant. Sizes on disk are not reported at this level. Requires organization administrator "
-                    + "permissions.")
+            description = "Returns the row count, apportioned size on disk and configured retention time of every "
+                    + "data category of a tenant, plus sums per subsystem, from the last usage snapshot. Requires "
+                    + "organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Database sizes found.",
             content = @Content(schema = @Schema(implementation = TenantDataCategoriesResponse.class)))
     @ApiResponse(responseCode = "403", description = "Organization or tenant not accessible by the calling user.",
@@ -215,18 +155,31 @@ public class DatabaseResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Map<String, DataCategorySizesAndConfigurationResponse> tenantSizes = Maps.newHashMap();
-        for (DataCategory category : DataCategory.values()) {
-            tenantSizes.put(category.name(), DataCategorySizesAndConfigurationResponse.create(
-                    null,
-                    countDataCategoryRows(category, org.get().uuid(), tenant.get().uuid()),
-                    DatabaseTools.getDataCategoryRetentionTimeDays(nzyme, category, org.get().uuid(), tenant.get().uuid())
-            ));
-        }
+        DatabaseUsage.Snapshot snapshot = nzyme.getDatabaseMaintenance().usage().getSnapshot();
+        boolean calculating = nzyme.getDatabaseMaintenance().isUsageCalculationPending();
 
-        return Response.ok(TenantDataCategoriesResponse.create(
-                tenant.get().uuid(), tenant.get().name(), org.get().uuid(), org.get().name(), tenantSizes
-        )).build();
+        return Response.ok(tenantResponse(snapshot, org.get(), tenant.get(), calculating)).build();
+    }
+
+    @POST
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/usage/recalculate")
+    @Operation(operationId = "recalculateDatabaseUsage", summary = "Recalculate the database usage snapshot",
+            description = "Queues a fresh count of all data categories for every organization and tenant. The "
+                    + "count runs in the background as a database maintenance task and takes a few seconds on "
+                    + "large databases. It also runs once an hour and after every purge. Manual requests are "
+                    + "accepted at most once every " + DatabaseMaintenance.MANUAL_USAGE_COOLDOWN_MINUTES + " minutes "
+                    + "across the cluster. Requires organization administrator permissions.")
+    @ApiResponse(responseCode = "202", description = "Calculation queued.", content = @Content)
+    @ApiResponse(responseCode = "409", description = "A calculation is already queued or running.", content = @Content)
+    @ApiResponse(responseCode = "429", description = "The last calculation finished less than "
+            + DatabaseMaintenance.MANUAL_USAGE_COOLDOWN_MINUTES + " minutes ago.", content = @Content)
+    public Response recalculateUsage() {
+        return switch (nzyme.getDatabaseMaintenance().requestUsageCalculation(true)) {
+            case QUEUED -> Response.status(Response.Status.ACCEPTED).build();
+            case TOO_SOON -> Response.status(429).build();
+            default -> Response.status(Response.Status.CONFLICT).build();
+        };
     }
 
     @POST
@@ -378,50 +331,104 @@ public class DatabaseResource extends UserAuthenticatedResource {
         return Response.status(Response.Status.ACCEPTED).build();
     }
 
-    private long countDataCategoryRows(DataCategory category,
-                                       @Nullable UUID organizationId,
-                                       @Nullable UUID tenantId) {
-        List<DataTableInformation> tables = ((DatabaseImpl) nzyme.getDatabase()).getTablesOfDataCategory(category);
-
-        List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, tenantId);
-
-        long rows = 0;
-        for (DataTableInformation table : tables) {
-            if (table.isTenantScoped()) {
-                rows += nzyme.getDatabase().withHandle(handle ->
-                        DataTableInformation.bindTenantScope(handle.createQuery(table.getRowCountQuery()),
-                                        organizationId, tenantId)
-                                .mapTo(Long.class)
-                                .one()
-                );
-                continue;
-            }
-
-            if (tapUuids.isEmpty()) {
-                continue;
-            }
-
-            rows += nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery(table.getRowCountQuery())
-                            .bindList("taps", tapUuids)
-                            .mapTo(Long.class)
-                            .one()
-            );
+    private OrganizationDataCategoriesResponse organizationResponse(DatabaseUsage.Snapshot snapshot,
+                                                                    OrganizationEntry org,
+                                                                    boolean calculating) {
+        Map<String, DataCategorySizesResponse> orgSizes = Maps.newHashMap();
+        for (DataCategory category : DataCategory.values()) {
+            orgSizes.put(category.name(), sizes(snapshot, DatabaseUsage.Scope.ORGANIZATION, org.uuid(), null, category));
         }
 
-        return rows;
+        List<TenantDataCategoriesResponse> tenants = Lists.newArrayList();
+        for (TenantEntry tenant : nzyme.getAuthenticationService().findAllTenantsOfOrganization(org.uuid())) {
+            tenants.add(tenantResponse(snapshot, org, tenant, calculating));
+        }
+
+        return OrganizationDataCategoriesResponse.create(
+                org.uuid(), org.name(), orgSizes, bySubsystem(orgSizes), tenants,
+                snapshot.estimated() ? null : snapshot.calculatedAt(), calculating, calculationError()
+        );
     }
 
-    public long calculateDataCategorySize(DataCategory category) {
-        List<DataTableInformation> tables = ((DatabaseImpl) nzyme.getDatabase()).getTablesOfDataCategory(category);
-
-        long size = 0;
-        DatabaseImpl database = (DatabaseImpl) nzyme.getDatabase();
-        for (DataTableInformation table : tables) {
-            size += database.getTableSize(table.getTableName());
+    private TenantDataCategoriesResponse tenantResponse(DatabaseUsage.Snapshot snapshot,
+                                                        OrganizationEntry org,
+                                                        TenantEntry tenant,
+                                                        boolean calculating) {
+        Map<String, DataCategorySizesAndConfigurationResponse> tenantSizes = Maps.newHashMap();
+        Map<String, DataCategorySizesResponse> plainSizes = Maps.newHashMap();
+        for (DataCategory category : DataCategory.values()) {
+            DataCategorySizesResponse sizes = sizes(snapshot, DatabaseUsage.Scope.TENANT, org.uuid(), tenant.uuid(), category);
+            plainSizes.put(category.name(), sizes);
+            tenantSizes.put(category.name(), DataCategorySizesAndConfigurationResponse.create(
+                    sizes.bytes(),
+                    sizes.rows(),
+                    sizes.rowsEstimated(),
+                    sizes.bytesEstimated(),
+                    DatabaseTools.getDataCategoryRetentionTimeDays(nzyme, category, org.uuid(), tenant.uuid())
+            ));
         }
 
-        return size;
+        return TenantDataCategoriesResponse.create(
+                tenant.uuid(), tenant.name(), org.uuid(), org.name(), tenantSizes, bySubsystem(plainSizes),
+                snapshot.estimated() ? null : snapshot.calculatedAt(), calculating, calculationError()
+        );
+    }
+
+    // A sum is null as soon as one category has no figure yet, so a partial sum never looks like a complete one.
+    // The failure message of the most recent usage calculation, if that one failed. Null otherwise.
+    @Nullable
+    private String calculationError() {
+        return nzyme.getDatabaseMaintenance().findLastLogEntry(DatabaseMaintenance.ActionType.USAGE_STATISTICS)
+                .filter(e -> e.success() != null && !e.success())
+                .map(MaintenanceLogEntry::details)
+                .orElse(null);
+    }
+
+    private Map<String, DataCategorySizesResponse> bySubsystem(Map<String, DataCategorySizesResponse> categories) {
+        Map<String, DataCategorySizesResponse> result = Maps.newHashMap();
+
+        for (Subsystem subsystem : Subsystem.values()) {
+            Long bytes = 0L;
+            Long rows = 0L;
+            boolean rowsEstimated = false;
+            boolean bytesEstimated = false;
+            boolean any = false;
+
+            for (DataCategory category : DataCategory.values()) {
+                if (category.getSubsystem() != subsystem) {
+                    continue;
+                }
+
+                any = true;
+                DataCategorySizesResponse c = categories.get(category.name());
+
+                bytes = (bytes == null || c.bytes() == null) ? null : bytes + c.bytes();
+                rows = (rows == null || c.rows() == null) ? null : rows + c.rows();
+                rowsEstimated |= c.rowsEstimated();
+                bytesEstimated |= c.bytesEstimated();
+            }
+
+            if (any) {
+                result.put(subsystem.name(), DataCategorySizesResponse.create(bytes, rows, rowsEstimated, bytesEstimated));
+            }
+        }
+
+        return result;
+    }
+
+    private DataCategorySizesResponse sizes(DatabaseUsage.Snapshot snapshot,
+                                            DatabaseUsage.Scope scope,
+                                            @Nullable UUID organizationId,
+                                            @Nullable UUID tenantId,
+                                            DataCategory category) {
+        Optional<DatabaseUsage.Entry> entry = snapshot.find(scope, organizationId, tenantId, category);
+
+        return DataCategorySizesResponse.create(
+                entry.map(DatabaseUsage.Entry::bytes).orElse(null),
+                entry.map(DatabaseUsage.Entry::rows).orElse(null),
+                entry.map(DatabaseUsage.Entry::rowsEstimated).orElse(false),
+                entry.map(DatabaseUsage.Entry::bytesEstimated).orElse(false)
+        );
     }
 
 }

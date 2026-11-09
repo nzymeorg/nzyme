@@ -23,6 +23,7 @@ import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.events.EventEngine;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitoring.health.HealthMonitor;
+import app.nzyme.core.database.maintenance.DatabaseMaintenance;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.ouis.OuiService;
 import app.nzyme.core.quota.QuotaService;
@@ -221,6 +222,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         @Override public DetectionAlertService getDetectionAlertService() { return detectionAlertService; }
         @Override public Subsystems getSubsystems() { return subsystems; }
         @Override public HealthMonitor getHealthMonitor() { return healthMonitor; }
+        @Override public DatabaseMaintenance getDatabaseMaintenance() { return null; }
         @Override public Registry getDatabaseCoreRegistry() { return new RegistryImpl(this, "core"); }
         @Override public NodeConfiguration getConfiguration() { return configuration; }
         @Override public Optional<RetroService> retroService() { return Optional.empty(); }

@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.pgp.PGPKeys;
 import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.core.distributed.database.NodeEntry;
+import app.nzyme.core.database.maintenance.DatabaseStatistics;
 import app.nzyme.core.distributed.database.metrics.GaugeHistogramBucket;
 import app.nzyme.core.logging.CountingAppender;
 import app.nzyme.core.monitoring.GaugeEntryAverage;
@@ -349,6 +350,12 @@ public class NodeManager {
             writeGauge(MetricExternalName.DATABASE_POOL_TOTAL_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_TOTAL_CONNECTIONS));
             writeGauge(MetricExternalName.DATABASE_POOL_MAX_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_MAX_CONNECTIONS));
             writeGauge(MetricExternalName.DATABASE_POOL_CONNECTION_TIMEOUTS.database_label, getLocalMetricsMeterCount(metrics, MetricNames.DATABASE_POOL_CONNECTION_TIMEOUT_RATE));
+
+            writeDatabaseGauges();
+            writeTimer(MetricExternalName.DATABASE_STATISTICS_COLLECTION_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DATABASE_STATISTICS_COLLECTION_TIMER));
+            writeTimer(MetricExternalName.DATABASE_USAGE_CALCULATION_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DATABASE_USAGE_CALCULATION_TIMER));
             writeTimer(MetricExternalName.DATABASE_POOL_WAIT_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.DATABASE_POOL_WAIT_TIMER));
             writeMillisecondHistogramAsTimer(MetricExternalName.DATABASE_POOL_USAGE_TIMER.database_label,
@@ -482,6 +489,71 @@ public class NodeManager {
                 TimeUnit.MICROSECONDS.convert((long) s.getStdDev(), TimeUnit.MILLISECONDS),
                 histogram.getCount()
         );
+    }
+
+    private void writeDatabaseGauges() {
+        Optional<DatabaseStatistics> stats = nzyme.getDatabaseMaintenance() == null
+                ? Optional.empty() : nzyme.getDatabaseMaintenance().getStatistics();
+
+        if (stats.isEmpty()) {
+            return;
+        }
+
+        DatabaseStatistics.ServerStatistics s = stats.get().server();
+        writeGauge(MetricExternalName.DATABASE_SIZE_BYTES.database_label, s.databaseSizeBytes());
+        writeGauge(MetricExternalName.DATABASE_HEAP_BYTES.database_label, s.heapBytes());
+        writeGauge(MetricExternalName.DATABASE_INDEX_BYTES.database_label, s.indexBytes());
+        writeGauge(MetricExternalName.DATABASE_CONNECTIONS.database_label, s.connections());
+        writeGauge(MetricExternalName.DATABASE_CACHE_HIT_RATIO.database_label,
+                s.cacheHitRatioRecent() < 0 ? 100 : s.cacheHitRatioRecent());
+        writeGauge(MetricExternalName.DATABASE_TEMP_BYTES_PER_MINUTE.database_label, s.tempBytesPerMinute());
+        writeGauge(MetricExternalName.DATABASE_CHECKPOINTS_REQUESTED_RATIO.database_label,
+                s.checkpointsRequestedRatioRecent() < 0 ? 0 : s.checkpointsRequestedRatioRecent());
+        writeGauge(MetricExternalName.DATABASE_DEADLOCKS_PER_MINUTE.database_label, s.deadlocksPerMinute());
+        writeGauge(MetricExternalName.DATABASE_HOT_UPDATE_RATIO.database_label,
+                s.hotUpdateRatioRecent() < 0 ? 100 : s.hotUpdateRatioRecent());
+        writeGauge(MetricExternalName.DATABASE_XID_AGE.database_label, s.xidAge());
+        writeGauge(MetricExternalName.DATABASE_OLDEST_TRANSACTION_SECONDS.database_label, s.oldestTransactionSeconds());
+        if (s.ioTimingEnabled()) {
+            writeGauge(MetricExternalName.DATABASE_IO_READ_WAIT_MS_PER_MINUTE.database_label, s.ioReadWaitMsPerMinute());
+            writeGauge(MetricExternalName.DATABASE_IO_WRITE_WAIT_MS_PER_MINUTE.database_label, s.ioWriteWaitMsPerMinute());
+        }
+
+        long deadTuples = 0;
+        double deadRatioMax = 0;
+        long vacuumLagMinutesMax = 0;
+        DateTime now = DateTime.now();
+        for (DatabaseStatistics.TableStatistics t : stats.get().tables()) {
+            deadTuples += t.deadTuples();
+
+            // Ratios and vacuum lag are meaningless on tiny tables.
+            if (t.totalBytes() < 10L * 1024L * 1024L) {
+                continue;
+            }
+
+            deadRatioMax = Math.max(deadRatioMax, t.deadRatioPercent());
+            if (t.deadTuples() > 1000) {
+                long lag = t.lastVacuum() == null ? 24 * 60 : (now.getMillis() - t.lastVacuum().getMillis()) / 60_000;
+                vacuumLagMinutesMax = Math.max(vacuumLagMinutesMax, lag);
+            }
+        }
+        writeGauge(MetricExternalName.DATABASE_DEAD_TUPLES.database_label, deadTuples);
+        writeGauge(MetricExternalName.DATABASE_DEAD_TUPLE_RATIO_MAX.database_label, deadRatioMax);
+        writeGauge(MetricExternalName.DATABASE_VACUUM_LAG_MINUTES_MAX.database_label, vacuumLagMinutesMax);
+
+        double bloatMax = 0;
+        long bloatBytes = 0;
+        for (DatabaseStatistics.IndexStatistics i : stats.get().indexes()) {
+            if (i.bloatPercent() == null) {
+                continue;
+            }
+            bloatBytes += i.bloatBytes();
+            if (i.bytes() >= 10L * 1024L * 1024L) {
+                bloatMax = Math.max(bloatMax, i.bloatPercent());
+            }
+        }
+        writeGauge(MetricExternalName.DATABASE_INDEX_BLOAT_RATIO_MAX.database_label, bloatMax);
+        writeGauge(MetricExternalName.DATABASE_INDEX_BLOAT_BYTES.database_label, bloatBytes);
     }
 
     private void writeGauge(String metricName, double metricValue) {

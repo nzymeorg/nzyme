@@ -11,13 +11,22 @@ public abstract class DataCategorySizesResponse {
     @JsonProperty("bytes")
     public abstract Long bytes();
 
+    @Nullable
     @JsonProperty("rows")
     public abstract Long rows();
 
-    public static DataCategorySizesResponse create(Long bytes, Long rows) {
+    @JsonProperty("rows_estimated")
+    public abstract boolean rowsEstimated();
+
+    @JsonProperty("bytes_estimated")
+    public abstract boolean bytesEstimated();
+
+    public static DataCategorySizesResponse create(Long bytes, Long rows, boolean rowsEstimated, boolean bytesEstimated) {
         return builder()
                 .bytes(bytes)
                 .rows(rows)
+                .rowsEstimated(rowsEstimated)
+                .bytesEstimated(bytesEstimated)
                 .build();
     }
 
@@ -28,9 +37,11 @@ public abstract class DataCategorySizesResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder bytes(Long bytes);
-
         public abstract Builder rows(Long rows);
+        public abstract Builder rowsEstimated(boolean rowsEstimated);
+        public abstract Builder bytesEstimated(boolean bytesEstimated);
 
         public abstract DataCategorySizesResponse build();
     }
+
 }

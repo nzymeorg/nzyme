@@ -45,6 +45,9 @@ import app.nzyme.core.events.EventEngineImpl;
 import app.nzyme.core.integrations.ScheduledIntegrationsManager;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitoring.health.HealthMonitor;
+import app.nzyme.core.database.maintenance.DatabaseMaintenance;
+import app.nzyme.core.database.maintenance.DatabaseMaintenanceThread;
+import app.nzyme.core.database.maintenance.DatabaseMaintenanceTaskHandler;
 import app.nzyme.core.monitors.MonitorExecutionTaskHandler;
 import app.nzyme.core.ethernet.beacons.BeaconsThread;
 import app.nzyme.core.ethernet.recon.ReconThread;
@@ -159,6 +162,7 @@ public class NzymeNodeImpl implements NzymeNode {
 
     private final ConnectService connect;
     private final HealthMonitor healthMonitor;
+    private final DatabaseMaintenance databaseMaintenance;
 
     private final ScheduledIntegrationsManager scheduledIntegrationsManager;
 
@@ -225,6 +229,7 @@ public class NzymeNodeImpl implements NzymeNode {
 
         this.connect = new ConnectService(this);
         this.healthMonitor = new HealthMonitor(this);
+        this.databaseMaintenance = new DatabaseMaintenance(this);
 
         // Register JVM metrics.
         this.metrics.register("gc", new GarbageCollectorMetricSet());
@@ -283,6 +288,10 @@ public class NzymeNodeImpl implements NzymeNode {
         this.tasksQueue.onMessageReceived(
                 TaskType.TIMELINES_CALCULATION_DOT11_SSID,
                 new Dot11SSIDTimelineCalculationTaskHandler(this)
+        );
+        this.tasksQueue.onMessageReceived(
+                TaskType.DATABASE_MAINTENANCE,
+                new DatabaseMaintenanceTaskHandler(this)
         );
 
         try {
@@ -343,6 +352,7 @@ public class NzymeNodeImpl implements NzymeNode {
         periodicalManager.scheduleAtFixedRate(new KnownSSIDMonitor(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new KnownClientMonitor(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new DatabaseRetentionCleaner(this), 1, 60, TimeUnit.MINUTES);
+        periodicalManager.scheduleAtFixedRate(new DatabaseMaintenanceThread(this), 0, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new AssetMonitor(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new AssetIdentityThread(this), 2, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new MonitorsThread(this), 1, 1, TimeUnit.MINUTES);
@@ -437,6 +447,11 @@ public class NzymeNodeImpl implements NzymeNode {
     @Override
     public HealthMonitor getHealthMonitor() {
         return healthMonitor;
+    }
+
+    @Override
+    public DatabaseMaintenance getDatabaseMaintenance() {
+        return databaseMaintenance;
     }
 
     @Override

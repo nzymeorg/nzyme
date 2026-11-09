@@ -51,7 +51,28 @@ public enum MetricExternalName {
     LOG_COUNTS_INFO("log_counts_info"),
     LOG_COUNTS_WARN("log_counts_warn"),
     LOG_COUNTS_ERROR("log_counts_error"),
-    LOG_COUNTS_FATAL("log_counts_fatal");
+    LOG_COUNTS_FATAL("log_counts_fatal"),
+
+    DATABASE_STATISTICS_COLLECTION_TIMER("database_statistics_collection_timer"),
+    DATABASE_USAGE_CALCULATION_TIMER("database_usage_calculation_timer"),
+    DATABASE_SIZE_BYTES("database_size_bytes"),
+    DATABASE_HEAP_BYTES("database_heap_bytes"),
+    DATABASE_INDEX_BYTES("database_index_bytes"),
+    DATABASE_CONNECTIONS("database_connections"),
+    DATABASE_CACHE_HIT_RATIO("database_cache_hit_ratio"),
+    DATABASE_TEMP_BYTES_PER_MINUTE("database_temp_bytes_per_minute"),
+    DATABASE_CHECKPOINTS_REQUESTED_RATIO("database_checkpoints_requested_ratio"),
+    DATABASE_DEADLOCKS_PER_MINUTE("database_deadlocks_per_minute"),
+    DATABASE_HOT_UPDATE_RATIO("database_hot_update_ratio"),
+    DATABASE_DEAD_TUPLES("database_dead_tuples"),
+    DATABASE_DEAD_TUPLE_RATIO_MAX("database_dead_tuple_ratio_max"),
+    DATABASE_VACUUM_LAG_MINUTES_MAX("database_vacuum_lag_minutes_max"),
+    DATABASE_INDEX_BLOAT_RATIO_MAX("database_index_bloat_ratio_max"),
+    DATABASE_INDEX_BLOAT_BYTES("database_index_bloat_bytes"),
+    DATABASE_XID_AGE("database_xid_age"),
+    DATABASE_OLDEST_TRANSACTION_SECONDS("database_oldest_transaction_seconds"),
+    DATABASE_IO_READ_WAIT_MS_PER_MINUTE("database_io_read_wait_ms_per_minute"),
+    DATABASE_IO_WRITE_WAIT_MS_PER_MINUTE("database_io_write_wait_ms_per_minute");
 
     public final String database_label;
 

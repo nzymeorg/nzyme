@@ -41,6 +41,11 @@ function HealthConsole(props) {
 
           <div className="hc-row">
             <Indicator indicator={indicators.asset_identity_backlog} name="Identity Backlog" />
+            <Indicator indicator={indicators.db_configuration} name="DB Config" />
+            <Indicator indicator={indicators.db_vacuum} name="DB Vacuum" />
+            <Indicator indicator={indicators.db_bloat} name="DB Bloat" />
+            <Indicator indicator={indicators.db_performance} name="DB Performance" />
+            <Indicator indicator={indicators.db_transactions} name="DB Transactions" />
           </div>
 
           <div style={{clear: "both"}} />

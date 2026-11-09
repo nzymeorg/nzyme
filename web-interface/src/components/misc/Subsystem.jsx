@@ -9,6 +9,8 @@ function Subsystem(props) {
       return "802.11 / WiFi";
     case "ETHERNET":
       return "Ethernet";
+    case "BLUETOOTH":
+      return "Bluetooth";
     case "UAV":
       return "UAV"
     default:

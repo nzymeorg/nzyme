@@ -19,6 +19,11 @@ import MessageStuckConsequence from "./consequences/MessageStuckConsequence";
 import MessageFailureConsequence from "./consequences/MessageFailureConsequence";
 import ConnectConsequence from "./consequences/ConnectConsequence";
 import AssetIdentityBacklogConsequence from "./consequences/AssetIdentityBacklogConsequence";
+import DatabaseConfigurationConsequence from "./consequences/DatabaseConfigurationConsequence";
+import DatabaseVacuumConsequence from "./consequences/DatabaseVacuumConsequence";
+import DatabaseBloatConsequence from "./consequences/DatabaseBloatConsequence";
+import DatabasePerformanceConsequence from "./consequences/DatabasePerformanceConsequence";
+import DatabaseTransactionsConsequence from "./consequences/DatabaseTransactionsConsequence";
 
 function Consequences(props) {
 
@@ -73,6 +78,11 @@ function Consequences(props) {
         <MessageStuckConsequence show={consequences.includes("message_bus_message_stuck")} />
         <ConnectConsequence show={consequences.includes("connect")} />
         <AssetIdentityBacklogConsequence show={consequences.includes("asset_identity_backlog")} />
+        <DatabaseConfigurationConsequence show={consequences.includes("db_configuration")} />
+        <DatabaseVacuumConsequence show={consequences.includes("db_vacuum")} />
+        <DatabaseBloatConsequence show={consequences.includes("db_bloat")} />
+        <DatabasePerformanceConsequence show={consequences.includes("db_performance")} />
+        <DatabaseTransactionsConsequence show={consequences.includes("db_transactions")} />
       </div>
   )
 

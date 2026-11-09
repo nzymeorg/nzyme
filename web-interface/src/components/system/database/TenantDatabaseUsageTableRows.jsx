@@ -2,6 +2,7 @@ import {Link} from "react-router-dom";
 import React from "react";
 
 import numeral from "numeral";
+import {formatBytes, formatRows} from "./DatabaseUsageStatus";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SystemService from "../../../services/SystemService";
 
@@ -12,7 +13,6 @@ export default function TenantDatabaseUsageTableRows(props) {
   const tenants = props.tenants;
   const category = props.category;
   const onPurge = props.onPurge;
-  const skipSizeColumns = props.skipSizeColumns;
 
   const purge = (e, category, organizationId, tenantId) => {
     e.preventDefault();
@@ -40,8 +40,8 @@ export default function TenantDatabaseUsageTableRows(props) {
               </Link>
             </span>
           </td>
-          {skipSizeColumns ? null : <td className="text-muted" title="Data size not available for individual organizations and tenants.">n/a</td> }
-          <td>{numeral(tenant.categories[category].rows).format("0,0")}</td>
+          <td>{formatBytes(tenant.categories[category])}</td>
+          <td>{formatRows(tenant.categories[category])}</td>
           <td>{numeral(tenant.categories[category].retention_days).format("0,0")} Days</td>
           <td>
             <a href="#" onClick={(e) => purge(e, category, tenant.organization_id, tenant.tenant_id)}>Purge</a>
