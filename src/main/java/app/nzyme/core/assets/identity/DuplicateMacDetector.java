@@ -22,6 +22,8 @@ import org.joda.time.DateTime;
 
 import java.sql.Array;
 import java.sql.SQLException;
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -154,14 +156,8 @@ public class DuplicateMacDetector {
         });
     }
 
-    // Everything except MSS and window scale, the last two fields.
     public static String strongPart(String fingerprint) {
-        String[] parts = fingerprint.split(":", -1);
-        if (parts.length < 7) {
-            return fingerprint;
-        }
-
-        return String.join(":", Arrays.copyOfRange(parts, 0, parts.length - 2));
+        return TcpSignature.comparisonKey(fingerprint);
     }
 
     private static int countDistinctStacks(List<StackRow> stacks, AssetIdentityConfiguration config) {

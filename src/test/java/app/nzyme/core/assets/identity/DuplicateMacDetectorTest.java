@@ -3,17 +3,25 @@ package app.nzyme.core.assets.identity;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotEquals;
 
 public class DuplicateMacDetectorTest {
 
     @Test
-    public void testStrongPartDropsWindowScaleAndMss() {
-        assertEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1460:7"), "64:1:0:mss,sok,ts,nop,ws:-");
-        assertEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1400:9"), "64:1:0:mss,sok,ts,nop,ws:-");
+    public void testStrongPartDropsWindowScaleMssAndEcn() {
+        assertEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1460:7"), "64:1:-:mss,sok,ts,nop,ws:-");
+        assertEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1400:9"), "64:1:-:mss,sok,ts,nop,ws:-");
         assertEquals(DuplicateMacDetector.strongPart("128:1:0:mss,nop,ws,nop,nop,sok:ts0:1460:8"),
-                "128:1:0:mss,nop,ws,nop,nop,sok:ts0");
-        assertEquals(DuplicateMacDetector.strongPart("128:0:1::-:0:-"), "128:0:1::-");
+                "128:1:-:mss,nop,ws,nop,nop,sok:ts0");
+        assertEquals(DuplicateMacDetector.strongPart("128:0:1::-:0:-"), "128:0:-::-");
         assertEquals(DuplicateMacDetector.strongPart("garbage"), "garbage");
+
+        String ecnOff = DuplicateMacDetector.strongPart("64:1:0:mss,nop,ws,nop,nop,ts,sok:id0:1460:6");
+        assertEquals(DuplicateMacDetector.strongPart("64:1:1:mss,nop,ws,nop,nop,ts,sok:id0:1460:6"), ecnOff);
+        assertEquals(DuplicateMacDetector.strongPart("64:1:1:mss,nop,ws,30,nop,nop,ts,sok:id0:1460:6"), ecnOff);
+
+        assertNotEquals(DuplicateMacDetector.strongPart("128:1:0:mss,nop,ws,nop,nop,sok:-:1460:8"), ecnOff);
+        assertNotEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1460:7"), ecnOff);
     }
 
     @Test

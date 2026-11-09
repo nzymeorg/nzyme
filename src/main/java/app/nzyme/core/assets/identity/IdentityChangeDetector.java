@@ -16,6 +16,8 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.joda.time.DateTime;
 
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -254,6 +256,10 @@ public class IdentityChangeDetector {
                 continue;
             }
 
+            if (entry.getKey() == AssetAttributeDimension.TCP_STACK) {
+                values = collapseStacks(values);
+            }
+
             IdentityChange change = replacement(entry.getKey().name(), values, since, entry.getValue());
             if (change != null) {
                 changes.add(change);
@@ -282,6 +288,20 @@ public class IdentityChangeDetector {
         }
 
         return changes;
+    }
+
+    // Merged value keeps the stack string of the oldest entry.
+    static List<Value> collapseStacks(List<Value> values) {
+        Map<String, Value> merged = new LinkedHashMap<>();
+        for (Value value : values) {
+            merged.merge(TcpSignature.comparisonKey(value.value), value, (a, b) -> new Value(
+                    a.firstSeen.isAfter(b.firstSeen) ? b.value : a.value,
+                    a.firstSeen.isBefore(b.firstSeen) ? a.firstSeen : b.firstSeen,
+                    a.lastSeen.isAfter(b.lastSeen) ? a.lastSeen : b.lastSeen
+            ));
+        }
+
+        return Lists.newArrayList(merged.values());
     }
 
     @Nullable

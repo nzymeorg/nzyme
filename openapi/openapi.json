@@ -7567,7 +7567,7 @@
     },
     "/api/ethernet/assets/identity/asset/{asset_uuid}" : {
       "get" : {
-        "description" : "Returns the recent duplicate MAC and identity change findings of the asset and every link that involves it, for the notices on the asset details page.",
+        "description" : "Returns the newest duplicate MAC and identity change findings of the asset from the last 30 days together with the total number of findings in that period, and every open or confirmed link that involves it, for the notices on the asset details page. Dismissed links are not included.",
         "operationId" : "findAssetIdentitySummary",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -36026,21 +36026,39 @@
         "properties" : {
           "changes" : {
             "type" : "array",
+            "description" : "Newest identity change findings of the asset within the summary period, most recently seen first. Capped, see changes_total for the full count.",
             "items" : {
               "$ref" : "#/components/schemas/IdentityChangeFindingResponse"
             }
           },
+          "changes_total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Total number of identity change findings of the asset within the summary period."
+          },
           "duplicates" : {
             "type" : "array",
+            "description" : "Newest duplicate MAC findings of the asset within the summary period, most recently seen first. Capped, see duplicates_total for the full count.",
             "items" : {
               "$ref" : "#/components/schemas/DuplicateMacFindingResponse"
             }
           },
+          "duplicates_total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Total number of duplicate MAC findings of the asset within the summary period."
+          },
           "links" : {
             "type" : "array",
+            "description" : "Open and confirmed links that involve the asset, newest first. Dismissed links are not included.",
             "items" : {
               "$ref" : "#/components/schemas/AssetLinkResponse"
             }
+          },
+          "period_days" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Length of the summary period in days. Findings older than this are not counted."
           }
         }
       },

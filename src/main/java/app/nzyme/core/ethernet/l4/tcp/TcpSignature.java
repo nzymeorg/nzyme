@@ -6,6 +6,7 @@ import jakarta.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,15 +19,19 @@ import java.util.Set;
  * Quirks: ts0 zero timestamp value, ecr non-zero timestamp echo in the opening segment, id0 zero IP ID
  * with DF set, bad options could not be read to the end.
  *
- * The option layout leaves out TCP Fast Open (kind 34 and the experimental kind 254) and the padding after the
- * last real option. A stack only adds the TFO option on connections to servers it knows support it, which
- * shifts the padding, so the same device would otherwise show up as two stacks.
+ * The option layout leaves out TCP Fast Open (kind 34 and the experimental kind 254), Multipath TCP (kind 30) and
+ * the padding after the last real option. A stack only adds them on some connections, which would otherwise make
+ * one device show up as two stacks.
  */
 public class TcpSignature {
 
     private static final int[] INITIAL_TTLS = {32, 64, 128, 255};
 
-    private static final Set<Integer> IGNORED_OPTIONS = Set.of(34, 254);
+    private static final Set<Integer> IGNORED_OPTIONS = Set.of(30, 34, 254);
+
+    private static final int STACK_FIELDS = 5;
+    private static final int ECN_FIELD = 2;
+    private static final int OPTIONS_FIELD = 3;
 
     private static final Map<Integer, String> OPTION_NAMES = Map.of(
             0, "eol",
@@ -87,6 +92,30 @@ public class TcpSignature {
             q.add("bad");
         }
         this.quirks = q;
+    }
+
+    // Stack layer with ECN neutralized, because Apple decides it per connection, and with kind 30 removed from
+    // values recorded before it was left out.
+    public static String comparisonKey(String value) {
+        String[] parts = value.split(":", -1);
+        if (parts.length < STACK_FIELDS) {
+            return value;
+        }
+
+        parts[ECN_FIELD] = "-";
+
+        if (!parts[OPTIONS_FIELD].isEmpty()) {
+            List<String> options = new ArrayList<>(List.of(parts[OPTIONS_FIELD].split(",")));
+            if (options.remove("30")) {
+                while (!options.isEmpty() && (options.get(options.size() - 1).equals("nop")
+                        || options.get(options.size() - 1).equals("eol"))) {
+                    options.remove(options.size() - 1);
+                }
+            }
+            parts[OPTIONS_FIELD] = String.join(",", options);
+        }
+
+        return String.join(":", Arrays.copyOfRange(parts, 0, STACK_FIELDS));
     }
 
     public static int guessInitialTtl(int ttl) {

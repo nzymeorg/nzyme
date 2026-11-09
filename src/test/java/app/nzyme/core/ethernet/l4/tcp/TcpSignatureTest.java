@@ -78,6 +78,28 @@ public class TcpSignatureTest {
     }
 
     @Test
+    public void testMultipathTcpDoesNotChangeStack() {
+        TcpSignature apple = new TcpSignature(64, 0, true, 0, false, false, 65535, 1460, 6,
+                List.of(2, 1, 3, 1, 1, 8, 4, 0), false, 1L, 0L);
+        TcpSignature appleMptcp = new TcpSignature(64, 0, true, 0, false, false, 65535, 1460, 6,
+                List.of(2, 1, 3, 30, 1, 1, 8, 4, 0), false, 1L, 0L);
+        assertEquals(appleMptcp.stack(), apple.stack());
+    }
+
+    @Test
+    public void testComparisonKey() {
+        assertEquals(TcpSignature.comparisonKey("64:1:1:mss,nop,ws,nop,nop,ts,sok:id0:1460:6"), "64:1:-:mss,nop,ws,nop,nop,ts,sok:id0");
+        assertEquals(TcpSignature.comparisonKey("64:1:0:mss,nop,ws,nop,nop,ts,sok:id0"), "64:1:-:mss,nop,ws,nop,nop,ts,sok:id0");
+        assertEquals(TcpSignature.comparisonKey("64:1:0:mss,nop,ws,nop,nop,ts,sok:id0:1460:6:max:0"), "64:1:-:mss,nop,ws,nop,nop,ts,sok:id0");
+
+        assertEquals(TcpSignature.comparisonKey("64:1:1:mss,nop,ws,30,nop,nop,ts,sok:id0:1460:6"), "64:1:-:mss,nop,ws,nop,nop,ts,sok:id0");
+        assertEquals(TcpSignature.comparisonKey("64:1:0:mss,sok,ts,nop,ws,30,nop,nop:-:1460:7"), "64:1:-:mss,sok,ts,nop,ws:-");
+
+        assertEquals(TcpSignature.comparisonKey("128:0:1::-"), "128:0:-::-");
+        assertEquals(TcpSignature.comparisonKey("garbage"), "garbage");
+    }
+
+    @Test
     public void testSourcePortRange() {
         assertEquals(TcpSignature.sourcePortRange(80), "0-1023");
         assertEquals(TcpSignature.sourcePortRange(1024), "1024-32767");

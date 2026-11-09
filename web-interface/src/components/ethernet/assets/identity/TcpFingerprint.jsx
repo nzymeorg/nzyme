@@ -7,7 +7,8 @@ const OPTION_NAMES = {
   nop: "no-op",
   ws: "window scale",
   eol: "end of options",
-  sack: "SACK"
+  sack: "SACK",
+  30: "multipath TCP"
 };
 
 const QUIRKS = {
@@ -75,8 +76,22 @@ export function describeStackDifference(value, others) {
     : differing.slice(0, -1).join(", ") + " and " + differing[differing.length - 1];
 
   const onlyLink = differing.every((d) => d === "MSS" || d === "window scale");
+  const onlyEcn = differing.length === 1 && differing[0] === "ECN";
+  const onlyWeak = differing.every((d) => d === "MSS" || d === "window scale" || d === "ECN");
 
-  return "Differs from " + them + " in " + list + (onlyLink ? ", which follow the link, not the operating system." : ".");
+  if (onlyLink) {
+    return "Differs from " + them + " in " + list + ", which follow the link, not the operating system.";
+  }
+
+  if (onlyEcn) {
+    return "Differs from " + them + " in ECN only, which some devices decide per connection. This is likely one device.";
+  }
+
+  if (onlyWeak) {
+    return "Differs from " + them + " in " + list + ". None of these fields tell devices apart on their own.";
+  }
+
+  return "Differs from " + them + " in " + list + ".";
 }
 
 export default function TcpFingerprint({value, id, compact}) {

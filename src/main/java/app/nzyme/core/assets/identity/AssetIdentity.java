@@ -178,6 +178,20 @@ public class AssetIdentity {
                 .list();
     }
 
+    public long countDuplicateFindingsOfMac(String mac, UUID organizationId, UUID tenantId, DateTime since) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM assets_identity_duplicate_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND mac = :mac AND last_seen >= :since")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("mac", mac)
+                        .bind("since", since)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
     public List<DuplicateMacFindingEntry> findDuplicateFindingsOfMac(String mac, UUID organizationId, UUID tenantId,
                                                                      DateTime since, int limit) {
         return nzyme.getDatabase().withHandle(handle ->
@@ -367,6 +381,20 @@ public class AssetIdentity {
                 .list();
     }
 
+    public long countChangeFindingsOfMac(String mac, UUID organizationId, UUID tenantId, DateTime since) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM assets_identity_change_findings " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND mac = :mac AND last_seen >= :since")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("mac", mac)
+                        .bind("since", since)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
     public List<IdentityChangeFindingEntry> findChangeFindingsOfMac(String mac, UUID organizationId, UUID tenantId,
                                                                     DateTime since, int limit) {
         return nzyme.getDatabase().withHandle(handle ->
@@ -548,14 +576,15 @@ public class AssetIdentity {
         );
     }
 
-    public List<AssetLinkEntry> findLinksOfMac(String mac, UUID organizationId, UUID tenantId, int limit) {
+    public List<AssetLinkEntry> findOpenLinksOfMac(String mac, UUID organizationId, UUID tenantId, int limit) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM assets_links WHERE organization_id = :organization_id " +
                                 "AND tenant_id = :tenant_id AND (predecessor_mac = :mac OR successor_mac = :mac) " +
-                                "ORDER BY detected_at DESC LIMIT :limit")
+                                "AND status <> :dismissed ORDER BY detected_at DESC LIMIT :limit")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("mac", mac)
+                        .bind("dismissed", LINK_STATUS_DISMISSED)
                         .bind("limit", limit)
                         .mapTo(AssetLinkEntry.class)
                         .list()

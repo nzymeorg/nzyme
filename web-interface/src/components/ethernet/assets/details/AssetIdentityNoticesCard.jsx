@@ -10,6 +10,8 @@ import ApiRoutes from "../../../../util/ApiRoutes";
 import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
 import TcpFingerprint from "../identity/TcpFingerprint";
 import {changeSignalTitle, linkKindTitle, linkStatus} from "../identity/AssetIdentityHelpers";
+import {serializeTimeRange} from "../../../shared/timerange/TimeRangeUrl";
+import {Relative} from "../../../shared/timerange/TimeRange";
 
 const assetsService = new AssetsService();
 
@@ -38,11 +40,38 @@ export default function AssetIdentityNoticesCard({asset, organizationId, tenantI
     return <React.Fragment>{title}<LoadingSpinner /></React.Fragment>
   }
 
+  // The lists are capped by the backend, so the collapsed counts come from the reported totals.
   const activeDuplicates = summary.duplicates.filter((d) => d.recent);
-  const pastDuplicates = summary.duplicates.filter((d) => !d.recent);
-  const openLinks = summary.links.filter((l) => l.status !== "DISMISSED");
+  const pastDuplicates = summary.duplicates.filter((d) => !d.recent).slice(0, 1);
+  const olderDuplicatesCount = summary.duplicates_total - activeDuplicates.length - pastDuplicates.length;
 
-  if (summary.duplicates.length === 0 && summary.changes.length === 0 && openLinks.length === 0) {
+  const recentChanges = summary.changes.filter((c) => c.recent);
+  const pastChanges = summary.changes.filter((c) => !c.recent).slice(0, 1);
+  const olderChangesCount = summary.changes_total - recentChanges.length - pastChanges.length;
+
+  const findingsListLink = (route) => {
+    const filters = {mac: [{field: "mac", operator: "equals", value: asset.mac.address}]};
+    const timeRange = serializeTimeRange(Relative(summary.period_days * 24 * 60));
+
+    return route + "?filters=" + encodeURIComponent(JSON.stringify(filters))
+      + "&tr_identity=" + encodeURIComponent(JSON.stringify(timeRange));
+  }
+
+  const olderFindings = (count, noun, route) => {
+    if (count <= 0) {
+      return null;
+    }
+
+    return (
+      <p className="text-muted mb-3">
+        {numeral(count).format("0,0")} older {noun} {count === 1 ? "finding was" : "findings were"} recorded
+        for this asset in the last {summary.period_days} days.{' '}
+        <Link to={findingsListLink(route)}>Show all findings</Link>
+      </p>
+    )
+  }
+
+  if (summary.duplicates.length === 0 && summary.changes.length === 0 && summary.links.length === 0) {
     return (
       <React.Fragment>
         {title}
@@ -90,7 +119,9 @@ export default function AssetIdentityNoticesCard({asset, organizationId, tenantI
         )
       })}
 
-      {summary.changes.map((c) => {
+      {olderFindings(olderDuplicatesCount, "duplicate MAC address", ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES)}
+
+      {[...recentChanges, ...pastChanges].map((c) => {
         return (
           <div className={"alert " + (c.recent ? "alert-warning" : "alert-secondary")} key={c.uuid}>
             <strong>Identity changed</strong> <span title={moment(c.last_seen).format()}>{moment(c.last_seen).fromNow()}</span>{' '}
@@ -100,7 +131,9 @@ export default function AssetIdentityNoticesCard({asset, organizationId, tenantI
         )
       })}
 
-      {openLinks.map((l) => {
+      {olderFindings(olderChangesCount, "identity change", ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES)}
+
+      {summary.links.map((l) => {
         return (
           <div className="alert alert-info" key={l.uuid}>
             <strong>{linkKindTitle(l.kind)}.</strong> {linkDescription(l)}{' '}

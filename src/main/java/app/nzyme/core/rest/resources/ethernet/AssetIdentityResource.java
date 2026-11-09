@@ -93,7 +93,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
                         booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
                         numberEntry(AssetIdentityRegistryKeys.DUPLICATE_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
                         numberEntry(AssetIdentityRegistryKeys.DUPLICATE_MINIMUM_SESSIONS, "Minimum sessions per stack in window", organizationId, tenantId),
-                        booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_REQUIRE_STRONG_DIFFERENCE, "Ignore stacks that differ only in window scale or MSS", organizationId, tenantId)
+                        booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_REQUIRE_STRONG_DIFFERENCE, "Ignore stacks that differ only in window scale, MSS or ECN", organizationId, tenantId)
                 ),
                 List.of(
                         booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_ALERT_ON_NEW, "Alert on new duplicate MAC finding", organizationId, tenantId)
@@ -773,8 +773,10 @@ public class AssetIdentityResource extends TapDataHandlingResource {
     @GET
     @Path("/asset/{asset_uuid}")
     @Operation(operationId = "findAssetIdentitySummary", summary = "Get the identity findings and links of one asset",
-            description = "Returns the recent duplicate MAC and identity change findings of the asset and every "
-                    + "link that involves it, for the notices on the asset details page.")
+            description = "Returns the newest duplicate MAC and identity change findings of the asset from the last "
+                    + "30 days together with the total number of findings in that period, and every open or confirmed "
+                    + "link that involves it, for the notices on the asset details page. Dismissed links are not "
+                    + "included.")
     @ApiResponse(responseCode = "200", description = "Summary found.",
             content = @Content(schema = @Schema(implementation = AssetIdentitySummaryResponse.class)))
     @ApiResponse(responseCode = "404", description = "Asset, organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -810,11 +812,16 @@ public class AssetIdentityResource extends TapDataHandlingResource {
         }
 
         List<AssetLinkResponse> links = Lists.newArrayList();
-        for (AssetLinkEntry link : identity.findLinksOfMac(mac, organizationId, tenantId, SUMMARY_LIMIT)) {
+        for (AssetLinkEntry link : identity.findOpenLinksOfMac(mac, organizationId, tenantId, SUMMARY_LIMIT)) {
             links.add(toResponse(link, addresses, organizationId, tenantId));
         }
 
-        return Response.ok(AssetIdentitySummaryResponse.create(duplicates, changes, links)).build();
+        long duplicatesTotal = identity.countDuplicateFindingsOfMac(mac, organizationId, tenantId, since);
+        long changesTotal = identity.countChangeFindingsOfMac(mac, organizationId, tenantId, since);
+
+        return Response.ok(AssetIdentitySummaryResponse.create(
+                duplicates, duplicatesTotal, changes, changesTotal, links, SUMMARY_DAYS
+        )).build();
     }
 
     private DuplicateMacFindingResponse toResponse(DuplicateMacFindingEntry finding,

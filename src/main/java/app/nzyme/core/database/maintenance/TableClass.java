@@ -8,11 +8,8 @@ public enum TableClass {
     UPSERT(
             "upsert",
             "Session and ledger tables",
-            "Rows are inserted once and then updated on every tap report while the session or asset is active. " +
-                    "Every update leaves a dead row version behind that only vacuum can reclaim, and updates of " +
-                    "indexed columns add entries to all indexes of the table. These tables are vacuumed early and " +
-                    "without throttling, and keep free space on every page so that updates can stay on the same " +
-                    "page.",
+            "Inserted once and updated with every tap report. Vacuumed early and without throttling, with free " +
+                    "space on every page for updates.",
             1, 1000, 2, 85, true,
             List.of("l4_sessions", "tls_sessions", "nat_traversal_discoveries", "nat_stun_negotiation_flows",
                     "vpn_tunnels", "ssh_sessions", "socks_tunnels", "rtsp_streams", "dhcp_transactions",
@@ -23,9 +20,7 @@ public enum TableClass {
     APPEND(
             "append",
             "Time series tables",
-            "Rows are inserted, never updated, and deleted in bulk once they age out of the retention time. " +
-                    "Frequent vacuum keeps the visibility map and the planner statistics fresh for time range " +
-                    "queries. Pages are filled completely because nothing is ever updated in place.",
+            "Inserted, never updated, and deleted in bulk when they age out. Pages are filled completely.",
             5, 1000, 2, 100, false,
             List.of("arp_packets", "icmp_packets", "dns_log", "dns_pairs", "dns_statistics", "l4_statistics",
                     "ntp_transactions", "name_resolution_responses", "portal_integrity_reports",
@@ -41,10 +36,8 @@ public enum TableClass {
     HOT(
             "hot",
             "Small, constantly updated tables",
-            "A handful of rows that are rewritten many times per minute, for example node heartbeats, tap " +
-                    "status and asset summaries. Half of every page is kept free so that updates never have to " +
-                    "touch an index, and the table is vacuumed after a small number of changes because it is " +
-                    "cheap to do so.",
+            "A handful of rows rewritten many times per minute. Half of every page is kept free and the table " +
+                    "is vacuumed after a few changes.",
             5, 50, 10, 50, false,
             List.of("assets", "assets_hostnames", "assets_ip_addresses", "nodes", "taps", "tap_buses",
                     "tap_captures", "bus_channels", "health_indicators", "registry", "context_mac_addresses",
