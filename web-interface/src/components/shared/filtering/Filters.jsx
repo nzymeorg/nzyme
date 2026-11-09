@@ -1150,8 +1150,12 @@ export default function Filters(props) {
     }
   }, [preSelectedField, preSelectedValue]);
 
-  // Store filters in URL query param.
+  // Store filters in URL query param. The instance embedded in a quick filter dialog must not touch the page URL.
   useEffect(() => {
+    if (preSelectedField) {
+      return;
+    }
+
     const queryParams = new URLSearchParams(window.location.search);
     const currentFilters = queryParams.get("filters");
 
