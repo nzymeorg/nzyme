@@ -113,6 +113,8 @@ mod tests {
             ttl: 64,
             ip_tos: 0,
             df: false,
+            more_fragments: false,
+            fragment_offset: 0,
             identification: 0,
             protocol: 1,
             payload,

@@ -93,6 +93,8 @@ pub struct IPv4Packet {
     pub ttl: u8,
     pub ip_tos: u8,
     pub df: bool,
+    pub more_fragments: bool,
+    pub fragment_offset: u16,
     pub identification: u16,
     pub protocol: u8,
     pub payload: Vec<u8>,

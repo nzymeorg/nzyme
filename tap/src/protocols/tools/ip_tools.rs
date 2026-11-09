@@ -1,6 +1,7 @@
 use std::net::IpAddr;
 use std::sync::Arc;
-use log::{debug, error};
+use std::sync::atomic::{AtomicU64, Ordering};
+use log::{debug, error, trace};
 use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::protocols::parsers::tcp::tcp_parser;
@@ -10,7 +11,17 @@ use crate::to_pipeline;
 use crate::wired::packets::IPv4Packet;
 use crate::wired::types;
 
+pub static DROPPED_FRAGMENTS: AtomicU64 = AtomicU64::new(0);
+
 pub fn route_ipv4_packet(packet: IPv4Packet, bus: &Arc<Bus>) {
+    // Only the first fragment carries a transport header. Fragments are not reassembled.
+    if packet.fragment_offset > 0 {
+        DROPPED_FRAGMENTS.fetch_add(1, Ordering::Relaxed);
+        trace!("Dropping IPv4 fragment at offset [{}] from [{}] to [{}].",
+            packet.fragment_offset, packet.source_address, packet.destination_address);
+        return;
+    }
+
     match types::ProtocolType::try_from(packet.protocol) {
         Ok(protocol_type) => {
             match protocol_type {
