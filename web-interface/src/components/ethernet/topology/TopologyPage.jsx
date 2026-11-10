@@ -3,6 +3,7 @@ import moment from "moment";
 import {toast} from "react-toastify";
 import Store from "../../../util/Store";
 import {TapContext} from "../../../App";
+import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
@@ -95,6 +96,14 @@ export default function TopologyPage() {
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
+
+  useEffect(() => {
+    enableTapSelector(tapContext);
+
+    return () => {
+      disableTapSelector(tapContext);
+    }
+  }, [tapContext]);
 
   const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
   const applyTimeRange = useApplyTimeRange(setTimeRange);
