@@ -50,9 +50,11 @@ public class AssetProfileBatch {
     private final UUID tenantId;
     private final UUID tapUuid;
 
-    private final Map<String, long[]> activity = new HashMap<>();
-    private final Map<String, Object[]> attributes = new HashMap<>();
-    private final Map<String, Object[]> communication = new HashMap<>();
+    // Sorted maps so every flush upserts rows in the same conflict key order. Concurrent report handlers for
+    // the same tap would otherwise lock overlapping rows in HashMap order and deadlock each other.
+    private final Map<String, long[]> activity = new TreeMap<>();
+    private final Map<String, Object[]> attributes = new TreeMap<>();
+    private final Map<String, Object[]> communication = new TreeMap<>();
 
     public AssetProfileBatch(Tap tap) {
         this(tap.organizationId(), tap.tenantId(), tap.uuid());
