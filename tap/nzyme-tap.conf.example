@@ -123,4 +123,4 @@ tick_ms = 100
 [misc]
 context_mac_ip_retention_hours = 36 
 context_mac_hostname_retention_hours = 36
-panic_log_file_path = "/var/log/nzyme-tap-panic.log"
+panic_log_file_path = "/var/log/nzyme-tap/panic.log"

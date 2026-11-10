@@ -1,0 +1,47 @@
+#!/bin/sh
+
+set -e
+
+TAP_USER="nzyme-tap"
+TAP_GROUP="nzyme-tap"
+CONFIG_FILE="/etc/nzyme/nzyme-tap.conf"
+LEGACY_PANIC_LOG="/var/log/nzyme-tap-panic.log"
+
+case "$1" in
+  configure)
+    if ! getent group "$TAP_GROUP" > /dev/null; then
+      addgroup --system "$TAP_GROUP"
+    fi
+
+    if ! getent passwd "$TAP_USER" > /dev/null; then
+      adduser --system --ingroup "$TAP_GROUP" --home /nonexistent --no-create-home \
+        --shell /usr/sbin/nologin --gecos "Nzyme tap" "$TAP_USER"
+    fi
+
+    # BlueZ only accepts D-Bus calls from root and the bluetooth group.
+    if getent group bluetooth > /dev/null; then
+      adduser "$TAP_USER" bluetooth > /dev/null
+    fi
+
+    if [ -f "$CONFIG_FILE" ]; then
+      chown "root:$TAP_GROUP" "$CONFIG_FILE"
+      chmod 640 "$CONFIG_FILE"
+    fi
+
+    # Upgraded installations may still point panic_log_file_path at the old location.
+    if [ -f "$LEGACY_PANIC_LOG" ]; then
+      chown "$TAP_USER:$TAP_GROUP" "$LEGACY_PANIC_LOG"
+    fi
+
+    if command -v udevadm > /dev/null 2>&1; then
+      udevadm control --reload-rules > /dev/null 2>&1 || true
+      udevadm trigger --subsystem-match=usb --subsystem-match=tty > /dev/null 2>&1 || true
+    fi
+
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload > /dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0

@@ -184,7 +184,7 @@ fn main() {
 
     // Install panic logger.
     logging::install_panic_logger(configuration.misc.panic_log_file_path.clone()
-        .unwrap_or("/var/log/nzyme-tap-panic.log".to_string()));
+        .unwrap_or("/var/log/nzyme-tap/panic.log".to_string()));
 
     let metrics = Arc::new(Mutex::new(metrics::Metrics::new(log_monitor)));
     let telemetry_events = Arc::new(EventLog::new());

@@ -16,7 +16,7 @@ impl PermissionIssue {
     }
 
     pub fn fix_note(&self) -> String {
-        format!("Fix by running as root: chmod 640 {} && chown root:root {}", self.path, self.path)
+        format!("Fix by running as root: chmod 640 {} && chown root:nzyme-tap {} (nzyme-tap is the default group of the user the tap runs as)", self.path, self.path)
     }
 }
 

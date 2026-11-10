@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+  purge)
+    rm -rf /var/log/nzyme-tap
+    rm -f /var/log/nzyme-tap-panic.log
+    ;;
+esac
+
+if command -v udevadm > /dev/null 2>&1; then
+  udevadm control --reload-rules > /dev/null 2>&1 || true
+fi
+
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload > /dev/null 2>&1 || true
+fi
+
+exit 0

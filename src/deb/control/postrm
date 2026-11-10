@@ -1,0 +1,16 @@
+#!/bin/sh
+
+set -e
+
+case "$1" in
+  purge)
+    rm -rf /usr/share/nzyme/crypto /var/log/nzyme
+    rm -f /usr/share/nzyme/node_id /usr/share/nzyme/*.pid
+    ;;
+esac
+
+if [ -d /run/systemd/system ]; then
+  systemctl daemon-reload > /dev/null 2>&1 || true
+fi
+
+exit 0

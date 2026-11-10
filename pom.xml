@@ -656,7 +656,7 @@
                                     <mapper>
                                         <type>perm</type>
                                         <prefix>/usr/local/bin</prefix>
-                                        <filemode>740</filemode>
+                                        <filemode>755</filemode>
                                         <user>root</user>
                                         <group>root</group>
                                     </mapper>

@@ -1,0 +1,46 @@
+#!/bin/sh
+# Note: jdeb substitutes tokens wrapped in double square brackets in this
+# file. Keep to POSIX single-bracket tests.
+
+set -e
+
+NZYME_USER="nzyme"
+NZYME_GROUP="nzyme"
+DATA_DIR="/usr/share/nzyme"
+CRYPTO_DIR="/usr/share/nzyme/crypto"
+LOG_DIR="/var/log/nzyme"
+CONFIG_FILE="/etc/nzyme/nzyme.conf"
+
+case "$1" in
+  configure)
+    if ! getent group "$NZYME_GROUP" > /dev/null; then
+      addgroup --system "$NZYME_GROUP"
+    fi
+
+    if ! getent passwd "$NZYME_USER" > /dev/null; then
+      adduser --system --ingroup "$NZYME_GROUP" --home "$DATA_DIR" --no-create-home \
+        --shell /usr/sbin/nologin --gecos "Nzyme node" "$NZYME_USER"
+    fi
+
+    # Only the top level of the data directory. The bundled JVM, libraries and plugins stay owned by root.
+    mkdir -p "$DATA_DIR" "$CRYPTO_DIR" "$LOG_DIR"
+    chown "$NZYME_USER:$NZYME_GROUP" "$DATA_DIR"
+    find "$DATA_DIR" -maxdepth 1 -type f -exec chown "$NZYME_USER:$NZYME_GROUP" {} +
+
+    chown -R "$NZYME_USER:$NZYME_GROUP" "$CRYPTO_DIR"
+    chmod 700 "$CRYPTO_DIR"
+
+    chown -R "$NZYME_USER:$NZYME_GROUP" "$LOG_DIR"
+
+    if [ -f "$CONFIG_FILE" ]; then
+      chown "root:$NZYME_GROUP" "$CONFIG_FILE"
+      chmod 640 "$CONFIG_FILE"
+    fi
+
+    if [ -d /run/systemd/system ]; then
+      systemctl daemon-reload > /dev/null 2>&1 || true
+    fi
+    ;;
+esac
+
+exit 0

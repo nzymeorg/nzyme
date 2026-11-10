@@ -8,11 +8,25 @@ After=network-online.target
 Type=simple
 Restart=on-failure
 RestartSec=10
-User=root
-Group=root
+User=nzyme-tap
+Group=nzyme-tap
 LimitNOFILE=64000
 
 ExecStart=/usr/bin/nzyme-tap --configuration-file /etc/nzyme/nzyme-tap.conf --log-level info
+
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+NoNewPrivileges=true
+
+LogsDirectory=nzyme-tap
+
+# No PrivateDevices: USB hardware (Sona, Limina, Android) is accessed through /dev.
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
 
 # Make sure stderr/stdout is captured in the systemd journal.
 StandardOutput=journal

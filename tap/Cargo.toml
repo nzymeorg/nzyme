@@ -25,15 +25,17 @@ maintainer = "Nzyme LLC <hello@nzyme.org>"
 copyright = "Nzyme LLC <hello@nzyme.org>"
 license-file = ["COPYING", "0"]
 extended-description = "The Nzyme tap"
-depends = "$auto"
+depends = "$auto, adduser"
 section = "net"
 priority = "optional"
+maintainer-scripts = "packaging/debian/scripts"
 assets = [
     ["target/release/nzyme-tap", "usr/bin/nzyme-tap", "755"],
     ["nzyme-tap.conf.example", "etc/nzyme/nzyme-tap.conf.example", "640"],
     ["nzyme-tap.conf.example", "etc/nzyme/nzyme-tap.conf", "640"],
     ["README.md", "usr/share/doc/nzyme-tap/README", "644"],
-    ["packaging/debian/systemd/nzyme-tap.service", "usr/lib/systemd/system/nzyme-tap.service", "644"]
+    ["packaging/debian/systemd/nzyme-tap.service", "usr/lib/systemd/system/nzyme-tap.service", "644"],
+    ["packaging/debian/udev/60-nzyme-tap.rules", "usr/lib/udev/rules.d/60-nzyme-tap.rules", "644"]
 ]
 conf-files = [
     "etc/nzyme/nzyme-tap.conf"

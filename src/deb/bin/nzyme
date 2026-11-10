@@ -2,6 +2,11 @@
 
 set -e
 
+# Re-execute as the nzyme user so that `sudo nzyme --migrate-database` does not leave root-owned files behind.
+if [ "$(id -u)" -eq 0 ] && getent passwd nzyme > /dev/null 2>&1; then
+  exec runuser -u nzyme -- "$0" "$@"
+fi
+
 if [ -f "/etc/default/nzyme" ]; then
   . "/etc/default/nzyme"
 fi
