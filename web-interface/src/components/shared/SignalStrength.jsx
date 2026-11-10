@@ -4,6 +4,7 @@ function SignalStrength(props) {
 
   const strength = parseFloat(props.strength);
   const selectedTapCount = props.selectedTapCount;
+  const filterElement = props.filterElement;
 
   let strengthClassName;
   if (strength > -50) {
@@ -26,6 +27,7 @@ function SignalStrength(props) {
       <React.Fragment>
         <i className={"fa-solid fa-signal " + strengthClassName }></i>{' '}
         {Math.round(strength)} dBm
+        {filterElement ? filterElement : null}
       </React.Fragment>
   )
 

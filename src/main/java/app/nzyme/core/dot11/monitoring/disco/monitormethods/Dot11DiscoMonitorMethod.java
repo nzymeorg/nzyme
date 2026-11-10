@@ -10,6 +10,7 @@ import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRangeFactory;
 import com.google.common.collect.Lists;
+import app.nzyme.core.util.filters.Filters;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nullable;
@@ -55,10 +56,10 @@ public abstract class Dot11DiscoMonitorMethod {
 
         return calculate(
                 nzyme.getDot11().getDiscoHistogram(
-                        Dot11.DiscoType.DISCONNECTION,
                         TimeRangeFactory.oneDay(),
                         Bucketing.getConfig(TimeRangeFactory.oneDay()),
-                        tap.uuid(),
+                        List.of(tap.uuid()),
+                        Filters.create(Maps.newHashMap()),
                         bssidList
                 )
         );

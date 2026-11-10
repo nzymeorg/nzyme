@@ -26,8 +26,8 @@ public enum TableClass {
                     "ntp_transactions", "name_resolution_responses", "portal_integrity_reports",
                     "portal_integrity_hops", "portal_integrity_dhcp_leases", "assets_statistics", "dot11_ssids",
                     "dot11_bssids", "dot11_channels", "dot11_channel_histograms", "dot11_bssid_clients",
-                    "dot11_clients", "dot11_client_probereq_ssids", "dot11_disco_activity",
-                    "dot11_disco_activity_receivers", "dot11_timeline_events", "bluetooth_devices", "uavs",
+                    "dot11_clients", "dot11_client_probereq_ssids", "dot11_disco_frames",
+                    "dot11_timeline_events", "bluetooth_devices", "uavs",
                     "uavs_timelines", "uavs_vectors", "tap_metrics_gauges", "tap_metrics_timers",
                     "node_metrics_gauges", "node_metrics_timers", "tap_captures_frequencies", "events",
                     "database_maintenance_log")

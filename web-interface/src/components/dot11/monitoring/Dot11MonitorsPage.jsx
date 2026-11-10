@@ -18,10 +18,12 @@ export default function Dot11MonitorsPage() {
   const [bssidMonitors, setBssidMonitors] = useState(null);
   const [connectedClientMonitors, setConnectedClientMonitors] = useState(null);
   const [disconnectedClientMonitors, setDisconnectedClientMonitors] = useState(null);
+  const [discoFrameMonitors, setDiscoFrameMonitors] = useState(null);
 
   const [bssidPage, setBssidPage] = useState(1);
   const [connectedClientPage, setConnectedClientPage] = useState(1);
   const [disconnectedClientPage, setDisconnectedClientPage] = useState(1);
+  const [discoFramePage, setDiscoFramePage] = useState(1);
 
   const perPage = 10;
 
@@ -42,6 +44,12 @@ export default function Dot11MonitorsPage() {
       "DOT11_CLIENT_DISCONNECTED", organizationId, tenantId, perPage, (disconnectedClientPage-1)*perPage, setDisconnectedClientMonitors
     )
   }, [disconnectedClientPage, organizationId, tenantId])
+
+  useEffect(() => {
+    monitorsService.findAllOfType(
+      "DOT11_DISCO_FRAME", organizationId, tenantId, perPage, (discoFramePage-1)*perPage, setDiscoFrameMonitors
+    )
+  }, [discoFramePage, organizationId, tenantId])
 
   return (
     <React.Fragment>
@@ -87,6 +95,18 @@ export default function Dot11MonitorsPage() {
               <h3 style={{display: "inline-block"}}>Disconnected Client Monitors</h3>
 
               <MonitorsTable monitors={disconnectedClientMonitors} page={disconnectedClientPage} setPage={setDisconnectedClientPage} perPage={perPage} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
+              <h3 style={{display: "inline-block"}}>Disconnection Frame Monitors</h3>
+
+              <MonitorsTable monitors={discoFrameMonitors} page={discoFramePage} setPage={setDiscoFramePage} perPage={perPage} />
             </div>
           </div>
         </div>

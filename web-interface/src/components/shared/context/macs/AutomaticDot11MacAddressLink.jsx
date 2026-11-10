@@ -9,6 +9,7 @@ function AutomaticDot11MacAddressLink(props) {
   const addressWithContext = props.addressWithContext;
   const type = props.type;
   const highlighted = props.highlighted;
+  const filterElement = props.filterElement;
 
   const link = (bssid, type) => {
     switch (type) {
@@ -26,14 +27,16 @@ function AutomaticDot11MacAddressLink(props) {
                       addressWithContext={addressWithContext}
                       type={type}
                       href={link(address, type)}
-                      highlighted={highlighted} />
+                      highlighted={highlighted}
+                      filterElement={filterElement} />
         </span>
     )
   } else {
     return <Dot11MacAddress address={address}
                             addressWithContext={addressWithContext}
                             type={type}
-                            highlighted={highlighted} />
+                            highlighted={highlighted}
+                            filterElement={filterElement} />
   }
 
 }

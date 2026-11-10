@@ -59,11 +59,12 @@ function BSSIDRow(props) {
                              onClick={(e) => onExpandClick(e, bssid.bssid.address)} />
           </td>
           <td>
-            <SignalStrength strength={bssid.signal_strength_average} selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length} />
-            <FilterValueIcon setFilters={setFilters}
-                             fields={BSSID_FILTER_FIELDS}
-                             field="signal_strength"
-                             value={Math.round(bssid.signal_strength_average)} />
+            <SignalStrength strength={bssid.signal_strength_average}
+                            selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length}
+                            filterElement={<FilterValueIcon setFilters={setFilters}
+                                                            fields={BSSID_FILTER_FIELDS}
+                                                            field="signal_strength"
+                                                            value={Math.round(bssid.signal_strength_average)} />} />
           </td>
           <td>
             <InfrastructureTypes types={bssid.infrastructure_types} setFilters={setFilters} />

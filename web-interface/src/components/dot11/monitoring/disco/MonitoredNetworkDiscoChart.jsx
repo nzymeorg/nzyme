@@ -24,8 +24,8 @@ function MonitoredNetworkDiscoChart(props) {
       setAnomalies(null);
 
       dot11Service.getDiscoHistogram(
-          "disconnection",
           timeRange,
+          null,
           [tapUuid],
           null,
           monitoredNetwork.uuid,

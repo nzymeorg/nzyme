@@ -324,49 +324,75 @@ class Dot11Service {
         successCallback);
   }
 
-  getDiscoHistogram(discoType, timeRange, taps, bssids, monitoredNetworkId, setHistogram) {
+  getDiscoHistogram(timeRange, filters, taps, bssids, monitoredNetworkId, setHistogram) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
     const bssidList = bssids ? bssids.join(",") : null
     const monitoredNetworkIdParam = monitoredNetworkId ? monitoredNetworkId : null;
 
     RESTClient.get("/dot11/disco/histogram",
-        { disco_type: discoType, time_range: timeRange, taps: tapsList, bssids: bssidList, monitored_network_id: monitoredNetworkIdParam },
+        { time_range: timeRange, filters: filters, taps: tapsList, bssids: bssidList, monitored_network_id: monitoredNetworkIdParam },
         function (response) {
           setHistogram(response.data)
     })
   }
 
-  getDiscoTopSenders(organizationId, tenantId, timeRange, taps, monitoredNetworkId, limit, offset, setTopSenders) {
+  findDiscoFrames(organizationId, tenantId, timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setFrames) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
-    const monitoredNetworkIdParam = monitoredNetworkId ? monitoredNetworkId : null;
+    const bssidList = bssids ? bssids.join(",") : null
 
-    RESTClient.get("/dot11/disco/lists/senders",
-        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, taps: tapsList, monitored_network_id: monitoredNetworkIdParam, limit: limit, offset: offset},
+    RESTClient.get("/dot11/disco/frames",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          bssids: bssidList, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
         function (response) {
-          setTopSenders(response.data)
-    })
-  }
-
-  getDiscoTopReceivers(organizationId, tenantId, timeRange, taps, monitoredNetworkId, limit, offset, setTopReceivers) {
-    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
-    const monitoredNetworkIdParam = monitoredNetworkId ? monitoredNetworkId : null;
-
-    RESTClient.get("/dot11/disco/lists/receivers",
-        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, taps: tapsList, monitored_network_id: monitoredNetworkIdParam, limit: limit, offset: offset},
-        function (response) {
-          setTopReceivers(response.data)
+          setFrames(response.data)
         })
   }
 
-  getDiscoTopPairs(organizationId, tenantId, timeRange, taps, monitoredNetworkId, bssids, limit, offset, setTopPairs) {
+  getDiscoMacHistogram(histogramType, organizationId, tenantId, timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setData) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
-    const monitoredNetworkIdParam = monitoredNetworkId ? monitoredNetworkId : null;
-    const bssidsParam = bssids ? bssids.join(",") : null;
+    const bssidList = bssids ? bssids.join(",") : null
 
-    RESTClient.get("/dot11/disco/lists/pairs",
-        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, taps: tapsList, monitored_network_id: monitoredNetworkIdParam, bssids: bssidsParam, limit: limit, offset: offset},
+    RESTClient.get("/dot11/disco/histograms/macs/" + histogramType,
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          bssids: bssidList, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
         function (response) {
-          setTopPairs(response.data)
+          setData(response.data)
+        })
+  }
+
+  getDiscoPairs(organizationId, tenantId, timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+    const bssidList = bssids ? bssids.join(",") : null
+
+    RESTClient.get("/dot11/disco/histograms/pairs",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          bssids: bssidList, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setData(response.data)
+        })
+  }
+
+  getDiscoReasonCodes(timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+    const bssidList = bssids ? bssids.join(",") : null
+
+    RESTClient.get("/dot11/disco/histograms/reason_codes",
+        { time_range: timeRange, filters: filters, taps: tapsList, bssids: bssidList,
+          order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setData(response.data)
+        })
+  }
+
+  getDiscoFrequencies(timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+    const bssidList = bssids ? bssids.join(",") : null
+
+    RESTClient.get("/dot11/disco/histograms/frequencies",
+        { time_range: timeRange, filters: filters, taps: tapsList, bssids: bssidList,
+          order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setData(response.data)
         })
   }
 

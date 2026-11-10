@@ -10,6 +10,8 @@ export function monitorTypeToName(type) {
       return "802.11/WiFi Client (Connected)"
     case "DOT11_CLIENT_DISCONNECTED":
       return "802.11/WiFi Client (Disconnected)"
+    case "DOT11_DISCO_FRAME":
+      return "802.11/WiFi Disconnection Frame"
     case "BLUETOOTH_DEVICE":
       return "Bluetooth Device"
     case "ETHERNET_ASSET":

@@ -29,6 +29,7 @@ public class FilterFactory {
             case "beacon_classification_equals":
             case "recon_scan_type_equals":
             case "spoofing_type_equals":
+            case "disco_type_equals":
             case "dhcp_spoofing_finding_type_equals":
             case "recon_target_outcome_equals":
             case "icmp_type_equals":
@@ -51,6 +52,7 @@ public class FilterFactory {
             case "beacon_classification_not_equals":
             case "recon_scan_type_not_equals":
             case "spoofing_type_not_equals":
+            case "disco_type_not_equals":
             case "dhcp_spoofing_finding_type_not_equals":
             case "recon_target_outcome_not_equals":
             case "icmp_type_not_equals":

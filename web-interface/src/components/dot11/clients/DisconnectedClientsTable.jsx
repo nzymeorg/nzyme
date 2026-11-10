@@ -82,11 +82,11 @@ function DisconnectedClientsTable(props) {
                   <td>{client.mac.oui ? client.mac.oui : <span className="text-muted">Unknown</span>}</td>
                   <td>
                     <SignalStrength strength={client.signal_strength_average}
-                                    selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length} />
-                    <FilterValueIcon setFilters={setFilters}
-                                     fields={DISCONNECTED_CLIENT_FILTER_FIELDS}
-                                     field="signal_strength"
-                                     value={Math.round(client.signal_strength_average)} />
+                                    selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length}
+                                    filterElement={<FilterValueIcon setFilters={setFilters}
+                                                                    fields={DISCONNECTED_CLIENT_FILTER_FIELDS}
+                                                                    field="signal_strength"
+                                                                    value={Math.round(client.signal_strength_average)} />} />
                   </td>
                   <td>
                     { client.probe_request_ssids && client.probe_request_ssids.length > 0 ?

@@ -53,6 +53,7 @@ export default function MonitorDetailsPage() {
       case "DOT11_BSSID":
       case "DOT11_CLIENT_CONNECTED":
       case "DOT11_CLIENT_DISCONNECTED":
+      case "DOT11_DISCO_FRAME":
         return (
           <ol className="breadcrumb">
             <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>
@@ -88,6 +89,7 @@ export default function MonitorDetailsPage() {
       case "DOT11_BSSID":
       case "DOT11_CLIENT_CONNECTED":
       case "DOT11_CLIENT_DISCONNECTED":
+      case "DOT11_DISCO_FRAME":
         return ApiRoutes.DOT11.MONITORING.MONITORS.INDEX
       case "BLUETOOTH_DEVICE":
         return ApiRoutes.BLUETOOTH.MONITORING.MONITORS.INDEX;

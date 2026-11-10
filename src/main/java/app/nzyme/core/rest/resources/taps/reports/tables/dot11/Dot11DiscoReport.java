@@ -3,21 +3,21 @@ package app.nzyme.core.rest.resources.taps.reports.tables.dot11;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import jakarta.annotation.Nullable;
 
-import java.util.Map;
+import java.util.Collections;
+import java.util.List;
 
 @AutoValue
 public abstract class Dot11DiscoReport {
 
-    public abstract Map<String, Dot11DiscoTransmitterReport> deauthentication();
-    public abstract Map<String, Dot11DiscoTransmitterReport> disassociation();
+    public abstract List<Dot11DiscoFrameReport> frames();
 
+    // Taps older than the per-frame report send "deauth" and "disassoc" maps instead, which are ignored.
     @JsonCreator
-    public static Dot11DiscoReport create(@JsonProperty("deauth") Map<String, Dot11DiscoTransmitterReport> deauthentication,
-                                          @JsonProperty("disassoc") Map<String, Dot11DiscoTransmitterReport> disassociation) {
+    public static Dot11DiscoReport create(@JsonProperty("frames") @Nullable List<Dot11DiscoFrameReport> frames) {
         return builder()
-                .deauthentication(deauthentication)
-                .disassociation(disassociation)
+                .frames(frames == null ? Collections.emptyList() : frames)
                 .build();
     }
 
@@ -27,9 +27,7 @@ public abstract class Dot11DiscoReport {
 
     @AutoValue.Builder
     public abstract static class Builder {
-        public abstract Builder deauthentication(Map<String, Dot11DiscoTransmitterReport> deauthentication);
-
-        public abstract Builder disassociation(Map<String, Dot11DiscoTransmitterReport> disassociation);
+        public abstract Builder frames(List<Dot11DiscoFrameReport> frames);
 
         public abstract Dot11DiscoReport build();
     }

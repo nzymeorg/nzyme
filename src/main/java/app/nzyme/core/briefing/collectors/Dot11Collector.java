@@ -228,7 +228,7 @@ public class Dot11Collector {
         activity.put("ssids", ssidHistogram);
 
         List<BriefingHistogramBucketResponse> disco = Lists.newArrayList();
-        for (DiscoHistogramEntry e : dot11.getDiscoHistogram(Dot11.DiscoType.DISCONNECTION, combined, bucketing, ctx.taps(), null)) {
+        for (DiscoHistogramEntry e : dot11.getDiscoHistogram(combined, bucketing, ctx.taps(), Filters.create(Maps.newHashMap()), null)) {
             disco.add(BriefingHistogramBucketResponse.create(e.bucket(), e.frameCount()));
         }
         activity.put("disco", disco);

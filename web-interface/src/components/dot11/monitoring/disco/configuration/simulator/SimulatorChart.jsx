@@ -23,8 +23,8 @@ function SimulatorChart(props) {
       setAnomalies(null);
 
       dot11Service.getDiscoHistogram(
-          "disconnection",
           Presets.RELATIVE_HOURS_24,
+          null,
           [tapUuid],
           null,
           monitoredNetworkId,

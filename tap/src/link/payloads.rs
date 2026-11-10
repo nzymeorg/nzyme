@@ -316,15 +316,19 @@ pub struct Dot11AlertReport {
 
 #[derive(Serialize)]
 pub struct Dot11DiscoReport {
-    pub deauth: HashMap<String, DiscoTransmitterReport>,
-    pub disassoc: HashMap<String, DiscoTransmitterReport>
+    pub frames: Vec<Dot11DiscoFrameReport>
 }
 
 #[derive(Serialize)]
-pub struct DiscoTransmitterReport {
+pub struct Dot11DiscoFrameReport {
+    pub disco_type: String,
+    pub transmitter: String,
+    pub receiver: String,
     pub bssid: String,
-    pub sent_frames: u128,
-    pub receivers: HashMap<String, u128>
+    pub reason_code: u16,
+    pub frequency: Option<u16>,
+    pub frame_count: u128,
+    pub signal_strength: Option<SignalStrengthReport>
 }
 
 #[derive(Serialize)]

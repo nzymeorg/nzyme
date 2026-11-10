@@ -1,45 +1,48 @@
-import React, {createContext, useContext, useEffect, useState} from "react";
-import DiscoHistogram from "./DiscoHistogram";
-import DiscoSendersTable from "./DiscoSendersTable";
-import DiscoReceiversTable from "./DiscoReceiversTable";
-import DiscoPairsTable from "./DiscoPairsTable";
-import MonitoredNetworkSelector from "../../shared/MonitoredNetworkSelector";
-import {useLocation} from "react-router-dom";
-import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
+import React, {useContext, useEffect, useState} from "react";
 import {TapContext} from "../../../App";
+import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
+import Filters from "../../shared/filtering/Filters";
+import useUrlFilters from "../../shared/filtering/useUrlFilters";
+import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
+import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
-import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
+import RenderConditionally from "../../misc/RenderConditionally";
+import Dot11Service from "../../../services/Dot11Service";
+import {DISCO_FILTER_FIELDS} from "./DiscoFilterFields";
+import DiscoFramesChart from "./DiscoFramesChart";
+import DiscoMacHistogram from "./DiscoMacHistogram";
+import DiscoPairsTable from "./DiscoPairsTable";
+import DiscoReasonCodesHistogram from "./DiscoReasonCodesHistogram";
+import DiscoFrequenciesHistogram from "./DiscoFrequenciesHistogram";
+import DiscoFramesTable from "./DiscoFramesTable";
 
-export const MonitoredNetworkContext = createContext(null);
+const dot11Service = new Dot11Service();
 
-const useQuery = () => {
-  return new URLSearchParams(useLocation().search);
-}
+export default function DiscoPage() {
 
-function DiscoPage() {
+  usePageTitle("WiFi Disconnections");
 
-  usePageTitle("Wifi Disconnections");
-
+  const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
+  const selectedTaps = tapContext.taps;
 
-  const urlQuery = useQuery();
+  const [timeRange, setTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24);
+  const [filters, setFilters] = useUrlFilters(DISCO_FILTER_FIELDS);
+  const [monitorsReady, setMonitorsReady] = useState(false);
 
-  const urlMonitoredNetwork = urlQuery.get("monitored-network-id") ? urlQuery.get("monitored-network-id") : "";
-  const [monitoredNetwork, setMonitoredNetwork] = useState(urlMonitoredNetwork);
+  const [histogram, setHistogram] = useState(null);
+  const [frames, setFrames] = useState(null);
 
-  // Follow the URL parameter when navigation changes it while this page stays mounted.
-  useEffect(() => {
-    setMonitoredNetwork(urlMonitoredNetwork);
-  }, [urlMonitoredNetwork]);
+  const [orderColumn, setOrderColumn] = useState("created_at");
+  const [orderDirection, setOrderDirection] = useState("DESC");
 
-  const [discoHistogramTimeRange, setDiscoHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disco");
-  const [deauthHistogramTimeRange, setDeauthHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "deauth");
-  const [disassocHistogramTimeRange, setDisassocHistogramTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disassoc");
-  const [pairsTimeRange, setPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [sendersTimeRange, setSendersTimeRange] = useState(Presets.RELATIVE_HOURS_24);
-  const [receiversTimeRange, setReceiversTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const perPage = 25;
+  const [page, setPage] = useState(1);
+
+  const [revision, setRevision] = useState(new Date());
 
   useEffect(() => {
     enableTapSelector(tapContext);
@@ -48,44 +51,85 @@ function DiscoPage() {
       disableTapSelector(tapContext);
     }
   }, [tapContext]);
-  
+
+  useEffect(() => {
+    if (!monitorsReady) {
+      return;
+    }
+
+    setHistogram(null);
+    dot11Service.getDiscoHistogram(timeRange, filters, selectedTaps, null, null, setHistogram);
+  }, [timeRange, filters, selectedTaps, revision, monitorsReady]);
+
+  useEffect(() => {
+    if (!monitorsReady) {
+      return;
+    }
+
+    setFrames(null);
+    dot11Service.findDiscoFrames(organizationId, tenantId, timeRange, filters, selectedTaps, null,
+        orderColumn, orderDirection, perPage, (page - 1) * perPage, setFrames);
+  }, [organizationId, tenantId, timeRange, filters, selectedTaps, orderColumn, orderDirection, page, revision, monitorsReady]);
+
   return (
       <React.Fragment>
-        <MonitoredNetworkContext.Provider value={{network: monitoredNetwork, setNetwork: setMonitoredNetwork}} >
-          <div className="row">
-            <div className="col-md-3">
-              <h1>Disconnection Activity</h1>
-            </div>
+        <div className="row">
+          <div className="col-md-12">
+            <h1>Disconnection Activity</h1>
+          </div>
+        </div>
 
-            <div className="col-md-9">
-              <div className="float-end">
-                <a href="https://go.nzyme.org/disco" className="btn btn-secondary">Help</a>
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Disconnection Frames Filters"
+                                       timeRange={timeRange}
+                                       setTimeRange={setTimeRange}
+                                       helpLink="https://go.nzyme.org/disco" />
+
+                <Filters filters={filters}
+                         setFilters={setFilters}
+                         fields={DISCO_FILTER_FIELDS}
+                         monitorType="DOT11_DISCO_FRAME"
+                         onMonitorsReady={() => setMonitorsReady(true)}
+                         onSaveAsMonitor={onSaveFiltersAsMonitor("DOT11_DISCO_FRAME", organizationId, tenantId)} />
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="row">
-            <div className="col-md-12">
-              <MonitoredNetworkSelector />
-            </div>
-          </div>
-
+        <RenderConditionally render={monitorsReady}>
           <div className="row mt-3">
-            <div className="col-md-12">
+            <div className="col-md-6">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Disconnection Frames Observed"
-                                         urlKey="disco"
-                                         timeRange={discoHistogramTimeRange}
-                                         setTimeRange={setDiscoHistogramTimeRange} />
+                  <CardTitleWithControls title="Disconnection Frames"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-frame-types" />
 
-                  <DiscoHistogram discoType="disconnection"
-                                  urlKey="disco"
-                                  timeRange={discoHistogramTimeRange}
-                                  setTimeRange={setDiscoHistogramTimeRange} />
+                  <DiscoFramesChart histogram={histogram} timeRange={timeRange} setTimeRange={setTimeRange} />
 
                   <p className="mb-0 mt-3 text-muted">
-                    <i>Disconnection activity</i> refers to the sum of deauthentication and disassociation frames.
+                    Deauthentication and disassociation frames end a connection between a client and an access point.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-md-6">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Broadcast and Unicast Frames"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-broadcast" />
+
+                  <DiscoFramesChart histogram={histogram} timeRange={timeRange} setTimeRange={setTimeRange} mode="broadcast" />
+
+                  <p className="mb-0 mt-3 text-muted">
+                    A frame sent to the broadcast address disconnects every client of an access point at once.
                   </p>
                 </div>
               </div>
@@ -93,34 +137,56 @@ function DiscoPage() {
           </div>
 
           <div className="row mt-3">
-            <div className="col-md-6">
+            <div className="col-md-4">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Deauthentication Frames Observed"
-                                         urlKey="deauth"
-                                         timeRange={deauthHistogramTimeRange}
-                                         setTimeRange={setDeauthHistogramTimeRange} />
+                  <CardTitleWithControls title="Top Transmitters"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-addresses" />
 
-                  <DiscoHistogram discoType="deauthentication"
-                                  urlKey="deauth"
-                                  timeRange={deauthHistogramTimeRange}
-                                  setTimeRange={setDeauthHistogramTimeRange} />
+                  <DiscoMacHistogram histogramType="transmitters"
+                                     columnTitle="Transmitter"
+                                     timeRange={timeRange}
+                                     filters={filters}
+                                     setFilters={setFilters}
+                                     revision={revision} />
                 </div>
               </div>
             </div>
 
-            <div className="col-md-6">
+            <div className="col-md-4">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Disassociation Frames Observed"
-                                         urlKey="disassoc"
-                                         timeRange={disassocHistogramTimeRange}
-                                         setTimeRange={setDisassocHistogramTimeRange} />
+                  <CardTitleWithControls title="Top Receivers"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-addresses" />
 
-                  <DiscoHistogram discoType="disassociation"
-                                  urlKey="disassoc"
-                                  timeRange={disassocHistogramTimeRange}
-                                  setTimeRange={setDisassocHistogramTimeRange} />
+                  <DiscoMacHistogram histogramType="receivers"
+                                     columnTitle="Receiver"
+                                     timeRange={timeRange}
+                                     filters={filters}
+                                     setFilters={setFilters}
+                                     revision={revision} />
+                </div>
+              </div>
+            </div>
+
+            <div className="col-md-4">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Top BSSIDs"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-addresses" />
+
+                  <DiscoMacHistogram histogramType="bssids"
+                                     columnTitle="BSSID"
+                                     timeRange={timeRange}
+                                     filters={filters}
+                                     setFilters={setFilters}
+                                     revision={revision} />
                 </div>
               </div>
             </div>
@@ -131,44 +197,82 @@ function DiscoPage() {
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="Top Pairs"
-                                         timeRange={pairsTimeRange}
-                                         setTimeRange={setPairsTimeRange} />
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-addresses" />
 
-                  <DiscoPairsTable timeRange={pairsTimeRange} />
+                  <DiscoPairsTable timeRange={timeRange}
+                                   filters={filters}
+                                   setFilters={setFilters}
+                                   revision={revision} />
                 </div>
               </div>
             </div>
           </div>
 
           <div className="row mt-3">
-            <div className="col-md-6">
+            <div className="col-md-7">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Top Senders"
-                                         timeRange={sendersTimeRange}
-                                         setTimeRange={setSendersTimeRange} />
+                  <CardTitleWithControls title="Reason Codes"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-reason-codes" />
 
-                  <DiscoSendersTable timeRange={sendersTimeRange} />
+                  <DiscoReasonCodesHistogram timeRange={timeRange}
+                                             filters={filters}
+                                             setFilters={setFilters}
+                                             revision={revision} />
                 </div>
               </div>
             </div>
 
-            <div className="col-md-6">
+            <div className="col-md-5">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Top Receivers"
-                                         timeRange={receiversTimeRange}
-                                         setTimeRange={setReceiversTimeRange} />
+                  <CardTitleWithControls title="Channels"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-channels" />
 
-                  <DiscoReceiversTable timeRange={receiversTimeRange} />
+                  <DiscoFrequenciesHistogram timeRange={timeRange}
+                                             filters={filters}
+                                             setFilters={setFilters}
+                                             revision={revision} />
                 </div>
               </div>
             </div>
           </div>
-        </MonitoredNetworkContext.Provider>
+
+          <div className="row mt-3">
+            <div className="col-md-12">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Disconnection Frames"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())}
+                                         helpLink="https://go.nzyme.org/disco-frames" />
+
+                  <p className="text-muted">
+                    Taps combine frames that share type, addresses, reason code and channel within a report
+                    interval into one row. The frames column shows how many frames a row stands for.
+                  </p>
+
+                  <DiscoFramesTable frames={frames}
+                                    page={page}
+                                    setPage={setPage}
+                                    perPage={perPage}
+                                    orderColumn={orderColumn}
+                                    orderDirection={orderDirection}
+                                    setOrderColumn={setOrderColumn}
+                                    setOrderDirection={setOrderDirection}
+                                    setFilters={setFilters} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </RenderConditionally>
       </React.Fragment>
   )
 
 }
-
-export default DiscoPage;

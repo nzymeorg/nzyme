@@ -594,43 +594,48 @@ public class Dot11Table implements DataTable {
     }
 
     private void writeDisco(Tap tap, DateTime timestamp, Dot11DiscoReport disco) {
-        tablesService.getNzyme().getDatabase().useHandle(handle -> {
-            for (Dot11DiscoTransmitterReport report : disco.deauthentication().values()) {
-                writeDiscoReport(handle, tap, timestamp, Dot11.DiscoType.DEAUTHENTICATION, report);
-            }
-
-            for (Dot11DiscoTransmitterReport report : disco.disassociation().values()) {
-                writeDiscoReport(handle, tap, timestamp, Dot11.DiscoType.DISASSOCIATION, report);
-            }
-        });
-    }
-
-    private void writeDiscoReport(Handle handle, Tap tap, DateTime timestamp, Dot11.DiscoType discoType, Dot11DiscoTransmitterReport report) {
-        long activityId = handle.createQuery(
-                "INSERT INTO dot11_disco_activity(tap_uuid, disco_type, bssid, sent_frames, " +
-                        "created_at) VALUES(:tap_uuid, :disco_type, :bssid, :sent_frames, :created_at) " +
-                        "RETURNING id")
-                .bind("tap_uuid", tap.uuid())
-                .bind("disco_type", discoType.getNumber())
-                .bind("bssid", report.bssid())
-                .bind("sent_frames", report.sentFrames())
-                .bind("created_at", timestamp)
-                .mapTo(Long.class)
-                .one();
-
-        PreparedBatch batch = handle.prepareBatch(
-                "INSERT INTO dot11_disco_activity_receivers(disco_activity_id, bssid, received_frames)" +
-                        " VALUES(:disco_activity_id, :bssid, :received_frames)"
-        );
-
-        for (Map.Entry<String, Long> receiver : report.receivers().entrySet()) {
-                batch.bind("disco_activity_id", activityId)
-                        .bind("bssid", receiver.getKey())
-                        .bind("received_frames", receiver.getValue())
-                        .add();
+        if (disco.frames().isEmpty()) {
+            return;
         }
 
-        batch.execute();
+        tablesService.getNzyme().getDatabase().useHandle(handle -> {
+            PreparedBatch batch = handle.prepareBatch(
+                    "INSERT INTO dot11_disco_frames(tap_uuid, disco_type, transmitter, receiver, bssid, " +
+                            "reason_code, frequency, signal_strength_min, signal_strength_max, " +
+                            "signal_strength_average, frame_count, created_at) VALUES(:tap_uuid, :disco_type, " +
+                            ":transmitter, :receiver, :bssid, :reason_code, :frequency, :signal_strength_min, " +
+                            ":signal_strength_max, :signal_strength_average, :frame_count, :created_at)"
+            );
+
+            for (Dot11DiscoFrameReport frame : disco.frames()) {
+                Dot11.DiscoType discoType;
+                try {
+                    discoType = Dot11.DiscoType.valueOf(frame.discoType());
+                } catch (IllegalArgumentException e) {
+                    LOG.warn("Unknown disconnection frame type [{}] reported by tap [{}]. Skipping.",
+                            frame.discoType(), tap.uuid());
+                    continue;
+                }
+
+                Dot11SignalStrengthReport signal = frame.signalStrength();
+
+                batch.bind("tap_uuid", tap.uuid())
+                        .bind("disco_type", discoType.name())
+                        .bind("transmitter", frame.transmitter())
+                        .bind("receiver", frame.receiver())
+                        .bind("bssid", frame.bssid())
+                        .bind("reason_code", frame.reasonCode())
+                        .bind("frequency", frame.frequency())
+                        .bind("signal_strength_min", signal == null ? null : signal.min())
+                        .bind("signal_strength_max", signal == null ? null : signal.max())
+                        .bind("signal_strength_average", signal == null ? null : signal.average())
+                        .bind("frame_count", frame.frameCount())
+                        .bind("created_at", timestamp)
+                        .add();
+            }
+
+            batch.execute();
+        });
     }
 
     private void handleAlerts(Tap tap, List<Dot11AlertReport> alerts) {

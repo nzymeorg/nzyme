@@ -59,6 +59,7 @@ import {
 } from "./validators/BeaconClassificationValidator";
 import {ALLOWED_RECON_SCAN_TYPE_VALUES, RECON_SCAN_TYPE_SELECT_OPTIONS} from "./validators/ReconScanTypeValidator";
 import {ALLOWED_SPOOFING_TYPE_VALUES, SPOOFING_TYPE_SELECT_OPTIONS} from "./validators/SpoofingTypeValidator";
+import {ALLOWED_DISCO_TYPE_VALUES, DISCO_TYPE_SELECT_OPTIONS} from "./validators/DiscoTypeValidator";
 import {
   ALLOWED_DHCP_SPOOFING_FINDING_TYPE_VALUES,
   DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS
@@ -238,6 +239,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_SPOOFING_TYPE_VALUES, value)
     ],
     placeholder: "ARP"
+  },
+  DISCO_TYPE: {
+    name: "disco_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_DISCO_TYPE_VALUES, value)
+    ],
+    placeholder: "DEAUTHENTICATION"
   },
   DHCP_SPOOFING_FINDING_TYPE: {
     name: "dhcp_spoofing_finding_type",
@@ -636,6 +644,24 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: SPOOFING_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DISCO_TYPE_EQUALS: {
+    name: "disco_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DISCO_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DISCO_TYPE_NOT_EQUALS: {
+    name: "disco_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DISCO_TYPE_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   DHCP_SPOOFING_FINDING_TYPE_EQUALS: {
@@ -1084,6 +1110,12 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.SPOOFING_TYPE_EQUALS,
             OPERATORS.SPOOFING_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.DISCO_TYPE:
+          setAllowedOperators([
+            OPERATORS.DISCO_TYPE_EQUALS,
+            OPERATORS.DISCO_TYPE_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.DHCP_SPOOFING_FINDING_TYPE:

@@ -3841,21 +3841,37 @@
         "tags" : [ "Disconnection Monitoring" ]
       }
     },
-    "/api/dot11/disco/histogram" : {
+    "/api/dot11/disco/frames" : {
       "get" : {
-        "description" : "Returns an object keyed by bucket timestamp with the number of disconnection frames in each bucket. Narrow the result to a set of BSSIDs, or to the BSSIDs of a monitored network. If you pass a monitored network, it takes precedence over the BSSID list.",
-        "operationId" : "findDiscoHistogram",
+        "description" : "Returns the recorded disconnection frames. Taps aggregate frames that share type, transmitter, receiver, BSSID, reason code and channel within a report interval into one record with a frame count. Sorts by time descending unless you pass a sorting column and direction.",
+        "operationId" : "findDiscoFrames",
         "parameters" : [ {
-          "description" : "Type of disconnection frames to count, for example DISCONNECTION.",
+          "description" : "Organization UUID.",
           "in" : "query",
-          "name" : "disco_type",
+          "name" : "organization_id",
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }, {
           "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
           "in" : "query",
           "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
           "schema" : {
             "type" : "string"
           }
@@ -3867,17 +3883,119 @@
             "type" : "string"
           }
         }, {
-          "description" : "BSSIDs to narrow the result to. Ignored if a monitored network is passed.",
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
           "in" : "query",
           "name" : "bssids",
           "schema" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
+            "type" : "string"
           }
         }, {
-          "description" : "UUID of a monitored network. Narrows the result to all BSSIDs of that network.",
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column. Omit to sort by time.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DiscoFrameListResponse"
+                }
+              }
+            },
+            "description" : "Frames found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, or page size above 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List disconnection frames",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/histogram" : {
+      "get" : {
+        "description" : "Returns an object keyed by bucket timestamp with the number of disconnection frames in each bucket, split into deauthentication and disassociation frames and with the number of frames sent to the broadcast address. Narrow the result with filters, a set of BSSIDs, or the BSSIDs of a monitored network. A monitored network takes precedence over the BSSID list.",
+        "operationId" : "findDiscoHistogram",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
           "in" : "query",
           "name" : "monitored_network_id",
           "schema" : {
@@ -3896,12 +4014,6 @@
             },
             "description" : "Histogram found. The response is an object keyed by bucket timestamp."
           },
-          "400" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Unknown disconnection frame type."
-          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -3919,39 +4031,21 @@
         "tags" : [ "Disconnection Monitoring" ]
       }
     },
-    "/api/dot11/disco/lists/{list_type}" : {
+    "/api/dot11/disco/histograms/frequencies" : {
       "get" : {
-        "description" : "Returns a table of the most active sources, targets or sender and receiver pairs of disconnection frames. The senders and receivers lists return a two column table, the pairs list returns a three column table. You can narrow the result by monitored network or by BSSIDs, but not by both. The page size cannot exceed 250.",
-        "operationId" : "findDiscoTopList",
+        "description" : "Returns the frequencies the recorded disconnection frames were seen on, in MHz, with the number of frames on each. Frames without channel information are grouped under a null frequency. Results are paginated.",
+        "operationId" : "findDiscoFrequencies",
         "parameters" : [ {
-          "description" : "Organization UUID.",
-          "in" : "query",
-          "name" : "organization_id",
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Tenant UUID.",
-          "in" : "query",
-          "name" : "tenant_id",
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "List to return: senders, receivers or pairs.",
-          "in" : "path",
-          "name" : "list_type",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "minLength" : 1
-          }
-        }, {
           "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
           "in" : "query",
           "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
           "schema" : {
             "type" : "string"
           }
@@ -3963,7 +4057,14 @@
             "type" : "string"
           }
         }, {
-          "description" : "UUID of a monitored network. Narrows the result to all BSSIDs of that network.",
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
           "in" : "query",
           "name" : "monitored_network_id",
           "schema" : {
@@ -3971,9 +4072,16 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of BSSIDs to narrow the result to.",
+          "description" : "Sorting column, KEY or VALUE. Defaults to the frame count.",
           "in" : "query",
-          "name" : "bssids",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
           "schema" : {
             "type" : "string"
           }
@@ -4003,34 +4111,384 @@
                 }
               }
             },
-            "description" : "List found. The pairs list type returns a three column table instead."
+            "description" : "Histogram found."
           },
           "400" : {
             "content" : {
               "application/json" : { }
             },
-            "description" : "Both a monitored network and a BSSID list were passed."
+            "description" : "Unknown sorting column or direction."
           },
           "401" : {
             "content" : {
               "application/json" : { }
             },
-            "description" : "The requested page size is larger than 250, or the monitored network is not accessible by the calling user."
+            "description" : "The monitored network is not accessible by the calling user."
           },
           "404" : {
             "content" : {
               "application/json" : { }
             },
-            "description" : "Unknown list type, monitored network not found, or organization or tenant not accessible by the calling user."
+            "description" : "Monitored network not found."
+          }
+        },
+        "summary" : "List top disconnection frame frequencies",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/histograms/macs/{histogram_type}" : {
+      "get" : {
+        "description" : "Returns the MAC addresses with the most disconnection frames in one of three roles: transmitters, receivers or BSSIDs. Results are paginated.",
+        "operationId" : "findDiscoMacHistogram",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Address role to count: transmitters, receivers or bssids.",
+          "in" : "path",
+          "name" : "histogram_type",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column, KEY or VALUE. Defaults to the frame count.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
           },
-          "500" : {
+          "400" : {
             "content" : {
               "application/json" : { }
             },
-            "description" : "The list type could not be handled."
+            "description" : "Unknown histogram type, sorting column or direction."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
           }
         },
-        "summary" : "Get top senders, receivers or pairs of disco frames",
+        "summary" : "List top disconnection frame addresses",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/histograms/pairs" : {
+      "get" : {
+        "description" : "Returns transmitter and receiver pairs with the number of disconnection frames exchanged between them, most active pair first by default. Results are paginated.",
+        "operationId" : "findDiscoPairs",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column, VALUE1, VALUE2 or VALUE3. Defaults to the frame count.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Pairs found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top disconnection frame pairs",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/histograms/reason_codes" : {
+      "get" : {
+        "description" : "Returns the reason codes of the recorded disconnection frames with their names from the IEEE 802.11 standard and the number of frames that carried each code. Results are paginated.",
+        "operationId" : "findDiscoReasonCodes",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column, KEY or VALUE. Defaults to the frame count.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found."
+          }
+        },
+        "summary" : "List top disconnection frame reason codes",
         "tags" : [ "Disconnection Monitoring" ]
       }
     },
@@ -26535,7 +26993,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         }, {
           "description" : "Organization UUID.",
@@ -26609,7 +27067,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         } ],
         "requestBody" : {
@@ -40670,6 +41128,89 @@
           }
         }
       },
+      "DiscoFrameDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "disco_type" : {
+            "type" : "string"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "is_broadcast" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reason_code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "receiver" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "receiver_is_bssid" : {
+            "type" : "boolean"
+          },
+          "signal_strength_average" : {
+            "type" : "number",
+            "format" : "float"
+          },
+          "signal_strength_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "signal_strength_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "transmitter" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "transmitter_is_bssid" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DiscoFrameListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "frames" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiscoFrameDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "DiscoMonitorMethodConfigurationResponse" : {
         "type" : "object",
         "properties" : {
@@ -41255,6 +41796,18 @@
           },
           "oui" : {
             "type" : "string"
+          }
+        }
+      },
+      "Dot11MacLinkMetadataResponse" : {
+        "type" : "object",
+        "properties" : {
+          "mac" : {
+            "$ref" : "#/components/schemas/Dot11MacAddressResponse"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "ACCESS_POINT", "CLIENT", "UNKNOWN", "MULTIPLE" ]
           }
         }
       },

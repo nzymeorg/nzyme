@@ -229,8 +229,7 @@ function SSIDDetailsPage() {
                 includes disconnections initiated by access point as well as clients.
               </p>
 
-              <DiscoHistogram discoType="disconnection"
-                              timeRange={discoActivityTimeRange}
+              <DiscoHistogram timeRange={discoActivityTimeRange}
                               urlKey="disco_activity"
                               setTimeRange={setDiscoActivityTimeRange}
                               bssids={[ssid.bssid.address]} />

@@ -5,7 +5,14 @@ import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.Dot11MacFrameCount;
 import app.nzyme.core.dot11.db.BSSIDPairFrameCount;
+import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
+import app.nzyme.core.database.generic.TwoColumnHistogramOrderColumn;
+import app.nzyme.core.dot11.Dot11ReasonCodes;
+import app.nzyme.core.dot11.db.DiscoFrameEntry;
+import app.nzyme.core.dot11.db.DiscoFrequencyCount;
 import app.nzyme.core.dot11.db.DiscoHistogramEntry;
+import app.nzyme.core.dot11.db.DiscoReasonCodeCount;
 import app.nzyme.core.dot11.db.monitoring.MonitoredBSSID;
 import app.nzyme.core.dot11.db.monitoring.MonitoredSSID;
 import app.nzyme.core.dot11.monitoring.disco.db.Dot11DiscoMonitorMethodConfiguration;
@@ -18,6 +25,8 @@ import app.nzyme.core.rest.requests.UpdateDiscoDetectionConfigRequest;
 import app.nzyme.core.rest.responses.dot11.Dot11MacAddressContextResponse;
 import app.nzyme.core.rest.responses.dot11.Dot11MacAddressResponse;
 import app.nzyme.core.rest.responses.dot11.Dot11MacLinkMetadataResponse;
+import app.nzyme.core.rest.responses.dot11.disco.DiscoFrameDetailsResponse;
+import app.nzyme.core.rest.responses.dot11.disco.DiscoFrameListResponse;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoHistogramValueResponse;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoMonitorMethodConfigurationResponse;
 import app.nzyme.core.rest.responses.dot11.disco.Dot11DiscoMonitorAnomalyDetailsResponse;
@@ -26,6 +35,7 @@ import app.nzyme.core.rest.responses.shared.*;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import tools.jackson.databind.ObjectMapper;
@@ -60,6 +70,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
+
 @Path("/api/dot11/disco")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
@@ -73,286 +85,491 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
 
     private static final Logger LOG = LogManager.getLogger(TapDataHandlingResource.class);
 
-    private enum ListType {
-        SENDERS,
-        RECEIVERS,
-        PAIRS
+    private enum MacHistogramType {
+        TRANSMITTERS(Dot11.DiscoMacDimension.TRANSMITTER),
+        RECEIVERS(Dot11.DiscoMacDimension.RECEIVER),
+        BSSIDS(Dot11.DiscoMacDimension.BSSID);
+
+        private final Dot11.DiscoMacDimension dimension;
+
+        MacHistogramType(Dot11.DiscoMacDimension dimension) {
+            this.dimension = dimension;
+        }
     }
 
     @Inject
     private NzymeNode nzyme;
 
+    private static final String FILTERS_DESCRIPTION = "JSON encoded filter definition as produced by the web interface filter builder.";
+    private static final String BSSIDS_DESCRIPTION = "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.";
+    private static final String MONITORED_NETWORK_DESCRIPTION = "UUID of a monitored network. Narrows the result to frames of all BSSIDs of that network.";
+
     @GET
     @Path("/histogram")
     @Operation(operationId = "findDiscoHistogram", summary = "Get disconnection frame histogram",
             description = "Returns an object keyed by bucket timestamp with the number of disconnection frames in each "
-                    + "bucket. Narrow the result to a set of BSSIDs, or to the BSSIDs of a monitored network. If you "
-                    + "pass a monitored network, it takes precedence over the BSSID list.")
+                    + "bucket, split into deauthentication and disassociation frames and with the number of frames "
+                    + "sent to the broadcast address. Narrow the result with filters, a set of BSSIDs, or the "
+                    + "BSSIDs of a monitored network. A monitored network takes precedence over the BSSID list.")
     @ApiResponse(responseCode = "200", description = "Histogram found. The response is an object keyed by bucket timestamp.",
             content = @Content(schema = @Schema(implementation = Object.class)))
-    @ApiResponse(responseCode = "400", description = "Unknown disconnection frame type.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Monitored network not found.", content = @Content)
     public Response histogram(@Parameter(hidden = true) @Context SecurityContext sc,
-                              @Parameter(description = "Type of disconnection frames to count, for example DISCONNECTION.") @QueryParam("disco_type") String type,
                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                              @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
                               @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
-                              @Parameter(description = "BSSIDs to narrow the result to. Ignored if a monitored network is passed.") @QueryParam("bssids") @Nullable List<String> bssids, // or monitoredNetworkId
-                              @Parameter(description = "UUID of a monitored network. Narrows the result to all BSSIDs of that network.") @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId) {
+                              @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                              @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
-        Dot11.DiscoType discoType;
-        try {
-            discoType = Dot11.DiscoType.valueOf(type.toUpperCase());
-        } catch(IllegalArgumentException e) {
-            return Response.status(Response.Status.BAD_REQUEST).build();
-        }
-
-        List<String> selectedBssids = null;
-        if (bssids != null && !bssids.isEmpty()) {
-            selectedBssids = bssids;
-        }
-
-        if (monitoredNetworkId != null) {
-            Optional<MonitoredSSID> monitoredNetwork = nzyme.getDot11().findMonitoredSSID(monitoredNetworkId);
-            if (monitoredNetwork.isEmpty()) {
-                return Response.status(Response.Status.NOT_FOUND).build();
-            }
-
-            if (!entityAccessible(authenticatedUser, monitoredNetwork.get())) {
-                return Response.status(Response.Status.UNAUTHORIZED).build();
-            }
-
-            selectedBssids = nzyme.getDot11().findMonitoredBSSIDsOfMonitoredNetwork(monitoredNetwork.get().id())
-                    .stream()
-                    .map(MonitoredBSSID::bssid)
-                    .collect(Collectors.toList());
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
         }
 
         Map<DateTime, DiscoHistogramValueResponse> response = Maps.newTreeMap();
         for (DiscoHistogramEntry h : nzyme.getDot11()
-                .getDiscoHistogram(discoType, timeRange, bucketing, tapUuids, selectedBssids)) {
-            response.put(h.bucket(), DiscoHistogramValueResponse.create(h.bucket(), h.frameCount()));
+                .getDiscoHistogram(timeRange, bucketing, tapUuids, filters, bssids.bssids())) {
+            response.put(h.bucket(), DiscoHistogramValueResponse.create(
+                    h.bucket(),
+                    h.frameCount(),
+                    h.deauthenticationCount(),
+                    h.disassociationCount(),
+                    h.broadcastCount()
+            ));
         }
 
         return Response.ok(response).build();
     }
 
     @GET
-    @Path("/lists/{list_type}")
-    @Operation(operationId = "findDiscoTopList", summary = "Get top senders, receivers or pairs of disco frames",
-            description = "Returns a table of the most active sources, targets or sender and receiver pairs of "
-                    + "disconnection frames. The senders and receivers lists return a two column table, the pairs list "
-                    + "returns a three column table. You can narrow the result by monitored network or by BSSIDs, but "
-                    + "not by both. The page size cannot exceed 250.")
-    @ApiResponse(responseCode = "200", description = "List found. The pairs list type returns a three column table instead.",
-            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
-    @ApiResponse(responseCode = "400", description = "Both a monitored network and a BSSID list were passed.", content = @Content)
-    @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or the monitored "
-            + "network is not accessible by the calling user.", content = @Content)
-    @ApiResponse(responseCode = "404", description = "Unknown list type, monitored network not found, or organization "
-            + "or tenant not accessible by the calling user.", content = @Content)
-    @ApiResponse(responseCode = "500", description = "The list type could not be handled.", content = @Content)
-    public Response list(@Parameter(hidden = true) @Context SecurityContext sc,
-                         @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
-                         @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
-                         @Parameter(description = "List to return: senders, receivers or pairs.") @PathParam("list_type") @NotEmpty String listTypeParam,
-                         @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
-                         @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
-                         @Parameter(description = "UUID of a monitored network. Narrows the result to all BSSIDs of that network.") @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
-                         @Parameter(description = "Comma separated list of BSSIDs to narrow the result to.") @QueryParam("bssids") @Nullable String bssidsParam,
-                         @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
-                         @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+    @Path("/frames")
+    @Operation(operationId = "findDiscoFrames", summary = "List disconnection frames",
+            description = "Returns the recorded disconnection frames. Taps aggregate frames that share type, "
+                    + "transmitter, receiver, BSSID, reason code and channel within a report interval into one record "
+                    + "with a frame count. Sorts by time descending unless you pass a sorting column and direction.")
+    @ApiResponse(responseCode = "200", description = "Frames found.",
+            content = @Content(schema = @Schema(implementation = DiscoFrameListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction, or page size above 250.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization, tenant or monitored network not found, or not accessible by the calling user.", content = @Content)
+    public Response frames(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                           @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                           @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                           @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
+                           @Parameter(description = "Sorting column. Omit to sort by time.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                           @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                           @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                           @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
         if (limit > 250) {
-            LOG.warn("Requested limit larger than 250. Not allowed.");
-            return Response.status(Response.Status.UNAUTHORIZED).build();
-        }
-
-        ListType listType;
-        try {
-            listType = ListType.valueOf(listTypeParam.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return Response.status(Response.Status.NOT_FOUND).build();
-        }
-
-        if (monitoredNetworkId != null && bssidsParam != null) {
-            // Not allowed to filter by both monitored network and specific BSSIDs.
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        Dot11.DiscoFrameOrderColumn orderColumn = Dot11.DiscoFrameOrderColumn.CREATED_AT;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = Dot11.DiscoFrameOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
 
-        List<String> selectedBssids = null;
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
+        }
+
+        long total = nzyme.getDot11().countDiscoFrames(timeRange, filters, bssids.bssids(), tapUuids);
+
+        Map<UUID, String> tapNames = Maps.newHashMap();
+        List<DiscoFrameDetailsResponse> frames = Lists.newArrayList();
+        for (DiscoFrameEntry f : nzyme.getDot11().findDiscoFrames(
+                timeRange, filters, bssids.bssids(), limit, offset, orderColumn, orderDirection, tapUuids)) {
+            String tapName = tapNames.computeIfAbsent(f.tapUuid(), uuid ->
+                    nzyme.getTapManager().findTap(uuid).map(Tap::name).orElse(null));
+
+            frames.add(DiscoFrameDetailsResponse.create(
+                    f.id(),
+                    f.tapUuid(),
+                    tapName,
+                    f.createdAt(),
+                    f.discoType(),
+                    buildMacResponse(f.transmitter(), tapUuids, organizationId, tenantId),
+                    buildMacResponse(f.receiver(), tapUuids, organizationId, tenantId),
+                    buildMacResponse(f.bssid(), tapUuids, organizationId, tenantId),
+                    Dot11.BROADCAST_MAC.equals(f.receiver()),
+                    f.transmitter().equals(f.bssid()),
+                    f.receiver().equals(f.bssid()),
+                    f.reasonCode(),
+                    Dot11ReasonCodes.name(f.reasonCode()),
+                    f.frequency(),
+                    f.signalStrengthMin(),
+                    f.signalStrengthMax(),
+                    f.signalStrengthAverage(),
+                    f.frameCount()
+            ));
+        }
+
+        return Response.ok(DiscoFrameListResponse.create(total, frames)).build();
+    }
+
+    @GET
+    @Path("/histograms/macs/{histogram_type}")
+    @Operation(operationId = "findDiscoMacHistogram", summary = "List top disconnection frame addresses",
+            description = "Returns the MAC addresses with the most disconnection frames in one of three roles: "
+                    + "transmitters, receivers or BSSIDs. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown histogram type, sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization, tenant or monitored network not found, or not accessible by the calling user.", content = @Content)
+    public Response macHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                 @Parameter(description = "Address role to count: transmitters, receivers or bssids.") @PathParam("histogram_type") @NotEmpty String histogramTypeParam,
+                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                 @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                 @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                                 @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
+                                 @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                 @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                 @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (limit > 250) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        MacHistogramType histogramType;
+        try {
+            histogramType = MacHistogramType.valueOf(histogramTypeParam.toUpperCase());
+        } catch(IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        TwoColumnHistogramOrderColumn orderColumn = TwoColumnHistogramOrderColumn.VALUE;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = TwoColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
+        }
+
+        long total = nzyme.getDot11()
+                .countDiscoMacHistogram(histogramType.dimension, timeRange, filters, bssids.bssids(), tapUuids);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (Dot11MacFrameCount s : nzyme.getDot11().getDiscoMacHistogram(histogramType.dimension, timeRange,
+                filters, bssids.bssids(), limit, offset, orderColumn, orderDirection, tapUuids)) {
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            s.mac(),
+                            HistogramValueType.DOT11_MAC,
+                            buildMacResponse(s.mac(), tapUuids, organizationId, tenantId)
+                    ),
+                    HistogramValueStructureResponse.create(s.frameCount(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(total, true, values)).build();
+    }
+
+    @GET
+    @Path("/histograms/pairs")
+    @Operation(operationId = "findDiscoPairs", summary = "List top disconnection frame pairs",
+            description = "Returns transmitter and receiver pairs with the number of disconnection frames exchanged "
+                    + "between them, most active pair first by default. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Pairs found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization, tenant or monitored network not found, or not accessible by the calling user.", content = @Content)
+    public Response pairs(@Parameter(hidden = true) @Context SecurityContext sc,
+                          @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                          @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                          @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                          @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                          @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
+                          @Parameter(description = "Sorting column, VALUE1, VALUE2 or VALUE3. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                          @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                          @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                          @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (limit > 250) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        ThreeColumnHistogramOrderColumn orderColumn = ThreeColumnHistogramOrderColumn.VALUE3;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = ThreeColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
+        }
+
+        long total = nzyme.getDot11().countDiscoPairs(timeRange, filters, bssids.bssids(), tapUuids);
+
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (BSSIDPairFrameCount s : nzyme.getDot11().getDiscoPairs(
+                timeRange, filters, bssids.bssids(), limit, offset, orderColumn, orderDirection, tapUuids)) {
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            s.sender(),
+                            HistogramValueType.DOT11_MAC,
+                            buildMacResponse(s.sender(), tapUuids, organizationId, tenantId)
+                    ),
+                    HistogramValueStructureResponse.create(
+                            s.receiver(),
+                            HistogramValueType.DOT11_MAC,
+                            buildMacResponse(s.receiver(), tapUuids, organizationId, tenantId)
+                    ),
+                    HistogramValueStructureResponse.create(s.frameCount(), HistogramValueType.INTEGER, null),
+                    s.sender() + " ⇨ " + s.receiver()
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(total, true, values)).build();
+    }
+
+    @GET
+    @Path("/histograms/reason_codes")
+    @Operation(operationId = "findDiscoReasonCodes", summary = "List top disconnection frame reason codes",
+            description = "Returns the reason codes of the recorded disconnection frames with their names from the "
+                    + "IEEE 802.11 standard and the number of frames that carried each code. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found.", content = @Content)
+    public Response reasonCodes(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                                @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
+                                @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (limit > 250) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        TwoColumnHistogramOrderColumn orderColumn = TwoColumnHistogramOrderColumn.VALUE;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = TwoColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
+        }
+
+        long total = nzyme.getDot11().countDiscoReasonCodes(timeRange, filters, bssids.bssids(), tapUuids);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (DiscoReasonCodeCount s : nzyme.getDot11().getDiscoReasonCodeHistogram(
+                timeRange, filters, bssids.bssids(), limit, offset, orderColumn, orderDirection, tapUuids)) {
+            Map<String, Object> metadata = Maps.newHashMap();
+            metadata.put("reason_code", s.reasonCode());
+
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            s.reasonCode() + " (" + Dot11ReasonCodes.name(s.reasonCode()) + ")",
+                            HistogramValueType.GENERIC,
+                            metadata
+                    ),
+                    HistogramValueStructureResponse.create(s.frameCount(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(total, true, values)).build();
+    }
+
+    @GET
+    @Path("/histograms/frequencies")
+    @Operation(operationId = "findDiscoFrequencies", summary = "List top disconnection frame frequencies",
+            description = "Returns the frequencies the recorded disconnection frames were seen on, in MHz, with the "
+                    + "number of frames on each. Frames without channel information are grouped under a null "
+                    + "frequency. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The monitored network is not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found.", content = @Content)
+    public Response frequencies(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
+                                @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
+                                @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                @Parameter(description = "Page size. Cannot exceed 250.") @QueryParam("limit") int limit,
+                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+
+        if (limit > 250) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        TwoColumnHistogramOrderColumn orderColumn = TwoColumnHistogramOrderColumn.VALUE;
+        OrderDirection orderDirection = OrderDirection.DESC;
+        if (orderColumnParam != null && orderDirectionParam != null) {
+            try {
+                orderColumn = TwoColumnHistogramOrderColumn.valueOf(orderColumnParam.toUpperCase());
+                orderDirection = OrderDirection.valueOf(orderDirectionParam.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
+        if (bssids.error() != null) {
+            return bssids.error();
+        }
+
+        long total = nzyme.getDot11().countDiscoFrequencies(timeRange, filters, bssids.bssids(), tapUuids);
+
+        List<TwoColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (DiscoFrequencyCount s : nzyme.getDot11().getDiscoFrequencyHistogram(
+                timeRange, filters, bssids.bssids(), limit, offset, orderColumn, orderDirection, tapUuids)) {
+            Map<String, Object> metadata = Maps.newHashMap();
+            metadata.put("frequency", s.frequency());
+
+            values.add(TwoColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(
+                            s.frequency() == null ? "Unknown" : s.frequency() + " MHz",
+                            HistogramValueType.GENERIC,
+                            metadata
+                    ),
+                    HistogramValueStructureResponse.create(s.frameCount(), HistogramValueType.INTEGER, null)
+            ));
+        }
+
+        return Response.ok(TwoColumnTableHistogramResponse.create(total, true, values)).build();
+    }
+
+    private record BssidSelection(@Nullable List<String> bssids, @Nullable Response error) { }
+
+    private BssidSelection resolveBssids(AuthenticatedUser authenticatedUser,
+                                         @Nullable String bssidsParam,
+                                         @Nullable UUID monitoredNetworkId) {
+        List<String> bssids = null;
+
+        if (bssidsParam != null && !bssidsParam.isEmpty()) {
+            bssids = Splitter.on(",").omitEmptyStrings().trimResults().splitToList(bssidsParam)
+                    .stream()
+                    .map(String::toUpperCase)
+                    .collect(Collectors.toList());
+        }
+
         if (monitoredNetworkId != null) {
             Optional<MonitoredSSID> monitoredNetwork = nzyme.getDot11().findMonitoredSSID(monitoredNetworkId);
             if (monitoredNetwork.isEmpty()) {
-                return Response.status(Response.Status.NOT_FOUND).build();
+                return new BssidSelection(null, Response.status(Response.Status.NOT_FOUND).build());
             }
 
             if (!entityAccessible(authenticatedUser, monitoredNetwork.get())) {
-                return Response.status(Response.Status.UNAUTHORIZED).build();
+                return new BssidSelection(null, Response.status(Response.Status.UNAUTHORIZED).build());
             }
 
-            selectedBssids = nzyme.getDot11().findMonitoredBSSIDsOfMonitoredNetwork(monitoredNetwork.get().id())
+            bssids = nzyme.getDot11().findMonitoredBSSIDsOfMonitoredNetwork(monitoredNetwork.get().id())
                     .stream()
                     .map(MonitoredBSSID::bssid)
                     .collect(Collectors.toList());
         }
 
-        if (bssidsParam != null) {
-            selectedBssids = Splitter.on(",").splitToList(bssidsParam);
-        }
-
-        long total;
-        switch (listType) {
-            case SENDERS:
-                List<TwoColumnTableHistogramValueResponse> sendersValues = Lists.newArrayList();
-                total = nzyme.getDot11().countDiscoTopSenders(timeRange, tapUuids, selectedBssids);
-                for (Dot11MacFrameCount s : nzyme.getDot11().getDiscoTopSenders(timeRange, limit, offset, tapUuids, selectedBssids)) {
-                    Optional<MacAddressContextEntry> macContext = nzyme.getContextService().findMacAddressContext(
-                            s.mac(), organizationId, tenantId
-                    );
-
-                    sendersValues.add(TwoColumnTableHistogramValueResponse.create(
-                            HistogramValueStructureResponse.create(
-                                    s.mac(),
-                                    HistogramValueType.DOT11_MAC,
-                                    Dot11MacLinkMetadataResponse.create(
-                                            nzyme.getDot11().getMacAddressMetadata(s.mac(), tapUuids).type(),
-                                            Dot11MacAddressResponse.create(
-                                                    s.mac(),
-                                                    nzyme.getOuiService().lookup(s.mac()).orElse(null),
-                                                    null,
-                                                    macContext.map(macAddressContextEntry ->
-                                                                    Dot11MacAddressContextResponse.create(
-                                                                            macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description(),
-                                                                            macAddressContextEntry.notes()
-                                                                    ))
-                                                            .orElse(null)
-                                            )
-                                    )
-                            ),
-                            HistogramValueStructureResponse.create(
-                                    s.frameCount(),
-                                    HistogramValueType.INTEGER,
-                                    null
-                            )
-                    ));
-                }
-                return Response.ok(TwoColumnTableHistogramResponse.create(total, true, sendersValues)).build();
-            case RECEIVERS:
-                List<TwoColumnTableHistogramValueResponse> receiversValues = Lists.newArrayList();
-                total = nzyme.getDot11().countDiscoTopReceivers(timeRange, tapUuids, selectedBssids);
-                for (Dot11MacFrameCount s : nzyme.getDot11().getDiscoTopReceivers(timeRange, limit, offset, tapUuids, selectedBssids)) {
-                    Optional<MacAddressContextEntry> macContext = nzyme.getContextService().findMacAddressContext(
-                            s.mac(), organizationId, tenantId
-                    );
-
-                    receiversValues.add(TwoColumnTableHistogramValueResponse.create(
-                            HistogramValueStructureResponse.create(
-                                    s.mac(),
-                                    HistogramValueType.DOT11_MAC,
-                                    Dot11MacLinkMetadataResponse.create(
-                                            nzyme.getDot11().getMacAddressMetadata(s.mac(), tapUuids).type(),
-                                            Dot11MacAddressResponse.create(
-                                                    s.mac(),
-                                                    nzyme.getOuiService().lookup(s.mac()).orElse(null),
-                                                    null,
-                                                    macContext.map(macAddressContextEntry ->
-                                                                    Dot11MacAddressContextResponse.create(
-                                                                            macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description(),
-                                                                            macAddressContextEntry.notes()
-                                                                    ))
-                                                            .orElse(null)
-                                            )
-                                    )
-                            ),
-                            HistogramValueStructureResponse.create(
-                                    s.frameCount(),
-                                    HistogramValueType.INTEGER,
-                                    null
-                            )
-                    ));
-                }
-                return Response.ok(TwoColumnTableHistogramResponse.create(total, true, receiversValues)).build();
-            case PAIRS:
-                List<ThreeColumnTableHistogramValueResponse> pairsValues = Lists.newArrayList();
-                total = nzyme.getDot11().countDiscoTopPairs(timeRange, tapUuids, selectedBssids);
-                for (BSSIDPairFrameCount s : nzyme.getDot11().getDiscoTopPairs(timeRange, limit, offset, tapUuids, selectedBssids)) {
-                    Optional<MacAddressContextEntry> senderMacContext = nzyme.getContextService().findMacAddressContext(
-                            s.sender(), organizationId, tenantId
-                    );
-
-                    Optional<MacAddressContextEntry> receiverMacContext = nzyme.getContextService().findMacAddressContext(
-                            s.receiver(), organizationId, tenantId
-                    );
-
-                    pairsValues.add(ThreeColumnTableHistogramValueResponse.create(
-                            HistogramValueStructureResponse.create(
-                                    s.sender(),
-                                    HistogramValueType.DOT11_MAC,
-                                    Dot11MacLinkMetadataResponse.create(
-                                            nzyme.getDot11().getMacAddressMetadata(s.sender(), tapUuids).type(),
-                                            Dot11MacAddressResponse.create(
-                                                    s.sender(),
-                                                    nzyme.getOuiService().lookup(s.sender()).orElse(null),
-                                                    null,
-                                                    senderMacContext.map(macAddressContextEntry ->
-                                                                    Dot11MacAddressContextResponse.create(
-                                                                            macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description(),
-                                                                            macAddressContextEntry.notes()
-                                                                    ))
-                                                            .orElse(null)
-                                            )
-                                    )
-                            ),
-                            HistogramValueStructureResponse.create(
-                                    s.receiver(),
-                                    HistogramValueType.DOT11_MAC,
-                                    Dot11MacLinkMetadataResponse.create(
-                                            nzyme.getDot11().getMacAddressMetadata(s.receiver(), tapUuids).type(),
-                                            Dot11MacAddressResponse.create(
-                                                    s.receiver(),
-                                                    nzyme.getOuiService().lookup(s.receiver()).orElse(null),
-                                                    null,
-                                                    receiverMacContext.map(macAddressContextEntry ->
-                                                                    Dot11MacAddressContextResponse.create(
-                                                                            macAddressContextEntry.name(),
-                                                                            macAddressContextEntry.description(),
-                                                                            macAddressContextEntry.notes()
-                                                                    ))
-                                                            .orElse(null)
-                                            )
-                                    )
-                            ),
-                            HistogramValueStructureResponse.create(
-                                    s.frameCount(),
-                                    HistogramValueType.INTEGER,
-                                    null
-                            ),
-                            s.sender() + " ⇨ " + s.receiver()
-                    ));
-                }
-
-                return Response.ok(ThreeColumnTableHistogramResponse.create(total, true, pairsValues)).build();
-            default:
-                return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
-        }
+        return new BssidSelection(bssids, null);
     }
 
+    private Dot11MacLinkMetadataResponse buildMacResponse(String mac,
+                                                          List<UUID> tapUuids,
+                                                          UUID organizationId,
+                                                          UUID tenantId) {
+        Optional<MacAddressContextEntry> macContext = nzyme.getContextService()
+                .findMacAddressContext(mac, organizationId, tenantId);
+
+        return Dot11MacLinkMetadataResponse.create(
+                nzyme.getDot11().getMacAddressMetadata(mac, tapUuids).type(),
+                Dot11MacAddressResponse.create(
+                        mac,
+                        nzyme.getOuiService().lookup(mac).orElse(null),
+                        null,
+                        macContext.map(c -> Dot11MacAddressContextResponse.create(c.name(), c.description(), c.notes()))
+                                .orElse(null)
+                )
+        );
+    }
 
     @GET
     @Path("/config/detection")

@@ -403,8 +403,7 @@ function BSSIDDetailsPage() {
                                        timeRange={discoFramesTimeRange}
                                        setTimeRange={setDiscoFramesTimeRange} />
 
-                <DiscoHistogram discoType="disconnection"
-                                timeRange={discoFramesTimeRange}
+                <DiscoHistogram timeRange={discoFramesTimeRange}
                                 setTimeRange={setDiscoFramesTimeRange}
                                 bssids={[bssid.summary.bssid.address]} />
 

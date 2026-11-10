@@ -478,7 +478,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
         ClientDetails c = client.get();
 
         List<DiscoHistogramEntry> discos = nzyme.getDot11().getDiscoHistogram(
-                Dot11.DiscoType.DISCONNECTION,  timeRange, Bucketing.getConfig(timeRange), tapUuids, List.of(c.mac())
+                timeRange, Bucketing.getConfig(timeRange), tapUuids, Filters.create(Maps.newHashMap()), List.of(c.mac())
         );
 
         Map<DateTime, Map<String, Long>> tempValues = Maps.newHashMap();

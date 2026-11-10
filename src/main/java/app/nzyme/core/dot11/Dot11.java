@@ -7,6 +7,9 @@ import app.nzyme.core.dot11.db.*;
 import app.nzyme.core.dot11.db.filters.Dot11BSSIDFilters;
 import app.nzyme.core.dot11.db.filters.Dot11ConnectedClientFilters;
 import app.nzyme.core.dot11.db.filters.Dot11DisconnectedClientFilters;
+import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
+import app.nzyme.core.database.generic.TwoColumnHistogramOrderColumn;
+import app.nzyme.core.dot11.db.filters.Dot11DiscoFilters;
 import app.nzyme.core.dot11.db.monitoring.*;
 import app.nzyme.core.dot11.db.monitoring.probereq.MonitoredProbeRequestEntry;
 import app.nzyme.core.dot11.monitoring.disco.db.Dot11DiscoMonitorMethodConfiguration;
@@ -137,20 +140,50 @@ public class Dot11 {
     }
 
     public enum DiscoType {
+        DEAUTHENTICATION,
+        DISASSOCIATION
+    }
 
-        DISCONNECTION(-1),
-        DEAUTHENTICATION(0),
-        DISASSOCIATION(1);
+    public enum DiscoFrameOrderColumn {
 
-        private final int number;
+        CREATED_AT("created_at"),
+        DISCO_TYPE("disco_type"),
+        TRANSMITTER("transmitter"),
+        RECEIVER("receiver"),
+        BSSID("bssid"),
+        REASON_CODE("reason_code"),
+        FREQUENCY("frequency"),
+        SIGNAL_STRENGTH("signal_strength_average"),
+        FRAME_COUNT("frame_count");
 
-        DiscoType(int number) {
-            this.number = number;
+        private final String columnName;
+
+        DiscoFrameOrderColumn(String columnName) {
+            this.columnName = columnName;
         }
 
-        public int getNumber() {
-            return number;
+        public String getColumnName() {
+            return columnName;
         }
+
+    }
+
+    public enum DiscoMacDimension {
+
+        TRANSMITTER("transmitter"),
+        RECEIVER("receiver"),
+        BSSID("bssid");
+
+        private final String columnName;
+
+        DiscoMacDimension(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+
     }
 
     LoadingCache<Dot11MacAddressLookupCompositeKey, Dot11MacAddressMetadata> macAddressMetadata = CacheBuilder.newBuilder()
@@ -1866,445 +1899,351 @@ public class Dot11 {
         );
     }
 
-    public List<DiscoHistogramEntry> getDiscoHistogram(DiscoType discoType,
-                                                       TimeRange timeRange,
-                                                       Bucketing.BucketingConfiguration bucketing,
-                                                       UUID tap,
-                                                       @Nullable List<String> bssids) {
-        return getDiscoHistogram(discoType, timeRange, bucketing, List.of(tap), bssids);
+    public static final String BROADCAST_MAC = "FF:FF:FF:FF:FF:FF";
+
+    private static final String DISCO_BSSID_RESTRICTION_SQL =
+            "AND (transmitter IN (<bssids>) OR receiver IN (<bssids>) OR bssid IN (<bssids>)) ";
+
+    // A null BSSID list applies no restriction, an empty list yields an empty result.
+    private String discoBssidRestriction(@Nullable List<String> bssids) {
+        return bssids == null ? "" : DISCO_BSSID_RESTRICTION_SQL;
     }
 
-    public List<DiscoHistogramEntry> getDiscoHistogram(DiscoType discoType,
-                                                       TimeRange timeRange,
+    private Query bindDiscoQuery(Query query,
+                                 TimeRange timeRange,
+                                 List<UUID> taps,
+                                 FilterSqlFragment filterFragment,
+                                 @Nullable List<String> bssids) {
+        query.bind("tr_from", timeRange.from())
+                .bind("tr_to", timeRange.to())
+                .bindList("taps", taps)
+                .bindMap(filterFragment.bindings());
+
+        if (bssids != null) {
+            query.bindList("bssids", bssids);
+        }
+
+        return query;
+    }
+
+    private boolean discoQueryIsEmpty(List<UUID> taps, @Nullable List<String> bssids) {
+        return taps.isEmpty() || (bssids != null && bssids.isEmpty());
+    }
+
+    public List<DiscoHistogramEntry> getDiscoHistogram(TimeRange timeRange,
                                                        Bucketing.BucketingConfiguration bucketing,
                                                        List<UUID> taps,
+                                                       Filters filters,
                                                        @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
+        if (discoQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return Collections.emptyList();
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
-        List<Integer> discoTypes = Lists.newArrayList();
-        switch (discoType) {
-            case DISCONNECTION:
-                discoTypes.add(DiscoType.DISASSOCIATION.getNumber());
-                discoTypes.add(DiscoType.DEAUTHENTICATION.getNumber());
-                break;
-            case DEAUTHENTICATION:
-                discoTypes.add(DiscoType.DEAUTHENTICATION.getNumber());
-                break;
-            case DISASSOCIATION:
-                discoTypes.add(DiscoType.DISASSOCIATION.getNumber());
-                break;
-        }
-
-        List<DiscoHistogramEntry> senders;
-        if (bssids != null) {
-            // BSSID filter applied.
-            senders = nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT SUM(senders.sent_frames) " +
-                                    "AS frame_count, DATE_TRUNC(:date_trunc, senders.created_at) AS bucket " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "WHERE senders.disco_type IN (<disco_types>) " +
-                                    "AND senders.bssid IN (<bssids>) " +
-                                    "AND senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "GROUP BY bucket ORDER BY bucket DESC")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bind("date_trunc", bucketing.type().getDateTruncName())
-                            .bindList("disco_types", discoTypes)
-                            .bindList("bssids", bssids)
-                            .bindList("taps", taps)
-                            .mapTo(DiscoHistogramEntry.class)
-                            .list()
-            );
-        } else {
-            // No BSSID filter.
-            senders = nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT SUM(senders.sent_frames) " +
-                                    "AS frame_count, DATE_TRUNC(:date_trunc, senders.created_at) AS bucket " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "WHERE senders.disco_type IN (<disco_types>) " +
-                                    "AND senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "GROUP BY bucket ORDER BY bucket DESC")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bind("date_trunc", bucketing.type().getDateTruncName())
-                            .bindList("disco_types", discoTypes)
-                            .bindList("taps", taps)
-                            .mapTo(DiscoHistogramEntry.class)
-                            .list()
-            );
-        }
-
-        List<DiscoHistogramEntry> receivers;
-        if (bssids != null) {
-            // BSSID filter applied.
-            receivers = nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT SUM(receivers.received_frames) " +
-                                    "AS frame_count, DATE_TRUNC(:date_trunc, senders.created_at) AS bucket " +
-                                    "FROM dot11_disco_activity_receivers AS receivers " +
-                                    "LEFT JOIN dot11_disco_activity AS senders " +
-                                    "ON receivers.disco_activity_id = senders.id " +
-                                    "WHERE senders.disco_type IN (<disco_types>) " +
-                                    "AND receivers.bssid IN (<bssids>) " +
-                                    "AND senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "GROUP BY bucket ORDER BY bucket DESC")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bind("date_trunc", bucketing.type().getDateTruncName())
-                            .bindList("disco_types", discoTypes)
-                            .bindList("bssids", bssids)
-                            .bindList("taps", taps)
-                            .mapTo(DiscoHistogramEntry.class)
-                            .list()
-            );
-        } else {
-            /*
-             * No BSSID filter. We don't care about receivers if there is no filter. It would lead to double-counting
-             * because each sent frame shows up again as a received frame. Just taking sent_frames is enough here.
-             */
-            receivers = Lists.newArrayList();
-        }
-
-        Map<DateTime, DiscoHistogramEntry> sendersMap = Maps.newHashMap();
-        for (DiscoHistogramEntry h : senders) {
-            sendersMap.put(h.bucket(), h);
-        }
-
-        if (bssids != null && !bssids.isEmpty()) {
-            if (!senders.isEmpty() && receivers.isEmpty()) {
-                return senders;
-            }
-
-            if (senders.isEmpty() && !receivers.isEmpty()) {
-                return receivers;
-            }
-
-            // Merge sender and receiver histograms.
-            List<DiscoHistogramEntry> result = Lists.newArrayList(senders);
-            for (DiscoHistogramEntry h : receivers) {
-                DiscoHistogramEntry senderEntry = sendersMap.get(h.bucket());
-                if (senderEntry == null) {
-                    // No sender entry.
-                    result.add(h);
-                } else {
-                    // Sender entry exists. Add receiver.
-                    result.add(DiscoHistogramEntry.create(h.bucket(), h.frameCount() + senderEntry.frameCount()));
-                }
-            }
-
-            return result;
-        } else {
-            // We only have senders.
-            return senders;
-        }
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT DATE_TRUNC(:date_trunc, created_at) AS bucket, " +
+                                "SUM(frame_count) AS frame_count, " +
+                                "COALESCE(SUM(frame_count) FILTER (WHERE disco_type = 'DEAUTHENTICATION'), 0) " +
+                                "AS deauthentication_count, " +
+                                "COALESCE(SUM(frame_count) FILTER (WHERE disco_type = 'DISASSOCIATION'), 0) " +
+                                "AS disassociation_count, " +
+                                "COALESCE(SUM(frame_count) FILTER (WHERE receiver = :broadcast), 0) " +
+                                "AS broadcast_count " +
+                                "FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY bucket ORDER BY bucket DESC"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("broadcast", BROADCAST_MAC)
+                        .mapTo(DiscoHistogramEntry.class)
+                        .list()
+        );
     }
 
-    public List<Dot11MacFrameCount> getDiscoTopSenders(TimeRange timeRange,
-                                                       int limit,
-                                                       int offset,
-                                                       List<UUID> taps,
-                                                       @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
+    public List<DiscoFrameEntry> findDiscoFrames(TimeRange timeRange,
+                                                 Filters filters,
+                                                 @Nullable List<String> bssids,
+                                                 int limit,
+                                                 int offset,
+                                                 DiscoFrameOrderColumn orderColumn,
+                                                 OrderDirection orderDirection,
+                                                 List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return Collections.emptyList();
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT senders.bssid, SUM(senders.sent_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (senders.bssid IN (<bssids>) OR receivers.bssid IN (<bssids>)) " +
-                                    "GROUP BY senders.bssid ORDER BY frame_count DESC " +
-                                    "LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(Dot11MacFrameCount.class)
-                            .list()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT bssid, SUM(sent_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity " +
-                                    "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
-                                    "AND tap_uuid IN (<taps>) " +
-                                    "GROUP BY bssid ORDER BY frame_count DESC " +
-                                    "LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(Dot11MacFrameCount.class)
-                            .list()
-            );
-        }
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT * FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST, id DESC " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .mapTo(DiscoFrameEntry.class)
+                        .list()
+        );
     }
 
-    public Long countDiscoTopSenders(TimeRange timeRange, List<UUID> taps, @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
-            return 0L;
+    public long countDiscoFrames(TimeRange timeRange,
+                                 Filters filters,
+                                 @Nullable List<String> bssids,
+                                 List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return 0;
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return 0L;
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(senders.bssid)) " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (senders.bssid IN (<bssids>) OR receivers.bssid IN (<bssids>))")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .mapTo(Long.class)
-                            .one()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(bssid)) " +
-                                    "FROM dot11_disco_activity " +
-                                    "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
-                                    "AND tap_uuid IN (<taps>)")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .mapTo(Long.class)
-                            .one()
-            );
-        }
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids)),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
     }
 
-    public List<Dot11MacFrameCount> getDiscoTopReceivers(TimeRange timeRange,
+    public List<Dot11MacFrameCount> getDiscoMacHistogram(DiscoMacDimension dimension,
+                                                         TimeRange timeRange,
+                                                         Filters filters,
+                                                         @Nullable List<String> bssids,
                                                          int limit,
                                                          int offset,
-                                                         List<UUID> taps,
-                                                         @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
+                                                         TwoColumnHistogramOrderColumn orderColumn,
+                                                         OrderDirection orderDirection,
+                                                         List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return Collections.emptyList();
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT receivers.bssid, SUM(received_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity_receivers AS receivers " +
-                                    "LEFT JOIN dot11_disco_activity AS senders " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (receivers.bssid IN (<bssids>) OR senders.bssid IN (<bssids>)) " +
-                                    "GROUP BY receivers.bssid ORDER BY frame_count DESC " +
-                                    "LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(Dot11MacFrameCount.class)
-                            .list()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT receivers.bssid, SUM(received_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity_receivers AS receivers " +
-                                    "LEFT JOIN dot11_disco_activity AS senders " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "GROUP BY receivers.bssid ORDER BY frame_count DESC " +
-                                    "LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(Dot11MacFrameCount.class)
-                            .list()
-            );
-        }
+        // BSSIDFrameCountMapper reads the MAC address from a column called "bssid".
+        String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "bssid" : "frame_count";
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT <dimension> AS bssid, SUM(frame_count) AS frame_count " +
+                                "FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY <dimension> ORDER BY <order_column> <order_direction> " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("dimension", dimension.getColumnName())
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(Dot11MacFrameCount.class)
+                        .list()
+        );
     }
 
-    public Long countDiscoTopReceivers(TimeRange timeRange, List<UUID> taps, @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
-            return 0L;
+    public long countDiscoMacHistogram(DiscoMacDimension dimension,
+                                       TimeRange timeRange,
+                                       Filters filters,
+                                       @Nullable List<String> bssids,
+                                       List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return 0;
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return 0L;
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(receivers.bssid)) " +
-                                    "FROM dot11_disco_activity_receivers AS receivers " +
-                                    "LEFT JOIN dot11_disco_activity AS senders " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (receivers.bssid IN (<bssids>) OR senders.bssid IN (<bssids>))")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .mapTo(Long.class)
-                            .one()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(receivers.bssid)) " +
-                                    "FROM dot11_disco_activity_receivers AS receivers " +
-                                    "LEFT JOIN dot11_disco_activity AS senders " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>)")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .mapTo(Long.class)
-                            .one()
-            );
-        }
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT COUNT(DISTINCT <dimension>) FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids)),
+                        timeRange, taps, filterFragment, bssids)
+                        .define("dimension", dimension.getColumnName())
+                        .mapTo(Long.class)
+                        .one()
+        );
     }
 
-    public List<BSSIDPairFrameCount> getDiscoTopPairs(TimeRange timeRange,
-                                                      int limit,
-                                                      int offset,
-                                                      List<UUID> taps,
-                                                      @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
+    public List<BSSIDPairFrameCount> getDiscoPairs(TimeRange timeRange,
+                                                   Filters filters,
+                                                   @Nullable List<String> bssids,
+                                                   int limit,
+                                                   int offset,
+                                                   ThreeColumnHistogramOrderColumn orderColumn,
+                                                   OrderDirection orderDirection,
+                                                   List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
-        if (bssids != null && bssids.isEmpty()) {
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        String orderColumnName = switch (orderColumn) {
+            case VALUE1 -> "sender";
+            case VALUE2 -> "receiver";
+            case VALUE3 -> "frame_count";
+        };
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT transmitter AS sender, receiver, " +
+                                "SUM(frame_count) AS frame_count FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY transmitter, receiver ORDER BY <order_column> <order_direction> " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(BSSIDPairFrameCount.class)
+                        .list()
+        );
+    }
+
+    public long countDiscoPairs(TimeRange timeRange,
+                                Filters filters,
+                                @Nullable List<String> bssids,
+                                List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return 0;
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY transmitter, receiver) AS pairs"),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DiscoReasonCodeCount> getDiscoReasonCodeHistogram(TimeRange timeRange,
+                                                                  Filters filters,
+                                                                  @Nullable List<String> bssids,
+                                                                  int limit,
+                                                                  int offset,
+                                                                  TwoColumnHistogramOrderColumn orderColumn,
+                                                                  OrderDirection orderDirection,
+                                                                  List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT senders.bssid AS sender, receivers.bssid AS receiver, " +
-                                    "SUM(receivers.received_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (receivers.bssid IN (<bssids>) OR senders.bssid IN (<bssids>)) " +
-                                    "GROUP BY senders.bssid, receivers.bssid " +
-                                    "ORDER BY frame_count " +
-                                    "DESC LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(BSSIDPairFrameCount.class)
-                            .list()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT senders.bssid AS sender, receivers.bssid AS receiver, " +
-                                    "SUM(receivers.received_frames) AS frame_count " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "GROUP BY senders.bssid, receivers.bssid " +
-                                    "ORDER BY frame_count " +
-                                    "DESC LIMIT :limit OFFSET :offset")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bind("limit", limit)
-                            .bind("offset", offset)
-                            .mapTo(BSSIDPairFrameCount.class)
-                            .list()
-            );
-        }
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "reason_code" : "frame_count";
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT reason_code, SUM(frame_count) AS frame_count " +
+                                "FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY reason_code ORDER BY <order_column> <order_direction> " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(DiscoReasonCodeCount.class)
+                        .list()
+        );
     }
 
-    public Long countDiscoTopPairs(TimeRange timeRange, List<UUID> taps, @Nullable List<String> bssids) {
-        if (taps.isEmpty()) {
-            return 0L;
+    public long countDiscoReasonCodes(TimeRange timeRange,
+                                      Filters filters,
+                                      @Nullable List<String> bssids,
+                                      List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return 0;
         }
 
-        if (bssids != null && bssids.isEmpty()) {
-            return 0L;
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT COUNT(DISTINCT reason_code) FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids)),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DiscoFrequencyCount> getDiscoFrequencyHistogram(TimeRange timeRange,
+                                                                Filters filters,
+                                                                @Nullable List<String> bssids,
+                                                                int limit,
+                                                                int offset,
+                                                                TwoColumnHistogramOrderColumn orderColumn,
+                                                                OrderDirection orderDirection,
+                                                                List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return Collections.emptyList();
         }
 
-        if (bssids != null) {
-            // BSSID filter applied.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(senders.bssid, receivers.bssid)) " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>) " +
-                                    "AND (receivers.bssid IN (<bssids>) OR senders.bssid IN (<bssids>))")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .bindList("bssids", bssids)
-                            .mapTo(Long.class)
-                            .one()
-            );
-        } else {
-            // No BSSID filter.
-            return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT COUNT(DISTINCT(senders.bssid, receivers.bssid)) " +
-                                    "FROM dot11_disco_activity AS senders " +
-                                    "LEFT JOIN dot11_disco_activity_receivers AS receivers " +
-                                    "ON senders.id = receivers.disco_activity_id " +
-                                    "WHERE senders.created_at >= :tr_from AND senders.created_at <= :tr_to " +
-                                    "AND senders.tap_uuid IN (<taps>)")
-                            .bind("tr_from", timeRange.from())
-                            .bind("tr_to", timeRange.to())
-                            .bindList("taps", taps)
-                            .mapTo(Long.class)
-                            .one()
-            );
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "frequency" : "frame_count";
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT frequency, SUM(frame_count) AS frame_count " +
+                                "FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY frequency ORDER BY <order_column> <order_direction> NULLS LAST " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(DiscoFrequencyCount.class)
+                        .list()
+        );
+    }
+
+    public long countDiscoFrequencies(TimeRange timeRange,
+                                      Filters filters,
+                                      @Nullable List<String> bssids,
+                                      List<UUID> taps) {
+        if (discoQueryIsEmpty(taps, bssids)) {
+            return 0;
         }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
+                                "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                discoBssidRestriction(bssids) +
+                                "GROUP BY frequency) AS frequencies"),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
     }
 
     public Dot11DiscoMonitorMethodConfiguration getDiscoMonitorMethodConfiguration(long monitoredNetworkId) {

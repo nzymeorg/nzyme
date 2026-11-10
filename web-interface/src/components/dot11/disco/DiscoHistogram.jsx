@@ -1,17 +1,12 @@
 import React, {useContext, useEffect, useState} from "react";
-import LoadingSpinner from "../../misc/LoadingSpinner";
 import Dot11Service from "../../../services/Dot11Service";
 import {TapContext} from "../../../App";
-import SimpleBarChart from "../../widgets/charts/SimpleBarChart";
-import {MonitoredNetworkContext} from "./DiscoPage";
+import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
+import DiscoFramesChart from "./DiscoFramesChart";
 
 const dot11Service = new Dot11Service();
 
-function DiscoHistogram({discoType, timeRange, setTimeRange, bssids, monitoredNetworkId = undefined, urlKey = undefined}) {
-
-  const monitoredNetworkContext = useContext(MonitoredNetworkContext);
-
-  const [monitoredNetwork, setMonitoredNetwork] = useState(monitoredNetworkId);
+export default function DiscoHistogram({timeRange, setTimeRange, bssids, urlKey = undefined}) {
 
   const tapContext = useContext(TapContext);
   const selectedTaps = tapContext.taps;
@@ -20,39 +15,13 @@ function DiscoHistogram({discoType, timeRange, setTimeRange, bssids, monitoredNe
 
   useEffect(() => {
     setHistogram(null);
-    dot11Service.getDiscoHistogram(discoType, timeRange, selectedTaps, bssids, monitoredNetwork, setHistogram);
-  }, [discoType, timeRange, selectedTaps, monitoredNetwork]);
-
-  useEffect(() => {
-    if (monitoredNetworkContext) {
-      setMonitoredNetwork(monitoredNetworkContext.network);
-    }
-  }, [monitoredNetworkContext]);
-
-  const formatData = function(data) {
-    const result = {}
-
-    Object.keys(data).sort().forEach(function(key) {
-      result[key] = data[key]["frame_count"];
-    })
-
-    return result
-  }
+    dot11Service.getDiscoHistogram(timeRange, null, selectedTaps, bssids, null, setHistogram);
+  }, [timeRange, selectedTaps, bssids]);
 
   if (!histogram) {
-    return <LoadingSpinner />
+    return <GenericWidgetLoadingSpinner height={200} />
   }
 
-  return <SimpleBarChart
-      height={200}
-      lineWidth={1}
-      setTimeRange={setTimeRange}
-      customMarginBottom={35}
-      timeRange={timeRange}
-      urlKey={urlKey}
-      data={formatData(histogram)}
-  />
+  return <DiscoFramesChart histogram={histogram} timeRange={timeRange} setTimeRange={setTimeRange} urlKey={urlKey} />
 
 }
-
-export default DiscoHistogram;

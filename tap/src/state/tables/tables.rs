@@ -71,7 +71,7 @@ impl Tables {
             .is_some_and(|map| map.values().any(|i| i.active));
 
         Tables {
-            dot11: Arc::new(Mutex::new(Dot11Table::new(leaderlink.clone()))),
+            dot11: Arc::new(Mutex::new(Dot11Table::new(leaderlink.clone(), metrics.clone()))),
             bluetooth: Arc::new(Mutex::new(BluetoothTable::new(leaderlink.clone(), metrics.clone()))),
             arp: Arc::new(Mutex::new(ArpTable::new(leaderlink.clone(), metrics.clone()))),
             icmp: Arc::new(Mutex::new(IcmpTable::new(leaderlink.clone(), metrics.clone()))),

@@ -13,10 +13,22 @@ public abstract class DiscoHistogramValueResponse {
     @JsonProperty("frame_count")
     public abstract long frameCount();
 
-    public static DiscoHistogramValueResponse create(DateTime timestamp, long frameCount) {
+    @JsonProperty("deauthentication_count")
+    public abstract long deauthenticationCount();
+
+    @JsonProperty("disassociation_count")
+    public abstract long disassociationCount();
+
+    @JsonProperty("broadcast_count")
+    public abstract long broadcastCount();
+
+    public static DiscoHistogramValueResponse create(DateTime timestamp, long frameCount, long deauthenticationCount, long disassociationCount, long broadcastCount) {
         return builder()
                 .timestamp(timestamp)
                 .frameCount(frameCount)
+                .deauthenticationCount(deauthenticationCount)
+                .disassociationCount(disassociationCount)
+                .broadcastCount(broadcastCount)
                 .build();
     }
 
@@ -29,6 +41,12 @@ public abstract class DiscoHistogramValueResponse {
         public abstract Builder timestamp(DateTime timestamp);
 
         public abstract Builder frameCount(long frameCount);
+
+        public abstract Builder deauthenticationCount(long deauthenticationCount);
+
+        public abstract Builder disassociationCount(long disassociationCount);
+
+        public abstract Builder broadcastCount(long broadcastCount);
 
         public abstract DiscoHistogramValueResponse build();
     }

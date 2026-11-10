@@ -74,7 +74,7 @@ export function resolveBriefingLink(link, window) {
     case "DOT11_BSSID": return ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(p.bssid);
     case "DOT11_CLIENTS": return withRange(ApiRoutes.DOT11.CLIENTS.CONNECTED, window);
     case "DOT11_CLIENT": return ApiRoutes.DOT11.CLIENTS.DETAILS(p.mac);
-    case "DOT11_DISCO": return withRange(ApiRoutes.DOT11.DISCO.INDEX, window, ["disco", "deauth", "disassoc"]);
+    case "DOT11_DISCO": return withRange(ApiRoutes.DOT11.DISCO.INDEX, window);
     case "DOT11_MONITORING": return ApiRoutes.DOT11.MONITORING.INDEX;
     case "DOT11_MONITORING_CREATE": return ApiRoutes.DOT11.MONITORING.CREATE;
     case "DOT11_MONITORED_NETWORK": return ApiRoutes.DOT11.MONITORING.SSID_DETAILS(p.uuid);

@@ -23,17 +23,11 @@ function HistogramValue(props) {
   switch (value.type) {
     case "DOT11_MAC":
       if (value.metadata && value.metadata.type) {
-        return (
-            <>
-              <AutomaticDot11MacAddressLink
-              highlighted={value.value === highlightValue}
-              mac={value.value}
-              type={value.metadata.type}
-              addressWithContext={value.metadata.mac} />
-
-              {filterElement}
-            </>
-        )
+        return <AutomaticDot11MacAddressLink highlighted={value.value === highlightValue}
+                                             mac={value.value}
+                                             type={value.metadata.type}
+                                             addressWithContext={value.metadata.mac}
+                                             filterElement={filterElement} />
       } else {
         return <span className={value.value === highlightValue ? "highlighted" : null}>{value.value} {filterElement}</span>
       }

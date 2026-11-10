@@ -12,6 +12,8 @@ export function monitorTypeToSearchPage(type) {
       return ApiRoutes.DOT11.CLIENTS.CONNECTED;
     case "DOT11_CLIENT_DISCONNECTED":
       return ApiRoutes.DOT11.CLIENTS.DISCONNECTED;
+    case "DOT11_DISCO_FRAME":
+      return ApiRoutes.DOT11.DISCO.INDEX;
     case "BLUETOOTH_DEVICE":
       return ApiRoutes.BLUETOOTH.DEVICES.INDEX;
     case "ETHERNET_ASSET":

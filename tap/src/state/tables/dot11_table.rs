@@ -13,11 +13,13 @@ use crate::alerting::alert_types::Dot11Alert;
 use crate::state::tables::table_helpers::{clear_mutex_hashmap, clear_mutex_vector};
 use crate::wireless::dot11::frames::{Dot11Capabilities, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
 use crate::link::leaderlink::Leaderlink;
-use crate::link::payloads::{DiscoTransmitterReport, Dot11AlertReport, Dot11DiscoReport, PmfReport};
+use crate::metrics::Metrics;
+use crate::link::payloads::{Dot11AlertReport, Dot11DiscoFrameReport, Dot11DiscoReport, PmfReport};
 use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11DataFrame, Dot11DataFrameDirection, Dot11ProbeRequestFrame, FrameSubType, InfraStructureType, SecurityInformation};
 
 pub struct Dot11Table {
     pub leaderlink: Arc<Mutex<Leaderlink>>,
+    pub metrics: Arc<Mutex<Metrics>>,
     pub bssids: Mutex<HashMap<String, Bssid>>,
     pub clients: Mutex<HashMap<String, Client>>,
     pub disco: DiscoTable,
@@ -68,27 +70,60 @@ pub struct AdvertisedNetwork {
     pub channel_statistics: HashMap<u16, HashMap<FrameSubType, Dot11ChannelStatistics>>
 }
 
+pub const MAX_DISCO_FRAME_ENTRIES: usize = 2500;
+
 #[derive(Debug, Default)]
 pub struct DiscoTable {
-    pub deauth: Mutex<HashMap<String, DiscoTransmitter>>,
-    pub disassoc: Mutex<HashMap<String, DiscoTransmitter>>,
+    pub frames: Mutex<DiscoFrames>,
 }
 
 #[derive(Debug, Default)]
-pub struct DiscoTransmitter {
+pub struct DiscoFrames {
+    pub entries: HashMap<DiscoFrameKey, DiscoFrameAggregate>,
+    pub dropped_frames: u128
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DiscoType {
+    Deauthentication,
+    Disassociation
+}
+
+impl DiscoType {
+    fn report_name(&self) -> String {
+        match self {
+            DiscoType::Deauthentication => "DEAUTHENTICATION".to_string(),
+            DiscoType::Disassociation => "DISASSOCIATION".to_string()
+        }
+    }
+}
+
+// The frequency is part of the key because the tap hops channels and sees the same pair on several of them.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DiscoFrameKey {
+    pub disco_type: DiscoType,
+    pub transmitter: String,
+    pub receiver: String,
     pub bssid: String,
-    pub sent_frames: u128,
-    pub receivers: HashMap<String, u128>
+    pub reason_code: u16,
+    pub frequency: Option<u16>
+}
+
+#[derive(Debug, Default)]
+pub struct DiscoFrameAggregate {
+    pub frame_count: u128,
+    pub signal_strengths: Vec<i8>
 }
 
 impl Dot11Table {
-    pub fn new(leaderlink: Arc<Mutex<Leaderlink>>) -> Self {
+    pub fn new(leaderlink: Arc<Mutex<Leaderlink>>, metrics: Arc<Mutex<Metrics>>) -> Self {
         Self {
             bssids: Mutex::new(HashMap::new()),
             clients: Mutex::new(HashMap::new()),
             disco: DiscoTable::default(),
             alerts: Mutex::new(Vec::new()),
-            leaderlink
+            leaderlink,
+            metrics
         }
     }
 
@@ -406,47 +441,55 @@ impl Dot11Table {
     }
 
     pub fn register_deauthentication_frame(&self, frame: Dot11DeauthenticationFrame) {
-        self.register_disco_frame(frame.transmitter,
-                                  frame.destination,
-                                  &self.disco.deauth);
+        self.register_disco_frame(
+            DiscoType::Deauthentication,
+            frame.transmitter,
+            frame.destination,
+            frame.bssid,
+            frame.reason_code,
+            &frame.header
+        );
     }
 
     pub fn register_disassociation_frame(&self, frame: Dot11DisassociationFrame) {
-        self.register_disco_frame(frame.transmitter,
-                                  frame.destination,
-                                  &self.disco.disassoc);
+        self.register_disco_frame(
+            DiscoType::Disassociation,
+            frame.transmitter,
+            frame.destination,
+            frame.bssid,
+            frame.reason_code,
+            &frame.header
+        );
     }
 
     fn register_disco_frame(&self,
+                            disco_type: DiscoType,
                             transmitter: String,
                             receiver: String,
-                            table: &Mutex<HashMap<String, DiscoTransmitter>>) {
-        match table.lock() {
-            Ok(mut transmitters) => {
-                match transmitters.get_mut(&transmitter) {
-                    Some(transmitter) => {
-                        // Existing transmitter.
-                        transmitter.sent_frames += 1;
+                            bssid: String,
+                            reason_code: u16,
+                            header: &RadiotapHeader) {
+        let key = DiscoFrameKey {
+            disco_type,
+            transmitter,
+            receiver,
+            bssid,
+            reason_code,
+            frequency: header.frequency
+        };
 
-                        match transmitter.receivers.get_mut(&receiver.clone()) {
-                            Some(destination) => { *destination += 1; },
-                            None => { transmitter.receivers.insert(receiver.clone(), 1); }
-                        }
-                    },
-                    None => {
-                        // New transmitter.
-                        let mut receivers = HashMap::new();
-                        receivers.insert(receiver.clone(), 1);
+        match self.disco.frames.lock() {
+            Ok(mut frames) => {
+                if !frames.entries.contains_key(&key) && frames.entries.len() >= MAX_DISCO_FRAME_ENTRIES {
+                    frames.dropped_frames += 1;
+                    return;
+                }
 
-                        transmitters.insert(
-                            receiver.clone(),
-                            DiscoTransmitter {
-                                bssid: transmitter.clone(),
-                                sent_frames: 1,
-                                receivers
-                            }
-                        );
-                    }
+                let aggregate = frames.entries.entry(key).or_default();
+                aggregate.frame_count += 1;
+
+                if let Some(signal_strength) = header.antenna_signal {
+                    aggregate.signal_strengths.push(signal_strength);
                 }
             },
             Err(e) => error!("Could not acquire disco table: {}", e)
@@ -564,8 +607,21 @@ impl Dot11Table {
         // Clean up.
         clear_mutex_hashmap(&self.bssids);
         clear_mutex_hashmap(&self.clients);
-        clear_mutex_hashmap(&self.disco.deauth);
-        clear_mutex_hashmap(&self.disco.disassoc);
+        match self.disco.frames.lock() {
+            Ok(mut frames) => {
+                match self.metrics.lock() {
+                    Ok(mut metrics) => {
+                        metrics.set_gauge("tables.dot11.disco.frames.size", frames.entries.len() as i128);
+                        metrics.set_gauge("tables.dot11.disco.frames.dropped", frames.dropped_frames as i128);
+                    },
+                    Err(e) => error!("Could not acquire metrics mutex: {}", e)
+                }
+
+                frames.entries.clear();
+                frames.dropped_frames = 0;
+            },
+            Err(e) => error!("Could not acquire disco table mutex: {}", e)
+        }
 
         clear_mutex_vector(&self.alerts);
     }
@@ -706,10 +762,7 @@ impl Dot11Table {
             Err(e) => error!("Could not acquire BSSIDs table mutex: {}", e),
         }
 
-        let disco_report = Dot11DiscoReport {
-            deauth: Self::disco_table_to_report(&self.disco.deauth),
-            disassoc: Self::disco_table_to_report(&self.disco.disassoc)
-        };
+        let disco_report = self.disco_table_to_report();
 
         let mut alerts_report: Vec<Dot11AlertReport> = Vec::new();
         match self.alerts.lock() {
@@ -735,31 +788,50 @@ impl Dot11Table {
         }
     }
 
-    fn disco_table_to_report(table: &Mutex<HashMap<String, DiscoTransmitter>>)
-            -> HashMap<String, DiscoTransmitterReport> {
-        let mut report = HashMap::new();
+    fn disco_table_to_report(&self) -> Dot11DiscoReport {
+        let mut frames: Vec<Dot11DiscoFrameReport> = Vec::new();
 
-        match table.lock() {
-            Ok(deauth) => {
-                for (bssid, info) in &*deauth {
-                    report.insert(
-                        bssid.clone(),
-                        DiscoTransmitterReport {
-                            bssid: info.bssid.clone(),
-                            sent_frames: info.sent_frames,
-                            receivers: info.receivers.clone(),
+        match self.disco.frames.lock() {
+            Ok(table) => {
+                for (key, aggregate) in &table.entries {
+                    frames.push(
+                        Dot11DiscoFrameReport {
+                            disco_type: key.disco_type.report_name(),
+                            transmitter: key.transmitter.clone(),
+                            receiver: key.receiver.clone(),
+                            bssid: key.bssid.clone(),
+                            reason_code: key.reason_code,
+                            frequency: key.frequency,
+                            frame_count: aggregate.frame_count,
+                            signal_strength: calculate_signal_strength_report_from_list(&aggregate.signal_strengths)
                         }
                     );
                 }
             },
-            Err(e) => error!("Could not acquire disco deauth table mutex: {}", e)
+            Err(e) => error!("Could not acquire disco table mutex: {}", e)
         }
 
-        report
+        Dot11DiscoReport { frames }
     }
 }
 
 // yo this all below here needs some serious refactoring and dedup lmao
+
+fn calculate_signal_strength_report_from_list(signal_strengths: &[i8]) -> Option<SignalStrengthReport> {
+    if signal_strengths.is_empty() {
+        return None;
+    }
+
+    let min = *signal_strengths.iter().min().unwrap();
+    let max = *signal_strengths.iter().max().unwrap();
+    let sum: i128 = signal_strengths.iter().map(|s| *s as i128).sum();
+
+    Some(SignalStrengthReport {
+        min,
+        max,
+        average: sum as f32 / signal_strengths.len() as f32
+    })
+}
 
 fn calculate_signal_strength_report(signal_strengths: &HashMap<u16, Vec<i8>>) -> SignalStrengthReport {
     let mut sum: i128 = 0;

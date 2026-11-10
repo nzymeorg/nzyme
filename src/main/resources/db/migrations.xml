@@ -12443,4 +12443,60 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="create_dot11_disco_frames" author="lennartkoopmann">
+        <dropTable tableName="dot11_disco_activity_receivers" />
+        <dropTable tableName="dot11_disco_activity" />
+
+        <createTable tableName="dot11_disco_frames">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="disco_type" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+            <column name="transmitter" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="receiver" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="reason_code" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="frequency" type="integer" />
+            <column name="signal_strength_min" type="integer" />
+            <column name="signal_strength_max" type="integer" />
+            <column name="signal_strength_average" type="float" />
+            <column name="frame_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_disco_frames" indexName="dot11_disco_frames_tap_uuid_created_at_idx">
+            <column name="tap_uuid" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_disco_frames" indexName="dot11_disco_frames_transmitter_created_at_idx">
+            <column name="transmitter" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_disco_frames" indexName="dot11_disco_frames_receiver_created_at_idx">
+            <column name="receiver" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_disco_frames" indexName="dot11_disco_frames_bssid_created_at_idx">
+            <column name="bssid" />
+            <column name="created_at" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

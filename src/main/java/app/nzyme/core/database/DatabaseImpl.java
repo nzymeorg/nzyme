@@ -249,6 +249,9 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new TrackDetectorConfigMapper())
                 .registerRowMapper(new CustomBanditDescriptionMapper())
                 .registerRowMapper(new DiscoHistogramEntryMapper())
+                .registerRowMapper(new DiscoFrameEntryMapper())
+                .registerRowMapper(new DiscoReasonCodeCountMapper())
+                .registerRowMapper(new DiscoFrequencyCountMapper())
                 .registerRowMapper(new CustomBanditDescriptionMapper())
                 .registerRowMapper(new BSSIDFrameCountMapper())
                 .registerRowMapper(new BSSIDPairFrameCountMapper())
@@ -559,15 +562,9 @@ public class DatabaseImpl implements Database {
                 ));
 
                 tables.add(new DataTableInformation(
-                        "dot11_disco_activity",
-                        "SELECT COUNT(*) FROM dot11_disco_activity WHERE tap_uuid IN (<taps>)",
-                        "DELETE FROM dot11_disco_activity WHERE created_at < :since AND tap_uuid IN (<taps>)"
-                ));
-
-                tables.add(new DataTableInformation(
-                        "dot11_disco_activity_receivers",
-                        "SELECT COUNT(*) FROM dot11_disco_activity_receivers LEFT JOIN dot11_disco_activity ON dot11_disco_activity.id = dot11_disco_activity_receivers.disco_activity_id WHERE dot11_disco_activity.tap_uuid IN (<taps>)",
-                        null
+                        "dot11_disco_frames",
+                        "SELECT COUNT(*) FROM dot11_disco_frames WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM dot11_disco_frames WHERE created_at < :since AND tap_uuid IN (<taps>)"
                 ));
 
                 tables.add(new DataTableInformation(
