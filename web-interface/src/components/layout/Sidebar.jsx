@@ -48,6 +48,10 @@ function Sidebar(props) {
                 title="Briefing"
                 icon={<i className="sidebar-icon fa-regular fa-newspaper"/>}/>
             <NavigationLink
+                href={ApiRoutes.ETHERNET.TOPOLOGY.INDEX}
+                title="Topology"
+                icon={<i className="sidebar-icon fa-solid fa-diagram-project"/>}/>
+            <NavigationLink
                 href={ApiRoutes.ETHERNET.ASSETS.INDEX}
                 title="Assets"
                 icon={<i className="sidebar-icon fa-solid fa-list"/>}/>

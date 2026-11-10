@@ -13,14 +13,23 @@ import ZoomHint, {useZoomHint, wheelZooms} from "../ZoomHint";
 
 /*
  * Props:
- *   origin:      {lat, lng, label, detail} or null.
- *   points:      [{id, lat, lng, label, detail, country_code, bytes, sessions, direction}], direction one of
- *                OUTBOUND, INBOUND or BOTH, seen from the origin.
- *   selectedId:  id of the selected point, or null.
- *   onSelect:    called with a point, or null when the selection is cleared.
- *   focus:       {id, at} to fly to a point. A new "at" repeats the flight for the same id.
- *   height:      viewport height in pixels.
+ *   origin:          {lat, lng, label, detail} or null. Every point then has one flow, to or from this origin.
+ *   origins:         [{id, lat, lng, label, detail, note}] for more than one origin. Needs flows.
+ *   points:          [{id, lat, lng, label, detail, country_code, bytes, sessions, direction}], direction one of
+ *                    OUTBOUND, INBOUND or BOTH, seen from the origin.
+ *   flows:           [{originId, pointId, bytes, sessions, direction, weight}]. Only with origins. The optional
+ *                    weight sets the shape of a flow in place of its bytes.
+ *   selectedId:      id of the selected point or origin, or null.
+ *   onSelect:        called with a point, or null when the selection is cleared.
+ *   onSelectOrigin:  called with an origin. Without it, origins cannot be selected and do not react to hovering.
+ *   focus:           {id, at} to fly to a point or origin. A new "at" repeats the flight for the same id.
+ *   height:          viewport height in pixels.
  */
+
+const SINGLE_ORIGIN = "__origin";
+
+const MAX_ORIGIN_LABELS = 8;
+const MAX_ORIGIN_RINGS = 12;
 
 // The traffic ramp skips green on purpose: green means healthy elsewhere in the UI.
 const colorsForMode = (darkMode) => {
@@ -155,6 +164,52 @@ const directionText = (direction) => {
   }
 }
 
+// globe.gl tells new from known data by object identity, so items keep their object for as long as their key stays.
+const useStableObjects = (items, keyOf, keep = []) => {
+  const known = useRef(new Map());
+
+  return useMemo(() => {
+    const next = new Map();
+    const result = items.map((item) => {
+      const key = keyOf(item);
+      const existing = known.current.get(key);
+      if (existing) {
+        const kept = {};
+        keep.forEach((field) => { kept[field] = existing[field]; });
+        Object.assign(existing, item, kept);
+        next.set(key, existing);
+        return existing;
+      }
+      const created = {...item};
+      next.set(key, created);
+      return created;
+    });
+    known.current = next;
+    return result;
+    // The key function and the kept fields are fixed per call site.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+}
+
+const weightOf = (f) => (f.weight === undefined || f.weight === null ? (f.bytes || 0) : f.weight);
+
+// Averaging longitudes directly breaks around the date line.
+const centerOf = (places) => {
+  let x = 0, y = 0, z = 0;
+  places.forEach((p) => {
+    const lat = p.lat * Math.PI / 180;
+    const lng = p.lng * Math.PI / 180;
+    x += Math.cos(lat) * Math.cos(lng);
+    y += Math.cos(lat) * Math.sin(lng);
+    z += Math.sin(lat);
+  });
+  const length = Math.hypot(x, y, z);
+  if (length < 1e-6) {
+    return {lat: places[0].lat, lng: places[0].lng};
+  }
+  return {lat: Math.asin(z / length) * 180 / Math.PI, lng: Math.atan2(y, x) * 180 / Math.PI};
+}
+
 const buildStars = (count, minRadius, maxRadius, size, color, opacity) => {
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
@@ -193,12 +248,13 @@ const buildScenery = (colors) => {
   return {group: group, dispose: dispose};
 }
 
-export default function ConnectionGlobe({origin, points, selectedId, onSelect, focus, height}) {
+export default function ConnectionGlobe({origin, origins, points, flows, selectedId, onSelect, onSelectOrigin,
+                                         focus, height}) {
 
   const containerRef = useRef(null);
   const globeRef = useRef(null);
   const [failed, setFailed] = useState(false);
-  const [rotating, setRotating] = useState(true);
+  const [rotating, setRotating] = useState(false);
   const [hovered, setHovered] = useState(null);
   const [zoomHint, showZoomHint] = useZoomHint();
   // Counts up whenever a new globe is built, so the data effects run against it.
@@ -209,15 +265,37 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
 
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onSelectOriginRef = useRef(onSelectOrigin);
+  onSelectOriginRef.current = onSelectOrigin;
   const colorsRef = useRef(colors);
   colorsRef.current = colors;
 
-  const maxBytes = useMemo(() => points.reduce((m, p) => Math.max(m, p.bytes || 0), 0), [points]);
+  const originList = useMemo(() => {
+    if (origins) return origins;
+    return origin ? [{...origin, id: SINGLE_ORIGIN}] : [];
+  }, [origins, origin]);
 
-  const share = useCallback((p) => {
-    if (maxBytes <= 0) return 0.3;
-    return 0.15 + 0.85 * Math.sqrt((p.bytes || 0) / maxBytes);
-  }, [maxBytes]);
+  const flowList = useMemo(() => {
+    if (flows) return flows;
+    return points.map((p) => ({
+      originId: SINGLE_ORIGIN, pointId: p.id, bytes: p.bytes, sessions: p.sessions, direction: p.direction
+    }));
+  }, [flows, points]);
+
+  const maxBytes = useMemo(() => points.reduce((m, p) => Math.max(m, p.bytes || 0), 0), [points]);
+  const maxFlowBytes = useMemo(() => flowList.reduce((m, f) => Math.max(m, f.bytes || 0), 0), [flowList]);
+  const maxFlowWeight = useMemo(() => flowList.reduce((m, f) => Math.max(m, weightOf(f)), 0), [flowList]);
+
+  const share = useCallback((d) => {
+    const max = d.kind === "POINT" ? maxBytes : maxFlowBytes;
+    if (max <= 0) return 0.3;
+    return 0.15 + 0.85 * Math.sqrt((d.bytes || 0) / max);
+  }, [maxBytes, maxFlowBytes]);
+
+  const weightShare = useCallback((a) => {
+    if (maxFlowWeight <= 0) return 0.3;
+    return 0.15 + 0.85 * Math.sqrt(weightOf(a) / maxFlowWeight);
+  }, [maxFlowWeight]);
 
   const tooltip = useCallback((title, lines) => {
     const c = colorsRef.current;
@@ -238,8 +316,17 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
 
   const originTooltip = useCallback((o) => tooltip(o.label, [
     {text: o.detail, muted: true},
-    {text: "This asset", muted: false}
+    {text: o.note ? o.note : "This asset", muted: false}
   ].filter((l) => l.text)), [tooltip]);
+
+  const flowTooltip = useCallback((a) => {
+    if (a.single) return pointTooltip(a.point);
+    return tooltip(a.origin.label + " and " + a.point.label, [
+      {text: directionText(a.direction), muted: false},
+      {text: "Sessions: " + formatCount(a.sessions)},
+      {text: "Traffic: " + formatBytes(a.bytes)},
+    ]);
+  }, [tooltip, pointTooltip]);
 
   // Numeric country ids of the countries with traffic, matching the ids in the atlas.
   const activeCountries = useMemo(() => {
@@ -252,39 +339,44 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
     return ids;
   }, [points]);
 
-  // The data arrays keep their object identities between renders, so hover and selection only change accessors
-  // and globe.gl updates the existing objects instead of rebuilding them.
-  const pointData = useMemo(() => {
-    const data = points.map((p) => ({...p, kind: "POINT"}));
-    if (origin) {
-      data.push({...origin, id: "__origin", kind: "ORIGIN"});
-    }
-    return data;
-  }, [points, origin]);
+  const pointItems = useMemo(() => points.map((p) => ({...p, kind: "POINT"}))
+      .concat(originList.map((o) => ({...o, kind: "ORIGIN"}))), [points, originList]);
+  const pointData = useStableObjects(pointItems, (d) => d.kind + ":" + d.id);
 
-  // Inbound flows run from the location to the origin so the pulse moves toward the asset.
-  const arcData = useMemo(() => origin ? points.flatMap((p) => {
-    const inbound = p.direction === "INBOUND";
-    const path = {
-      startLat: inbound ? p.lat : origin.lat, startLng: inbound ? p.lng : origin.lng,
-      endLat: inbound ? origin.lat : p.lat, endLng: inbound ? origin.lng : p.lng,
-      distance: Math.max(50, distanceKm(origin.lat, origin.lng, p.lat, p.lng))
-    };
-    return [
-      {...path, id: p.id, kind: "BASE", point: p, gap: 0},
-      {...path, id: p.id, kind: "PULSE", point: p, gap: Math.random()}
-    ];
-  }) : [], [points, origin]);
+  // Inbound flows run from the location to the origin so the pulse moves toward the origin.
+  const arcItems = useMemo(() => {
+    const byId = new Map(pointData.map((d) => [d.kind + ":" + d.id, d]));
+    return flowList.flatMap((f) => {
+      const o = byId.get("ORIGIN:" + f.originId);
+      const p = byId.get("POINT:" + f.pointId);
+      if (!o || !p) return [];
+
+      const inbound = f.direction === "INBOUND";
+      const flow = {
+        startLat: inbound ? p.lat : o.lat, startLng: inbound ? p.lng : o.lng,
+        endLat: inbound ? o.lat : p.lat, endLng: inbound ? o.lng : p.lng,
+        distance: Math.max(50, distanceKm(o.lat, o.lng, p.lat, p.lng)),
+        id: f.originId + "|" + f.pointId, originId: f.originId, pointId: f.pointId, origin: o, point: p,
+        bytes: f.bytes, sessions: f.sessions, direction: f.direction, weight: f.weight, single: !flows
+      };
+      return [
+        {...flow, kind: "BASE", gap: 0},
+        {...flow, kind: "PULSE", gap: Math.random()}
+      ];
+    });
+  }, [flowList, pointData, flows]);
+  // The gap is where on its way a pulse starts. It stays, or every update would make the pulses jump.
+  const arcData = useStableObjects(arcItems, (a) => a.kind + ":" + a.id, ["gap"]);
 
   const viewCenter = useCallback(() => {
-    if (origin) {
-      return {lat: origin.lat, lng: origin.lng};
+    if (originList.length > 0) {
+      return centerOf(originList);
     }
     if (points.length > 0) {
       return {lat: points[0].lat, lng: points[0].lng};
     }
     return {lat: 20, lng: 0};
-  }, [origin, points]);
+  }, [originList, points]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -341,11 +433,21 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
       .onPointClick((p) => {
         if (p.kind === "POINT") {
           onSelectRef.current(p);
+        } else if (onSelectOriginRef.current) {
+          onSelectOriginRef.current(p);
         }
       })
-      .onPointHover((p) => setHovered(p && p.kind === "POINT" ? p.id : null))
+      .onPointHover((p) => {
+        if (p && p.kind === "POINT") {
+          setHovered({pointId: p.id});
+        } else if (p && onSelectOriginRef.current) {
+          setHovered({originId: p.id});
+        } else {
+          setHovered(null);
+        }
+      })
       .onArcClick((a) => onSelectRef.current(a.point))
-      .onArcHover((a) => setHovered(a ? a.id : null));
+      .onArcHover((a) => setHovered(a ? (a.single ? {pointId: a.pointId} : {pointId: a.pointId, originId: a.originId}) : null));
 
     const material = globe.globeMaterial();
     material.color.set(c.globe);
@@ -373,7 +475,7 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
     }
 
     const controls = globe.controls();
-    controls.autoRotate = true;
+    controls.autoRotate = false;
     controls.autoRotateSpeed = 0.5;
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -398,7 +500,7 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
 
     globeRef.current = globe;
     setFailed(false);
-    setRotating(true);
+    setRotating(false);
     setGeneration((g) => g + 1);
 
     const center = viewCenter();
@@ -454,77 +556,103 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
       .pointsData(pointData)
       .pointLabel((p) => p.kind === "ORIGIN" ? originTooltip(p) : pointTooltip(p))
       .arcsData(arcData)
-      .arcLabel((a) => pointTooltip(a.point));
-  }, [pointData, arcData, pointTooltip, originTooltip, generation]);
+      .arcLabel((a) => flowTooltip(a));
+  }, [pointData, arcData, pointTooltip, originTooltip, flowTooltip, generation]);
 
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe) return;
 
     const c = colors;
-    const isLit = (id) => id === selectedId || id === hovered;
-    const heat = (p) => (share(p) - 0.15) / 0.85;
-    const trafficColor = (p) => c.traffic(heat(p));
-    const baseStroke = (p) => 0.15 + 0.9 * share(p);
+    const pointLit = (id) => id === selectedId || (hovered !== null && !hovered.originId && hovered.pointId === id);
+    const originLit = (id) => id === selectedId || (hovered !== null && !hovered.pointId && hovered.originId === id);
+    const flowLit = (a) => pointLit(a.pointId) || originLit(a.originId)
+        || (hovered !== null && hovered.pointId === a.pointId && hovered.originId === a.originId);
+    const heat = (d) => (share(d) - 0.15) / 0.85;
+    const trafficColor = (d) => c.traffic(heat(d));
+    const baseStroke = (a) => 0.15 + 0.9 * weightShare(a);
     // Kilometers per millisecond.
-    const pulseSpeed = (p) => 1.2 + 2.3 * heat(p);
+    const pulseSpeed = (a) => 1.2 + 2.3 * heat(a);
 
     globe
       .pointColor((p) => {
         if (p.kind === "ORIGIN") return c.origin;
-        return isLit(p.id) ? c.selection : trafficColor(p);
+        return pointLit(p.id) ? c.selection : trafficColor(p);
       })
       .pointAltitude((p) => p.kind === "ORIGIN" ? 0.05 : 0.03 + 0.28 * share(p))
       .pointRadius((p) => {
-        if (p.kind === "ORIGIN") return 0.55;
-        return (0.3 + 0.5 * share(p)) * (isLit(p.id) ? 1.3 : 1);
+        if (p.kind === "ORIGIN") return originLit(p.id) ? 0.72 : 0.55;
+        return (0.3 + 0.5 * share(p)) * (pointLit(p.id) ? 1.3 : 1);
       })
       .arcColor((a) => {
         if (a.kind === "PULSE") {
           return c.pulse;
         }
-        const color = isLit(a.id) ? c.selection : trafficColor(a.point);
-        return withAlpha(color, isLit(a.id) ? 1 : 0.6 + 0.4 * heat(a.point));
+        const color = flowLit(a) ? c.selection : trafficColor(a);
+        return withAlpha(color, flowLit(a) ? 1 : 0.6 + 0.4 * heat(a));
       })
-      .arcStroke((a) => baseStroke(a.point) * (a.kind === "PULSE" ? 1.5 : 1) * (isLit(a.id) ? 1.5 : 1))
-      .arcAltitudeAutoScale((a) => 0.3 + 0.2 * share(a.point))
+      .arcStroke((a) => baseStroke(a) * (a.kind === "PULSE" ? 1.5 : 1) * (flowLit(a) ? 1.5 : 1))
+      .arcAltitudeAutoScale((a) => 0.3 + 0.2 * weightShare(a))
       // The pulse is a dash of fixed length at a fixed speed, so a short flow does not look faster than a long
       // one. Dash and gap are fractions of the flow length, the animation time is the time for one full length.
       .arcDashLength((a) => a.kind === "PULSE" ? Math.min(1, PULSE_LENGTH_KM / a.distance) : 1)
       .arcDashGap((a) => {
         if (a.kind !== "PULSE") return 0;
-        const speed = pulseSpeed(a.point);
-        const interval = 2600 - 1400 * heat(a.point);
+        const speed = pulseSpeed(a);
+        const interval = 2600 - 1400 * heat(a);
         return Math.max(0, interval * speed / a.distance - Math.min(1, PULSE_LENGTH_KM / a.distance));
       })
-      .arcDashAnimateTime((a) => a.kind === "PULSE" ? a.distance / pulseSpeed(a.point) : 0);
+      .arcDashAnimateTime((a) => a.kind === "PULSE" ? a.distance / pulseSpeed(a) : 0);
+  }, [selectedId, hovered, colors, share, weightShare, generation]);
+
+  const labelItems = useMemo(() => {
+    const pointLit = (id) => id === selectedId || (hovered !== null && !hovered.originId && hovered.pointId === id);
+    const originLit = (id) => id === selectedId || (hovered !== null && !hovered.pointId && hovered.originId === id);
 
     const labels = [];
-    if (origin) {
-      labels.push({lat: origin.lat, lng: origin.lng, text: origin.label, color: c.origin});
-    }
-    points.forEach((p) => {
-      if (isLit(p.id)) {
-        labels.push({lat: p.lat, lng: p.lng, text: p.label, color: c.selection});
+    originList.forEach((o) => {
+      if (originList.length <= MAX_ORIGIN_LABELS || originLit(o.id)) {
+        labels.push({key: "ORIGIN:" + o.id, lat: o.lat, lng: o.lng, text: o.label, color: colors.origin});
       }
     });
-    globe.htmlElementsData(labels);
-  }, [points, origin, selectedId, hovered, colors, share, generation]);
+    points.forEach((p) => {
+      if (pointLit(p.id)) {
+        labels.push({key: "POINT:" + p.id, lat: p.lat, lng: p.lng, text: p.label, color: colors.selection});
+      }
+    });
+    return labels;
+  }, [points, originList, selectedId, hovered, colors]);
+  const labelData = useStableObjects(labelItems, (l) => l.key + "|" + l.text + "|" + l.color);
 
   useEffect(() => {
-    const globe = globeRef.current;
-    if (!globe) return;
-
-    const rings = [];
-    if (origin) {
-      rings.push({lat: origin.lat, lng: origin.lng, color: colors.origin, maxRadius: 4, speed: 1.5, period: 1400});
+    if (globeRef.current) {
+      globeRef.current.htmlElementsData(labelData);
     }
+  }, [labelData, generation]);
+
+  // A ring that is replaced restarts its pulse, so rings only change with their places, not with every new value.
+  const ringItems = useMemo(() => {
+    const rings = originList.slice(0, MAX_ORIGIN_RINGS).map((o) => ({
+      key: "ORIGIN:" + o.id + ":" + o.lat + "," + o.lng + (o.id === selectedId ? ":selected" : ""),
+      lat: o.lat, lng: o.lng, color: o.id === selectedId ? colors.selection : colors.origin,
+      maxRadius: 4, speed: 1.5, period: 1400
+    }));
     const selected = points.find((p) => p.id === selectedId);
     if (selected) {
-      rings.push({lat: selected.lat, lng: selected.lng, color: colors.selection, maxRadius: 5, speed: 2.5, period: 900});
+      rings.push({
+        key: "POINT:" + selected.id + ":" + selected.lat + "," + selected.lng,
+        lat: selected.lat, lng: selected.lng, color: colors.selection, maxRadius: 5, speed: 2.5, period: 900
+      });
     }
-    globe.ringsData(rings);
-  }, [points, origin, selectedId, colors, generation]);
+    return rings;
+  }, [points, originList, selectedId, colors]);
+  const ringData = useStableObjects(ringItems, (r) => r.key + "|" + r.color);
+
+  useEffect(() => {
+    if (globeRef.current) {
+      globeRef.current.ringsData(ringData);
+    }
+  }, [ringData, generation]);
 
   // A margin change rebuilds the hex cells of the affected countries only.
   useEffect(() => {
@@ -541,7 +669,7 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
     if (!globe || !focus) {
       return;
     }
-    const target = points.find((p) => p.id === focus.id);
+    const target = points.find((p) => p.id === focus.id) || originList.find((o) => o.id === focus.id);
     if (!target) {
       return;
     }
@@ -576,7 +704,8 @@ export default function ConnectionGlobe({origin, points, selectedId, onSelect, f
 
   return (
     <div className="border rounded connection-globe" style={{position: "relative", width: "100%", height: height + "px", overflow: "hidden"}}>
-      <div ref={containerRef} style={{width: "100%", height: height + "px"}} />
+      {/* Out of the flow: the canvas starts at window width and would hold the card open for good. */}
+      <div ref={containerRef} style={{position: "absolute", top: 0, left: 0, width: "100%", height: height + "px"}} />
       <ZoomHint visible={zoomHint} dragText="turn the globe" />
       <div style={{position: "absolute", top: "8px", right: "8px", zIndex: 5}}>
         <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={resetView}>

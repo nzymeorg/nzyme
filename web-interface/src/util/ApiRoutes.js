@@ -149,6 +149,9 @@ const ApiRoutes = {
     IP: {
       ADDRESS_DETAILS: addressParam => `/ethernet/l4/ip/show/${addressParam}`
     },
+    TOPOLOGY: {
+      INDEX: '/ethernet/topology'
+    },
     L4: {
       OVERVIEW: '/ethernet/l4',
       SESSIONS: '/ethernet/l4/sessions',

@@ -19,6 +19,7 @@ import app.nzyme.core.ethernet.ssh.SSH;
 import app.nzyme.core.ethernet.tls.TLS;
 import app.nzyme.core.ethernet.l4.tcp.TCP;
 import app.nzyme.core.ethernet.time.ntp.NTP;
+import app.nzyme.core.ethernet.topology.Topology;
 import app.nzyme.core.ethernet.webrtc.WebRTC;
 
 public class Ethernet {
@@ -44,6 +45,7 @@ public class Ethernet {
     private final Recon recon;
     private final Spoofing spoofing;
     private final ICMP icmp;
+    private final Topology topology;
 
     public Ethernet(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -67,6 +69,7 @@ public class Ethernet {
         this.recon = new Recon(nzyme);
         this.spoofing = new Spoofing(nzyme);
         this.icmp = new ICMP(this);
+        this.topology = new Topology(this);
     }
 
     public NzymeNode getNzyme() {
@@ -143,6 +146,10 @@ public class Ethernet {
 
     public ICMP icmp() {
         return icmp;
+    }
+
+    public Topology topology() {
+        return topology;
     }
 
     public PortalIntegrity portalIntegrity() {

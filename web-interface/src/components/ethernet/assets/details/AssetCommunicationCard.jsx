@@ -1,4 +1,4 @@
-import React, {Suspense, useCallback, useEffect, useMemo, useState} from "react";
+import React, {Suspense, useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {toast} from "react-toastify";
 import moment from "moment";
 import PivotLink from "../../../shared/PivotLink";
@@ -14,6 +14,12 @@ import {Presets} from "../../../shared/timerange/TimeRange";
 import AssetCommunicationGraph from "./AssetCommunicationGraph";
 import {countryName, externalPeerLabel, filteredLink, formatBytes, formatCount, isUnresolvedExternal, macFilter} from "./AssetProfileHelpers";
 import {countryCentroid} from "../../../shared/maps/CountryCentroids";
+import Store from "../../../../util/Store";
+import VizDisplayMenu from "../../../shared/viz/VizDisplayMenu";
+import VizExportMenu from "../../../shared/viz/VizExportMenu";
+import VizSelectionActions from "../../../shared/viz/VizSelectionActions";
+import {EXPORT_SCALE, exportCanvasAsPng, exportCsv, timeRangeText} from "../../../shared/viz/VizExport";
+import {colorsForMode} from "../../../shared/viz/VizTheme";
 
 const assetsService = new AssetsService();
 
@@ -21,6 +27,8 @@ const GRAPH_HEIGHT = 520;
 const INFRASTRUCTURE_SHOWN = 5;
 
 const EDGE_LIMIT = 500;
+
+const MIN_BYTES = [[0, "Show all"], [10240, "10 KB"], [102400, "100 KB"], [1048576, "1 MB"], [10485760, "10 MB"], [104857600, "100 MB"]];
 
 const PORTS_SHOWN = 8;
 
@@ -73,6 +81,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
   const [protocol, setProtocol] = useState("ALL");
   const [port, setPort] = useState("");
   const [selection, setSelection] = useState(null);
+  const [excluded, setExcluded] = useState([]);
   // Node to select and center in the graph, set from the peer tables. A counter makes repeated clicks on the same
   // row take effect again.
   const [focus, setFocus] = useState(null);
@@ -94,6 +103,24 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
     setMapSelection(null);
     assetsService.getAssetProfileCommunication(asset.uuid, organizationId, tenantId, timeRange, EDGE_LIMIT, setCommunication);
   }, [asset.uuid, organizationId, tenantId, timeRange, revision]);
+
+  useEffect(() => {
+    setExcluded([]);
+  }, [asset.uuid]);
+
+  // A group node stands for several peers.
+  const excludeSelected = () => {
+    const node = selection.node;
+    const added = [];
+    selection.links.forEach((e) => {
+      const key = e.peer_type + ":" + e.peer_key;
+      if (!added.some((x) => x.key === key) && !excluded.some((x) => x.key === key)) {
+        added.push({key: key, label: selection.links.every((l) => l.peer_key === e.peer_key) ? node.label : peerLabel(e)});
+      }
+    });
+    setExcluded(excluded.concat(added));
+    setSelection(null);
+  }
 
   const onExpand = useCallback((peerAsset) => new Promise((resolve, reject) => {
     assetsService.getAssetProfileCommunication(peerAsset.uuid, organizationId, tenantId, timeRange, EDGE_LIMIT,
@@ -126,16 +153,78 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
   const portNumber = port.trim() === "" ? null : parseInt(port.trim(), 10);
   const portValid = portNumber === null || (!isNaN(portNumber) && portNumber >= 0 && portNumber <= 65535);
 
+  const peerKeyOf = (e) => e.peer_type + ":" + e.peer_key;
+
   const edges = useMemo(() => allEdges.filter((e) =>
-    (peerType === "ALL" || e.peer_type === peerType)
+    !excluded.some((x) => x.key === peerKeyOf(e))
+      && (peerType === "ALL" || e.peer_type === peerType)
       && (direction === "ALL" || e.direction === direction)
       && (l4Type === "ALL" || e.l4_type === l4Type)
       && (protocol === "ALL" || (protocol === "NONE" ? tagsOf(e).length === 0 : tagsOf(e).includes(protocol)))
       && (portNumber === null || !portValid || e.port === portNumber)
-  ), [allEdges, peerType, direction, l4Type, protocol, portNumber, portValid]);
+  ), [allEdges, excluded, peerType, direction, l4Type, protocol, portNumber, portValid]);
 
   const filtersActive = peerType !== "ALL" || direction !== "ALL" || l4Type !== "ALL" || protocol !== "ALL"
-    || (portNumber !== null && portValid) || minBytes > 0;
+    || (portNumber !== null && portValid) || minBytes > 0 || excluded.length > 0;
+
+  const graphExportRef = useRef(null);
+
+  const exportImage = () => {
+    const rendered = graphExportRef.current ? graphExportRef.current(EXPORT_SCALE) : null;
+    if (!rendered) {
+      toast.info("There is nothing to export yet.");
+      return;
+    }
+
+    const mac = asset.mac.address;
+    exportCanvasAsPng(rendered, [
+      "Nzyme, communication of " + (asset.name ? asset.name + " (" + mac + ")" : mac) + ".",
+      timeRangeText(timeRange) + ". Exported " + moment().format("YYYY-MM-DD HH:mm") + ".",
+      filtersActive ? "The filters of the view hide part of the communication." : "No filters."
+    ].concat(allEdges.length >= EDGE_LIMIT ? ["Limited to the " + EDGE_LIMIT + " edges with the most traffic."] : []), colorsForMode(Boolean(Store.get("dark_mode"))), "asset-communication");
+  }
+
+  const exportData = () => {
+    if (allEdges.length >= EDGE_LIMIT) {
+      toast.info("The export is limited like the view, to the " + EDGE_LIMIT + " edges with the most traffic.");
+    }
+
+    exportCsv([
+      ["peer", (e) => peerLabel(e)],
+      ["peer_type", (e) => e.peer_type.toLowerCase()],
+      ["peer_address", (e) => e.peer_address],
+      ["peer_mac", (e) => e.peer_mac],
+      ["peer_asset", (e) => (e.peer_asset && e.peer_asset.name ? e.peer_asset.name : "")],
+      ["peer_asn_number", (e) => e.peer_asn_number],
+      ["peer_asn_name", (e) => e.peer_asn_name],
+      ["peer_country_code", (e) => e.peer_country_code],
+      ["peer_city", (e) => e.peer_city],
+      ["direction", (e) => e.direction.toLowerCase()],
+      ["l4_type", (e) => e.l4_type],
+      ["port", (e) => e.port],
+      ["protocol", (e) => e.protocol],
+      ["sessions", (e) => e.sessions],
+      ["bytes_sent", (e) => e.bytes_tx],
+      ["bytes_received", (e) => e.bytes_rx],
+      ["first_seen", (e) => e.first_seen],
+      ["last_seen", (e) => e.last_seen]
+    ], edges.slice().sort((a, b) => (b.bytes_tx + b.bytes_rx) - (a.bytes_tx + a.bytes_rx)), "asset-communication");
+  }
+
+  const exportItems = () => {
+    const data = {label: "Connections (CSV)", onClick: exportData};
+    return view === "graph" ? [{label: "Image (PNG)", onClick: exportImage}, data] : [data];
+  }
+
+  const displayOptions = () => [
+    view === "graph"
+      ? {id: "asset-comm-grouping", label: "Group by", value: grouping, onChange: setGrouping,
+          options: [["direction", "Direction and scope"], ["service", "Service"], ["country", "Country"], ["none", "No grouping"]]}
+      : {id: "asset-comm-map-grouping", label: "Map points", value: mapGrouping, onChange: changeMapGrouping,
+          options: [["city", "Cities"], ["country", "Countries"]]},
+    {id: "asset-comm-min-bytes", label: "Hide links below", value: minBytes, onChange: (v) => setMinBytes(parseInt(v, 10)),
+      options: MIN_BYTES}
+  ];
 
   const filterSelect = (id, label, value, setValue, options) => (
     <div className="d-flex align-items-center me-3 mb-2">
@@ -533,17 +622,31 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
           {firstSeen ? <React.Fragment><dt>Seen</dt><dd className="mb-0">{moment(firstSeen).format("YYYY-MM-DD HH:mm")} to {moment(lastSeen).format("YYYY-MM-DD HH:mm")}</dd></React.Fragment> : null}
         </dl>
         {portsSection(selection.links)}
-        {node.type === "INTERNAL" && node.asset
-          ? <PivotLink to={ApiRoutes.ETHERNET.ASSETS.DETAILS(node.asset.uuid)} button="btn btn-sm btn-outline-primary" className="me-1">Open Asset</PivotLink>
-          : null}
-        {node.type === "INTERNAL" && node.address
-          ? <PivotLink to={l4SessionsLink("destination_address", node.address)} button="btn btn-sm btn-outline-secondary" className="me-1">Sessions to Peer</PivotLink>
-          : null}
-        {node.type === "EXTERNAL" && node.asn_number
-          ? <PivotLink to={l4SessionsLink("destination_address_geo_asn_number", String(node.asn_number), "equals_numeric")} button="btn btn-sm btn-outline-secondary">Sessions to Network</PivotLink>
-          : null}
       </React.Fragment>
     )
+  }
+
+  const selectionFilters = () => (view === "graph" && selection && selection.node.type !== "ROOT" && selection.links.length > 0
+    ? [{label: "Exclude This Node", onClick: excludeSelected}] : []);
+
+  const selectionPivots = () => {
+    if (view === "graph") {
+      const node = selection ? selection.node : null;
+      if (!node) return [];
+
+      return [
+        node.type === "INTERNAL" && node.asset
+          ? {label: "Open Asset", to: ApiRoutes.ETHERNET.ASSETS.DETAILS(node.asset.uuid)} : null,
+        node.type === "INTERNAL" && node.address
+          ? {label: "Sessions to Peer", to: l4SessionsLink("destination_address", node.address)} : null,
+        node.type === "EXTERNAL" && node.asn_number
+          ? {label: "Sessions to Network", to: l4SessionsLink("destination_address_geo_asn_number", String(node.asn_number), "equals_numeric")} : null
+      ].filter((p) => p !== null);
+    }
+
+    const location = mapSelection ? geo.locations.find((x) => x.id === mapSelection.id) : null;
+    return location && location.country_code
+      ? [{label: "Sessions to Country", to: l4SessionsLink("destination_address_geo_country_code", location.country_code)}] : [];
   }
 
   const portsSection = (links) => {
@@ -623,9 +726,6 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
             : null}
         </ul>
         {portsSection(edges.filter((e) => e.peer_type === "EXTERNAL" && locationKeys.has(e.peer_key)))}
-        {l.country_code
-          ? <PivotLink to={l4SessionsLink("destination_address_geo_country_code", l.country_code)} button="btn btn-sm btn-outline-secondary">Sessions to Country</PivotLink>
-          : null}
       </React.Fragment>
     )
   }
@@ -724,26 +824,14 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
                      value={port}
                      onChange={(e) => setPort(e.target.value)} />
             </div>
-            <div className="d-flex align-items-center me-3 mb-2">
-              <label htmlFor="asset-comm-min-bytes" className="me-2 small text-muted mb-0">Hide links below</label>
-              <select id="asset-comm-min-bytes"
-                      className="form-select form-select-sm w-auto"
-                      value={minBytes}
-                      onChange={(e) => setMinBytes(parseInt(e.target.value, 10))}>
-                <option value={0}>Show all</option>
-                <option value={10240}>10 KB</option>
-                <option value={102400}>100 KB</option>
-                <option value={1048576}>1 MB</option>
-                <option value={10485760}>10 MB</option>
-                <option value={104857600}>100 MB</option>
-              </select>
-            </div>
-            {view === "graph"
-              ? filterSelect("asset-comm-grouping", "Group by", grouping, setGrouping,
-                  [["direction", "Direction and scope"], ["service", "Service"], ["country", "Country"], ["none", "No grouping"]])
-              : filterSelect("asset-comm-map-grouping", "Map points", mapGrouping, changeMapGrouping,
-                  [["city", "Cities"], ["country", "Countries"]])}
-            <div className="ms-auto mb-2">
+            <div className="ms-auto mb-2 d-flex align-items-center">
+              <div className="me-2">
+                <VizDisplayMenu options={displayOptions()} />
+              </div>
+              <div className="me-2">
+                <VizExportMenu items={exportItems()}
+                               note={view === "map" ? "The map cannot be exported as an image." : null} />
+              </div>
               <div className="btn-group btn-group-sm" role="group" aria-label="View">
                 <button type="button"
                         className={"btn " + (view === "graph" ? "btn-secondary" : "btn-outline-secondary")}
@@ -759,6 +847,30 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
             </div>
           </div>
 
+          {excluded.length > 0 ?
+            <div className="mb-3">
+              <h5 className="applied-filters-headline">Excluded Nodes</h5>
+              <div className="applied-filters mt-1">
+                {excluded.map((x, i) => (
+                  <React.Fragment key={x.key}>
+                    <div className="applied-filters-filtergroup">
+                      <span className="applied-filter-chip">
+                        <span className="applied-filter-name">Node</span>
+                        <span className="applied-filter-operator">!=</span>
+                        <span className="applied-filter-value">{x.label}</span>
+                        <a className="applied-filter-remove" title="Include this node again"
+                           onClick={(e) => { e.preventDefault(); setExcluded(excluded.filter((y) => y.key !== x.key)); }}>
+                          <i className="fa-solid fa-xmark" />
+                        </a>
+                      </span>
+                    </div>
+                    {i < excluded.length - 1
+                      ? <div className="applied-filter-connector applied-filter-connector--and">AND</div> : null}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div> : null}
+
           <div className="row">
             <div className="col-md-9">
               {view === "graph"
@@ -770,15 +882,19 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
                                            onExpand={onExpand}
                                            onSelect={onSelect}
                                            focus={focus}
-                                           height={GRAPH_HEIGHT} />)
+                                           height={GRAPH_HEIGHT}
+                                           exportRef={graphExportRef} />)
                 : (allEdges.length === 0 ? noCommunication() : mapView())}
             </div>
             <div className="col-md-3">
-              <div className="border rounded p-3 d-flex flex-column" style={{height: GRAPH_HEIGHT + "px", overflowY: "auto"}}>
-                <div className="small text-muted text-uppercase mb-2">{view === "graph" ? "Selected Node" : "Selected Location"}</div>
-                <div className="flex-grow-1 d-flex flex-column">
-                  {view === "graph" ? selectionPanel() : mapSelectionPanel()}
+              <div className="border rounded d-flex flex-column" style={{height: GRAPH_HEIGHT + "px"}}>
+                <div className="p-3 flex-grow-1 d-flex flex-column" style={{overflowY: "auto", minHeight: 0}}>
+                  <div className="small text-muted text-uppercase mb-2">{view === "graph" ? "Selected Node" : "Selected Location"}</div>
+                  <div className="flex-grow-1 d-flex flex-column">
+                    {view === "graph" ? selectionPanel() : mapSelectionPanel()}
+                  </div>
                 </div>
+                <VizSelectionActions filters={selectionFilters()} pivots={selectionPivots()} />
               </div>
             </div>
           </div>

@@ -206,6 +206,9 @@
     "description" : "Time synchronization traffic that Nzyme taps observed on the network. This currently covers NTP transactions, including the exchanged timestamps and the resulting clock offset.",
     "name" : "Time"
   }, {
+    "description" : "Who talks to whom on the Ethernet network, aggregated from TCP and UDP sessions at request time. Session endpoints are grouped into nodes: internal ones (site-local addresses) by address, network or tap, external ones by address, autonomous system or country. Sessions to multicast, broadcast and loopback addresses are not part of the topology. All endpoints take the filters of the TCP/UDP sessions list, a scope, optional nodes to narrow the selection to and nodes to exclude. Traffic that several of the selected taps recorded is counted once: per pair of addresses and port, the tap that saw the most is used. Grouped by tap and in geo flows, every tap keeps what it recorded.",
+    "name" : "Topology"
+  }, {
     "description" : "WireGuard and OpenVPN tunnels that Nzyme taps observed on the network, including the tunnel endpoints, the transport, whether the handshake was observed and the tunneled bytes. Each tunnel is tracked over its lifetime across all underlying TCP sessions or UDP conversations between the same endpoints.",
     "externalDocs" : {
       "description" : "VPN tunnels in the Nzyme documentation",
@@ -25661,6 +25664,535 @@
         "tags" : [ "TLS" ]
       }
     },
+    "/api/ethernet/topology/geo" : {
+      "get" : {
+        "description" : "Returns the flows with the most traffic between the sites of the selected taps and the places external addresses are located at. A site is a location with coordinates and all selected taps assigned to it, or a tap with its own coordinates that has no such location. A place is a pair of GeoIP coordinates rounded to two decimals, or a country for addresses without coordinates. Only sessions with exactly one internal endpoint have a flow. Flows are reported per tap and direction, so two taps of one site can both report a flow to the same place. Each flow carries its sessions and bytes over time in the buckets of the timeline.",
+        "operationId" : "findTopologyGeoFlows",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Maximum number of flows. Defaults to 500, maximum is 2000.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologyGeoResponse"
+                }
+              }
+            },
+            "description" : "Flows found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List traffic flows between sites and the world",
+        "tags" : [ "Topology" ]
+      }
+    },
+    "/api/ethernet/topology/links" : {
+      "get" : {
+        "description" : "Returns the links with the most traffic and the nodes they connect. A link is directed from the node that initiated sessions to the node that accepted them, so two nodes that both initiate sessions to each other have two links. Internal nodes that are addresses carry the asset that used the address in the time range, unless more than one did. With a service level, every link is additionally split by service, which is what a flow diagram from source over service to destination needs. Each link carries its sessions and bytes over time in the buckets of the timeline. The totals cover all links of the selection, also those past the limit.",
+        "operationId" : "findTopologyLinks",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How internal endpoints are grouped into nodes: HOST (default), SUBNET (/24 for IPv4, /64 for IPv6) or TAP.",
+          "in" : "query",
+          "name" : "internal_level",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How external endpoints are grouped into nodes: HOST, NETWORK (autonomous system, default) or COUNTRY.",
+          "in" : "query",
+          "name" : "external_level",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Splits links by service: PROTOCOL (the protocol tags of a session, destination port for untagged sessions) or PORT (transport and destination port). Omit for links that are not split.",
+          "in" : "query",
+          "name" : "service_level",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Maximum number of links. Defaults to 250, maximum is 10000.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologyLinksResponse"
+                }
+              }
+            },
+            "description" : "Links found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope, level or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the links between topology nodes",
+        "tags" : [ "Topology" ]
+      }
+    },
+    "/api/ethernet/topology/ranking" : {
+      "get" : {
+        "description" : "Returns the nodes of one kind, or the services, of the selection with their sessions, bytes and first and last activity. A node ranks with the sessions it initiated and the ones it accepted, and carries the number of distinct addresses on the other end. A service carries its distinct client and server addresses. Ordering node rankings by PEERS ascending finds the external networks the fewest internal addresses talk to, ordering by FIRST_SEEN descending the ones that appeared last. Narrowed to one or two nodes, the service rankings break down the traffic of a node or of a link. Results are paginated.",
+        "operationId" : "findTopologyRanking",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "What to rank: INTERNAL_HOST, INTERNAL_SUBNET, INTERNAL_TAP, EXTERNAL_HOST, EXTERNAL_NETWORK, EXTERNAL_COUNTRY, SERVICE_PROTOCOL or SERVICE_PORT.",
+          "in" : "query",
+          "name" : "dimension",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: BYTES (default), SESSIONS, PEERS (distinct clients for services), FIRST_SEEN or LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC. Defaults to DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Defaults to 10, maximum is 500.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologyRankingResponse"
+                }
+              }
+            },
+            "description" : "Ranking found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope, dimension, sorting or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Rank topology nodes or services",
+        "tags" : [ "Topology" ]
+      }
+    },
+    "/api/ethernet/topology/summary" : {
+      "get" : {
+        "description" : "Returns how many distinct internal addresses, external addresses, external autonomous systems and external countries take part in the selected sessions.",
+        "operationId" : "findTopologySummary",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologySummaryResponse"
+                }
+              }
+            },
+            "description" : "Summary found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Count the endpoints of the topology",
+        "tags" : [ "Topology" ]
+      }
+    },
+    "/api/ethernet/topology/timeline" : {
+      "get" : {
+        "description" : "Returns the sessions and bytes of the selection per time bucket, split by where the endpoints are: internal (both internal), outbound (internal to external), inbound (external to internal) and external (both external). A session is placed in the bucket of its most recent activity. The bucket size follows the time range so that at most 72 buckets are returned. The series of the links and geo flows use the same buckets.",
+        "operationId" : "findTopologyTimeline",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologyTimelineResponse"
+                }
+              }
+            },
+            "description" : "Timeline found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get topology sessions and traffic over time",
+        "tags" : [ "Topology" ]
+      }
+    },
     "/api/ethernet/vpn/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
       "get" : {
         "description" : "Returns the VPN connection settings of the tenant. Requires the ethernet_monitoring_manage feature permission.",
@@ -48689,6 +49221,574 @@
           "stddev" : {
             "type" : "number",
             "format" : "double"
+          }
+        }
+      },
+      "TopologyGeoFlowResponse" : {
+        "type" : "object",
+        "description" : "Flows ordered by bytes, descending.",
+        "properties" : {
+          "bytes_rx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the internal side received."
+          },
+          "bytes_tx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the internal side sent."
+          },
+          "city" : {
+            "type" : "string"
+          },
+          "country_code" : {
+            "type" : "string"
+          },
+          "direction" : {
+            "type" : "string",
+            "description" : "OUTBOUND if the internal side initiated the sessions, INBOUND if the external side did."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "latitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Coordinates of the external addresses, rounded to two decimals. Not set if GeoIP knows no coordinates."
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "series" : {
+            "type" : "array",
+            "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received.",
+            "items" : {
+              "type" : "array",
+              "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received.",
+              "items" : {
+                "type" : "integer",
+                "format" : "int64",
+                "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received."
+              }
+            }
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "site" : {
+            "type" : "string",
+            "description" : "ID of the site the observing tap belongs to. Not set if the tap has no known position."
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "TopologyGeoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "flows" : {
+            "type" : "array",
+            "description" : "Flows ordered by bytes, descending.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyGeoFlowResponse"
+            }
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "series" : {
+            "$ref" : "#/components/schemas/TopologySeriesConfigurationResponse"
+          },
+          "sites" : {
+            "type" : "array",
+            "description" : "Positions of the selected taps. Taps of one location form one site.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologySiteResponse"
+            }
+          },
+          "total_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total_flows" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "total_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "unplaced_taps" : {
+            "type" : "array",
+            "description" : "Selected taps without coordinates and without a location that has coordinates.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyTapResponse"
+            }
+          }
+        }
+      },
+      "TopologyLinkResponse" : {
+        "type" : "object",
+        "description" : "Links ordered by bytes, descending.",
+        "properties" : {
+          "bytes_rx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the source received."
+          },
+          "bytes_tx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the source sent."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "series" : {
+            "type" : "array",
+            "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity.",
+            "items" : {
+              "type" : "array",
+              "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity.",
+              "items" : {
+                "type" : "integer",
+                "format" : "int64",
+                "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity."
+              }
+            }
+          },
+          "service" : {
+            "type" : "string",
+            "description" : "ID of the service, if links were requested by service."
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_tcp" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_udp" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "ID of the node that initiated the sessions."
+          },
+          "target" : {
+            "type" : "string",
+            "description" : "ID of the node that accepted the sessions."
+          }
+        }
+      },
+      "TopologyLinksResponse" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "links" : {
+            "type" : "array",
+            "description" : "Links ordered by bytes, descending.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyLinkResponse"
+            }
+          },
+          "nodes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyNodeResponse"
+            }
+          },
+          "series" : {
+            "$ref" : "#/components/schemas/TopologySeriesConfigurationResponse"
+          },
+          "services" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyServiceResponse"
+            }
+          },
+          "total_bytes" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes of all links of the selection, not only of the returned ones."
+          },
+          "total_links" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of links the selection has. More than the returned links if the limit cut the list."
+          },
+          "total_sessions" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions of all links of the selection, not only of the returned ones."
+          }
+        }
+      },
+      "TopologyNodeAssetResponse" : {
+        "type" : "object",
+        "description" : "Asset that most recently used the address of an internal HOST node.",
+        "properties" : {
+          "mac" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name from the MAC address context, if any."
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "TopologyNodeResponse" : {
+        "type" : "object",
+        "description" : "Set for node rankings.",
+        "properties" : {
+          "address" : {
+            "type" : "string",
+            "description" : "IP address of a HOST node."
+          },
+          "asn_name" : {
+            "type" : "string"
+          },
+          "asn_number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "asset" : {
+            "$ref" : "#/components/schemas/TopologyNodeAssetResponse"
+          },
+          "country_code" : {
+            "type" : "string",
+            "description" : "Country of an external node. Not set for an autonomous system with traffic in more than one country."
+          },
+          "hostname" : {
+            "type" : "string",
+            "description" : "Most recent hostname of that asset."
+          },
+          "id" : {
+            "type" : "string",
+            "description" : "Node ID. Pass it as node or peer parameter to narrow a request to this node."
+          },
+          "level" : {
+            "type" : "string",
+            "description" : "What the node groups: HOST, SUBNET, TAP, NETWORK (an autonomous system) or COUNTRY."
+          },
+          "network" : {
+            "type" : "string",
+            "description" : "CIDR of a SUBNET node."
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Tap of a TAP node."
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "INTERNAL for site-local addresses, EXTERNAL for all others."
+          }
+        }
+      },
+      "TopologyRankingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyRankingRowResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of rows the ranking has in total."
+          }
+        }
+      },
+      "TopologyRankingRowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes_received" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the node received, or bytes clients received from the service."
+          },
+          "bytes_sent" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the node sent, or bytes clients sent to the service."
+          },
+          "clients" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct source addresses. Service rankings only."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Start of the earliest session in the time range."
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "node" : {
+            "$ref" : "#/components/schemas/TopologyNodeResponse"
+          },
+          "peers" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct addresses the node exchanged traffic with. Node rankings only."
+          },
+          "servers" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct destination addresses. Service rankings only."
+          },
+          "service" : {
+            "$ref" : "#/components/schemas/TopologyServiceResponse"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_initiated" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions the node initiated. Node rankings only."
+          }
+        }
+      },
+      "TopologySeriesConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket_size_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of buckets that cover the time range."
+          },
+          "from" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Start of bucket 0."
+          }
+        }
+      },
+      "TopologyServiceResponse" : {
+        "type" : "object",
+        "description" : "Set for service rankings.",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "l4_type" : {
+            "type" : "string",
+            "description" : "TCP or UDP. Not set for a service that is a protocol."
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Destination port. Not set for a service that is a protocol."
+          },
+          "protocol" : {
+            "type" : "string",
+            "description" : "Protocol tags of the sessions, joined with a slash. For a port, the protocol that moved most of its bytes, if any."
+          }
+        }
+      },
+      "TopologySiteResponse" : {
+        "type" : "object",
+        "description" : "Positions of the selected taps. Taps of one location form one site.",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "location_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the location, or of the tap if the site is a tap with its own coordinates."
+          },
+          "taps" : {
+            "type" : "array",
+            "description" : "Selected taps at this site.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyTapResponse"
+            }
+          }
+        }
+      },
+      "TopologySummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "external_countries" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct countries of external addresses."
+          },
+          "external_hosts" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct external addresses."
+          },
+          "external_networks" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct autonomous systems of external addresses."
+          },
+          "internal_hosts" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Distinct internal addresses."
+          }
+        }
+      },
+      "TopologyTapResponse" : {
+        "type" : "object",
+        "description" : "Selected taps without coordinates and without a location that has coordinates.",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "TopologyTimelineBucketResponse" : {
+        "type" : "object",
+        "description" : "All buckets of the time range in order, including empty ones.",
+        "properties" : {
+          "bucket" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "bytes_external" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_inbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_internal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_outbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_external" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_inbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_internal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_outbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "TopologyTimelineResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket_size_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "buckets" : {
+            "type" : "array",
+            "description" : "All buckets of the time range in order, including empty ones.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyTimelineBucketResponse"
+            }
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/TopologyTimelineTotalsResponse"
+          }
+        }
+      },
+      "TopologyTimelineTotalsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bytes_external" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_inbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_internal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bytes_outbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_external" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_inbound" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_internal" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessions_outbound" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

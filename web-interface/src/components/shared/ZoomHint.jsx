@@ -24,6 +24,15 @@ export function useZoomHint() {
 
 export const wheelZooms = (event) => event.ctrlKey || event.metaKey;
 
+const MAX_WHEEL_STEP = 0.3;
+
+// For wheelDelta() of a d3-zoom. d3-zoom multiplies the step by ten while Ctrl is held, which is meant for trackpad
+// pinches. A wheel notch with Ctrl held would zoom fourfold, so the step of a single event is limited.
+export const wheelZoomDelta = (event) => {
+  const step = -event.deltaY * (event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002) * (event.ctrlKey ? 10 : 1);
+  return Math.max(-MAX_WHEEL_STEP, Math.min(MAX_WHEEL_STEP, step));
+}
+
 export default function ZoomHint({visible, dragText}) {
   return (
     <React.Fragment>

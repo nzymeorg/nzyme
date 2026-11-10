@@ -14,7 +14,8 @@ import {
 } from "d3";
 import moment from "moment";
 import Store from "../../../../util/Store";
-import ZoomHint, {useZoomHint, wheelZooms} from "../../../shared/ZoomHint";
+import ZoomHint, {useZoomHint, wheelZoomDelta, wheelZooms} from "../../../shared/ZoomHint";
+import {colorsForMode, FONT_FAMILY, GRID_SPACING} from "../../../shared/viz/VizTheme";
 import numeral from "numeral";
 
 /*
@@ -27,7 +28,6 @@ const PEER_MIN_RADIUS = 5;
 const PEER_MAX_RADIUS = 14;
 const MIN_LINK_WIDTH = 1;
 const MAX_LINK_WIDTH = 6;
-const FONT_FAMILY = "'Nunito Sans', sans-serif";
 
 const formatBytes = (bytes) => numeral(Number(bytes) || 0).format("0.0b");
 const formatCount = (count) => numeral(Number(count) || 0).format("0,0");
@@ -35,45 +35,6 @@ const formatCount = (count) => numeral(Number(count) || 0).format("0,0");
 const formatDate = (iso) => iso ? moment(iso).format("YYYY-MM-DD HH:mm:ss") : "n/a";
 
 const truncate = (s, max) => (s && s.length > max ? s.substring(0, max - 1) + "…" : s);
-
-// Green and red are avoided on purpose: they mean healthy and alerting elsewhere in the UI.
-const colorsForMode = (darkMode) => {
-  if (darkMode) {
-    return {
-      background: "#1c1c22",
-      grid: "#2e2e38",
-      text: "#dbe3f0",
-      muted: "#8b95a7",
-      lines: "#2a3447",
-      root: "#22d3ee",
-      internal: "#e2e8f0",
-      external: "#fb923c",
-      outbound: "#38bdf8",
-      inbound: "#fb7185",
-      both: "#facc15",
-      selection: "#ffffff",
-      glow: 14
-    }
-  }
-
-  return {
-    background: "#f9f9f9",
-    grid: "#dcdcdc",
-    text: "#0f172a",
-    muted: "#64748b",
-    lines: "#cbd5e1",
-    root: "#0284c7",
-    internal: "#475569",
-    external: "#ea580c",
-    outbound: "#0ea5e9",
-    inbound: "#e11d48",
-    both: "#ca8a04",
-    selection: "#0f172a",
-    glow: 8
-  }
-}
-
-const GRID_SPACING = 24;
 
 // Direction sectors are fixed so the layout reads the same on every asset. Only peers of the root are grouped.
 const MAX_GROUPS = 12;
@@ -348,7 +309,7 @@ const publicNode = (node) => ({
   country_code: node.country_code
 });
 
-export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minBytes = 0, grouping = "direction", onExpand, onSelect, focus = null, height = 520}) {
+export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minBytes = 0, grouping = "direction", onExpand, onSelect, focus = null, height = 520, exportRef = null}) {
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -389,12 +350,12 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     });
   }, []);
 
-  const draw = () => {
-    const canvas = canvasRef.current;
+  const draw = (target = null) => {
+    const canvas = target ? target.canvas : canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = target ? target.scale : (window.devicePixelRatio || 1);
     const {width, height: h} = sizeRef.current;
     const t = transformRef.current;
     const c = colorsRef.current;
@@ -590,13 +551,29 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
     });
     ctx.restore();
 
-    if (anyLoading) scheduleDraw();
+    if (anyLoading && !target) scheduleDraw();
+  }
+
+  const renderForExport = (scale) => {
+    const {width, height: h} = sizeRef.current;
+    if (width <= 0 || h <= 0) return null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(width * scale);
+    canvas.height = Math.round(h * scale);
+    draw({canvas: canvas, scale: scale});
+    return {canvas: canvas, scale: scale};
   }
 
   useEffect(() => {
     drawRef.current = draw;
+    if (exportRef) exportRef.current = renderForExport;
     callbacksRef.current = {onExpand: onExpand, onSelect: onSelect};
   });
+
+  useEffect(() => () => {
+    if (exportRef) exportRef.current = null;
+  }, [exportRef]);
 
   useEffect(() => {
     colorsRef.current = colorsForMode(darkMode);
@@ -821,6 +798,7 @@ export default function AssetCommunicationGraph({rootMac, rootLabel, edges, minB
 
     const zoomBehavior = zoom()
       .scaleExtent([0.1, 8])
+      .wheelDelta(wheelZoomDelta)
       // Wheel zooms only with Ctrl held, drag pans only without it.
       .filter((event) => !event.button && (event.type === "wheel" ? wheelZooms(event) : !event.ctrlKey))
       .on("zoom", (event) => {

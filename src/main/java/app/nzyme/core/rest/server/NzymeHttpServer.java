@@ -201,6 +201,7 @@ public class NzymeHttpServer {
         resourceConfig.register(DnsTunnelExclusionsResource.class);
         resourceConfig.register(IcmpResource.class);
         resourceConfig.register(L4Resource.class);
+        resourceConfig.register(TopologyResource.class);
         resourceConfig.register(ArpResource.class);
         resourceConfig.register(TimeResource.class);
         resourceConfig.register(MonitorsResource.class);
