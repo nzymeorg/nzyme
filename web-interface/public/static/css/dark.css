@@ -285,6 +285,11 @@ a.btn-outline-primary:hover, button.btn-outline-primary:hover {
     color: #fff;
 }
 
+button.btn-outline-primary:disabled {
+    border-color: #7b93db;
+    color: #7b93db;
+}
+
 button.btn-outline-dark {
     background-color: transparent;
     border-color: #6b7280;

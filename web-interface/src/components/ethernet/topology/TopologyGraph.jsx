@@ -36,6 +36,7 @@ const SIZE_EASING = 90;
 const CROWDED_LINKS = 80;
 const MIN_CROWDING = 0.2;
 const SPOTLIGHT_DELAY = 160;
+const DETAILS_WIDTH = 290;
 
 const truncate = (s, max) => (s && s.length > max ? s.substring(0, max - 1) + "…" : s);
 
@@ -560,7 +561,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       {text: "Outbound", color: c.outbound},
       {text: "Inbound", color: c.inbound},
       {text: "Both directions", color: c.both},
-      {text: "Internal to internal", color: c.internal},
+      {text: "Internal to internal", color: c.internalLink},
       {text: "UDP dashed, TCP solid", color: c.muted, dashed: true}
     ];
     legend.forEach((entry, i) => {
@@ -949,13 +950,14 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         scheduleDraw();
       }
 
-      if (node) {
-        setTooltip({x: px, y: py, width: sizeRef.current.width, node: node});
-      } else if (link) {
-        setTooltip({x: px, y: py, width: sizeRef.current.width, link: link});
-      } else {
+      if (!node && !link) {
         setTooltip(null);
+        return;
       }
+
+      const raised = px > sizeRef.current.width - DETAILS_WIDTH - 40 && py > sizeRef.current.height - 200;
+      setTooltip((current) => (current && current.node === node && current.link === link && current.raised === raised
+          ? current : {node: node, link: link, raised: raised}));
     }
 
     const onMouseLeave = () => {
@@ -1154,10 +1156,10 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
           {tooltip ? (
               <div style={{
                 ...tooltipStyle(colors),
-                maxWidth: "290px",
-                left: Math.min(tooltip.x + 14, Math.max(0, tooltip.width - 300)) + "px",
-                top: (tooltip.y > 150 ? tooltip.y - 12 : tooltip.y + 48) + "px",
-                transform: tooltip.y > 150 ? "translateY(-100%)" : "none"
+                maxWidth: "none",
+                width: DETAILS_WIDTH + "px",
+                right: "8px",
+                ...(tooltip.raised ? {top: "48px"} : {bottom: "36px"})
               }}>
                 {tooltipBody()}
               </div>

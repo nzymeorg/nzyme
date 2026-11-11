@@ -143,8 +143,9 @@ public class TopologyResource extends TapDataHandlingResource {
     @Operation(operationId = "findTopologyTimeline", summary = "Get topology sessions and traffic over time",
             description = "Returns the sessions and bytes of the selection per time bucket, split by where the "
                     + "endpoints are: internal (both internal), outbound (internal to external), inbound (external "
-                    + "to internal) and external (both external). A session is placed in the bucket of its most "
-                    + "recent activity. The bucket size follows the time range so that at most "
+                    + "to internal) and external (both external). A session counts in every bucket it was open "
+                    + "in, and its bytes are split over them by the time it was open in each. The totals count "
+                    + "every session once. The bucket size follows the time range so that at most "
                     + TopologyBuckets.MAX_BUCKETS + " buckets are returned. The series of the links and geo flows "
                     + "use the same buckets.")
     @ApiResponse(responseCode = "200", description = "Timeline found.",
@@ -174,26 +175,20 @@ public class TopologyResource extends TapDataHandlingResource {
 
         Topology.Timeline timeline = nzyme.getEthernet().topology().timeline(request.selection());
 
-        long[] totals = new long[8];
         List<TopologyTimelineBucketResponse> buckets = new ArrayList<>();
         for (Topology.TimelineBucket b : timeline.buckets()) {
             buckets.add(TopologyTimelineBucketResponse.create(b.bucket(), b.sessionsInternal(), b.sessionsOutbound(),
                     b.sessionsInbound(), b.sessionsExternal(), b.bytesInternal(), b.bytesOutbound(),
                     b.bytesInbound(), b.bytesExternal()));
-            totals[0] += b.sessionsInternal();
-            totals[1] += b.sessionsOutbound();
-            totals[2] += b.sessionsInbound();
-            totals[3] += b.sessionsExternal();
-            totals[4] += b.bytesInternal();
-            totals[5] += b.bytesOutbound();
-            totals[6] += b.bytesInbound();
-            totals[7] += b.bytesExternal();
         }
+
+        Topology.TimelineTotals totals = timeline.totals();
 
         return Response.ok(TopologyTimelineResponse.create(
                 buckets,
-                TopologyTimelineTotalsResponse.create(totals[0], totals[1], totals[2], totals[3], totals[4],
-                        totals[5], totals[6], totals[7]),
+                TopologyTimelineTotalsResponse.create(totals.sessionsInternal(), totals.sessionsOutbound(),
+                        totals.sessionsInbound(), totals.sessionsExternal(), totals.bytesInternal(),
+                        totals.bytesOutbound(), totals.bytesInbound(), totals.bytesExternal()),
                 timeline.configuration().sizeMs()
         )).build();
     }
@@ -546,7 +541,8 @@ public class TopologyResource extends TapDataHandlingResource {
     private static List<long[]> series(List<Topology.SeriesPoint> points) {
         List<long[]> series = new ArrayList<>(points.size());
         for (Topology.SeriesPoint point : points) {
-            series.add(new long[]{point.bucket(), point.sessions(), point.bytesTx(), point.bytesRx()});
+            series.add(new long[]{point.bucket(), point.sessions(), point.bytesTx(), point.bytesRx(),
+                    point.sessionsNew()});
         }
         return series;
     }

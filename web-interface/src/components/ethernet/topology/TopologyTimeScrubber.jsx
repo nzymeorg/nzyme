@@ -16,7 +16,7 @@ const SPEEDS = [["2400", "0.25×"], ["1200", "0.5×"], ["600", "1×"], ["300", "
 const GLIDE_OVERLAP = 1.25;
 
 const CLASSES = [
-  ["internal", "Internal", (c) => c.internal],
+  ["internal", "Internal", (c) => c.internalLink],
   ["outbound", "Outbound", (c) => c.outbound],
   ["inbound", "Inbound", (c) => c.inbound],
   ["external", "External to external", (c) => c.muted]

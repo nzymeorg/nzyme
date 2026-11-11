@@ -46,7 +46,7 @@ public abstract class TopologyLinkResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    @Schema(description = "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity.")
+    @Schema(description = "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once.")
     @JsonProperty("series")
     public abstract List<long[]> series();
 

@@ -100,7 +100,7 @@ export function linkClassColor(colors, linkClass) {
     case "OUTBOUND": return colors.outbound;
     case "INBOUND": return colors.inbound;
     case "BOTH": return colors.both;
-    case "INTERNAL": return colors.internal;
+    case "INTERNAL": return colors.internalLink;
     default: return colors.muted;
   }
 }
@@ -120,12 +120,14 @@ export function windowBuckets(seriesConfiguration, timeWindow) {
   };
 }
 
+// A point is [bucket, open sessions, bytes sent, bytes received, new sessions]. A session is open in every bucket it
+// spans, so summing up open sessions would count it several times.
 export function sumSeries(series, buckets) {
   let sessions = 0, tx = 0, rx = 0;
   for (let i = 0; i < series.length; i++) {
     const point = series[i];
     if (buckets === null || (point[0] >= buckets.first && point[0] <= buckets.last)) {
-      sessions += point[1];
+      sessions += buckets !== null && point[0] === buckets.first ? point[1] : point[4];
       tx += point[2];
       rx += point[3];
     }
@@ -374,7 +376,10 @@ export function buildNodeScale(data, width) {
   const nodeOf = (id) => {
     let node = nodes.get(id);
     if (!node) {
-      node = {bytes: new Float64Array(count), sessions: new Float64Array(count), peers: new Int32Array(positions)};
+      node = {
+        bytes: new Float64Array(count), sessions: new Float64Array(count), newSessions: new Float64Array(count),
+        peers: new Int32Array(positions)
+      };
       nodes.set(id, node);
     }
     return node;
@@ -405,26 +410,32 @@ export function buildNodeScale(data, width) {
       if (i < 0 || i >= count) return;
 
       source.sessions[i] += point[1];
+      source.newSessions[i] += point[4];
       source.bytes[i] += point[2] + point[3];
       if (target) {
         target.sessions[i] += point[1];
+        target.newSessions[i] += point[4];
         target.bytes[i] += point[2] + point[3];
         pair.sessions[i] += point[1];
       }
     });
   });
 
-  const slide = (values, callback) => {
+  // Like sumSeries: the first bucket of a window counts in full, the others add what is new in them.
+  const slide = (values, added, callback) => {
     let sum = 0;
     for (let i = 0; i < count; i++) {
-      sum += values[i];
-      if (i >= w) sum -= values[i - w];
-      if (i >= w - 1) callback(sum, i - w + 1);
+      sum += added[i];
+      if (i >= w - 1) {
+        const first = i - w + 1;
+        sum -= added[first];
+        callback(values[first] + sum, first);
+      }
     }
   }
 
   pairs.forEach((pair) => {
-    slide(pair.sessions, (sessions, position) => {
+    slide(pair.sessions, pair.sessions, (sessions, position) => {
       if (sessions > 0) {
         pair.a.peers[position]++;
         pair.b.peers[position]++;
@@ -434,8 +445,8 @@ export function buildNodeScale(data, width) {
 
   const scale = {bytes: 0, sessions: 0, peers: 0};
   nodes.forEach((node) => {
-    slide(node.bytes, (bytes) => { if (bytes > scale.bytes) scale.bytes = bytes; });
-    slide(node.sessions, (sessions) => { if (sessions > scale.sessions) scale.sessions = sessions; });
+    slide(node.bytes, node.bytes, (bytes) => { if (bytes > scale.bytes) scale.bytes = bytes; });
+    slide(node.sessions, node.newSessions, (sessions) => { if (sessions > scale.sessions) scale.sessions = sessions; });
     for (let position = 0; position < positions; position++) {
       if (node.peers[position] > scale.peers) scale.peers = node.peers[position];
     }
