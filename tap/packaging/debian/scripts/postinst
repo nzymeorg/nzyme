@@ -5,7 +5,14 @@ set -e
 TAP_USER="nzyme-tap"
 TAP_GROUP="nzyme-tap"
 CONFIG_FILE="/etc/nzyme/nzyme-tap.conf"
-LEGACY_PANIC_LOG="/var/log/nzyme-tap-panic.log"
+
+configured_panic_log() {
+  if [ ! -f "$CONFIG_FILE" ]; then
+    return 0
+  fi
+
+  sed -n "s/^[ \t]*panic_log_file_path[ \t]*=[ \t]*[\"']\([^\"']*\)[\"'].*$/\1/p" "$CONFIG_FILE" | head -n 1
+}
 
 case "$1" in
   configure)
@@ -28,10 +35,18 @@ case "$1" in
       chmod 640 "$CONFIG_FILE"
     fi
 
-    # Upgraded installations may still point panic_log_file_path at the old location.
-    if [ -f "$LEGACY_PANIC_LOG" ]; then
-      chown "$TAP_USER:$TAP_GROUP" "$LEGACY_PANIC_LOG"
-    fi
+    # Outside of its own log directory, the tap can only append to a panic log that already exists and belongs to it.
+    panic_log=$(configured_panic_log)
+    case "$panic_log" in
+      /var/log/nzyme-tap/*)
+        ;;
+      /*)
+        if [ -d "$(dirname "$panic_log")" ] && [ ! -L "$panic_log" ]; then
+          touch "$panic_log"
+          chown -h "$TAP_USER:$TAP_GROUP" "$panic_log"
+        fi
+        ;;
+    esac
 
     if command -v udevadm > /dev/null 2>&1; then
       udevadm control --reload-rules > /dev/null 2>&1 || true
