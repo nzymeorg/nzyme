@@ -74,6 +74,8 @@ public class L4Filters implements SqlFilterProvider  {
      * A positive operator matches if either end matches. A negative operator matches if neither end matches its
      * positive counterpart, which keeps sessions with an end that has no value at all, like the autonomous system
      * of an internal address. Comparing both ends with the negative operator would drop them.
+     *
+     * IS_NOT_PRIVATE is not a negative operator here: it matches if either end is public.
      */
     private static String eitherSide(String bindId, String field, FilterOperator operator, Matcher matcher) {
         FilterOperator positive = positiveCounterpart(operator);
@@ -94,8 +96,6 @@ public class L4Filters implements SqlFilterProvider  {
                 return FilterOperator.REGEX_MATCH;
             case NOT_IN_CIDR:
                 return FilterOperator.IN_CIDR;
-            case IS_NOT_PRIVATE:
-                return FilterOperator.IS_PRIVATE;
             case NOT_CONTAINS:
                 return FilterOperator.CONTAINS;
             default:

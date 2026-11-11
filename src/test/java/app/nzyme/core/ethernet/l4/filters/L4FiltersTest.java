@@ -36,6 +36,13 @@ public class L4FiltersTest {
     }
 
     @Test
+    public void testNotPrivateMatchesIfEitherEndIsPublic() {
+        String source = where("source_address", FilterOperator.IS_NOT_PRIVATE);
+        String destination = where("destination_address", FilterOperator.IS_NOT_PRIVATE);
+        assertEquals(where("address", FilterOperator.IS_NOT_PRIVATE), "((" + source + ") OR (" + destination + "))");
+    }
+
+    @Test
     public void testEitherSideUsesTheMatchersOfTheSidedFields() {
         L4Filters filters = new L4Filters();
 

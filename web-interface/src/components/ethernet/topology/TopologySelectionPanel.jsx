@@ -5,11 +5,11 @@ import PivotLink from "../../shared/PivotLink";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
 import VizSelectionActions from "../../shared/viz/VizSelectionActions";
 import ApiRoutes from "../../../util/ApiRoutes";
-import {Absolute} from "../../shared/timerange/TimeRange";
 import TopologyService from "../../../services/ethernet/TopologyService";
 import useTopologyRequest from "./useTopologyRequest";
 import {countryName, formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
 import {
+  buildBreakdown,
   LINK_CLASS_TITLES,
   nodeFilter,
   nodeKind,
@@ -24,6 +24,7 @@ import {
 const topologyService = new TopologyService();
 
 const LIST_LENGTH = 8;
+const BREAKDOWN_LIMIT = 2000;
 
 const EMPTY_TEXT = {
   graph: "Click a node or a connection in the graph to see its details here.",
@@ -91,12 +92,12 @@ export default function TopologySelectionPanel({selection, view, linkModel, flow
 
     switch (selection.kind) {
       case "node":
-        return {dimension: "SERVICE_PORT", nodes: [selection.id]};
+        return {by: "service", nodes: [selection.id]};
       case "link":
-        return {dimension: "SERVICE_PORT", nodes: [selection.a, selection.b]};
+        return {by: "service", nodes: [selection.a, selection.b]};
       case "place": {
         const place = geoModel ? geoModel.points.find((p) => p.id === selection.id) : null;
-        return place ? {dimension: "EXTERNAL_NETWORK", nodes: [place.node_id]} : null;
+        return place ? {by: "network", nodes: [place.node_id]} : null;
       }
       default:
         return null;
@@ -111,20 +112,20 @@ export default function TopologySelectionPanel({selection, view, linkModel, flow
       if (!nodes.includes(id)) nodes.push(id);
     });
 
-    return {
-      ...request,
-      nodes: nodes,
-      timeRange: timeWindow ? Absolute(new Date(timeWindow.from), new Date(timeWindow.to)) : request.timeRange
-    };
-  }, [breakdown, request, timeWindow]);
+    return {...request, nodes: nodes};
+  }, [breakdown, request]);
 
-  // A moving time window changes the request many times a second. It is only sent once the window rests.
-  const breakdownRows = useTopologyRequest(
-      breakdownRequest ? JSON.stringify([breakdown.dimension, breakdownRequest]) : null,
+  const breakdownBy = breakdown ? breakdown.by : null;
+  const breakdownData = useTopologyRequest(
+      breakdownRequest ? JSON.stringify([breakdownBy, breakdownRequest]) : null,
       breakdownRequest !== null,
-      (setData) => topologyService.getRanking(breakdownRequest, breakdown.dimension, "BYTES", "DESC", LIST_LENGTH, 0, setData),
-      timeWindow ? 450 : 0
+      (setData) => topologyService.getLinks(breakdownRequest, "SUBNET", breakdownBy === "service" ? "COUNTRY" : "NETWORK",
+          breakdownBy === "service" ? "PORT" : null, BREAKDOWN_LIMIT, setData)
   );
+
+  const breakdownRows = useMemo(
+      () => (breakdownData && breakdownBy ? buildBreakdown(breakdownData, timeWindow, breakdownBy) : null),
+      [breakdownData, breakdownBy, timeWindow]);
 
   const pivot = (filters) => sessionsLink(pageFilters, filters, timeRange, timeWindow);
 
@@ -133,19 +134,20 @@ export default function TopologySelectionPanel({selection, view, linkModel, flow
 
   const serviceRows = () => {
     if (breakdownRows === null) return null;
-    return breakdownRows.rows.map((row) => ({
-      key: row.service.id,
+    return breakdownRows.rows.slice(0, LIST_LENGTH).map((row) => ({
+      key: row.id,
       label: <span className="machine-data">{serviceLabel(row.service)}</span>,
       detail: serviceName(row.service),
-      value: formatBytes(row.bytes_sent + row.bytes_received),
-      title: sessionsText(row.sessions) + ", " + formatBytes(row.bytes_sent) + " from clients, "
-          + formatBytes(row.bytes_received) + " from servers"
+      value: formatBytes(row.bytes_tx + row.bytes_rx),
+      title: sessionsText(row.sessions) + ", " + formatBytes(row.bytes_tx) + " from clients, "
+          + formatBytes(row.bytes_rx) + " from servers"
     }));
   }
 
   const moreServices = () => {
-    if (breakdownRows === null || breakdownRows.total <= breakdownRows.rows.length) return null;
-    return <div className="text-muted small mb-2">{formatCount(breakdownRows.total - breakdownRows.rows.length)} more</div>;
+    if (breakdownRows === null || breakdownRows.rows.length <= LIST_LENGTH) return null;
+    const more = formatCount(breakdownRows.rows.length - LIST_LENGTH);
+    return <div className="text-muted small mb-2">{breakdownRows.truncated ? "Over " + more : more} more</div>;
   }
 
   const empty = () => (
@@ -377,10 +379,10 @@ export default function TopologySelectionPanel({selection, view, linkModel, flow
               : null}
 
           <PanelList title="Networks"
-                     rows={breakdownRows === null ? null : breakdownRows.rows.map((row) => ({
-                       key: row.node.id,
+                     rows={breakdownRows === null ? null : breakdownRows.rows.slice(0, LIST_LENGTH).map((row) => ({
+                       key: row.id,
                        label: row.node.asn_name ? row.node.asn_name : (row.node.asn_number ? "AS" + row.node.asn_number : "Unknown network"),
-                       value: formatBytes(row.bytes_sent + row.bytes_received),
+                       value: formatBytes(row.bytes_tx + row.bytes_rx),
                        title: sessionsText(row.sessions)
                      }))}
                      empty="No sessions." />

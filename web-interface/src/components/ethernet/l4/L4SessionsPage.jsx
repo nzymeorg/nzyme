@@ -4,7 +4,7 @@ import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
 import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import L4SessionsTable from "./L4SessionsTable";
-import {L4_SESSIONS_FILTER_FIELDS} from "./L4SessionFilterFields";
+import {L4_SESSIONS_FILTER_FIELDS, L4_SESSIONS_QUICK_FILTERS} from "./L4SessionFilterFields";
 import L4SessionsLeastCommonNonEphemeralDestinationPortsHistogram from "./L4SessionsLeastCommonNonEphemeralDestinationPortsHistogram";
 import L4SessionsTopDestinationPortsHistogram from "./L4SessionsTopDestinationPortsHistogram";
 import L4SessionsTopTrafficSourceAddressesHistogram from "./L4SessionsTopTrafficSourceAddressesHistogram";
@@ -75,6 +75,7 @@ export default function L4SessionsPage() {
                 <Filters filters={filters}
                          setFilters={setFilters}
                          fields={L4_SESSIONS_FILTER_FIELDS}
+                         quickFilters={L4_SESSIONS_QUICK_FILTERS}
                          monitorType="ETHERNET_L4_SESSION"
                          onMonitorsReady={() => setMonitorsReady(true)}
                          onSaveAsMonitor={onSaveFiltersAsMonitor("ETHERNET_L4_SESSION", organizationId, tenantId)} />

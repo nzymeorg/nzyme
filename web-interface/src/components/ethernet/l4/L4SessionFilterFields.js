@@ -32,3 +32,17 @@ export const L4_SESSIONS_FILTER_FIELDS = {
   duration: { title: "Duration (ms)", type: FILTER_TYPE.NUMERIC },
   tags: { title: "Tags", type: FILTER_TYPE.STRING_ARRAY }
 }
+
+export const L4_SESSIONS_QUICK_FILTERS = [
+  {
+    title: "Only Internal Connections",
+    filters: [
+      {field: "source_address", operator: "is_private", value: ""},
+      {field: "destination_address", operator: "is_private", value: ""}
+    ]
+  },
+  {
+    title: "No Internal Connections",
+    filters: [{field: "address", operator: "is_not_private", value: ""}]
+  }
+];

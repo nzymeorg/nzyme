@@ -33,6 +33,9 @@ const GLOW_NODE_LIMIT = 350;
 const INACTIVE_ALPHA = 0.14;
 const DIMMED_ALPHA = 0.3;
 const SIZE_EASING = 90;
+const CROWDED_LINKS = 80;
+const MIN_CROWDING = 0.2;
+const SPOTLIGHT_DELAY = 160;
 
 const truncate = (s, max) => (s && s.length > max ? s.substring(0, max - 1) + "…" : s);
 
@@ -45,6 +48,30 @@ const linkWidth = (bytes) => {
 const nodeRadius = (node) => node.radius || MIN_RADIUS;
 
 const layoutRadius = (node) => node.layoutRadius || MIN_RADIUS;
+
+const fewerLinks = (link) => Math.min(link.source.degree, link.target.degree);
+
+const linkDistance = (link) => {
+  const fewer = fewerLinks(link);
+  const radii = layoutRadius(link.source) + layoutRadius(link.target);
+  return fewer <= 1
+      ? 40 + radii + 3 * Math.sqrt(Math.max(link.source.degree, link.target.degree))
+      : 70 + radii + 16 * Math.sqrt(fewer - 1);
+}
+
+const linkStrength = (link) => {
+  const fewer = fewerLinks(link);
+  return fewer <= 1 ? 0.7 : 0.6 / fewer;
+}
+
+const chargeStrength = (arrangement, node) => {
+  const links = Math.min(node.degree || 0, 40);
+  switch (arrangement) {
+    case "force": return -(110 + 22 * links);
+    case "perimeter": return -(90 + 10 * links);
+    default: return -45;
+  }
+}
 
 const radiusOf = (value, largest) => MIN_RADIUS
     + (MAX_RADIUS - MIN_RADIUS) * (largest > 0 ? Math.sqrt(Math.min(1, Math.max(0, value) / largest)) : 0);
@@ -102,21 +129,21 @@ const layoutAnchors = (arrangement, nodes, cx, cy) => {
   const externalCount = nodes.filter((n) => n.type !== "INTERNAL").length;
   const internalCount = nodes.length - externalCount;
 
-  const squash = Math.pow(Math.max(1, Math.min(2.4, cy > 0 ? cx / cy : 1)), 1.6);
+  const squash = Math.pow(Math.max(1, Math.min(2.4, cy > 0 ? cx / cy : 1)), 2.4);
 
   nodes.forEach((n) => {
     n.anchor = {x: cx, y: cy};
-    n.anchorStrength = 0.022;
+    n.anchorStrength = 0.035;
     n.anchorSquash = arrangement === "force" ? squash : 1;
     n.ringRadius = 0;
     n.ringStrength = 0;
   });
 
   if (arrangement === "perimeter") {
-    const ring = Math.max(240, 70 + 24 * Math.sqrt(internalCount), externalCount * 22 / (2 * Math.PI));
+    const ring = Math.max(240, 120 + 34 * Math.sqrt(internalCount), externalCount * 22 / (2 * Math.PI));
     nodes.forEach((n) => {
       if (n.type === "INTERNAL") {
-        n.anchorStrength = 0.07;
+        n.anchorStrength = 0.05;
       } else {
         n.anchorStrength = 0;
         n.ringRadius = ring;
@@ -214,6 +241,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
   const drawRef = useRef(null);
   const hoveredRef = useRef(null);
   const hoveredLinkRef = useRef(null);
+  const spotlightRef = useRef(null);
+  const spotlightTimerRef = useRef(null);
   const selectedRef = useRef(selectedId);
   const frozenRef = useRef(false);
   const groupsRef = useRef([]);
@@ -290,28 +319,37 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     const selected = selectedRef.current;
     const glow = nodes.length <= GLOW_NODE_LIMIT;
 
-    let lit = null;
     let selectedNode = null;
     let selectedLink = null;
     if (selected) {
+      selectedNode = nodes.find((n) => n.id === selected) || null;
+      if (!selectedNode) selectedLink = links.find((l) => l.id === selected) || null;
+    }
+
+    const spotNode = spotlightRef.current || selectedNode;
+    const spotLink = spotlightRef.current ? null : selectedLink;
+    const linkInSpot = (l) => l === spotLink || (spotNode !== null && (l.source === spotNode || l.target === spotNode));
+
+    let lit = null;
+    if (spotNode || spotLink) {
       lit = new Set();
+      if (spotNode) lit.add(spotNode.id);
       links.forEach((l) => {
-        if (l.id === selected) {
-          selectedLink = l;
-          lit.add(l.source.id);
-          lit.add(l.target.id);
-        } else if (l.source.id === selected || l.target.id === selected) {
+        if (linkInSpot(l)) {
           lit.add(l.source.id);
           lit.add(l.target.id);
         }
       });
-      selectedNode = nodes.find((n) => n.id === selected) || null;
-      if (selectedNode) lit.add(selectedNode.id);
-      if (!selectedNode && !selectedLink) lit = null;
     }
 
-    const linkLit = (l) => lit === null || l === selectedLink
-        || (selectedNode !== null && (l.source === selectedNode || l.target === selectedNode));
+    const linkLit = (l) => lit === null || linkInSpot(l);
+
+    const crowding = Math.max(MIN_CROWDING, Math.min(1, Math.sqrt(CROWDED_LINKS / Math.max(1, links.length))));
+    const widthOf = (link) => MIN_LINK_WIDTH + (linkWidth(link.bytes) - MIN_LINK_WIDTH) * crowding;
+    const idleAlpha = (link) => {
+      const weight = (linkWidth(link.bytes) - MIN_LINK_WIDTH) / (MAX_LINK_WIDTH - MIN_LINK_WIDTH);
+      return 0.8 * (crowding + (1 - crowding) * weight);
+    }
     const nodeAlpha = (n) => {
       if (!n.active) return INACTIVE_ALPHA;
       return lit === null || lit.has(n.id) ? 1 : DIMMED_ALPHA;
@@ -331,7 +369,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       const s = link.source;
       const d = link.target;
       const color = linkClassColor(c, link.cls);
-      const w = linkWidth(link.bytes) + extraWidth;
+      const w = widthOf(link) + extraWidth;
 
       ctx.beginPath();
       ctx.moveTo(s.x, s.y);
@@ -348,7 +386,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       if (length < 1) return;
       const ux = dx / length;
       const uy = dy / length;
-      const size = 3.5 + w;
+      const size = 1 + 2.5 * crowding + w;
 
       const arrow = (tipX, tipY, dirX, dirY) => {
         ctx.beginPath();
@@ -371,9 +409,18 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     }
 
     links.forEach((link) => {
-      ctx.globalAlpha = !link.active ? INACTIVE_ALPHA * 0.8 : (linkLit(link) ? 0.8 : DIMMED_ALPHA * 0.6);
+      if (lit !== null && linkLit(link)) return;
+      ctx.globalAlpha = !link.active ? INACTIVE_ALPHA * 0.8 * crowding
+          : (lit === null ? idleAlpha(link) : DIMMED_ALPHA * 0.6 * crowding);
       strokeLink(link, 0);
     });
+    if (lit !== null) {
+      links.forEach((link) => {
+        if (!linkLit(link)) return;
+        ctx.globalAlpha = link.active ? 0.9 : INACTIVE_ALPHA * 0.8;
+        strokeLink(link, 0);
+      });
+    }
     ctx.globalAlpha = 1;
 
     [hoveredLink, selectedLink].forEach((link) => {
@@ -677,10 +724,17 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       forward: p.forward, backward: p.backward
     }));
 
+    nodes.forEach((n) => { n.degree = 0; });
+    links.forEach((l) => {
+      l.source.degree++;
+      l.target.degree++;
+    });
+
     visibleRef.current = {nodes: nodes, links: links};
 
     if (hoveredRef.current && !ids.has(hoveredRef.current.id)) hoveredRef.current = null;
     hoveredLinkRef.current = null;
+    if (spotlightRef.current !== hoveredRef.current) spotlightRef.current = null;
 
     if (rebuild || reheat > 0) {
       groupsRef.current = layoutAnchors(options.arrangement, nodes, cx, cy);
@@ -750,14 +804,14 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (!canvas || !container) return;
 
     const options = () => optionsRef.current;
-    const count = () => visibleRef.current.nodes.length;
 
     const simulation = forceSimulation()
         .force("link", forceLink().id((d) => d.id)
-            .distance((l) => 58 + layoutRadius(l.source) + layoutRadius(l.target))
-            .strength(() => (options().arrangement === "force" ? 0.35 : 0.04)))
+            .distance((l) => (options().arrangement === "force"
+                ? linkDistance(l) : 58 + layoutRadius(l.source) + layoutRadius(l.target)))
+            .strength((l) => (options().arrangement === "force" ? linkStrength(l) : 0.04)))
         .force("charge", forceManyBody()
-            .strength(() => (options().arrangement === "force" ? (count() > 300 ? -80 : -170) : -45))
+            .strength((d) => chargeStrength(options().arrangement, d))
             .distanceMax(600))
         .force("x", forceX().x((d) => (d.anchor ? d.anchor.x : 0)).strength((d) => d.anchorStrength || 0))
         .force("y", forceY().y((d) => (d.anchor ? d.anchor.y : 0))
@@ -864,6 +918,25 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       return [event.clientX - rect.left, event.clientY - rect.top];
     }
 
+    const spotlight = (node) => {
+      if (spotlightTimerRef.current !== null) {
+        window.clearTimeout(spotlightTimerRef.current);
+        spotlightTimerRef.current = null;
+      }
+      if (spotlightRef.current === node) return;
+
+      spotlightRef.current = null;
+      if (node) {
+        spotlightTimerRef.current = window.setTimeout(() => {
+          spotlightTimerRef.current = null;
+          if (hoveredRef.current === node) {
+            spotlightRef.current = node;
+            scheduleDraw();
+          }
+        }, SPOTLIGHT_DELAY);
+      }
+    }
+
     const onMouseMove = (event) => {
       const [px, py] = pointerPosition(event);
       const node = nodeAtScreen(px, py);
@@ -871,6 +944,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       if (node !== hoveredRef.current || link !== hoveredLinkRef.current) {
         hoveredRef.current = node;
         hoveredLinkRef.current = link;
+        spotlight(node);
         canvas.style.cursor = node || link ? "pointer" : "grab";
         scheduleDraw();
       }
@@ -888,6 +962,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       if (hoveredRef.current || hoveredLinkRef.current) {
         hoveredRef.current = null;
         hoveredLinkRef.current = null;
+        spotlight(null);
         scheduleDraw();
       }
       setTooltip(null);
@@ -949,6 +1024,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         window.cancelAnimationFrame(easingRef.current);
         easingRef.current = null;
       }
+      spotlight(null);
     }
   }, [hasData, height, scheduleDraw, nodeAtScreen, linkAtScreen, sync, fitView]);
 
@@ -964,6 +1040,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (dataKeyRef.current !== dataKey) {
       dataKeyRef.current = dataKey;
       hoveredRef.current = null;
+      spotlightRef.current = null;
       sync(true, 1, true);
     } else if (structural) {
       sync(false, 0.6, true);

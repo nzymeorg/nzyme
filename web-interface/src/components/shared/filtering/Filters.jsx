@@ -9,7 +9,7 @@ import {useNavigate} from "react-router-dom";
 import validateIPAddressValid from "./validators/IPAddressValidator";
 import validateMACAddressValid from "./validators/MACAddressValidator";
 import validateNumber from "./validators/NumberValidator";
-import {filtersToQueryParameters} from "./FilterQueryParameters";
+import {filtersToQueryParameters, queryParametersToFilters} from "./FilterQueryParameters";
 import validateEnum from "./validators/EnumValidator";
 import SaveFilterAsMonitorDialog from "./monitors/SaveFilterAsMonitorDialog";
 import ApplyExistingMonitorDialog from "./monitors/ApplyExistingMonitorDialog";
@@ -865,6 +865,7 @@ export default function Filters(props) {
   const preSelectedField = props.preSelectedField;
   const preSelectedValue = props.preSelectedValue;
   const preSelectedOperator = props.preSelectedOperator;
+  const quickFilters = props.quickFilters;
 
   const onSaveAsMonitor = props.onSaveAsMonitor;
   const monitorType = props.monitorType;
@@ -1314,6 +1315,40 @@ export default function Filters(props) {
     setFilters(newFilters);
   }
 
+  const sameFilter = (a, b) => a.field === b.field && a.operator === b.operator && a.value === b.value;
+
+  const quickFilterActive = (quickFilter) => quickFilter.filters.every((wanted) => {
+    return (filters[wanted.field] || []).some((existing) => sameFilter(existing, wanted));
+  });
+
+  const onQuickFilterSelected = (quickFilter) => {
+    const wasActive = quickFilterActive(quickFilter);
+
+    const replaced = quickFilters.filter(quickFilterActive).flatMap((active) => active.filters);
+    const newFilters = {};
+    Object.keys(filters).forEach((field) => {
+      const kept = filters[field].filter((existing) => !replaced.some((r) => sameFilter(existing, r)));
+      if (kept.length > 0) {
+        newFilters[field] = kept;
+      }
+    });
+
+    if (!wasActive) {
+      const byField = {};
+      quickFilter.filters.forEach((wanted) => {
+        byField[wanted.field] = (byField[wanted.field] || []).concat([wanted]);
+      });
+      const added = queryParametersToFilters(JSON.stringify(byField), fields);
+
+      Object.keys(added).forEach((field) => {
+        const missing = added[field].filter((a) => !(newFilters[field] || []).some((existing) => sameFilter(existing, a)));
+        newFilters[field] = (newFilters[field] || []).concat(missing);
+      });
+    }
+
+    setFilters(newFilters);
+  }
+
   const toggleSaveAsMonitor = () => {
     setShowSaveAsMonitorDialog(!showSaveAsMonitorDialog);
   }
@@ -1410,6 +1445,25 @@ export default function Filters(props) {
                   onClick={onFilterAdded}>
             Add Filter
           </button>
+
+          { quickFilters && quickFilters.length > 0 ?
+            <>
+              <button className="btn btn-outline-secondary dropdown-toggle" type="button"
+                      data-bs-toggle="dropdown" aria-expanded="false">
+                Quick Filters
+              </button>
+              <ul className="dropdown-menu dropdown-menu-end">
+                {quickFilters.map((quickFilter) => (
+                  <li key={quickFilter.title}>
+                    <button className="dropdown-item d-flex align-items-center" type="button"
+                            onClick={() => onQuickFilterSelected(quickFilter)}>
+                      <span className="me-auto">{quickFilter.title}</span>
+                      {quickFilterActive(quickFilter) ? <i className="fa-solid fa-check ms-3" /> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </> : null }
 
           { onSaveAsMonitor && monitorType ?
             <>

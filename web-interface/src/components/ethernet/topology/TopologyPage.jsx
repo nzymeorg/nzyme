@@ -27,7 +27,7 @@ import {
   timeRangeText
 } from "../../shared/viz/VizExport";
 import {colorsForMode} from "../../shared/viz/VizTheme";
-import {L4_SESSIONS_FILTER_FIELDS} from "../l4/L4SessionFilterFields";
+import {L4_SESSIONS_FILTER_FIELDS, L4_SESSIONS_QUICK_FILTERS} from "../l4/L4SessionFilterFields";
 import TopologyService from "../../../services/ethernet/TopologyService";
 import {formatCount} from "../assets/details/AssetProfileHelpers";
 import useTopologyRequest from "./useTopologyRequest";
@@ -577,6 +577,7 @@ export default function TopologyPage() {
                 <Filters filters={filters}
                          setFilters={setFilters}
                          fields={L4_SESSIONS_FILTER_FIELDS}
+                         quickFilters={L4_SESSIONS_QUICK_FILTERS}
                          onMonitorsReady={() => setFiltersReady(true)} />
 
                 {excludedNodes.length > 0 ?

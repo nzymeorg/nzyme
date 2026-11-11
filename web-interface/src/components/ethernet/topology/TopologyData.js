@@ -601,6 +601,37 @@ export function buildGeoModel(geo, timeWindow, grouping) {
   };
 }
 
+export function buildBreakdown(data, timeWindow, by) {
+  const nodes = new Map(data.nodes.map((n) => [n.id, n]));
+  const services = new Map((data.services || []).map((v) => [v.id, v]));
+  const entries = new Map();
+
+  applyTimeWindow(data.links, data.series, timeWindow).forEach((l) => {
+    if (!l.active) return;
+
+    const ids = by === "service"
+        ? [l.service].filter((id) => services.has(id))
+        : Array.from(new Set([l.source, l.target])).filter((id) => nodes.has(id) && nodes.get(id).type === "EXTERNAL");
+
+    ids.forEach((id) => {
+      let entry = entries.get(id);
+      if (!entry) {
+        entry = {id: id, service: services.get(id), node: nodes.get(id), sessions: 0, bytes_tx: 0, bytes_rx: 0};
+        entries.set(id, entry);
+      }
+      entry.sessions += l.sessions;
+      entry.bytes_tx += l.bytes_tx;
+      entry.bytes_rx += l.bytes_rx;
+    });
+  });
+
+  return {
+    rows: Array.from(entries.values())
+        .sort((a, b) => (b.bytes_tx + b.bytes_rx) - (a.bytes_tx + a.bytes_rx) || (a.id < b.id ? -1 : 1)),
+    truncated: data.total_links > data.links.length
+  };
+}
+
 export const OTHER = "__other";
 
 export function buildFlowModel(data, timeWindow, perColumn) {
