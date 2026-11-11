@@ -43,11 +43,20 @@ public class L4FiltersTest {
     }
 
     @Test
+    public void testCgnatMatchesTheSharedAddressSpace() {
+        assertEquals(where("source_address", FilterOperator.IS_CGNAT), "source_address <<= '100.64.0.0/10'::cidr");
+        assertEquals(where("source_address", FilterOperator.IS_NOT_CGNAT),
+                "NOT (source_address <<= '100.64.0.0/10'::cidr)");
+        assertEquals(where("address", FilterOperator.IS_NOT_CGNAT), "(((source_address <<= '100.64.0.0/10'::cidr) "
+                + "OR (destination_address <<= '100.64.0.0/10'::cidr)) IS NOT TRUE)");
+    }
+
+    @Test
     public void testEitherSideUsesTheMatchersOfTheSidedFields() {
         L4Filters filters = new L4Filters();
 
         for (FilterOperator operator : new FilterOperator[]{FilterOperator.EQUALS, FilterOperator.REGEX_MATCH,
-                FilterOperator.IN_CIDR, FilterOperator.IS_PRIVATE}) {
+                FilterOperator.IN_CIDR, FilterOperator.IS_PRIVATE, FilterOperator.IS_CGNAT}) {
             String source = filters.buildSql("b", "source_address", operator).where();
             String destination = filters.buildSql("b", "destination_address", operator).where();
             assertEquals(where("address", operator), "((" + source + ") OR (" + destination + "))", operator.name());

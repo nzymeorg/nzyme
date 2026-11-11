@@ -121,6 +121,14 @@ public class FilterFactory {
                 return Filter.create(
                         parameter.field(), FilterOperator.IS_NOT_PRIVATE, optionallyTransformedValue(parameter), parameter.value()
                 );
+            case "is_cgnat":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_CGNAT, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "is_not_cgnat":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_NOT_CGNAT, optionallyTransformedValue(parameter), parameter.value()
+                );
             case "contains":
             case "tls_alert_contains":
                 return Filter.create(

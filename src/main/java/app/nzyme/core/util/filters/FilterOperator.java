@@ -19,6 +19,8 @@ public enum FilterOperator {
     NOT_IN_CIDR,
     IS_PRIVATE,
     IS_NOT_PRIVATE,
+    IS_CGNAT,
+    IS_NOT_CGNAT,
     CONTAINS,
     NOT_CONTAINS,
     IS_EMPTY,

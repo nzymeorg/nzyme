@@ -96,6 +96,8 @@ public class L4Filters implements SqlFilterProvider  {
                 return FilterOperator.REGEX_MATCH;
             case NOT_IN_CIDR:
                 return FilterOperator.IN_CIDR;
+            case IS_NOT_CGNAT:
+                return FilterOperator.IS_CGNAT;
             case NOT_CONTAINS:
                 return FilterOperator.CONTAINS;
             default:

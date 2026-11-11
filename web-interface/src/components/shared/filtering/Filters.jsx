@@ -440,6 +440,22 @@ export const OPERATORS = {
     validators: [() => { return true; }],
     field_type: FIELD_TYPE.NO_VALUE
   },
+  IS_CGNAT: {
+    name: "is_cgnat",
+    sign: "IS CGNAT",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_NOT_CGNAT: {
+    name: "is_not_cgnat",
+    sign: "IS NOT CGNAT",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
   CONTAINS: {
     name: "contains",
     sign: "Contains",
@@ -993,6 +1009,8 @@ export default function Filters(props) {
             OPERATORS.NOT_IN_CIDR,
             OPERATORS.IS_PRIVATE,
             OPERATORS.IS_NOT_PRIVATE,
+            OPERATORS.IS_CGNAT,
+            OPERATORS.IS_NOT_CGNAT,
             OPERATORS.IS_NULL,
             OPERATORS.IS_NOT_NULL
           ]);

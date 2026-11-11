@@ -309,6 +309,10 @@ public class FilterSql {
                 return "NOT (" + fieldName + " <<= '10.0.0.0/8'::cidr OR "
                         + fieldName + " <<= '172.16.0.0/12'::cidr OR "
                         + fieldName + " <<= '192.168.0.0/16'::cidr)";
+            case IS_CGNAT:
+                return fieldName + " <<= '100.64.0.0/10'::cidr";
+            case IS_NOT_CGNAT:
+                return "NOT (" + fieldName + " <<= '100.64.0.0/10'::cidr)";
             case IS_NULL:
                 return fieldName + " IS NULL";
             case IS_NOT_NULL:
@@ -375,7 +379,10 @@ public class FilterSql {
                 return noRowMatches(fieldName + " <<= :" + bindId + "::cidr");
             case IS_PRIVATE:
             case IS_NOT_PRIVATE:
+            case IS_CGNAT:
                 return anyRowMatches(ipAddressMatch(bindId, fieldName, operator));
+            case IS_NOT_CGNAT:
+                return noRowMatches(ipAddressMatch(bindId, fieldName, FilterOperator.IS_CGNAT));
             case IS_EMPTY:
                 return "count(" + fieldName + ") = 0";
             case IS_NOT_EMPTY:
@@ -395,7 +402,10 @@ public class FilterSql {
             case IN_CIDR:
             case IS_PRIVATE:
             case IS_NOT_PRIVATE:
+            case IS_CGNAT:
                 return anyElementMatches(fieldName, ipAddressMatch(bindId, ip, operator));
+            case IS_NOT_CGNAT:
+                return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.IS_CGNAT));
             case NOT_EQUALS:
                 return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.EQUALS));
             case NOT_REGEX_MATCH:
