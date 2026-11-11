@@ -139,7 +139,8 @@ public class Topology {
 
     private static final String EXCLUSIONS = "AND NOT source_address_is_loopback " +
             "AND NOT destination_address_is_loopback AND NOT source_address_is_multicast " +
-            "AND NOT destination_address_is_multicast AND destination_address <> '255.255.255.255'::inet ";
+            "AND NOT destination_address_is_multicast AND destination_address <> '255.255.255.255'::inet " +
+            "AND destination_mac IS DISTINCT FROM 'FF:FF:FF:FF:FF:FF' ";
 
     private static final String BYTES_TX = "COALESCE(bytes_tx_count, 0)";
     private static final String BYTES_RX = "COALESCE(bytes_rx_count, 0)";

@@ -44,5 +44,9 @@ export const L4_SESSIONS_QUICK_FILTERS = [
   {
     title: "No Internal Connections",
     filters: [{field: "address", operator: "is_not_private", value: ""}]
+  },
+  {
+    title: "Only Connections from External",
+    filters: [{field: "source_address", operator: "is_not_private", value: ""}]
   }
 ];

@@ -12499,4 +12499,16 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="clean_broadcast_assets_communication" author="lennartkoopmann">
+        <sql>
+            DELETE FROM assets_communication AS c USING (
+                SELECT DISTINCT t.organization_id, t.tenant_id, s.destination_address
+                FROM l4_sessions AS s JOIN taps AS t ON t.uuid = s.tap_uuid
+                WHERE s.destination_mac = 'FF:FF:FF:FF:FF:FF'
+            ) AS b
+            WHERE c.organization_id = b.organization_id AND c.tenant_id = b.tenant_id
+            AND c.direction = 'OUTBOUND' AND c.peer_type = 'INTERNAL' AND c.peer_address = b.destination_address;
+        </sql>
+    </changeSet>
+
 </databaseChangeLog>

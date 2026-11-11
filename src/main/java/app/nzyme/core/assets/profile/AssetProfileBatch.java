@@ -220,7 +220,7 @@ public class AssetProfileBatch {
         boolean destinationUsable = isUsableMac(destinationMac)
                 && !destinationAddress.isMulticastAddress()
                 && !destinationAddress.isLoopbackAddress()
-                && !isBroadcastAddress(destinationAddress);
+                && !isBroadcast(destinationMac, destinationAddress);
         boolean destinationInternal = destinationAddress.isSiteLocalAddress()
                 || destinationAddress.isLinkLocalAddress();
         boolean sourceInternal = sourceAddress.isSiteLocalAddress() || sourceAddress.isLinkLocalAddress();
@@ -250,7 +250,7 @@ public class AssetProfileBatch {
 
             // Multicast and broadcast sessions are not client protocol use: mDNS is tagged DNS by the tap but never
             // reaches the DNS log, and name resolution protocols have their own dimension.
-            if (destinationAddress.isMulticastAddress() || isBroadcastAddress(destinationAddress)
+            if (destinationAddress.isMulticastAddress() || isBroadcast(destinationMac, destinationAddress)
                     || destinationAddress.isLoopbackAddress()) {
                 return;
             }
@@ -384,7 +384,12 @@ public class AssetProfileBatch {
         return Strings.isNullOrEmpty(asnName) ? "AS" + asnNumber : "AS" + asnNumber + " " + asnName;
     }
 
-    private static boolean isBroadcastAddress(InetAddress address) {
+    // The broadcast address of a subnet looks like a host address without the netmask, so the MAC decides.
+    static boolean isBroadcast(@Nullable String mac, InetAddress address) {
+        if (BROADCAST_MAC.equalsIgnoreCase(mac)) {
+            return true;
+        }
+
         byte[] bytes = address.getAddress();
         if (bytes.length != 4) {
             return false;
