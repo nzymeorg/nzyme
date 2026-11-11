@@ -78,7 +78,7 @@ public class BaseConfigurationLoader {
         // Data directory exists and is readable?
         File dataDirectory = new File(parseDataDirectory());
         if (!dataDirectory.exists()) {
-            throw new InvalidConfigurationException("Data directory [" + parseDataDirectory() + "] does not exist.");
+            throw new InvalidConfigurationException("Data directory [" + parseDataDirectory() + "] does not exist or is not accessible by user [" + System.getProperty("user.name") + "].");
         }
 
         if (!dataDirectory.isDirectory()) {
@@ -86,7 +86,7 @@ public class BaseConfigurationLoader {
         }
 
         if (!dataDirectory.canWrite()) {
-            throw new InvalidConfigurationException("Data directory [" + parseDataDirectory() + "] is not writable.");
+            throw new InvalidConfigurationException("Data directory [" + parseDataDirectory() + "] is not writable by user [" + System.getProperty("user.name") + "].");
         }
     }
 

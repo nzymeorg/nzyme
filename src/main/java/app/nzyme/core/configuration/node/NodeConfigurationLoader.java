@@ -220,7 +220,7 @@ public class NodeConfigurationLoader {
         // Plugin directory exists and is readable?
         File pluginDirectory = new File(parsePluginDirectory());
         if (!pluginDirectory.exists()) {
-            throw new InvalidConfigurationException("Plugin directory [" + parsePluginDirectory() + "] does not exist.");
+            throw new InvalidConfigurationException("Plugin directory [" + parsePluginDirectory() + "] does not exist or is not accessible by user [" + System.getProperty("user.name") + "].");
         }
 
         if (!pluginDirectory.isDirectory()) {
@@ -228,13 +228,13 @@ public class NodeConfigurationLoader {
         }
 
         if (!pluginDirectory.canRead()) {
-            throw new InvalidConfigurationException("Plugin directory [" + parsePluginDirectory() + "] is not readable.");
+            throw new InvalidConfigurationException("Plugin directory [" + parsePluginDirectory() + "] is not readable by user [" + System.getProperty("user.name") + "].");
         }
 
         // Crypto directory exists and is readable?
         File cryptoKeyDirectory = new File(parseCryptoDirectory());
         if (!cryptoKeyDirectory.exists()) {
-            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] does not exist.");
+            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] does not exist or is not accessible by user [" + System.getProperty("user.name") + "].");
         }
 
         if (!cryptoKeyDirectory.isDirectory()) {
@@ -242,11 +242,11 @@ public class NodeConfigurationLoader {
         }
 
         if (!cryptoKeyDirectory.canRead()) {
-            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] is not readable.");
+            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] is not readable by user [" + System.getProperty("user.name") + "].");
         }
 
         if (!cryptoKeyDirectory.canWrite()) {
-            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] is not writable.");
+            throw new InvalidConfigurationException("Crypto directory [" + parseCryptoDirectory() + "] is not writable by user [" + System.getProperty("user.name") + "].");
         }
 
         // REST listen URI can be parsed into a URI and is TLS.

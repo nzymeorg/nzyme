@@ -11,6 +11,42 @@ CRYPTO_DIR="/usr/share/nzyme/crypto"
 LOG_DIR="/var/log/nzyme"
 CONFIG_FILE="/etc/nzyme/nzyme.conf"
 
+configured_directory() {
+  if [ ! -f "$CONFIG_FILE" ]; then
+    return 0
+  fi
+
+  awk -v key="$1" '
+    {
+      line = $0
+      sub(/^[ \t]*"?/, "", line)
+      if (index(line, key) != 1) next
+
+      line = substr(line, length(key) + 1)
+      if (line !~ /^"?[ \t]*[:=]/) next
+      sub(/^"?[ \t]*[:=][ \t]*/, "", line)
+
+      if (line ~ /^"/) {
+        line = substr(line, 2)
+        sub(/".*$/, "", line)
+      } else {
+        sub(/[ \t]*(#|\/\/|,).*$/, "", line)
+        sub(/[ \t\r]+$/, "", line)
+      }
+
+      sub(/\/+$/, "", line)
+      print line
+      exit
+    }
+  ' "$CONFIG_FILE"
+}
+
+# Not recursive: the bundled JVM, libraries and plugins in the default data directory stay owned by root.
+own_top_level() {
+  chown "$NZYME_USER:$NZYME_GROUP" "$1"
+  find "$1/" -maxdepth 1 -type f -exec chown "$NZYME_USER:$NZYME_GROUP" {} +
+}
+
 case "$1" in
   configure)
     if ! getent group "$NZYME_GROUP" > /dev/null; then
@@ -22,13 +58,29 @@ case "$1" in
         --shell /usr/sbin/nologin --gecos "Nzyme node" "$NZYME_USER"
     fi
 
-    # Only the top level of the data directory. The bundled JVM, libraries and plugins stay owned by root.
     mkdir -p "$DATA_DIR" "$CRYPTO_DIR" "$LOG_DIR"
-    chown "$NZYME_USER:$NZYME_GROUP" "$DATA_DIR"
-    find "$DATA_DIR" -maxdepth 1 -type f -exec chown "$NZYME_USER:$NZYME_GROUP" {} +
+    own_top_level "$DATA_DIR"
 
     chown -R "$NZYME_USER:$NZYME_GROUP" "$CRYPTO_DIR"
     chmod 700 "$CRYPTO_DIR"
+
+    for key in data_directory crypto_directory; do
+      dir=$(configured_directory "$key")
+
+      case "$dir" in
+        "$DATA_DIR"|"$CRYPTO_DIR")
+          ;;
+        /*)
+          if [ -d "$dir" ]; then
+            own_top_level "$dir"
+
+            if ! runuser -u "$NZYME_USER" -- test -w "$dir"; then
+              echo "WARNING: Directory [$dir] ($key in $CONFIG_FILE) is not writable by user [$NZYME_USER]. Nzyme will not start until it is." >&2
+            fi
+          fi
+          ;;
+      esac
+    done
 
     chown -R "$NZYME_USER:$NZYME_GROUP" "$LOG_DIR"
 
