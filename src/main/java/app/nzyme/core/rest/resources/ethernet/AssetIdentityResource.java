@@ -93,7 +93,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
                         booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
                         numberEntry(AssetIdentityRegistryKeys.DUPLICATE_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
                         numberEntry(AssetIdentityRegistryKeys.DUPLICATE_MINIMUM_SESSIONS, "Minimum sessions per stack in window", organizationId, tenantId),
-                        booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_REQUIRE_STRONG_DIFFERENCE, "Ignore stacks that differ only in window scale, MSS or ECN", organizationId, tenantId)
+                        booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_REQUIRE_STRONG_DIFFERENCE, "Ignore stacks that differ only in window scale, MSS, ECN or timestamps", organizationId, tenantId)
                 ),
                 List.of(
                         booleanEntry(AssetIdentityRegistryKeys.DUPLICATE_ALERT_ON_NEW, "Alert on new duplicate MAC finding", organizationId, tenantId)

@@ -100,6 +100,35 @@ public class TcpSignatureTest {
     }
 
     @Test
+    public void testSameStackIgnoresTimestampsOnOneSide() {
+        String windows = "128:1:0:mss,nop,ws,nop,nop,sok:-:1460:8";
+        String windowsTimestamps = "128:1:0:mss,nop,ws,sok,ts:-:1460:8";
+        String apple = "64:1:0:mss,nop,ws,nop,nop,ts,sok:id0:1460:6";
+        String freebsd = "64:1:0:mss,nop,ws,sok,ts:id0:1460:6";
+        String linux = "64:1:0:mss,sok,ts,nop,ws:-:1460:7";
+        String linuxNoTimestamps = "64:1:0:mss,nop,nop,sok,nop,ws:-:1460:7";
+
+        assertTrue(TcpSignature.sameStack(windows, windowsTimestamps));
+        assertTrue(TcpSignature.sameStack(windowsTimestamps, windows));
+        assertTrue(TcpSignature.sameStack(windows, "128:1:0:mss,nop,ws,sok,ts:ts0:1460:8"));
+        assertTrue(TcpSignature.sameStack(linux, linuxNoTimestamps));
+        assertTrue(TcpSignature.sameStack(apple, "64:1:1:mss,nop,ws,nop,nop,ts,sok:id0:1460:6"));
+
+        assertFalse(TcpSignature.sameStack(apple, freebsd));
+
+        assertFalse(TcpSignature.sameStack(windows, linux));
+        assertFalse(TcpSignature.sameStack(windowsTimestamps, linux));
+        assertFalse(TcpSignature.sameStack(windows, "64:1:0:mss,nop,ws,sok,ts:-:1460:8"));
+        assertFalse(TcpSignature.sameStack(windows, "128:1:0:mss,nop,ws,sok,ts:id0:1460:8"));
+        assertFalse(TcpSignature.sameStack(linuxNoTimestamps, apple));
+        assertFalse(TcpSignature.sameStack("garbage", windows));
+        assertTrue(TcpSignature.sameStack("garbage", "garbage"));
+
+        assertEquals(TcpSignature.timestamplessKey(windowsTimestamps), "128:1:-:mss,ws,sok:-");
+        assertEquals(TcpSignature.timestamplessKey("64:1:1:mss,sok,ts,nop,ws:ts0,id0:1460:7"), "64:1:-:mss,sok,ws:id0");
+    }
+
+    @Test
     public void testSourcePortRange() {
         assertEquals(TcpSignature.sourcePortRange(80), "0-1023");
         assertEquals(TcpSignature.sourcePortRange(1024), "1024-32767");

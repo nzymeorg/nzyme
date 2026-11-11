@@ -32,6 +32,7 @@ public class TcpSignature {
     private static final int STACK_FIELDS = 5;
     private static final int ECN_FIELD = 2;
     private static final int OPTIONS_FIELD = 3;
+    private static final int QUIRKS_FIELD = 4;
 
     private static final Map<Integer, String> OPTION_NAMES = Map.of(
             0, "eol",
@@ -116,6 +117,36 @@ public class TcpSignature {
         }
 
         return String.join(":", Arrays.copyOfRange(parts, 0, STACK_FIELDS));
+    }
+
+    public static boolean hasTimestamps(String value) {
+        String[] parts = value.split(":", -1);
+
+        return parts.length >= STACK_FIELDS && List.of(parts[OPTIONS_FIELD].split(",")).contains("ts");
+    }
+
+    public static String timestamplessKey(String value) {
+        String[] parts = comparisonKey(value).split(":", -1);
+        if (parts.length < STACK_FIELDS) {
+            return value;
+        }
+
+        List<String> options = new ArrayList<>(List.of(parts[OPTIONS_FIELD].split(",")));
+        options.removeAll(Set.of("ts", "nop", "eol"));
+        parts[OPTIONS_FIELD] = String.join(",", options);
+
+        List<String> quirks = new ArrayList<>(List.of(parts[QUIRKS_FIELD].split(",")));
+        quirks.removeAll(Set.of("ts0", "ecr", "-"));
+        parts[QUIRKS_FIELD] = quirks.isEmpty() ? "-" : String.join(",", quirks);
+
+        return String.join(":", parts);
+    }
+
+    // Windows applications can turn timestamps on per socket, which also moves the padding. Two stacks that both
+    // send timestamps still have to match exactly.
+    public static boolean sameStack(String a, String b) {
+        return comparisonKey(a).equals(comparisonKey(b))
+                || (hasTimestamps(a) != hasTimestamps(b) && timestamplessKey(a).equals(timestamplessKey(b)));
     }
 
     public static int guessInitialTtl(int ttl) {

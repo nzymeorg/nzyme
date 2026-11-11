@@ -53,14 +53,35 @@ export function describeTcpFingerprint(value) {
 
 const FIELD_NAMES = ["initial TTL", "Don't Fragment bit", "ECN", "option order", "quirks", "MSS", "window scale"];
 
+const hasTimestamps = (options) => (options || "").split(",").indexOf("ts") !== -1;
+
+const withoutTimestamps = (options) => (options || "").split(",")
+  .filter((o) => o !== "ts" && o !== "nop" && o !== "eol").join(",");
+
+const withoutTimestampQuirks = (quirks) => (quirks || "").split(",")
+  .filter((q) => q !== "ts0" && q !== "ecr" && q !== "-").join(",");
+
 export function describeStackDifference(value, others) {
   const parts = value.split(":");
   const differing = [];
 
   others.filter((o) => o !== value).forEach((other) => {
     const otherParts = other.split(":");
-    FIELD_NAMES.forEach((name, i) => {
-      if (parts[i] !== otherParts[i] && differing.indexOf(name) === -1) {
+
+    const timestampsOnly = hasTimestamps(parts[3]) !== hasTimestamps(otherParts[3])
+      && withoutTimestamps(parts[3]) === withoutTimestamps(otherParts[3]);
+
+    FIELD_NAMES.forEach((fieldName, i) => {
+      if (parts[i] === otherParts[i]) {
+        return;
+      }
+
+      if (timestampsOnly && i === 4 && withoutTimestampQuirks(parts[4]) === withoutTimestampQuirks(otherParts[4])) {
+        return;
+      }
+
+      const name = timestampsOnly && i === 3 ? "timestamps" : fieldName;
+      if (differing.indexOf(name) === -1) {
         differing.push(name);
       }
     });
@@ -77,7 +98,8 @@ export function describeStackDifference(value, others) {
 
   const onlyLink = differing.every((d) => d === "MSS" || d === "window scale");
   const onlyEcn = differing.length === 1 && differing[0] === "ECN";
-  const onlyWeak = differing.every((d) => d === "MSS" || d === "window scale" || d === "ECN");
+  const onlyTimestamps = differing.length === 1 && differing[0] === "timestamps";
+  const onlyWeak = differing.every((d) => d === "MSS" || d === "window scale" || d === "ECN" || d === "timestamps");
 
   if (onlyLink) {
     return "Differs from " + them + " in " + list + ", which follow the link, not the operating system.";
@@ -85,6 +107,10 @@ export function describeStackDifference(value, others) {
 
   if (onlyEcn) {
     return "Differs from " + them + " in ECN only, which some devices decide per connection. This is likely one device.";
+  }
+
+  if (onlyTimestamps) {
+    return "Differs from " + them + " in timestamps only, which Windows applications can turn on per connection. This is likely one device.";
   }
 
   if (onlyWeak) {

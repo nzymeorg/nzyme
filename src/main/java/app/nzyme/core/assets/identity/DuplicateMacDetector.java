@@ -97,7 +97,9 @@ public class DuplicateMacDetector {
                 String mac = entry.getKey();
                 List<StackRow> stacks = entry.getValue();
 
-                if (!AssetProfileBatch.isUsableMac(mac) || countDistinctStacks(stacks, config) < 2) {
+                if (!AssetProfileBatch.isUsableMac(mac) || !hasDifferentStacks(
+                        stacks.stream().map(StackRow::fingerprint).collect(Collectors.toList()),
+                        config.duplicateRequireStrongDifference())) {
                     continue;
                 }
 
@@ -160,13 +162,20 @@ public class DuplicateMacDetector {
         return TcpSignature.comparisonKey(fingerprint);
     }
 
-    private static int countDistinctStacks(List<StackRow> stacks, AssetIdentityConfiguration config) {
-        Set<String> distinct = new HashSet<>();
-        for (StackRow stack : stacks) {
-            distinct.add(config.duplicateRequireStrongDifference() ? strongPart(stack.fingerprint) : stack.fingerprint);
+    // Pairwise, because a stack without timestamps matches timestamp variants that do not match each other.
+    public static boolean hasDifferentStacks(List<String> fingerprints, boolean requireStrongDifference) {
+        for (int i = 0; i < fingerprints.size(); i++) {
+            for (int j = i + 1; j < fingerprints.size(); j++) {
+                String a = fingerprints.get(i);
+                String b = fingerprints.get(j);
+
+                if (requireStrongDifference ? !TcpSignature.sameStack(a, b) : !a.equals(b)) {
+                    return true;
+                }
+            }
         }
 
-        return distinct.size();
+        return false;
     }
 
     private Map<String, List<StackRow>> readStacks(Handle handle, List<UUID> taps, DateTime since, DateTime until,

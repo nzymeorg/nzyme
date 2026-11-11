@@ -294,14 +294,32 @@ public class IdentityChangeDetector {
     static List<Value> collapseStacks(List<Value> values) {
         Map<String, Value> merged = new LinkedHashMap<>();
         for (Value value : values) {
-            merged.merge(TcpSignature.comparisonKey(value.value), value, (a, b) -> new Value(
-                    a.firstSeen.isAfter(b.firstSeen) ? b.value : a.value,
-                    a.firstSeen.isBefore(b.firstSeen) ? a.firstSeen : b.firstSeen,
-                    a.lastSeen.isAfter(b.lastSeen) ? a.lastSeen : b.lastSeen
-            ));
+            merged.merge(TcpSignature.comparisonKey(value.value), value, IdentityChangeDetector::mergeStacks);
+        }
+
+        Map<String, String> plain = Maps.newHashMap();
+        for (String key : merged.keySet()) {
+            if (!TcpSignature.hasTimestamps(key)) {
+                plain.putIfAbsent(TcpSignature.timestamplessKey(key), key);
+            }
+        }
+
+        for (String key : Lists.newArrayList(merged.keySet())) {
+            String target = TcpSignature.hasTimestamps(key) ? plain.get(TcpSignature.timestamplessKey(key)) : null;
+            if (target != null) {
+                merged.merge(target, merged.remove(key), IdentityChangeDetector::mergeStacks);
+            }
         }
 
         return Lists.newArrayList(merged.values());
+    }
+
+    private static Value mergeStacks(Value a, Value b) {
+        return new Value(
+                a.firstSeen.isAfter(b.firstSeen) ? b.value : a.value,
+                a.firstSeen.isBefore(b.firstSeen) ? a.firstSeen : b.firstSeen,
+                a.lastSeen.isAfter(b.lastSeen) ? a.lastSeen : b.lastSeen
+        );
     }
 
     @Nullable

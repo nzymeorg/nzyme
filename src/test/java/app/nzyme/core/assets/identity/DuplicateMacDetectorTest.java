@@ -2,8 +2,12 @@ package app.nzyme.core.assets.identity;
 
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 public class DuplicateMacDetectorTest {
 
@@ -22,6 +26,24 @@ public class DuplicateMacDetectorTest {
 
         assertNotEquals(DuplicateMacDetector.strongPart("128:1:0:mss,nop,ws,nop,nop,sok:-:1460:8"), ecnOff);
         assertNotEquals(DuplicateMacDetector.strongPart("64:1:0:mss,sok,ts,nop,ws:-:1460:7"), ecnOff);
+    }
+
+    @Test
+    public void testTimestampVariantOfOneStackIsNotADuplicate() {
+        String windows = "128:1:0:mss,nop,ws,nop,nop,sok:-:1460:8";
+        String windowsTimestamps = "128:1:0:mss,nop,ws,sok,ts:-:1460:8";
+        String linux = "64:1:0:mss,sok,ts,nop,ws:-:1460:7";
+
+        assertFalse(DuplicateMacDetector.hasDifferentStacks(List.of(windows), true));
+        assertFalse(DuplicateMacDetector.hasDifferentStacks(List.of(windows, windowsTimestamps), true));
+        assertFalse(DuplicateMacDetector.hasDifferentStacks(
+                List.of(windows, windowsTimestamps, "128:1:0:mss,nop,ws,nop,nop,sok:-:1380:2"), true));
+        assertTrue(DuplicateMacDetector.hasDifferentStacks(List.of(windows, windowsTimestamps, linux), true));
+
+        assertTrue(DuplicateMacDetector.hasDifferentStacks(List.of("64:1:0:mss,nop,ws,nop,nop,sok:id0:1460:6",
+                "64:1:0:mss,nop,ws,nop,nop,ts,sok:id0:1460:6", "64:1:0:mss,nop,ws,sok,ts:id0:1460:6"), true));
+
+        assertTrue(DuplicateMacDetector.hasDifferentStacks(List.of(windows, windowsTimestamps), false));
     }
 
     @Test

@@ -26104,7 +26104,7 @@
     },
     "/api/ethernet/topology/timeline" : {
       "get" : {
-        "description" : "Returns the sessions and bytes of the selection per time bucket, split by where the endpoints are: internal (both internal), outbound (internal to external), inbound (external to internal) and external (both external). A session is placed in the bucket of its most recent activity. The bucket size follows the time range so that at most 72 buckets are returned. The series of the links and geo flows use the same buckets.",
+        "description" : "Returns the sessions and bytes of the selection per time bucket, split by where the endpoints are: internal (both internal), outbound (internal to external), inbound (external to internal) and external (both external). A session counts in every bucket it was open in, and its bytes are split over them by the time it was open in each. The totals count every session once. The bucket size follows the time range so that at most 72 buckets are returned. The series of the links and geo flows use the same buckets.",
         "operationId" : "findTopologyTimeline",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -49267,14 +49267,14 @@
           },
           "series" : {
             "type" : "array",
-            "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received.",
+            "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once.",
             "items" : {
               "type" : "array",
-              "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received.",
+              "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once.",
               "items" : {
                 "type" : "integer",
                 "format" : "int64",
-                "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received."
+                "description" : "The flow over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once."
               }
             }
           },
@@ -49361,14 +49361,14 @@
           },
           "series" : {
             "type" : "array",
-            "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity.",
+            "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once.",
             "items" : {
               "type" : "array",
-              "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity.",
+              "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once.",
               "items" : {
                 "type" : "integer",
                 "format" : "int64",
-                "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received. A session is placed in the bucket of its most recent activity."
+                "description" : "The link over time, one entry per bucket with traffic: bucket index, sessions, bytes sent, bytes received, new sessions. A session counts in every bucket it was open in, with its bytes split over them by the time it was open in each. The new sessions are those that were not open in the bucket before, so adding them up counts every session once."
               }
             }
           },
