@@ -114,6 +114,15 @@ public class Topology {
     public record GeoFlows(List<GeoFlow> flows, long totalFlows, long totalSessions, long totalBytes,
                            TopologyBuckets buckets) {}
 
+    // Coordinates, city and country are those of the external endpoint of a session that has exactly one.
+    public record LiveSession(String sessionKey, UUID tapUuid, String l4Type, String source, String target,
+                              String sourceAddress, String destinationAddress, int destinationPort,
+                              DateTime startTime, DateTime mostRecentSegmentTime, long bytesTx, long bytesRx,
+                              @Nullable Double latitude, @Nullable Double longitude, @Nullable String city,
+                              @Nullable String countryCode) {}
+
+    public record Live(List<Node> nodes, List<LiveSession> sessions, boolean limited, boolean merged) {}
+
     public record TimelineBucket(DateTime bucket, long sessionsInternal, long sessionsOutbound, long sessionsInbound,
                                  long sessionsExternal, long bytesInternal, long bytesOutbound, long bytesInbound,
                                  long bytesExternal) {}
@@ -144,6 +153,15 @@ public class Topology {
 
     private static final String BYTES_TX = "COALESCE(bytes_tx_count, 0)";
     private static final String BYTES_RX = "COALESCE(bytes_rx_count, 0)";
+
+    // Internal addresses carry no GeoIP data, so the side that has any is the external one.
+    private static final String GEO_LATITUDE = "COALESCE(destination_address_geo_latitude, source_address_geo_latitude)";
+    private static final String GEO_LONGITUDE =
+            "COALESCE(destination_address_geo_longitude, source_address_geo_longitude)";
+    private static final String GEO_COUNTRY =
+            "COALESCE(destination_address_geo_country_code, source_address_geo_country_code)::text";
+    private static final String GEO_CITY = "COALESCE(destination_address_geo_city, source_address_geo_city)";
+    private static final String GEO_LOCATED = GEO_LATITUDE + " IS NOT NULL AND " + GEO_LONGITUDE + " IS NOT NULL";
 
     private static final String BUCKET = "floor((EXTRACT(EPOCH FROM most_recent_segment_time)::double precision " +
             "- :b_from) / :b_size)::integer";
@@ -277,22 +295,15 @@ public class Topology {
         Where where = resolved.get();
         TopologyBuckets buckets = TopologyBuckets.of(where.timeRange().from(), where.timeRange().to());
 
-        // Internal addresses carry no GeoIP data, so the side that has any is the external one.
-        String latitude = "COALESCE(destination_address_geo_latitude, source_address_geo_latitude)";
-        String longitude = "COALESCE(destination_address_geo_longitude, source_address_geo_longitude)";
-        String country = "COALESCE(destination_address_geo_country_code, source_address_geo_country_code)::text";
-        String city = "COALESCE(destination_address_geo_city, source_address_geo_city)";
-        String located = latitude + " IS NOT NULL AND " + longitude + " IS NOT NULL";
-
         String sql = "WITH base AS (" +
                 "SELECT tap_uuid, source_address_is_site_local AS outbound, " +
-                "CASE WHEN " + located + " THEN round(" + latitude + " * 100)::integer END AS lat_h, " +
-                "CASE WHEN " + located + " THEN round(" + longitude + " * 100)::integer END AS lon_h, " +
-                "CASE WHEN " + located + " THEN NULL ELSE " + country + " END AS cc_key, " +
+                "CASE WHEN " + GEO_LOCATED + " THEN round(" + GEO_LATITUDE + " * 100)::integer END AS lat_h, " +
+                "CASE WHEN " + GEO_LOCATED + " THEN round(" + GEO_LONGITUDE + " * 100)::integer END AS lon_h, " +
+                "CASE WHEN " + GEO_LOCATED + " THEN NULL ELSE " + GEO_COUNTRY + " END AS cc_key, " +
                 "b, COUNT(*) AS sessions, SUM(b_new) AS sessions_new, SUM(b_tx) AS bytes_tx, " +
                 "SUM(b_rx) AS bytes_rx, MIN(start_time) AS first_seen, " +
-                "MAX(most_recent_segment_time) AS last_seen, MAX(" + city + ") AS city, " +
-                "MAX(" + country + ") AS country_code " +
+                "MAX(most_recent_segment_time) AS last_seen, MAX(" + GEO_CITY + ") AS city, " +
+                "MAX(" + GEO_COUNTRY + ") AS country_code " +
                 "FROM " + from(where, false, false, true) +
                 "AND source_address_is_site_local <> destination_address_is_site_local " +
                 "GROUP BY 1, 2, 3, 4, 5, 6" +
@@ -348,6 +359,84 @@ public class Topology {
         result.sort(Comparator.comparingLong((GeoFlow f) -> f.bytesTx() + f.bytesRx()).reversed());
 
         return new GeoFlows(result, totals[0], totals[1], totals[2], buckets);
+    }
+
+    public Live live(Selection selection, InternalLevel internalLevel, ExternalLevel externalLevel, int limit) {
+        boolean merged = merges(selection) && internalLevel != InternalLevel.TAP;
+
+        Optional<Where> resolved = where(selection);
+        if (resolved.isEmpty()) {
+            return new Live(List.of(), List.of(), false, merged);
+        }
+
+        Where where = resolved.get();
+
+        String oneInternal = "source_address_is_site_local <> destination_address_is_site_local";
+        String located = oneInternal + " AND " + GEO_LOCATED;
+
+        StringBuilder attributes = new StringBuilder();
+        for (Side side : Side.values()) {
+            String prefix = side == Side.SOURCE ? "s" : "d";
+            attributes.append(side.asnNumber()).append(" AS ").append(prefix).append("_asn, ")
+                    .append(side.asnName()).append(" AS ").append(prefix).append("_asn_name, ")
+                    .append(side.countryCode()).append(" AS ").append(prefix).append("_cc_min, ")
+                    .append(side.countryCode()).append(" AS ").append(prefix).append("_cc_max, ");
+        }
+
+        String sql = "WITH base AS (" +
+                "SELECT session_key, tap_uuid, l4_type::text AS l4_type, host(source_address) AS source_address_text, " +
+                "host(destination_address) AS destination_address_text, destination_port, start_time, " +
+                "most_recent_segment_time, " + BYTES_TX + " AS bytes_tx, " + BYTES_RX + " AS bytes_rx, " +
+                "source_address_is_site_local AS s_local, " +
+                keySelect(keyColumns(Side.SOURCE, internalLevel, externalLevel), "s") + ", " +
+                "destination_address_is_site_local AS d_local, " +
+                keySelect(keyColumns(Side.DESTINATION, internalLevel, externalLevel), "d") + ", " +
+                attributes +
+                "CASE WHEN " + located + " THEN round(" + GEO_LATITUDE + " * 100)::integer END AS lat_h, " +
+                "CASE WHEN " + located + " THEN round(" + GEO_LONGITUDE + " * 100)::integer END AS lon_h, " +
+                "CASE WHEN " + oneInternal + " THEN " + GEO_CITY + " END AS city, " +
+                "CASE WHEN " + oneInternal + " THEN " + GEO_COUNTRY + " END AS country_code " +
+                "FROM l4_sessions WHERE " + where.sql() +
+                "ORDER BY most_recent_segment_time DESC, id DESC LIMIT :limit" +
+                ") " +
+                "SELECT " + nodeId("s", internalLevel, externalLevel) + " AS s_id, " +
+                nodeId("d", internalLevel, externalLevel) + " AS d_id, base.* FROM base";
+
+        Map<String, NodeAttributes> nodes = new LinkedHashMap<>();
+        List<LiveSession> sessions = new ArrayList<>();
+
+        int found = database.get().withHandle(handle -> bind(handle.createQuery(sql), selection, where, null)
+                .bind("limit", limit + 1)
+                .reduceResultSet(0, (rows, rs, ctx) -> {
+                    if (rows >= limit) {
+                        return rows + 1;
+                    }
+
+                    String sourceId = rs.getString("s_id");
+                    String targetId = rs.getString("d_id");
+                    nodes.computeIfAbsent(sourceId, id -> new NodeAttributes()).merge(rs, "s");
+                    nodes.computeIfAbsent(targetId, id -> new NodeAttributes()).merge(rs, "d");
+
+                    Integer latH = (Integer) rs.getObject("lat_h");
+                    Integer lonH = (Integer) rs.getObject("lon_h");
+
+                    sessions.add(new LiveSession(rs.getString("session_key"), rs.getObject("tap_uuid", UUID.class),
+                            rs.getString("l4_type"), sourceId, targetId, rs.getString("source_address_text"),
+                            rs.getString("destination_address_text"), rs.getInt("destination_port"),
+                            dateTime(rs.getTimestamp("start_time")),
+                            dateTime(rs.getTimestamp("most_recent_segment_time")), rs.getLong("bytes_tx"),
+                            rs.getLong("bytes_rx"), latH == null ? null : latH / 100.0,
+                            lonH == null ? null : lonH / 100.0, rs.getString("city"),
+                            rs.getString("country_code")));
+                    return rows + 1;
+                }));
+
+        List<Node> nodeList = new ArrayList<>();
+        for (Map.Entry<String, NodeAttributes> node : nodes.entrySet()) {
+            nodeList.add(node.getValue().build(node.getKey()));
+        }
+
+        return new Live(nodeList, sessions, found > limit, merged);
     }
 
     public Timeline timeline(Selection selection) {

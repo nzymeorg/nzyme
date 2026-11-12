@@ -11,7 +11,7 @@ import Filters from "../../shared/filtering/Filters";
 import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import {queryParametersToFilters} from "../../shared/filtering/FilterQueryParameters";
 import useUrlParams from "../../shared/useUrlParams";
-import {Absolute, Presets} from "../../shared/timerange/TimeRange";
+import {Absolute, Presets, Relative} from "../../shared/timerange/TimeRange";
 import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import {useApplyTimeRange} from "../../shared/timerange/TimeRangeUrl";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
@@ -29,8 +29,10 @@ import {
 import {colorsForMode} from "../../shared/viz/VizTheme";
 import {L4_SESSIONS_FILTER_FIELDS, L4_SESSIONS_QUICK_FILTERS} from "../l4/L4SessionFilterFields";
 import TopologyService from "../../../services/ethernet/TopologyService";
-import {formatCount} from "../assets/details/AssetProfileHelpers";
+import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
 import useTopologyRequest from "./useTopologyRequest";
+import useTopologyLive from "./useTopologyLive";
+import {LIVE_SESSION_LIMIT, LIVE_WINDOW_MS} from "./TopologyLive";
 import TopologyGraph from "./TopologyGraph";
 import TopologyMatrix from "./TopologyMatrix";
 import TopologyFlow from "./TopologyFlow";
@@ -69,12 +71,18 @@ const URL_OPTIONS = {
   view: "graph",
   exclude: null,
   internal: "HOST",
-  external: "NETWORK",
+  // No fixed default: one that is selected by hand must stay in the URL to hold in every view.
+  external: null,
   service: "PROTOCOL",
   links: "250",
   arrange: "force",
-  places: "city"
+  places: "city",
+  live: null
 };
+
+const LIVE_VIEWS = ["graph", "map"];
+const LIVE_SECONDS = LIVE_WINDOW_MS / 1000;
+const LIVE_RANGE = Relative(LIVE_WINDOW_MS / 60000, "Live");
 
 const MIN_BYTES = [[0, "Show all"], [10240, "10 KB"], [102400, "100 KB"], [1048576, "1 MB"], [10485760, "10 MB"], [104857600, "100 MB"]];
 
@@ -112,9 +120,11 @@ export default function TopologyPage() {
   const [urlOptions, setUrlOptions] = useUrlParams(URL_OPTIONS);
   const [revision, setRevision] = useState(0);
 
-  const view = valueIn(VIEWS, urlOptions.view, "graph");
+  const live = urlOptions.live === "1";
+  const selectedView = valueIn(VIEWS, urlOptions.view, "graph");
+  const view = live && !LIVE_VIEWS.includes(selectedView) ? "graph" : selectedView;
   const internalLevel = valueIn(INTERNAL_LEVELS, urlOptions.internal, "HOST");
-  const externalLevel = valueIn(EXTERNAL_LEVELS, urlOptions.external, "NETWORK");
+  const externalLevel = valueIn(EXTERNAL_LEVELS, urlOptions.external, view === "graph" ? "HOST" : "NETWORK");
   const serviceLevel = valueIn(SERVICE_LEVELS, urlOptions.service, "PROTOCOL");
   const linkLimit = valueIn(LINK_LIMITS.map((l) => [l]), urlOptions.links, "250");
   const arrangement = valueIn([["force"], ["perimeter"], ["clusters"]], urlOptions.arrange, "force");
@@ -160,20 +170,31 @@ export default function TopologyPage() {
 
   const requestKey = JSON.stringify([request, revision]);
 
-  const summary = useTopologyRequest(requestKey, filtersReady,
+  const ranged = filtersReady && !live;
+  const summary = useTopologyRequest(requestKey, ranged,
       (setData) => topologyService.getSummary(request, setData));
-  const timeline = useTopologyRequest(requestKey, filtersReady,
+  const timeline = useTopologyRequest(requestKey, ranged,
       (setData) => topologyService.getTimeline(request, setData));
-  const links = useTopologyRequest(
+  const rangedLinks = useTopologyRequest(
       JSON.stringify([requestKey, internalLevel, externalLevel, linkLimit]),
-      filtersReady && (view === "graph" || view === "matrix"),
+      ranged && (view === "graph" || view === "matrix"),
       (setData) => topologyService.getLinks(request, internalLevel, externalLevel, null, linkLimit, setData));
   const flows = useTopologyRequest(
       JSON.stringify([requestKey, internalLevel, externalLevel, serviceLevel]),
-      filtersReady && view === "flow",
+      ranged && view === "flow",
       (setData) => topologyService.getLinks(request, internalLevel, externalLevel, serviceLevel, FLOW_LIMIT, setData));
-  const geo = useTopologyRequest(requestKey, filtersReady && view === "map",
+  const rangedGeo = useTopologyRequest(requestKey, ranged && view === "map",
       (setData) => topologyService.getGeoFlows(request, GEO_LIMIT, setData));
+
+  const liveKey = JSON.stringify([organizationId, tenantId, selectedTaps, filters, excludedNodes, internalLevel,
+    externalLevel, revision]);
+  const liveFrame = useTopologyLive(liveKey, live && filtersReady,
+      (seconds, setData, onError) => topologyService.getLive(request, internalLevel, externalLevel, seconds,
+          LIVE_SESSION_LIMIT, setData, onError),
+      {limit: parseInt(linkLimit, 10), geo: view === "map", flowLimit: GEO_LIMIT});
+
+  const links = live ? (liveFrame ? liveFrame.links : null) : rangedLinks;
+  const geo = live ? (liveFrame ? liveFrame.geo : null) : rangedGeo;
 
   // The window and the selection belong to the data they were made on.
   useEffect(() => {
@@ -183,13 +204,15 @@ export default function TopologyPage() {
   useEffect(() => {
     setSelection(null);
     setFocus(null);
-  }, [requestKey, view, internalLevel, externalLevel]);
+  }, [requestKey, view, internalLevel, externalLevel, live]);
 
   const linkData = view === "flow" ? flows : links;
   const linkModel = useMemo(() => (linkData ? buildLinkModel(linkData, timeWindow) : null), [linkData, timeWindow]);
   // Depends on how wide the window is, not on where it is, so it holds while the window moves.
   const nodeScaleWidth = linkData ? windowWidth(linkData.series, timeWindow) : null;
-  const nodeScale = useMemo(() => (linkData ? buildNodeScale(linkData, nodeScaleWidth) : null), [linkData, nodeScaleWidth]);
+  const rangedScale = useMemo(() => (linkData && !live ? buildNodeScale(linkData, nodeScaleWidth) : null),
+      [linkData, nodeScaleWidth, live]);
+  const nodeScale = live ? (liveFrame ? liveFrame.scale : null) : rangedScale;
   const flowModel = useMemo(() => (flows ? buildFlowModel(flows, timeWindow, flowEntries) : null),
       [flows, timeWindow, flowEntries]);
   const geoWhole = useMemo(() => (geo ? buildGeoModel(geo, null, places) : null), [geo, places]);
@@ -230,14 +253,17 @@ export default function TopologyPage() {
   const excludedLabel = (nodeId) => (excludedLabels.current.has(nodeId)
       ? excludedLabels.current.get(nodeId) : describeNodeId(nodeId));
 
-  const locate = useCallback((nodeId) => {
+  const locate = useCallback((node) => {
     if (viewRef.current) {
       viewRef.current.scrollIntoView({behavior: "smooth", block: "nearest"});
     }
+    // The node only exists in a view that groups its side the way the ranking does.
+    const options = node.type === "EXTERNAL" ? {external: node.level} : {internal: node.level};
     if (view === "map" || view === "flow") {
-      setUrlOptions({view: "graph"});
+      options.view = "graph";
     }
-    setPendingLocate(nodeId);
+    setUrlOptions(options);
+    setPendingLocate(node.id);
   }, [view, setUrlOptions]);
 
   useEffect(() => {
@@ -254,6 +280,11 @@ export default function TopologyPage() {
     setPendingLocate(null);
   }, [pendingLocate, view, linkModel]);
 
+  const toggleLive = () => {
+    setTimeWindow(null);
+    setUrlOptions({live: live ? null : "1"});
+  }
+
   const selectFromPanel = useCallback((s) => {
     setSelection(s);
     if (s && (s.kind === "site" || s.kind === "place")) {
@@ -266,11 +297,14 @@ export default function TopologyPage() {
         <label htmlFor={o.id} className="me-2 small text-muted mb-0">{o.label}</label>
         <select id={o.id} className="form-select form-select-sm w-auto" value={o.value}
                 onChange={(e) => o.onChange(e.target.value)}>
-          {o.options.map(([v, title]) => <option key={v} value={v}>{title}</option>)}
+          {o.options.map(([v, title, disabled]) => <option key={v} value={v} disabled={Boolean(disabled)}>{title}</option>)}
         </select>
         {o.after ? <span className="ms-2 small text-muted text-nowrap">{o.after}</span> : null}
       </div>
   )
+
+  const viewSelect = {id: "topology-view", label: "View", value: view, onChange: (v) => setUrlOptions({view: v}),
+    options: VIEWS.map(([key, title]) => [key, title, live && !LIVE_VIEWS.includes(key)])};
 
   const viewOptions = () => {
     const internal = {id: "topology-internal", label: "Internal nodes", value: internalLevel,
@@ -340,17 +374,19 @@ export default function TopologyPage() {
         return linkModel
             ? <TopologyGraph model={linkModel}
                              scale={nodeScale}
-                             dataKey={links}
+                             dataKey={live ? liveKey : links}
                              minBytes={minBytes}
                              arrangement={arrangement}
                              sizeBy={sizeBy}
                              labels={labels}
                              selectedId={selection && (selection.kind === "node" || selection.kind === "link") ? selection.id : null}
-                             onSelect={setSelection}
+                             onSelect={live ? null : setSelection}
                              onFilter={filterForNode}
                              focus={focus}
                              height={VIEW_HEIGHT}
-                             exportRef={graphExportRef} />
+                             exportRef={graphExportRef}
+                             live={live}
+                             pulses={live && liveFrame ? liveFrame.pulses : null} />
             : loading();
       case "matrix":
         return linkModel
@@ -362,7 +398,7 @@ export default function TopologyPage() {
             : loading();
       default:
         return geoModel
-            ? <TopologyMap model={geoModel} whole={geoWhole} selection={selection} onSelect={setSelection} focus={focus} height={VIEW_HEIGHT} />
+            ? <TopologyMap model={geoModel} whole={geoWhole} selection={selection} onSelect={live ? () => {} : setSelection} focus={focus} height={VIEW_HEIGHT} live={live} />
             : loading();
     }
   }
@@ -377,14 +413,27 @@ export default function TopologyPage() {
     const what = (n) => (view === "graph" || view === "matrix"
         ? (n === 1 ? "connection" : "connections") : (n === 1 ? "flow" : "flows"));
 
-    const hidden = view === "graph" && minBytes > 0
+    let hidden = view === "graph" && minBytes > 0
         ? " Connections below " + MIN_BYTES.find(([bytes]) => bytes === minBytes)[1] + " are hidden."
         : "";
+    let when = "";
+
+    if (live) {
+      when = " the " + LIVE_SECONDS + " seconds up to " + moment(liveFrame.playhead).format("HH:mm:ss");
+      if (liveFrame.limited) {
+        hidden += " Only the " + formatCount(liveFrame.sessionLimit) + " most recently active sessions are loaded.";
+      }
+      if (liveFrame.stale) hidden += " New data is not arriving.";
+
+      if (total === 0) return {text: "No " + what(0) + " in" + when + "." + hidden, limited: false};
+      when = " of" + when;
+    }
 
     if (total === 0) return null;
     if (total <= items.length) {
       return {
-        text: "Showing " + (total === 1 ? "the only " + what(1) : "all " + formatCount(total) + " " + what(total)) + "." + hidden,
+        text: "Showing " + (total === 1 ? "the only " + what(1) : "all " + formatCount(total) + " " + what(total))
+            + when + "." + hidden,
         limited: false
       };
     }
@@ -395,7 +444,7 @@ export default function TopologyPage() {
     const shareText = share >= 99.95 ? "over 99.9" : share.toFixed(1);
 
     return {
-      text: "Showing " + formatCount(items.length) + " of " + formatCount(total) + " " + what(total)
+      text: "Showing " + formatCount(items.length) + " of " + formatCount(total) + " " + what(total) + when
           + " (" + shareText + "% of traffic)." + hidden,
       limited: true
     };
@@ -429,14 +478,14 @@ export default function TopologyPage() {
     return [
       "Nzyme Topology, " + title(VIEWS, view) + ". Internal nodes: " + title(INTERNAL_LEVELS, internalLevel)
           + ". External nodes: " + title(EXTERNAL_LEVELS, externalLevel) + ".",
-      (timeWindow
+      (live ? "Live" : (timeWindow
           ? "Time window " + formatWindowTime(timeWindow.from) + " to " + formatWindowTime(timeWindow.to)
-          : timeRangeText(timeRange))
+          : timeRangeText(timeRange)))
           + ". Exported " + moment().format("YYYY-MM-DD HH:mm") + ".",
       (tapCount === null ? "All taps" : formatCount(tapCount) + (tapCount === 1 ? " tap" : " taps")) + ". "
           + (filterText ? "Filters: " + filterText + "." : "No filters.")
           + (excludedNodes.length > 0 ? " Excluded: " + excludedNodes.map(excludedLabel).join(", ") + "." : "")
-    ].concat(shown && shown.limited ? [shown.text] : []);
+    ].concat(shown && (shown.limited || live) ? [shown.text] : []);
   }
 
   const nothingToExport = () => toast.info("There is nothing to export yet.");
@@ -562,6 +611,26 @@ export default function TopologyPage() {
 
   const shownOptions = viewOptions();
 
+  const totals = timeline ? timeline.totals : null;
+  const summaryFacts = live
+      ? [
+        ["Internal Nodes", liveFrame ? formatCount(liveFrame.summary.internal) : null],
+        ["External Nodes", liveFrame ? formatCount(liveFrame.summary.external) : null],
+        ["Connections", liveFrame ? formatCount(liveFrame.summary.connections) : null],
+        ["Sessions", liveFrame ? formatCount(liveFrame.summary.sessions) : null],
+        ["Traffic", liveFrame ? formatBytes(liveFrame.summary.bytes) : null]
+      ]
+      : [
+        ["Internal Addresses", summary ? formatCount(summary.internal_hosts) : null],
+        ["External Addresses", summary ? formatCount(summary.external_hosts) : null],
+        ["Autonomous Systems", summary ? formatCount(summary.external_networks) : null],
+        ["Countries", summary ? formatCount(summary.external_countries) : null],
+        ["Sessions", totals ? formatCount(totals.sessions_internal + totals.sessions_outbound
+            + totals.sessions_inbound + totals.sessions_external) : null],
+        ["Traffic", totals ? formatBytes(totals.bytes_internal + totals.bytes_outbound + totals.bytes_inbound
+            + totals.bytes_external) : null]
+      ];
+
   return (
       <React.Fragment>
         <div className="row">
@@ -569,8 +638,8 @@ export default function TopologyPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Topology"
-                                       timeRange={timeRange}
-                                       setTimeRange={setTimeRange}
+                                       timeRange={live ? LIVE_RANGE : timeRange}
+                                       setTimeRange={live ? undefined : setTimeRange}
                                        helpLink="https://go.nzyme.org/ethernet-topology"
                                        refreshAction={refresh} />
 
@@ -608,7 +677,7 @@ export default function TopologyPage() {
           </div>
         </div>
 
-        <TopologySummaryStrip summary={summary} timeline={timeline} />
+        <TopologySummaryStrip facts={summaryFacts} />
 
         {filtersReady ?
             <React.Fragment>
@@ -617,83 +686,83 @@ export default function TopologyPage() {
                   <div className="card">
                     <div className="card-body">
                       <CardTitleWithControls title="Connections"
-                                             timeRange={timeRange}
-                                             helpLink="https://go.nzyme.org/ethernet-topology-views"
+                                             timeRange={live ? LIVE_RANGE : timeRange}
+                                             helpLink={"https://go.nzyme.org/ethernet-topology-" + (live ? "live" : "views")}
                                              refreshAction={refresh} />
 
                       <div className="d-flex flex-wrap align-items-center">
-                        {shownOptions.data.map(optionSelect)}
+                        {[viewSelect].concat(shownOptions.data).map(optionSelect)}
                         <div className="ms-auto mb-2 d-flex align-items-center">
+                          <button type="button"
+                                  className={"btn btn-sm me-2 " + (live ? "btn-secondary" : "btn-outline-secondary")}
+                                  title={"Follows the last " + LIVE_SECONDS + " seconds instead of the time range"}
+                                  onClick={toggleLive}>
+                            Live
+                          </button>
                           {shownOptions.display.length > 0
                               ? <div className="me-2"><VizDisplayMenu options={shownOptions.display} /></div> : null}
-                          <div className="me-2">
-                            <VizExportMenu items={exportItems()}
-                                           note={view === "map" ? "The map cannot be exported as an image." : null} />
-                          </div>
-                          <div className="btn-group btn-group-sm" role="group" aria-label="View">
-                            {VIEWS.map(([key, title]) => (
-                                <button key={key} type="button"
-                                        className={"btn " + (view === key ? "btn-secondary" : "btn-outline-secondary")}
-                                        onClick={() => setUrlOptions({view: key})}>
-                                  {title}
-                                </button>
-                            ))}
-                          </div>
+                          <VizExportMenu items={exportItems()}
+                                         note={view === "map" ? "The map cannot be exported as an image." : null} />
                         </div>
                       </div>
 
                       <div className="row">
-                        <div className="col-md-9">
+                        <div className={live ? "col-md-12" : "col-md-9"}>
                           <div ref={drawingRef}>{visualization()}</div>
                           {coverage()}
                         </div>
-                        <div className="col-md-3">
-                          <TopologySelectionPanel selection={selection}
-                                                  view={view}
-                                                  linkModel={linkModel}
-                                                  flowModel={flowModel}
-                                                  geoModel={geoModel}
-                                                  request={request}
-                                                  timeRange={timeRange}
-                                                  timeWindow={timeWindow}
-                                                  pageFilters={filters}
-                                                  setFilters={setFilters}
-                                                  filterFields={L4_SESSIONS_FILTER_FIELDS}
-                                                  onSelect={selectFromPanel}
-                                                  onAddFilter={addFilter}
-                                                  onExclude={exclude}
-                                                  height={VIEW_HEIGHT} />
-                        </div>
+                        {live ? null :
+                            <div className="col-md-3">
+                              <TopologySelectionPanel selection={selection}
+                                                      view={view}
+                                                      linkModel={linkModel}
+                                                      flowModel={flowModel}
+                                                      geoModel={geoModel}
+                                                      request={request}
+                                                      timeRange={timeRange}
+                                                      timeWindow={timeWindow}
+                                                      pageFilters={filters}
+                                                      setFilters={setFilters}
+                                                      filterFields={L4_SESSIONS_FILTER_FIELDS}
+                                                      onSelect={selectFromPanel}
+                                                      onAddFilter={addFilter}
+                                                      onExclude={exclude}
+                                                      height={VIEW_HEIGHT} />
+                            </div>}
                       </div>
 
-                      <div className="mt-3">
-                        {timeline
-                            ? <TopologyTimeScrubber timeline={timeline}
-                                                    timeWindow={timeWindow}
-                                                    setTimeWindow={setTimeWindow}
-                                                    onApply={(w) => applyTimeRange(Absolute(new Date(w.from), new Date(w.to)))} />
-                            : <GenericWidgetLoadingSpinner height={130} />}
-                      </div>
+                      {live ? null :
+                          <div className="mt-3">
+                            {timeline
+                                ? <TopologyTimeScrubber timeline={timeline}
+                                                        timeWindow={timeWindow}
+                                                        setTimeWindow={setTimeWindow}
+                                                        onApply={(w) => applyTimeRange(Absolute(new Date(w.from), new Date(w.to)))} />
+                                : <GenericWidgetLoadingSpinner height={130} />}
+                          </div>}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="row mt-3">
-                <div className="col-12">
-                  <TopologyRankingCard title="Services" levels={SERVICE_RANKINGS} {...rankingProps} />
-                </div>
-              </div>
+              {live ? null :
+                  <React.Fragment>
+                    <div className="row mt-3">
+                      <div className="col-12">
+                        <TopologyRankingCard title="Services" levels={SERVICE_RANKINGS} {...rankingProps} />
+                      </div>
+                    </div>
 
-              <div className="row mt-3">
-                <div className="col-12">
-                  <TopologyRankingCard title="Rare and New External Nodes"
-                                       help="Shows external nodes with few internal peers or a recent first appearance."
-                                       levels={EXTERNAL_RANKINGS}
-                                       presets={RARE_PRESETS}
-                                       {...rankingProps} />
-                </div>
-              </div>
+                    <div className="row mt-3">
+                      <div className="col-12">
+                        <TopologyRankingCard title="Rare and New External Nodes"
+                                             help="Shows external nodes with few internal peers or a recent first appearance."
+                                             levels={EXTERNAL_RANKINGS}
+                                             presets={RARE_PRESETS}
+                                             {...rankingProps} />
+                      </div>
+                    </div>
+                  </React.Fragment>}
             </React.Fragment> : null}
       </React.Fragment>
   )

@@ -16,7 +16,7 @@ import Store from "../../../util/Store";
 import ZoomHint, {useZoomHint, wheelZoomDelta, wheelZooms} from "../../shared/ZoomHint";
 import {colorsForMode, drawGrid, FONT_FAMILY, tooltipStyle} from "../../shared/viz/VizTheme";
 import {countryName, formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {linkClassColor, nodeFilter, nodeKind} from "./TopologyData";
+import {linkClassColor, nodeFilter, nodeKind, pairIdOf} from "./TopologyData";
 
 const MIN_RADIUS = 4;
 const MAX_RADIUS = 15;
@@ -37,6 +37,14 @@ const CROWDED_LINKS = 80;
 const MIN_CROWDING = 0.2;
 const SPOTLIGHT_DELAY = 160;
 const DETAILS_WIDTH = 290;
+const LIVE_REHEAT = 0.12;
+const FOLLOW_EASING = 0.05;
+const PULSE_MS = 700;
+const PULSE_LENGTH = 0.22;
+const MAX_REMEMBERED_POSITIONS = 3000;
+
+const reducedMotion = () => typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const truncate = (s, max) => (s && s.length > max ? s.substring(0, max - 1) + "…" : s);
 
@@ -226,7 +234,8 @@ const pairDirectionText = (pair, a, b) => {
 
 export default function TopologyGraph({model, scale = null, dataKey, minBytes = 0, arrangement = "force",
                                         sizeBy = "bytes", labels = "auto", selectedId = null, onSelect, onFilter,
-                                        focus = null, height = 560, exportRef = null}) {
+                                        focus = null, height = 560, exportRef = null, live = false,
+                                        pulses = null}) {
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -234,6 +243,11 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
   // d3-force mutates nodes and links in place, so they live in refs, not in state.
   const nodesRef = useRef(new Map());
   const visibleRef = useRef({nodes: [], links: []});
+  const linksByIdRef = useRef(new Map());
+  const departedPositionsRef = useRef(new Map());
+  const pulsesRef = useRef([]);
+  const liveRef = useRef(live);
+  const fittedRef = useRef(false);
   const simulationRef = useRef(null);
   const zoomRef = useRef(null);
   const transformRef = useRef(zoomIdentity);
@@ -262,7 +276,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
   const [tooltip, setTooltip] = useState(null);
   const [zoomHint, showZoomHint] = useZoomHint();
 
-  const hasData = model.nodes.size > 0;
+  // A live graph stays up while nothing happens: taking it down would lose where its nodes were.
+  const hasData = live || model.nodes.size > 0;
   const darkMode = Boolean(Store.get("dark_mode"));
   const colors = colorsForMode(darkMode);
 
@@ -435,6 +450,31 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       ctx.shadowColor = "transparent";
     });
 
+    if (!target && pulsesRef.current.length > 0) {
+      const now = window.performance.now();
+      pulsesRef.current = pulsesRef.current.filter((p) => now - p.at < PULSE_MS);
+      ctx.lineCap = "round";
+      pulsesRef.current.forEach((p) => {
+        const link = linksByIdRef.current.get(p.linkId);
+        if (now < p.at || !link || !linkLit(link)) return;
+
+        const progress = (now - p.at) / PULSE_MS;
+        const from = p.forward ? link.source : link.target;
+        const to = p.forward ? link.target : link.source;
+        const tail = Math.max(0, progress - PULSE_LENGTH);
+
+        ctx.globalAlpha = Math.min(1, 6 * (1 - progress));
+        ctx.beginPath();
+        ctx.moveTo(from.x + (to.x - from.x) * tail, from.y + (to.y - from.y) * tail);
+        ctx.lineTo(from.x + (to.x - from.x) * progress, from.y + (to.y - from.y) * progress);
+        ctx.lineWidth = widthOf(link) + 2.5;
+        ctx.strokeStyle = linkClassColor(c, link.cls);
+        ctx.stroke();
+      });
+      ctx.lineCap = "butt";
+      ctx.globalAlpha = 1;
+    }
+
     nodes.forEach((node) => {
       const r = nodeRadius(node);
       const anchorNode = node.level === "TAP";
@@ -589,6 +629,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       ctx.fillText(entry.text, 40, y);
     });
     ctx.restore();
+
+    if (!target && pulsesRef.current.length > 0) scheduleDraw();
   }
 
   const renderForExport = (scale) => {
@@ -617,14 +659,22 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     scheduleDraw();
   }, [darkMode, scheduleDraw]);
 
-  const fitView = useCallback((animated) => {
+  const fitView = useCallback((animated, eased = false) => {
     const canvas = canvasRef.current;
     const zoomBehavior = zoomRef.current;
     if (!canvas || !zoomBehavior) return;
 
     const {width, height: h} = sizeRef.current;
-    const transform = fitTransform(visibleRef.current.nodes, groupsRef.current, width, h);
+    let transform = fitTransform(visibleRef.current.nodes, groupsRef.current, width, h);
     if (!transform) return;
+
+    if (eased && fittedRef.current) {
+      const t = transformRef.current;
+      transform = zoomIdentity
+          .translate(t.x + (transform.x - t.x) * FOLLOW_EASING, t.y + (transform.y - t.y) * FOLLOW_EASING)
+          .scale(t.k + (transform.k - t.k) * FOLLOW_EASING);
+    }
+    fittedRef.current = true;
 
     if (animated) {
       select(canvas).transition().duration(400).call(zoomBehavior.transform, transform);
@@ -645,8 +695,11 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
 
     if (rebuild) {
       nodesRef.current = new Map();
+      departedPositionsRef.current = new Map();
+      fittedRef.current = false;
     }
     const known = nodesRef.current;
+    const departed = departedPositionsRef.current;
 
     const threshold = Number(options.minBytes) || 0;
     const pairs = m.pairs.filter((p) => p.full_bytes >= threshold);
@@ -656,6 +709,14 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       connected.add(p.b);
     });
 
+    const neighborOf = new Map();
+    if (known.size > 0) {
+      pairs.forEach((p) => {
+        if (!known.has(p.a) && known.has(p.b)) neighborOf.set(p.a, known.get(p.b));
+        if (!known.has(p.b) && known.has(p.a)) neighborOf.set(p.b, known.get(p.a));
+      });
+    }
+
     const nodes = [];
     m.nodes.forEach((n) => {
       // A node without a visible link stays if it has traffic of its own, like a network talking to itself.
@@ -664,8 +725,16 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       let node = known.get(n.id);
       if (!node) {
         const angle = Math.random() * 2 * Math.PI;
-        const distance = n.type === "INTERNAL" ? 20 + Math.random() * 100 : 180 + Math.random() * 120;
-        node = {id: n.id, x: cx + Math.cos(angle) * distance, y: cy + Math.sin(angle) * distance};
+        const neighbor = neighborOf.get(n.id);
+        if (departed.has(n.id)) {
+          node = {id: n.id, ...departed.get(n.id)};
+          departed.delete(n.id);
+        } else if (neighbor) {
+          node = {id: n.id, x: neighbor.x + Math.cos(angle) * 50, y: neighbor.y + Math.sin(angle) * 50};
+        } else {
+          const distance = n.type === "INTERNAL" ? 20 + Math.random() * 100 : 180 + Math.random() * 120;
+          node = {id: n.id, x: cx + Math.cos(angle) * distance, y: cy + Math.sin(angle) * distance};
+        }
         known.set(n.id, node);
       }
 
@@ -690,8 +759,13 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
 
     const ids = new Set(nodes.map((n) => n.id));
     Array.from(known.keys()).forEach((id) => {
-      if (!ids.has(id)) known.delete(id);
+      if (ids.has(id)) return;
+      departed.set(id, {x: known.get(id).x, y: known.get(id).y});
+      known.delete(id);
     });
+    while (departed.size > MAX_REMEMBERED_POSITIONS) {
+      departed.delete(departed.keys().next().value);
+    }
 
     const sizeBy = options.sizeBy === "peers" || options.sizeBy === "sessions" ? options.sizeBy : "bytes";
     const metric = (n) => (sizeBy === "peers" ? n.peers : (sizeBy === "sessions" ? n.sessions : n.bytes));
@@ -702,7 +776,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     let largestFull = 0;
     nodes.forEach((n) => { largestFull = Math.max(largestFull, fullMetric(n)); });
 
-    const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const still = reducedMotion();
     let resized = false;
     nodes.forEach((n) => {
       n.layoutRadius = radiusOf(fullMetric(n), largestFull);
@@ -731,10 +805,20 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       l.target.degree++;
     });
 
+    const gentle = reheat === null;
+    if (gentle) {
+      const before = linksByIdRef.current;
+      const changed = nodes.length !== visibleRef.current.nodes.length || links.length !== before.size
+          || links.some((l) => !before.has(l.id));
+      reheat = changed ? LIVE_REHEAT : 0;
+    }
+
     visibleRef.current = {nodes: nodes, links: links};
+    linksByIdRef.current = new Map(links.map((l) => [l.id, l]));
 
     if (hoveredRef.current && !ids.has(hoveredRef.current.id)) hoveredRef.current = null;
-    hoveredLinkRef.current = null;
+    // Links are made anew every time, so the one under the pointer is found again by its ID.
+    hoveredLinkRef.current = hoveredLinkRef.current ? linksByIdRef.current.get(hoveredLinkRef.current.id) || null : null;
     if (spotlightRef.current !== hoveredRef.current) spotlightRef.current = null;
 
     if (rebuild || reheat > 0) {
@@ -749,7 +833,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (fit) fitPendingRef.current = true;
 
     if (reheat > 0 && !frozenRef.current) {
-      simulation.alpha(reheat).restart();
+      simulation.alpha(gentle ? Math.max(simulation.alpha(), reheat) : reheat).restart();
     } else {
       if (fit) fitView(false);
       scheduleDraw();
@@ -820,11 +904,12 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         .force("ring", forceRadial().radius((d) => d.ringRadius || 0).strength((d) => d.ringStrength || 0))
         .force("collide", forceCollide().radius((d) => layoutRadius(d) + 5))
         .on("tick", () => {
-          if (fitPendingRef.current) fitView(false);
+          if (fitPendingRef.current) fitView(false, liveRef.current);
           scheduleDraw();
         })
         .on("end", () => {
-          fitPendingRef.current = false;
+          // A live graph is never done: it keeps following its nodes until the view is moved by hand.
+          if (!liveRef.current) fitPendingRef.current = false;
         });
     simulationRef.current = simulation;
 
@@ -889,6 +974,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         })
         .on("start", (event) => {
           const node = event.subject.node;
+          fitPendingRef.current = false;
           if (!frozenRef.current && !event.active) simulation.alphaTarget(0.3).restart();
           node.fx = node.x;
           node.fy = node.y;
@@ -1038,6 +1124,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     optionsRef.current = {minBytes: minBytes, arrangement: arrangement, sizeBy: sizeBy, labels: labels};
     modelRef.current = model;
     scaleRef.current = scale;
+    liveRef.current = live;
 
     if (dataKeyRef.current !== dataKey) {
       dataKeyRef.current = dataKey;
@@ -1047,9 +1134,26 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     } else if (structural) {
       sync(false, 0.6, true);
     } else {
-      sync(false, 0, false);
+      sync(false, live ? null : 0, false);
     }
-  }, [model, scale, dataKey, minBytes, arrangement, sizeBy, labels, hasData, sync]);
+
+    setTooltip((current) => {
+      if (!current) return current;
+      if (current.node) return nodesRef.current.has(current.node.id) ? current : null;
+      const link = linksByIdRef.current.get(current.link.id);
+      return link ? {...current, link: link} : null;
+    });
+  }, [model, scale, dataKey, minBytes, arrangement, sizeBy, labels, live, hasData, sync]);
+
+  useEffect(() => {
+    if (!pulses || pulses.length === 0 || reducedMotion()) return;
+
+    const now = window.performance.now();
+    pulses.forEach((p) => {
+      pulsesRef.current.push({linkId: pairIdOf(p.source, p.target), forward: p.source < p.target, at: now + p.delay});
+    });
+    scheduleDraw();
+  }, [pulses, scheduleDraw]);
 
   useEffect(() => {
     selectedRef.current = selectedId;
@@ -1073,7 +1177,10 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         .call(zoomRef.current.transform, zoomIdentity.translate(width / 2 - node.x * k, h / 2 - node.y * k).scale(k));
   }, [focus]);
 
-  const onResetView = () => fitView(true);
+  const onResetView = () => {
+    fitView(true);
+    if (live) fitPendingRef.current = true;
+  }
 
   const onToggleFreeze = () => {
     const next = !frozenRef.current;

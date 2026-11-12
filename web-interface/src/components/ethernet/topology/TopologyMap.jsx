@@ -4,7 +4,7 @@ import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
 
 const ConnectionGlobe = React.lazy(() => import("../../shared/maps/ConnectionGlobe"));
 
-export default function TopologyMap({model, whole, selection, onSelect, focus, height}) {
+export default function TopologyMap({model, whole, selection, onSelect, focus, height, live = false}) {
 
   const info = (text) => (
       <div className="border rounded d-flex align-items-center justify-content-center text-muted text-center p-4"
@@ -13,11 +13,12 @@ export default function TopologyMap({model, whole, selection, onSelect, focus, h
       </div>
   );
 
-  if (whole.external === 0) {
+  // A live map stays up while it is empty: the next second can bring traffic, and the globe is slow to set up.
+  if (whole.external === 0 && !live) {
     return info("No external traffic matches the selected filters.");
   }
 
-  if (whole.points.length === 0) {
+  if (whole.points.length === 0 && !live) {
     return info("No GeoIP data. Placing external addresses on the map needs their country, which Nzyme Connect provides.");
   }
 

@@ -804,6 +804,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
           {strip()}
 
           <div className="d-flex flex-wrap align-items-center">
+            {filterSelect("asset-comm-view", "View", view, switchView, [["graph", "Graph"], ["map", "Map"]])}
             {filterSelect("asset-comm-peer-type", "Peers", peerType, setPeerType,
               [["ALL", "All"], ["INTERNAL", "Internal"], ["EXTERNAL", "External"]])}
             {filterSelect("asset-comm-direction", "Direction", direction, setDirection,
@@ -828,22 +829,8 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
               <div className="me-2">
                 <VizDisplayMenu options={displayOptions()} />
               </div>
-              <div className="me-2">
-                <VizExportMenu items={exportItems()}
-                               note={view === "map" ? "The map cannot be exported as an image." : null} />
-              </div>
-              <div className="btn-group btn-group-sm" role="group" aria-label="View">
-                <button type="button"
-                        className={"btn " + (view === "graph" ? "btn-secondary" : "btn-outline-secondary")}
-                        onClick={() => switchView("graph")}>
-                  Graph
-                </button>
-                <button type="button"
-                        className={"btn " + (view === "map" ? "btn-secondary" : "btn-outline-secondary")}
-                        onClick={() => switchView("map")}>
-                  Map
-                </button>
-              </div>
+              <VizExportMenu items={exportItems()}
+                             note={view === "map" ? "The map cannot be exported as an image." : null} />
             </div>
           </div>
 

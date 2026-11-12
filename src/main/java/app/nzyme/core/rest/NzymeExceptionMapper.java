@@ -27,10 +27,17 @@ import org.glassfish.jersey.server.ParamException;
 import jakarta.ws.rs.core.Response;
 import tools.jackson.databind.exc.ValueInstantiationException;
 
+import java.sql.SQLException;
+import java.util.Set;
+
 @Provider
 public class NzymeExceptionMapper implements ExceptionMapper<Throwable> {
 
     private static final Logger LOG = LogManager.getLogger(NzymeExceptionMapper.class);
+
+    // What PostgreSQL reports for a value it cannot read as a regular expression, or as the type it is cast to.
+    // Such values come from the request, like the regular expression or the address of a filter.
+    private static final Set<String> INVALID_VALUE_SQL_STATES = Set.of("2201B", "22P02");
 
     @Override
     public Response toResponse(Throwable t) {
@@ -43,6 +50,11 @@ public class NzymeExceptionMapper implements ExceptionMapper<Throwable> {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
+        if (causedByInvalidValue(t)) {
+            LOG.debug(t);
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         // AutoValue JSON creation error. Swallow but also log because this is likely a programming problem.
         if (t instanceof ValueInstantiationException) {
             LOG.error(t);
@@ -51,6 +63,19 @@ public class NzymeExceptionMapper implements ExceptionMapper<Throwable> {
 
         LOG.error("Error while handling REST call.", t);
         return Response.serverError().build();
+    }
+
+    private static boolean causedByInvalidValue(Throwable t) {
+        for (Throwable cause = t; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
+            if (cause instanceof SQLException) {
+                String state = ((SQLException) cause).getSQLState();
+                if (state != null && INVALID_VALUE_SQL_STATES.contains(state)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
 }

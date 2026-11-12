@@ -40,6 +40,18 @@ export default class TopologyService {
         (response) => setData(response.data), onError);
   }
 
+  getLive(selection, internalLevel, externalLevel, seconds, limit, setData, onError = undefined) {
+    RESTClient.get("/ethernet/topology/live", {
+          ...selectionParameters(selection),
+          time_range: null,
+          internal_level: internalLevel,
+          external_level: externalLevel,
+          seconds: seconds,
+          limit: limit
+        },
+        (response) => setData(response.data), onError);
+  }
+
   getRanking(selection, dimension, orderColumn, orderDirection, limit, offset, setData, onError = undefined) {
     RESTClient.get("/ethernet/topology/ranking", {
           ...selectionParameters(selection),

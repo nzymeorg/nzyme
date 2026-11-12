@@ -225,6 +225,14 @@ function TenantUserDetailsPage() {
                       features &amp; functionality description below, because not all features restrict tap data access.
                     </p>
 
+                    <p>
+                      Assets are not restricted by tap. A user sees all assets of the tenant, whichever tap recorded
+                      them. An asset holds its MAC address, IP addresses, hostnames, DHCP and TCP fingerprints, roles,
+                      inbound ports, protocols, activity over time, the internal and external peers it communicated
+                      with, its alerts and its identity findings. Asset names, their active state and links to assets
+                      also appear next to MAC and IP addresses on other pages.
+                    </p>
+
                     <TenantUserTaps taps={taps} user={user} onTapPermissionsUpdated={onTapPermissionsUpdated} />
 
                     <h4 className="mt-4">Features &amp; Functionality</h4>

@@ -25883,6 +25883,120 @@
         "tags" : [ "Topology" ]
       }
     },
+    "/api/ethernet/topology/live" : {
+      "get" : {
+        "description" : "Returns the sessions with activity in the last seconds, each with the nodes its endpoints belong to at the passed levels, for a client that follows the topology as it happens. Taps report sessions every few seconds, so the most recent seconds fill up over the following requests, and a session comes back with a later activity time and higher byte counts for as long as it is active. Takes no time range. Every selected tap's sessions are returned as the tap recorded them. The response says if taps can have recorded the same traffic and how to count it once.",
+        "operationId" : "findTopologyLiveSessions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Takes the fields of the TCP/UDP sessions list.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Which sessions to include by where their endpoints are: ALL (default), INTERNAL (both internal), EXTERNAL (at least one external), OUTBOUND (internal to external) or INBOUND (external to internal).",
+          "in" : "query",
+          "name" : "scope",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 4 node IDs to narrow the selection to. Only sessions that have every one of the nodes on either end are included, so two nodes select the sessions between them. Takes the IDs the topology endpoints return, and loc:<latitude>,<longitude> for the external addresses at the coordinates of a geo flow.",
+          "in" : "query",
+          "name" : "nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of up to 25 node IDs to exclude. Sessions that have one of the nodes on either end are left out. Takes the same IDs as the nodes parameter.",
+          "in" : "query",
+          "name" : "exclude_nodes",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How internal endpoints are grouped into nodes: HOST (default), SUBNET (/24 for IPv4, /64 for IPv6) or TAP.",
+          "in" : "query",
+          "name" : "internal_level",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How external endpoints are grouped into nodes: HOST, NETWORK (autonomous system, default) or COUNTRY.",
+          "in" : "query",
+          "name" : "external_level",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "How many seconds to look back. Defaults to 30, maximum is 120.",
+          "in" : "query",
+          "name" : "seconds",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Maximum number of sessions. Defaults to 2000, maximum is 10000.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Only taps of the passed tenant are used.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TopologyLiveResponse"
+                }
+              }
+            },
+            "description" : "Sessions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid scope, level or node IDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the sessions that are active right now",
+        "tags" : [ "Topology" ]
+      }
+    },
     "/api/ethernet/topology/ranking" : {
       "get" : {
         "description" : "Returns the nodes of one kind, or the services, of the selection with their sessions, bytes and first and last activity. A node ranks with the sessions it initiated and the ones it accepted, and carries the number of distinct addresses on the other end. A service carries its distinct client and server addresses. Ordering node rankings by PEERS ascending finds the external networks the fewest internal addresses talk to, ordering by FIRST_SEEN descending the ones that appeared last. Narrowed to one or two nodes, the service rankings break down the traffic of a node or of a link. Results are paginated.",
@@ -49441,6 +49555,130 @@
             "type" : "integer",
             "format" : "int64",
             "description" : "Sessions of all links of the selection, not only of the returned ones."
+          }
+        }
+      },
+      "TopologyLiveResponse" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "limited" : {
+            "type" : "boolean",
+            "description" : "True if more sessions were active than the limit allows. The returned ones are the most recently active."
+          },
+          "merge_taps" : {
+            "type" : "boolean",
+            "description" : "True if several of the selected taps can have recorded the same traffic and it should be counted once: per source address, destination address, transport and destination port, the most sessions and bytes that any one tap saw."
+          },
+          "nodes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyNodeResponse"
+            }
+          },
+          "now" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Time of the database when the node answered, which all nodes of a cluster share. Sessions with activity in the requested seconds before it are returned, and those a tap with a clock that runs up to a minute ahead reported for the time after it."
+          },
+          "seconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sessions" : {
+            "type" : "array",
+            "description" : "Sessions ordered by their most recent activity, descending.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyLiveSessionResponse"
+            }
+          },
+          "sites" : {
+            "type" : "array",
+            "description" : "Positions of the selected taps. Taps of one location form one site.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologySiteResponse"
+            }
+          },
+          "unplaced_taps" : {
+            "type" : "array",
+            "description" : "Selected taps without coordinates and without a location that has coordinates.",
+            "items" : {
+              "$ref" : "#/components/schemas/TopologyTapResponse"
+            }
+          }
+        }
+      },
+      "TopologyLiveSessionResponse" : {
+        "type" : "object",
+        "description" : "Sessions ordered by their most recent activity, descending.",
+        "properties" : {
+          "bytes_rx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the source received since the session started."
+          },
+          "bytes_tx" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Bytes the source sent since the session started."
+          },
+          "city" : {
+            "type" : "string",
+            "description" : "City of the external address. Only set for sessions with exactly one internal endpoint."
+          },
+          "country_code" : {
+            "type" : "string",
+            "description" : "Country of the external address. Only set for sessions with exactly one internal endpoint."
+          },
+          "destination_address" : {
+            "type" : "string"
+          },
+          "destination_port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "l4_type" : {
+            "type" : "string",
+            "description" : "TCP or UDP."
+          },
+          "latitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Coordinates of the external address, rounded to two decimals. Only set for sessions with exactly one internal endpoint, and if GeoIP knows coordinates."
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "most_recent_segment_time" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "session_key" : {
+            "type" : "string",
+            "description" : "Identifies the session across requests, together with the tap and the transport."
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "ID of the node that initiated the session."
+          },
+          "source_address" : {
+            "type" : "string"
+          },
+          "start_time" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "target" : {
+            "type" : "string",
+            "description" : "ID of the node that accepted the session."
           }
         }
       },

@@ -27,7 +27,7 @@ public class FilterSql {
                 for (Filter filter : filteredField.getValue()) {
                     String bindId = UUID.randomUUID().toString().replace("-", "_");
 
-                    GeneratedSql generatedSql = filterProvider.buildSql(bindId, fieldName, filter.operator());
+                    GeneratedSql generatedSql = buildSql(filterProvider, bindId, fieldName, filter.operator());
 
                     if (!generatedSql.where().isEmpty()) {
                         whereFilteredFields.put(fieldName, filteredField.getValue());
@@ -78,7 +78,7 @@ public class FilterSql {
                 String bindId = UUID.randomUUID().toString().replace("-", "_");
                 bindings.put(bindId, filter.value());
 
-                GeneratedSql generatedSql = filterProvider.buildSql(bindId, fieldName, filter.operator());
+                GeneratedSql generatedSql = buildSql(filterProvider, bindId, fieldName, filter.operator());
                 String sqlPart;
                 if (!generatedSql.where().isEmpty()) {
                     sqlPart = generatedSql.where();
@@ -109,6 +109,16 @@ public class FilterSql {
         fqb.append(") ");
 
         return GeneratedFilterTypeSql.create(bindings, fqb.toString());
+    }
+
+    // Providers reject fields they do not know and operators a field does not take. Both come from the request.
+    private static GeneratedSql buildSql(SqlFilterProvider filterProvider, String bindId, String fieldName,
+                                         FilterOperator operator) {
+        try {
+            return filterProvider.buildSql(bindId, fieldName, operator);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException("Invalid filter on field [" + fieldName + "].", e);
+        }
     }
 
     public static String stringMatch(String bindId, String fieldName, FilterOperator operator) {

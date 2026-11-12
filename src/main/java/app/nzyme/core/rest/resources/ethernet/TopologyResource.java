@@ -34,6 +34,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.joda.time.DateTime;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -70,6 +71,14 @@ public class TopologyResource extends TapDataHandlingResource {
     private static final int MAX_RANKING_ROWS = 500;
     private static final int MAX_NODES = 4;
     private static final int MAX_EXCLUDED_NODES = 25;
+    private static final int DEFAULT_LIVE_SECONDS = 30;
+    private static final int MAX_LIVE_SECONDS = 120;
+    private static final int DEFAULT_LIVE_SESSIONS = 2000;
+    private static final int MAX_LIVE_SESSIONS = 10000;
+    // Assets are not marked as seen with every session, so the last seconds alone would miss most of them.
+    private static final int LIVE_ASSET_MINUTES = 15;
+    // Sessions carry the time of the tap that recorded them.
+    private static final int LIVE_TAP_CLOCK_TOLERANCE_MINUTES = 1;
 
     private static final String TIME_RANGE = "Time range selector. Accepts the same format as the web interface "
             + "time range picker.";
@@ -101,6 +110,9 @@ public class TopologyResource extends TapDataHandlingResource {
     }
 
     private record Request(Topology.Selection selection, List<Tap> taps) {}
+
+    private record Sites(List<TopologySiteResponse> sites, List<TopologyTapResponse> unplaced,
+                         Map<UUID, String> siteOfTap) {}
 
     @GET
     @Path("/summary")
@@ -301,63 +313,90 @@ public class TopologyResource extends TapDataHandlingResource {
 
         int limit = limitParam == null ? DEFAULT_FLOWS : Math.max(1, Math.min(limitParam, MAX_FLOWS));
 
-        Map<String, TopologySiteResponse.Builder> sites = new LinkedHashMap<>();
-        Map<String, List<TopologyTapResponse>> siteTaps = new HashMap<>();
-        Map<UUID, String> siteOfTap = new HashMap<>();
-        List<TopologyTapResponse> unplaced = new ArrayList<>();
-        Map<UUID, Optional<TenantLocationEntry>> locations = new HashMap<>();
-
-        for (Tap tap : request.taps()) {
-            TopologyTapResponse tapResponse = TopologyTapResponse.create(tap.uuid(), tap.name());
-
-            Optional<TenantLocationEntry> location = tap.locationId() == null
-                    ? Optional.empty()
-                    : locations.computeIfAbsent(tap.locationId(), id -> nzyme.getAuthenticationService()
-                            .findTenantLocation(id, organizationId, tenantId));
-
-            String siteId;
-            if (location.isPresent() && location.get().latitude() != null && location.get().longitude() != null) {
-                siteId = "location:" + location.get().uuid();
-                sites.computeIfAbsent(siteId, id -> TopologySiteResponse.builder()
-                        .id(id)
-                        .name(location.get().name())
-                        .latitude(location.get().latitude())
-                        .longitude(location.get().longitude())
-                        .locationUuid(location.get().uuid()));
-            } else if (tap.latitude() != null && tap.longitude() != null) {
-                siteId = "tap:" + tap.uuid();
-                sites.put(siteId, TopologySiteResponse.builder()
-                        .id(siteId)
-                        .name(tap.name())
-                        .latitude(tap.latitude())
-                        .longitude(tap.longitude())
-                        .locationUuid(location.map(TenantLocationEntry::uuid).orElse(null)));
-            } else {
-                unplaced.add(tapResponse);
-                continue;
-            }
-
-            siteOfTap.put(tap.uuid(), siteId);
-            siteTaps.computeIfAbsent(siteId, id -> new ArrayList<>()).add(tapResponse);
-        }
-
-        List<TopologySiteResponse> siteResponses = new ArrayList<>();
-        for (Map.Entry<String, TopologySiteResponse.Builder> site : sites.entrySet()) {
-            siteResponses.add(site.getValue().taps(siteTaps.get(site.getKey())).build());
-        }
+        Sites sites = sites(request.taps(), organizationId, tenantId);
 
         Topology.GeoFlows result = nzyme.getEthernet().topology().geo(request.selection(), limit);
 
         List<TopologyGeoFlowResponse> flows = new ArrayList<>();
         for (Topology.GeoFlow flow : result.flows()) {
-            flows.add(TopologyGeoFlowResponse.create(siteOfTap.get(flow.tapUuid()), flow.tapUuid(),
+            flows.add(TopologyGeoFlowResponse.create(sites.siteOfTap().get(flow.tapUuid()), flow.tapUuid(),
                     flow.outbound() ? "OUTBOUND" : "INBOUND", flow.latitude(), flow.longitude(), flow.city(),
                     flow.countryCode(), flow.sessions(), flow.bytesTx(), flow.bytesRx(), flow.firstSeen(),
                     flow.lastSeen(), series(flow.series())));
         }
 
-        return Response.ok(TopologyGeoResponse.create(siteResponses, unplaced, flows, result.totalFlows(),
+        return Response.ok(TopologyGeoResponse.create(sites.sites(), sites.unplaced(), flows, result.totalFlows(),
                 result.totalSessions(), result.totalBytes(), limit, seriesConfiguration(result.buckets()))).build();
+    }
+
+    @GET
+    @Path("/live")
+    @Operation(operationId = "findTopologyLiveSessions", summary = "List the sessions that are active right now",
+            description = "Returns the sessions with activity in the last seconds, each with the nodes its "
+                    + "endpoints belong to at the passed levels, for a client that follows the topology as it "
+                    + "happens. Taps report sessions every few seconds, so the most recent seconds fill up "
+                    + "over the following requests, and a session comes back with a later activity time and higher "
+                    + "byte counts for as long as it is active. Takes no time range. Every selected tap's sessions "
+                    + "are returned as the tap recorded them. The response says if taps can have recorded the same "
+                    + "traffic and how to count it once.")
+    @ApiResponse(responseCode = "200", description = "Sessions found.",
+            content = @Content(schema = @Schema(implementation = TopologyLiveResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid scope, level or node IDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response live(@Parameter(hidden = true) @Context SecurityContext sc,
+                         @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                         @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                         @Parameter(description = FILTERS) @QueryParam("filters") String filtersParameter,
+                         @Parameter(description = SCOPE) @QueryParam("scope") @Nullable String scope,
+                         @Parameter(description = NODES) @QueryParam("nodes") @Nullable String nodes,
+                         @Parameter(description = EXCLUDED_NODES) @QueryParam("exclude_nodes") @Nullable String excludedNodes,
+                         @Parameter(description = "How internal endpoints are grouped into nodes: HOST (default), SUBNET (/24 for IPv4, /64 for IPv6) or TAP.") @QueryParam("internal_level") @Nullable String internalLevelParam,
+                         @Parameter(description = "How external endpoints are grouped into nodes: HOST, NETWORK (autonomous system, default) or COUNTRY.") @QueryParam("external_level") @Nullable String externalLevelParam,
+                         @Parameter(description = "How many seconds to look back. Defaults to " + DEFAULT_LIVE_SECONDS + ", maximum is " + MAX_LIVE_SECONDS + ".") @QueryParam("seconds") @Nullable Integer secondsParam,
+                         @Parameter(description = "Maximum number of sessions. Defaults to " + DEFAULT_LIVE_SESSIONS + ", maximum is " + MAX_LIVE_SESSIONS + ".") @QueryParam("limit") @Nullable Integer limitParam,
+                         @Parameter(description = TAPS) @QueryParam("taps") String tapIds) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        int seconds = secondsParam == null ? DEFAULT_LIVE_SECONDS : Math.max(1, Math.min(secondsParam, MAX_LIVE_SECONDS));
+        int limit = limitParam == null ? DEFAULT_LIVE_SESSIONS : Math.max(1, Math.min(limitParam, MAX_LIVE_SESSIONS));
+        // The one clock that all nodes of a cluster share.
+        DateTime now = nzyme.getDatabase().getDatabaseClock();
+
+        Request request;
+        Topology.InternalLevel internalLevel;
+        Topology.ExternalLevel externalLevel;
+        try {
+            request = request(sc, organizationId, tenantId, TimeRange.create(now.minusSeconds(seconds),
+                            now.plusMinutes(LIVE_TAP_CLOCK_TOLERANCE_MINUTES), false),
+                    filtersParameter, scope, nodes, excludedNodes, tapIds);
+            internalLevel = enumParameter(Topology.InternalLevel.class, internalLevelParam, Topology.InternalLevel.HOST);
+            externalLevel = enumParameter(Topology.ExternalLevel.class, externalLevelParam, Topology.ExternalLevel.NETWORK);
+        } catch (InvalidParameterException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        Topology.Live result = nzyme.getEthernet().topology()
+                .live(request.selection(), internalLevel, externalLevel, limit);
+
+        List<TopologyLiveSessionResponse> sessions = new ArrayList<>(result.sessions().size());
+        for (Topology.LiveSession s : result.sessions()) {
+            sessions.add(TopologyLiveSessionResponse.create(s.sessionKey(), s.tapUuid(), s.l4Type(), s.source(), s.target(),
+                    s.sourceAddress(), s.destinationAddress(), s.destinationPort(), s.startTime(),
+                    s.mostRecentSegmentTime(), s.bytesTx(), s.bytesRx(), s.latitude(), s.longitude(), s.city(),
+                    s.countryCode()));
+        }
+
+        Sites sites = sites(request.taps(), organizationId, tenantId);
+
+        return Response.ok(TopologyLiveResponse.create(
+                now,
+                seconds,
+                nodeResponses(result.nodes(), request.taps(),
+                        TimeRange.create(now.minusMinutes(LIVE_ASSET_MINUTES), now, false), organizationId, tenantId),
+                sites.sites(), sites.unplaced(), sessions, limit, result.limited(), result.merged()
+        )).build();
     }
 
     @GET
@@ -439,8 +478,15 @@ public class TopologyResource extends TapDataHandlingResource {
         return Response.ok(TopologyRankingResponse.create(rows, ranking.total())).build();
     }
 
-    // Taps are cut down to the passed tenant: address spaces of tenants overlap.
     private Request request(SecurityContext sc, UUID organizationId, UUID tenantId, String timeRangeParameter,
+                            String filtersParameter, @Nullable String scopeParam, @Nullable String nodesParam,
+                            @Nullable String excludedNodesParam, String tapIds) throws InvalidParameterException {
+        return request(sc, organizationId, tenantId, parseTimeRangeQueryParameter(timeRangeParameter),
+                filtersParameter, scopeParam, nodesParam, excludedNodesParam, tapIds);
+    }
+
+    // Taps are cut down to the passed tenant: address spaces of tenants overlap.
+    private Request request(SecurityContext sc, UUID organizationId, UUID tenantId, TimeRange timeRange,
                             String filtersParameter, @Nullable String scopeParam, @Nullable String nodesParam,
                             @Nullable String excludedNodesParam, String tapIds) throws InvalidParameterException {
         List<Tap> taps = nzyme.getTapManager()
@@ -452,11 +498,60 @@ public class TopologyResource extends TapDataHandlingResource {
         Topology.Scope scope = enumParameter(Topology.Scope.class, scopeParam, Topology.Scope.ALL);
 
         return new Request(new Topology.Selection(
-                parseTimeRangeQueryParameter(timeRangeParameter),
+                timeRange,
                 parseFiltersQueryParameter(filtersParameter),
                 taps.stream().map(Tap::uuid).collect(Collectors.toList()),
                 scope, nodeSelectors(nodesParam, MAX_NODES), nodeSelectors(excludedNodesParam, MAX_EXCLUDED_NODES)
         ), taps);
+    }
+
+    private Sites sites(List<Tap> taps, UUID organizationId, UUID tenantId) {
+        Map<String, TopologySiteResponse.Builder> sites = new LinkedHashMap<>();
+        Map<String, List<TopologyTapResponse>> siteTaps = new HashMap<>();
+        Map<UUID, String> siteOfTap = new HashMap<>();
+        List<TopologyTapResponse> unplaced = new ArrayList<>();
+        Map<UUID, Optional<TenantLocationEntry>> locations = new HashMap<>();
+
+        for (Tap tap : taps) {
+            TopologyTapResponse tapResponse = TopologyTapResponse.create(tap.uuid(), tap.name());
+
+            Optional<TenantLocationEntry> location = tap.locationId() == null
+                    ? Optional.empty()
+                    : locations.computeIfAbsent(tap.locationId(), id -> nzyme.getAuthenticationService()
+                            .findTenantLocation(id, organizationId, tenantId));
+
+            String siteId;
+            if (location.isPresent() && location.get().latitude() != null && location.get().longitude() != null) {
+                siteId = "location:" + location.get().uuid();
+                sites.computeIfAbsent(siteId, id -> TopologySiteResponse.builder()
+                        .id(id)
+                        .name(location.get().name())
+                        .latitude(location.get().latitude())
+                        .longitude(location.get().longitude())
+                        .locationUuid(location.get().uuid()));
+            } else if (tap.latitude() != null && tap.longitude() != null) {
+                siteId = "tap:" + tap.uuid();
+                sites.put(siteId, TopologySiteResponse.builder()
+                        .id(siteId)
+                        .name(tap.name())
+                        .latitude(tap.latitude())
+                        .longitude(tap.longitude())
+                        .locationUuid(location.map(TenantLocationEntry::uuid).orElse(null)));
+            } else {
+                unplaced.add(tapResponse);
+                continue;
+            }
+
+            siteOfTap.put(tap.uuid(), siteId);
+            siteTaps.computeIfAbsent(siteId, id -> new ArrayList<>()).add(tapResponse);
+        }
+
+        List<TopologySiteResponse> siteResponses = new ArrayList<>();
+        for (Map.Entry<String, TopologySiteResponse.Builder> site : sites.entrySet()) {
+            siteResponses.add(site.getValue().taps(siteTaps.get(site.getKey())).build());
+        }
+
+        return new Sites(siteResponses, unplaced, siteOfTap);
     }
 
     private static List<TopologyNodeSelector> nodeSelectors(@Nullable String parameter, int maximum)

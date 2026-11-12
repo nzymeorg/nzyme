@@ -85,7 +85,7 @@ export default function TopologyRankingCard({title, help = null, levels, presets
         <div className="d-flex align-items-baseline">
           <button type="button" className="btn btn-link btn-sm p-0 me-2 align-baseline"
                   title="Show in visualization"
-                  onClick={(e) => { e.preventDefault(); onLocate(node.id); }}>
+                  onClick={(e) => { e.preventDefault(); onLocate(node); }}>
             <i className="fa-solid fa-crosshairs" />
           </button>
           {node.type === "EXTERNAL" ? <span className="me-1"><Flag code={node.country_code ? node.country_code : "NONE"} /></span> : null}
