@@ -30,6 +30,7 @@ import app.nzyme.core.rest.responses.events.EventActionDetailsResponse;
 import app.nzyme.core.rest.responses.events.EventActionsListResponse;
 import app.nzyme.core.rest.responses.floorplans.*;
 import app.nzyme.core.rest.responses.misc.ErrorResponse;
+import app.nzyme.core.rest.responses.dashboards.DashboardsConfigurationResponse;
 import app.nzyme.core.rest.responses.subsystems.SubsystemsConfigurationResponse;
 import app.nzyme.core.security.authentication.AuthenticationRegistryKeys;
 import app.nzyme.core.security.authentication.PasswordHasher;
@@ -38,6 +39,7 @@ import app.nzyme.core.security.authentication.roles.Permission;
 import app.nzyme.core.security.authentication.roles.Permissions;
 import app.nzyme.core.security.sessions.db.SessionEntry;
 import app.nzyme.core.security.sessions.db.SessionEntryWithUserDetails;
+import app.nzyme.core.dashboards.DashboardsRegistryKeys;
 import app.nzyme.core.subsystems.SubsystemRegistryKeys;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Tools;
@@ -1235,6 +1237,78 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                 return Response.status(Response.Status.FORBIDDEN).build();
             }
 
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
+        }
+
+        return Response.ok().build();
+    }
+
+    @GET
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/show/{organizationId}/tenants/show/{tenantId}/dashboards/configuration")
+    @Operation(operationId = "findTenantDashboardsConfiguration", summary = "Get dashboards configuration of a tenant",
+            description = "Returns whether dashboards are enabled for this tenant, which defaults to true. "
+                    + "Requires organization administrator permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = DashboardsConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getTenantDashboardsConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                     @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        return Response.ok(DashboardsConfigurationResponse.create(
+                ConfigurationEntryResponse.create(
+                        DashboardsRegistryKeys.DASHBOARDS_ENABLED.key(),
+                        "Dashboards are enabled",
+                        nzyme.getDashboards().isEnabled(organizationId, tenantId),
+                        ConfigurationEntryValueType.BOOLEAN,
+                        DashboardsRegistryKeys.DASHBOARDS_ENABLED.defaultValue().orElse(null),
+                        DashboardsRegistryKeys.DASHBOARDS_ENABLED.requiresRestart(),
+                        DashboardsRegistryKeys.DASHBOARDS_ENABLED.constraints().orElse(Collections.emptyList()),
+                        null
+                )
+        )).build();
+    }
+
+    @PUT
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/show/{organizationId}/tenants/show/{tenantId}/dashboards/configuration")
+    @Operation(operationId = "updateTenantDashboardsConfiguration",
+            summary = "Update dashboards configuration of a tenant",
+            description = "Enables or disables dashboards for this tenant. The accepted key is dashboards_enabled. "
+                    + "Disabling dashboards hides their pages in the web interface, turns off the dashboards API "
+                    + "resources for this tenant and rejects all of its displays. Dashboards and displays are kept "
+                    + "and work again once dashboards are enabled. Requires organization administrator "
+                    + "permissions.", tags = {"Tenants"})
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "No configuration values were passed or a value failed validation.", content = @Content)
+    public Response updateTenantDashboardsConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                        @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
+                                                        @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
+                                                        @RequestBody(description = "Map of dashboards configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req.change().isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(DashboardsRegistryKeys.DASHBOARDS_ENABLED)
+                .validate(req.change());
+
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
             nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
         }
 

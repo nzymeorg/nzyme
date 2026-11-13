@@ -23,7 +23,7 @@ public class TapDropIndicator extends Indicator {
 
         for (Tap tap : taps) {
             for (Capture capture : tapManager.findActiveCapturesOfTap(tap.uuid())) {
-                if (capture.droppedBuffer() > 100 || capture.droppedInterface() > 100) {
+                if (capture.isDropping()) {
                     return IndicatorStatus.red(this);
                 }
             }

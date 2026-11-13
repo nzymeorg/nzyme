@@ -49,11 +49,10 @@ public class TapsCollector {
                 long received = capture.received() == null ? 0 : capture.received();
                 long dropped = (capture.droppedBuffer() == null ? 0 : capture.droppedBuffer())
                         + (capture.droppedInterface() == null ? 0 : capture.droppedInterface());
-                double ratio = received + dropped == 0 ? 0 : (double) dropped / (double) (received + dropped);
 
                 captures.add(BriefingTapCaptureResponse.create(
                         capture.interfaceName(), capture.captureType(),
-                        capture.isRunning() != null && capture.isRunning(), received, dropped, ratio
+                        capture.isRunning() != null && capture.isRunning(), received, dropped, capture.isDropping()
                 ));
             }
 

@@ -36,6 +36,8 @@ public class TapManager {
 
     private static final Logger LOG = LogManager.getLogger(TapManager.class);
 
+    public static final int METRICS_RETENTION_HOURS = 24;
+
     private final NzymeNode nzyme;
     private final ObjectMapper om;
 
@@ -598,13 +600,13 @@ public class TapManager {
     private void retentionCleanMetrics() {
         nzyme.getDatabase().useHandle(handle -> {
             handle.createUpdate("DELETE FROM tap_metrics_gauges WHERE created_at < :created_at")
-                    .bind("created_at", DateTime.now().minusHours(24))
+                    .bind("created_at", DateTime.now().minusHours(METRICS_RETENTION_HOURS))
                     .execute();
         });
 
         nzyme.getDatabase().useHandle(handle -> {
             handle.createUpdate("DELETE FROM tap_metrics_timers WHERE created_at < :created_at")
-                    .bind("created_at", DateTime.now().minusHours(24))
+                    .bind("created_at", DateTime.now().minusHours(METRICS_RETENTION_HOURS))
                     .execute();
         });
 
@@ -980,6 +982,34 @@ public class TapManager {
 
     public List<Capture> findActiveCapturesOfTap(UUID tapUUID) {
         return findCapturesOfTap(tapUUID, DateTime.now().minusMinutes(1));
+    }
+
+    public Map<UUID, CaptureSummary> summarizeActiveCapturesOfTaps(List<UUID> taps) {
+        Map<UUID, CaptureSummary> summaries = Maps.newHashMap();
+        if (taps.isEmpty()) {
+            return summaries;
+        }
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createQuery("SELECT tap_uuid, COUNT(*) AS total, " +
+                                "COUNT(*) FILTER (WHERE is_running) AS running, " +
+                                "COUNT(*) FILTER (WHERE dropped_buffer > :dropping_threshold " +
+                                "OR dropped_interface > :dropping_threshold) AS dropping, " +
+                                "COALESCE(SUM(COALESCE(dropped_buffer, 0) + COALESCE(dropped_interface, 0)), 0) AS dropped " +
+                                "FROM tap_captures WHERE tap_uuid IN (<taps>) AND updated_at > :last_seen " +
+                                "GROUP BY tap_uuid")
+                        .bindList("taps", taps)
+                        .bind("last_seen", DateTime.now().minusMinutes(1))
+                        .bind("dropping_threshold", Capture.DROPPING_THRESHOLD)
+                        .map((rs, ctx) -> Map.entry(
+                                UUID.fromString(rs.getString("tap_uuid")),
+                                new CaptureSummary(rs.getInt("total"), rs.getInt("running"),
+                                        rs.getInt("dropping"), rs.getLong("dropped"))
+                        ))
+                        .forEach(row -> summaries.put(row.getKey(), row.getValue()))
+        );
+
+        return summaries;
     }
 
     public List<Capture> findCapturesOfTap(UUID tapUUID, DateTime since) {

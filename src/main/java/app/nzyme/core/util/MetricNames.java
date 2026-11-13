@@ -17,6 +17,8 @@
 
 package app.nzyme.core.util;
 
+import app.nzyme.core.dashboards.DashboardContent;
+import app.nzyme.core.dashboards.DashboardTopology;
 import app.nzyme.core.database.maintenance.DatabaseMaintenance;
 import app.nzyme.core.ethernet.beacons.BeaconDetector;
 import app.nzyme.core.ethernet.recon.ReconDetector;
@@ -122,6 +124,9 @@ public class MetricNames {
     public static final String PORTAL_INTEGRITY_URL_REPORT_PROCESSING_TIMER = name(PortalIntegrityTable.class, "url-report-processing-timing");
 
     public static final String UAV_TOTAL_REPORT_PROCESSING_TIMER = name(UAVTable.class, "total-report-processing-timing");
+
+    public static final String DASHBOARD_CONTENT_BUILD_TIMER = name(DashboardContent.class, "build-timing");
+    public static final String DASHBOARD_TOPOLOGY_BUILD_TIMER = name(DashboardTopology.class, "build-timing");
 
     public static final String DATABASE_STATISTICS_COLLECTION_TIMER = name(DatabaseMaintenance.class, "statistics-collection-timing");
     public static final String DATABASE_USAGE_CALCULATION_TIMER = name(DatabaseMaintenance.class, "usage-calculation-timing");

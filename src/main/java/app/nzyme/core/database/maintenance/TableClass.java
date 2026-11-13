@@ -45,7 +45,7 @@ public enum TableClass {
                     "context_mac_addresses_transparent", "auth_users", "dot11_known_networks", "monitors",
                     "beacons", "beacon_sources", "beacon_exclusions", "recon_scan_targets", "recon_scans",
                     "detection_alerts", "detection_alert_attributes", "detection_alert_timeline", "certificates",
-                    "spoofing_dhcp_detection_state")
+                    "spoofing_dhcp_detection_state", "dashboard_displays")
     );
 
     private final String key;

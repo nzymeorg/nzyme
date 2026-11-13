@@ -34,6 +34,23 @@ public record CIDR(InetAddress address, int prefix) {
         return new CIDR(addr, prefix);
     }
 
+    public boolean contains(InetAddress candidate) {
+        byte[] a = candidate.getAddress();
+        byte[] n = address.getAddress();
+        if (a.length != n.length) {
+            return false;
+        }
+
+        for (int i = 0; i < prefix; i++) {
+            int mask = 1 << (7 - i % 8);
+            if ((a[i / 8] & mask) != (n[i / 8] & mask)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public boolean isSingleHost() {
         return prefix == address.getAddress().length * 8;
     }

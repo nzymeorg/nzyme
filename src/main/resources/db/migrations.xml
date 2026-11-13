@@ -12511,4 +12511,202 @@
         </sql>
     </changeSet>
 
+    <changeSet id="create_dashboards" author="lennartkoopmann">
+        <createTable tableName="dashboards">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="dashboards" indexName="dashboards_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="dashboards" indexName="dashboards_organization_id_tenant_id_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_dashboards2tenants"
+                                 baseTableName="dashboards"
+                                 baseColumnNames="tenant_id"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="dashboard_displays">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="location" type="text" />
+            <column name="token_hash" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="theme" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="light_from" type="text" />
+            <column name="light_until" type="text" />
+            <column name="time_zone" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="clock_format" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="scale_percent" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="rotation_seconds" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="refresh_seconds" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="allowed_networks" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="expires_at" type="timestamp with time zone" />
+            <column name="last_seen_at" type="timestamp with time zone" />
+            <column name="last_remote_address" type="text" />
+            <column name="last_reported_version" type="text" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="dashboard_displays" indexName="dashboard_displays_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="dashboard_displays" indexName="dashboard_displays_token_hash_key" unique="true">
+            <column name="token_hash" />
+        </createIndex>
+        <createIndex tableName="dashboard_displays" indexName="dashboard_displays_organization_id_tenant_id_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_dashboard_displays2tenants"
+                                 baseTableName="dashboard_displays"
+                                 baseColumnNames="tenant_id"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="dashboard_display_assignments">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="display_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="dashboard_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="position" type="integer">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="dashboard_display_assignments"
+                     indexName="dashboard_display_assignments_display_id_dashboard_id_key" unique="true">
+            <column name="display_id" />
+            <column name="dashboard_id" />
+        </createIndex>
+        <createIndex tableName="dashboard_display_assignments"
+                     indexName="dashboard_display_assignments_dashboard_id_idx">
+            <column name="dashboard_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_dashboard_display_assignments2displays"
+                                 baseTableName="dashboard_display_assignments"
+                                 baseColumnNames="display_id"
+                                 referencedTableName="dashboard_displays"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <addForeignKeyConstraint constraintName="link_dashboard_display_assignments2dashboards"
+                                 baseTableName="dashboard_display_assignments"
+                                 baseColumnNames="dashboard_id"
+                                 referencedTableName="dashboards"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+    </changeSet>
+
+    <changeSet id="link_dashboard_displays_to_locations" author="lennartkoopmann">
+        <dropColumn tableName="dashboard_displays" columnName="location" />
+        <addColumn tableName="dashboard_displays">
+            <column name="location_id" type="uuid" />
+        </addColumn>
+        <createIndex tableName="dashboard_displays" indexName="dashboard_displays_location_id_idx">
+            <column name="location_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_dashboard_displays2locations"
+                                 baseTableName="dashboard_displays"
+                                 baseColumnNames="location_id"
+                                 referencedTableName="auth_tenants_locations"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="SET NULL" />
+    </changeSet>
+
+    <changeSet id="add_dashboard_content_and_display_redaction" author="lennartkoopmann">
+        <addColumn tableName="dashboards">
+            <column name="scope_type" type="text" defaultValue="ALL">
+                <constraints nullable="false" />
+            </column>
+            <column name="scope_ids" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="window_minutes" type="integer" defaultValueNumeric="1440">
+                <constraints nullable="false" />
+            </column>
+            <column name="widgets" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+        <addColumn tableName="dashboard_displays">
+            <column name="redacted" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_dashboard_display_hide_cursor" author="lennartkoopmann">
+        <addColumn tableName="dashboard_displays">
+            <column name="hide_cursor" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

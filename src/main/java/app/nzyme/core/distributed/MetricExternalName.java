@@ -53,6 +53,9 @@ public enum MetricExternalName {
     LOG_COUNTS_ERROR("log_counts_error"),
     LOG_COUNTS_FATAL("log_counts_fatal"),
 
+    DASHBOARD_CONTENT_BUILD_TIMER("dashboard_content_build_timer"),
+    DASHBOARD_TOPOLOGY_BUILD_TIMER("dashboard_topology_build_timer"),
+
     DATABASE_STATISTICS_COLLECTION_TIMER("database_statistics_collection_timer"),
     DATABASE_USAGE_CALCULATION_TIMER("database_usage_calculation_timer"),
     DATABASE_SIZE_BYTES("database_size_bytes"),

@@ -54,6 +54,7 @@ import app.nzyme.core.ethernet.recon.ReconThread;
 import app.nzyme.core.ethernet.spoofing.SpoofingThread;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelThread;
 import app.nzyme.core.ethernet.icmp.IcmpThread;
+import app.nzyme.core.dashboards.Dashboards;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.monitors.MonitorsThread;
 import app.nzyme.core.ouis.OuiService;
@@ -159,6 +160,7 @@ public class NzymeNodeImpl implements NzymeNode {
     private final DetectionAlertService detectionAlertService;
     private final EventEngine eventEngine;
     private final Monitors monitors;
+    private final Dashboards dashboards;
 
     private final ConnectService connect;
     private final HealthMonitor healthMonitor;
@@ -242,6 +244,7 @@ public class NzymeNodeImpl implements NzymeNode {
         this.detectionAlertService = new DetectionAlertService(this);
         this.eventEngine = new EventEngineImpl(this);
         this.monitors = new Monitors(this);
+        this.dashboards = new Dashboards(this);
 
         this.tablesService = new TablesService(this);
 
@@ -512,6 +515,11 @@ public class NzymeNodeImpl implements NzymeNode {
     @Override
     public Monitors getMonitors() {
         return monitors;
+    }
+
+    @Override
+    public Dashboards getDashboards() {
+        return dashboards;
     }
 
     @Override

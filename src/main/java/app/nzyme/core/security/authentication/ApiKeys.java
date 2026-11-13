@@ -16,24 +16,16 @@
  */
 package app.nzyme.core.security.authentication;
 
-import com.google.common.hash.Hashing;
-import com.google.common.io.BaseEncoding;
-
-import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-
 public class ApiKeys {
 
     public static final String PREFIX = "nzk_";
 
     public static String generate() {
-        byte[] raw = new byte[32];
-        new SecureRandom().nextBytes(raw);
-        return PREFIX + BaseEncoding.base64Url().omitPadding().encode(raw);
+        return BearerTokens.generate(PREFIX);
     }
 
     public static String hash(String plaintextKey) {
-        return Hashing.sha256().hashString(plaintextKey, StandardCharsets.UTF_8).toString();
+        return BearerTokens.hash(plaintextKey);
     }
 
     public static boolean isApiKey(String bearerToken) {

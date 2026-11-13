@@ -9,5 +9,6 @@ export const TENANT_MENU_ITEMS = (organizationId, tenantId) => [
   {name: "Database", href: ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DATABASE_PAGE(organizationId, tenantId) },
   {name: "Quotas", href: ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.QUOTAS_PAGE(organizationId, tenantId) },
   {name: "Subsystems", href: ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.SUBSYSTEMS_PAGE(organizationId, tenantId) },
+  {name: "Dashboards", href: ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DASHBOARDS_PAGE(organizationId, tenantId) },
   {name: "Monitor Performance", href: ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.MONITOR_PERFORMANCE_PAGE(organizationId, tenantId) }
 ]

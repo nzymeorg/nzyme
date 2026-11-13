@@ -140,21 +140,7 @@ public class SpoofingExclusionMatcher {
             return false;
         }
 
-        byte[] a = addr.getAddress();
-        byte[] n = cidr.address().getAddress();
-        if (a.length != n.length) {
-            return false;
-        }
-
-        int prefix = cidr.prefix();
-        for (int i = 0; i < prefix; i++) {
-            int mask = 1 << (7 - i % 8);
-            if ((a[i / 8] & mask) != (n[i / 8] & mask)) {
-                return false;
-            }
-        }
-
-        return true;
+        return cidr.contains(addr);
     }
 
 }

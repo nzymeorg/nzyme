@@ -45,6 +45,7 @@ const ApiRoutes = {
           DATABASE_PAGE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/database`,
           QUOTAS_PAGE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/quotas`,
           SUBSYSTEMS_PAGE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/subsystems`,
+          DASHBOARDS_PAGE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/dashboards`,
           MONITOR_PERFORMANCE_PAGE: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/monitors/performance`,
           CREATE: (organizationId) => `/system/authentication/organizations/show/${organizationId}/tenants/create`,
           EDIT: (organizationId, tenantId) => `/system/authentication/organizations/show/${organizationId}/tenants/show/${tenantId}/edit`,
@@ -144,6 +145,20 @@ const ApiRoutes = {
     INDEX: '/locations',
     DETAILS: uuid => `/locations/show/${uuid}`,
   },
+  DASHBOARDS: {
+    INDEX: '/dashboards',
+    CREATE: '/dashboards/create',
+    DETAILS: uuid => `/dashboards/show/${uuid}`,
+    EDIT: uuid => `/dashboards/show/${uuid}/edit`,
+    VIEW: uuid => `/dashboards/show/${uuid}/view`,
+    DISPLAYS: {
+      INDEX: '/dashboards/displays',
+      CREATE: '/dashboards/displays/create',
+      DETAILS: uuid => `/dashboards/displays/show/${uuid}`,
+      EDIT: uuid => `/dashboards/displays/show/${uuid}/edit`
+    }
+  },
+  DISPLAY: '/display',
   ETHERNET: {
     OVERVIEW: '/ethernet/overview',
     IP: {

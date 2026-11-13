@@ -4,7 +4,9 @@ public enum QuotaType {
 
     TAPS("Taps"),
     TENANTS("Tenants"),
-    TENANT_USERS("Users");
+    TENANT_USERS("Users"),
+    DASHBOARDS("Dashboards"),
+    DASHBOARD_DISPLAYS("Dashboard Displays");
 
     private final String humanReadable;
 

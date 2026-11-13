@@ -62,6 +62,9 @@
     },
     "name" : "Context"
   }, {
+    "description" : "Dashboards are pages made to run permanently on a screen. A display is such a screen: it authenticates with its own token that can only read the dashboards assigned to it, holds the presentation settings of the screen and can rotate through several dashboards.",
+    "name" : "Dashboards"
+  }, {
     "description" : "A bandit is a malicious WiFi device that Nzyme alerts on when it shows up in range. Bandits are identified by the fingerprints of the frames they send. Nzyme ships built in bandits for common attack platforms like the WiFi Pineapple or the Flipper Zero, and you can define your own custom bandits per tenant.",
     "externalDocs" : {
       "description" : "WiFi bandits in the Nzyme documentation",
@@ -2891,6 +2894,943 @@
         },
         "summary" : "Get network context of an IP address",
         "tags" : [ "Context" ]
+      }
+    },
+    "/api/dashboards" : {
+      "get" : {
+        "description" : "Returns the dashboards of the tenant, sorted by name. The page size is limited to 250. Requires the dashboards_view or the dashboards_manage feature permission.",
+        "operationId" : "findDashboards",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page size. Up to 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardsListResponse"
+                }
+              }
+            },
+            "description" : "Dashboards found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size is not between 1 and 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The calling user has neither of the required feature permissions."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List dashboards of a tenant",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/displays" : {
+      "get" : {
+        "description" : "Returns the displays of the tenant, sorted by name, optionally only those that show a certain dashboard or are at a certain location. The page size is limited to 250. Requires the dashboards_manage feature permission.",
+        "operationId" : "findDashboardDisplays",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Only return displays that show the dashboard with this UUID.",
+          "in" : "query",
+          "name" : "dashboard_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Only return displays at the location with this UUID.",
+          "in" : "query",
+          "name" : "location_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page size. Up to 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DisplaysListResponse"
+                }
+              }
+            },
+            "description" : "Displays found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size is not between 1 and 250."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, location, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List displays of a tenant",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/displays/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates a display and its token. The plaintext token is returned exactly once in this response and cannot be retrieved later, because Nzyme only stores a hash of it. The token can only read the dashboards assigned to this display. Requires the dashboards_manage feature permission.",
+        "operationId" : "createDashboardDisplay",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DisplayRequest"
+              }
+            }
+          },
+          "description" : "The display.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DisplayTokenResponse"
+                }
+              }
+            },
+            "description" : "Display created. The response contains the plaintext token."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid settings, unknown dashboard, unknown location, or the dashboard displays quota is exceeded. The response body contains the reason."
+          }
+        },
+        "summary" : "Create a display",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/displays/organization/{organization_id}/tenant/{tenant_id}/show/{display_uuid}" : {
+      "delete" : {
+        "description" : "Deletes the display and immediately rejects any further request that uses its token. The dashboards it showed are kept. Requires the dashboards_manage feature permission.",
+        "operationId" : "deleteDashboardDisplay",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Display UUID.",
+          "in" : "path",
+          "name" : "display_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display deleted."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a display",
+        "tags" : [ "Dashboards" ]
+      },
+      "put" : {
+        "description" : "Replaces all settings of the display and the dashboards it shows. The token is not changed and the screen applies the new settings with its next request. Requires the dashboards_manage feature permission.",
+        "operationId" : "updateDashboardDisplay",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Display UUID.",
+          "in" : "path",
+          "name" : "display_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DisplayRequest"
+              }
+            }
+          },
+          "description" : "The new display data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display updated."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid settings, unknown dashboard or unknown location. The response body contains the reason."
+          }
+        },
+        "summary" : "Update a display",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/displays/organization/{organization_id}/tenant/{tenant_id}/show/{display_uuid}/token" : {
+      "post" : {
+        "description" : "Creates a new token for the display and immediately rejects the previous one. The plaintext token is returned exactly once in this response. Requires the dashboards_manage feature permission.",
+        "operationId" : "replaceDashboardDisplayToken",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Display UUID.",
+          "in" : "path",
+          "name" : "display_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DisplayTokenResponse"
+                }
+              }
+            },
+            "description" : "Token replaced. The response contains the plaintext token."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Replace the token of a display",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/displays/show/{display_uuid}" : {
+      "get" : {
+        "description" : "Returns the settings of the display, the dashboards it shows and when it last connected. The token of the display is never returned here. Requires the dashboards_manage feature permission.",
+        "operationId" : "findDashboardDisplay",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Display UUID.",
+          "in" : "path",
+          "name" : "display_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DisplayResponse"
+                }
+              }
+            },
+            "description" : "Display found."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Display, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a display",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "description" : "Creates a dashboard with its scope, time window and widgets. The calling user can only choose taps they can access, locations where they can access every tap, and the scope ALL if they can access all taps. Widgets that show alerts need the alerts_view feature permission. Everyone who can view the dashboard sees the data of its whole scope. Requires the dashboards_manage feature permission.",
+        "operationId" : "createDashboard",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DashboardRequest"
+              }
+            }
+          },
+          "description" : "The dashboard.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardResponse"
+                }
+              }
+            },
+            "description" : "Dashboard created."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid settings, a scope or widget the calling user may not use, or the dashboards quota is exceeded. The response body contains the reason."
+          }
+        },
+        "summary" : "Create a dashboard",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/organization/{organization_id}/tenant/{tenant_id}/show/{dashboard_uuid}" : {
+      "delete" : {
+        "description" : "Deletes the dashboard and removes it from all displays that show it. The displays themselves are kept. Requires the dashboards_manage feature permission.",
+        "operationId" : "deleteDashboard",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Dashboard UUID.",
+          "in" : "path",
+          "name" : "dashboard_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard deleted."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a dashboard",
+        "tags" : [ "Dashboards" ]
+      },
+      "put" : {
+        "description" : "Replaces the settings, the scope and the widgets of the dashboard. A user who cannot access every tap of the scope can keep or narrow the scope and change the name, description and layout, but cannot add widgets, change what a widget shows or change the time window. Adding a widget that shows alerts, or changing what it shows, needs the alerts_view feature permission; such widgets that are left as they are can be kept. Requires the dashboards_manage feature permission.",
+        "operationId" : "updateDashboard",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Dashboard UUID.",
+          "in" : "path",
+          "name" : "dashboard_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DashboardRequest"
+              }
+            }
+          },
+          "description" : "The new dashboard data.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard updated."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid settings, or a scope or widget the calling user may not use. The response body contains the reason."
+          }
+        },
+        "summary" : "Update a dashboard",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/scope/options" : {
+      "get" : {
+        "description" : "Returns the taps and locations the calling user can choose as the scope of a dashboard, whether they can choose all taps, the metrics of the metric widget, whether the user may add widgets that show alerts and which of the subsystems with dashboard content (Ethernet, WiFi, Bluetooth) are enabled. The topology widget needs the Ethernet subsystem. A location is listed if the user can access every tap at it. A metric of a disabled subsystem is marked as not available. Requires the dashboards_manage feature permission.",
+        "operationId" : "findDashboardScopeOptions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardScopeOptionsResponse"
+                }
+              }
+            },
+            "description" : "Options found."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List what the calling user can put on a dashboard",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/show/{dashboard_uuid}" : {
+      "get" : {
+        "description" : "Requires the dashboards_view or the dashboards_manage feature permission.",
+        "operationId" : "findDashboard",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Dashboard UUID.",
+          "in" : "path",
+          "name" : "dashboard_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardResponse"
+                }
+              }
+            },
+            "description" : "Dashboard found."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The calling user has neither of the required feature permissions."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a dashboard",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/show/{dashboard_uuid}/content" : {
+      "get" : {
+        "description" : "Returns the widgets of the dashboard and the current data of each widget, keyed by widget ID. The data covers the scope and the time window of the dashboard, independent of the taps the calling user can access. A result is reused for up to 10 seconds. A widget whose subsystem is disabled has no data, and neither has a clock, a text or a topology, which has a feed of its own. The throughput metric has no data for a time window of more than a day, because tap metrics are kept for a day. A metric has no previous value if nothing is kept of the time before the window. The alerts widget returns up to 25 alerts with the total. The taps widget returns the state of every tap as one character per tap and location (X offline, A alert, D degraded, O fine; A only on a dashboard with widgets that show alerts), the names of all taps if there are at most 250, and the details of up to 50 taps that are not fine. The locations widget returns up to 100 locations with the total, those with alerts or offline taps first. Requires the dashboards_view or the dashboards_manage feature permission.",
+        "operationId" : "findDashboardContent",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Dashboard UUID.",
+          "in" : "path",
+          "name" : "dashboard_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardContentResponse"
+                }
+              }
+            },
+            "description" : "Content built."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The calling user has neither of the required feature permissions."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the content of a dashboard",
+        "tags" : [ "Dashboards" ]
+      }
+    },
+    "/api/dashboards/show/{dashboard_uuid}/widgets/{widget_id}/topology" : {
+      "get" : {
+        "description" : "Returns the TCP and UDP sessions with activity in the last 60 seconds that match the filters of the widget, each with the nodes its endpoints belong to at the node grouping of the widget, in the shape of the live sessions of the topology. A client that asks every few seconds follows the topology as it happens. The feed covers the scope of the dashboard, independent of the taps the calling user can access, and holds the 2000 most recently active sessions. A result is reused for up to 2 seconds. Requires the dashboards_view or the dashboards_manage feature permission.",
+        "operationId" : "findDashboardTopology",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Dashboard UUID.",
+          "in" : "path",
+          "name" : "dashboard_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "ID of a topology widget of the dashboard.",
+          "in" : "path",
+          "name" : "widget_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardTopologyResponse"
+                }
+              }
+            },
+            "description" : "Feed built."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The calling user has neither of the required feature permissions."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboards are disabled for the tenant."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Dashboard, topology widget, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the live feed of a topology widget",
+        "tags" : [ "Dashboards" ]
       }
     },
     "/api/dot11/bandits/builtin" : {
@@ -29277,6 +30217,107 @@
         "tags" : [ "Tenants", "Organizations" ]
       }
     },
+    "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/dashboards/configuration" : {
+      "get" : {
+        "description" : "Returns whether dashboards are enabled for this tenant, which defaults to true. Requires organization administrator permissions.",
+        "operationId" : "findTenantDashboardsConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardsConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get dashboards configuration of a tenant",
+        "tags" : [ "Tenants", "Organizations" ]
+      },
+      "put" : {
+        "description" : "Enables or disables dashboards for this tenant. The accepted key is dashboards_enabled. Disabling dashboards hides their pages in the web interface, turns off the dashboards API resources for this tenant and rejects all of its displays. Dashboards and displays are kept and work again once dashboards are enabled. Requires organization administrator permissions.",
+        "operationId" : "updateTenantDashboardsConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organizationId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenantId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateConfigurationRequest"
+              }
+            }
+          },
+          "description" : "Map of dashboards configuration keys and their new values.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "No configuration values were passed or a value failed validation."
+          }
+        },
+        "summary" : "Update dashboards configuration of a tenant",
+        "tags" : [ "Tenants", "Organizations" ]
+      }
+    },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/locations" : {
       "get" : {
         "description" : "A location is a site such as a campus or a building. It groups the floors of that site and the taps placed on them, which makes data easier to read when a tenant has taps spread over several sites. Requires organization administrator permissions.",
@@ -32044,7 +33085,7 @@
         "tags" : [ "Authentication" ]
       },
       "get" : {
-        "description" : "Returns the user behind the session, their permissions, the enabled subsystems, the multi-factor authentication state of the session and the branding of the web interface. The organization and tenant parameters are optional because the web interface calls this endpoint before the user has selected a tenant. Pass both to also receive the active alert status. Available while multi-factor authentication is still pending for the session.",
+        "description" : "Returns the user behind the session, their permissions, the enabled subsystems, the multi-factor authentication state of the session and the branding of the web interface. The organization and tenant parameters are optional because the web interface calls this endpoint before the user has selected a tenant. Pass both to also receive the active alert status and whether dashboards are enabled for that tenant. Without them, the dashboards setting of the tenant of the user is returned, which is always false for administrators. Available while multi-factor authentication is still pending for the session.",
         "operationId" : "findSession",
         "parameters" : [ {
           "description" : "Organization UUID. Optional, but required together with the tenant UUID to receive the alert status.",
@@ -39109,13 +40150,14 @@
           "capture_type" : {
             "type" : "string"
           },
-          "drop_ratio" : {
-            "type" : "number",
-            "format" : "double"
-          },
           "dropped" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "Packets or frames dropped in the buffer and on the interface during the last reporting interval of the tap. Not a total, so it cannot be compared to the received count."
+          },
+          "dropping" : {
+            "type" : "boolean",
+            "description" : "True if the capture dropped enough during the last reporting interval to turn the tap drop health indicator red."
           },
           "interface_name" : {
             "type" : "string"
@@ -39125,7 +40167,8 @@
           },
           "received" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "Packets or frames received since the tap started."
           }
         }
       },
@@ -40838,6 +41881,278 @@
           }
         }
       },
+      "DashboardContentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "condition" : {
+            "$ref" : "#/components/schemas/StatusWidgetResponse"
+          },
+          "data" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "generated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "redacted" : {
+            "type" : "boolean"
+          },
+          "scope_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scope_type" : {
+            "type" : "string"
+          },
+          "tap_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "widgets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardWidget"
+            }
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DashboardMetricOptionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "available" : {
+            "type" : "boolean"
+          },
+          "metric" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DashboardRequest" : {
+        "type" : "object",
+        "description" : "Body for creating or updating a dashboard.",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Optional description of the dashboard.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the dashboard. Up to 128 characters.",
+            "writeOnly" : true
+          },
+          "scope_ids" : {
+            "type" : "array",
+            "description" : "UUIDs of the locations or taps of the scope. Up to 100. Ignored for the scope ALL.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "UUIDs of the locations or taps of the scope. Up to 100. Ignored for the scope ALL."
+            },
+            "writeOnly" : true
+          },
+          "scope_type" : {
+            "type" : "string",
+            "description" : "Which taps the dashboard reads data from. ALL for every tap, LOCATIONS for all taps at the locations in scope_ids, TAPS for the taps in scope_ids. Defaults to ALL.",
+            "writeOnly" : true
+          },
+          "widgets" : {
+            "type" : "array",
+            "description" : "The widgets of the dashboard, placed on a grid of 12 columns and 6 rows. Up to 24. Each widget has a unique id, a type (STATUS, ALERTS, TAPS, METRIC, CLOCK, LOCATIONS, TEXT or TOPOLOGY), its position x and y, its size w and h and options. All widgets accept the option title, ALERTS and the alert metrics accept the option subsystem (ETHERNET, DOT11 or BLUETOOTH) to only cover the alerts of that subsystem, METRIC needs the option metric, CLOCK needs the option time_zone, an IANA time zone like Europe/Berlin, and TEXT needs the option text, up to 2000 characters that are shown as they are, and accepts the option size (SMALL, MEDIUM or LARGE). TOPOLOGY accepts the options filters, a JSON encoded filter definition as a string with the fields of the TCP/UDP sessions list, internal_level (HOST, SUBNET or TAP), external_level (HOST, NETWORK or COUNTRY) and connections (50, 100 or 250).",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardWidget"
+            },
+            "writeOnly" : true
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Time window of the dashboard in minutes. One of 60, 240, 1440 or 10080. Defaults to 1440.",
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "DashboardResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "display_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardScopeItemResponse"
+            }
+          },
+          "scope_type" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "widgets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardWidget"
+            }
+          },
+          "window_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DashboardScopeItemResponse" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DashboardScopeOptionsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "all_taps" : {
+            "type" : "boolean"
+          },
+          "can_show_alerts" : {
+            "type" : "boolean"
+          },
+          "locations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardScopeItemResponse"
+            }
+          },
+          "metrics" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardMetricOptionResponse"
+            }
+          },
+          "subsystems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardScopeItemResponse"
+            }
+          }
+        }
+      },
+      "DashboardTopologyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "age_ms" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "How long ago the feed was built, in milliseconds. The time of the feed plus this is the current time of the node."
+          },
+          "feed" : {
+            "$ref" : "#/components/schemas/TopologyLiveResponse"
+          },
+          "redacted" : {
+            "type" : "boolean",
+            "description" : "True if addresses and names were removed. Node IDs, session keys, addresses and tap UUIDs are then replaced by stable stand-ins, and a node only carries its type, its level, the name of its tap and, for a country, its country code."
+          }
+        }
+      },
+      "DashboardWidget" : {
+        "type" : "object",
+        "description" : "The widgets of the dashboard, placed on a grid of 12 columns and 6 rows. Up to 24. Each widget has a unique id, a type (STATUS, ALERTS, TAPS, METRIC, CLOCK, LOCATIONS, TEXT or TOPOLOGY), its position x and y, its size w and h and options. All widgets accept the option title, ALERTS and the alert metrics accept the option subsystem (ETHERNET, DOT11 or BLUETOOTH) to only cover the alerts of that subsystem, METRIC needs the option metric, CLOCK needs the option time_zone, an IANA time zone like Europe/Berlin, and TEXT needs the option text, up to 2000 characters that are shown as they are, and accepts the option size (SMALL, MEDIUM or LARGE). TOPOLOGY accepts the options filters, a JSON encoded filter definition as a string with the fields of the TCP/UDP sessions list, internal_level (HOST, SUBNET or TAP), external_level (HOST, NETWORK or COUNTRY) and connections (50, 100 or 250).",
+        "properties" : {
+          "h" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "options" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "object"
+            }
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "w" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "x" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "y" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "DashboardsConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dashboards_enabled" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          }
+        }
+      },
+      "DashboardsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "dashboards" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DashboardResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "DataCategorySizesAndConfigurationResponse" : {
         "type" : "object",
         "properties" : {
@@ -41900,6 +43215,236 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/DisconnectedClientDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DisplayDashboardResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DisplayRequest" : {
+        "type" : "object",
+        "description" : "Body for creating or updating a display. A display is a screen that shows dashboards without a user session. It holds the presentation settings of that screen and the dashboards it rotates through.",
+        "properties" : {
+          "allowed_networks" : {
+            "type" : "array",
+            "description" : "IP addresses or CIDR networks the display may connect from. Up to 25. Empty or omitted allows every address. Matched against the address of the connection to the node and never against forwarding headers, so behind a reverse proxy this is the address of the proxy.",
+            "items" : {
+              "type" : "string",
+              "description" : "IP addresses or CIDR networks the display may connect from. Up to 25. Empty or omitted allows every address. Matched against the address of the connection to the node and never against forwarding headers, so behind a reverse proxy this is the address of the proxy."
+            },
+            "writeOnly" : true
+          },
+          "clock_format" : {
+            "type" : "string",
+            "description" : "H24 or H12. Defaults to H24.",
+            "writeOnly" : true
+          },
+          "dashboards" : {
+            "type" : "array",
+            "description" : "UUIDs of the dashboards the display shows, in rotation order. Up to 25 dashboards of the same tenant.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "UUIDs of the dashboards the display shows, in rotation order. Up to 25 dashboards of the same tenant."
+            },
+            "writeOnly" : true
+          },
+          "expires_at" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Time after which the display is rejected. Omitted for a display that does not expire.",
+            "writeOnly" : true
+          },
+          "hide_cursor" : {
+            "type" : "boolean",
+            "description" : "Whether the display hides the mouse pointer. Defaults to false.",
+            "writeOnly" : true
+          },
+          "light_from" : {
+            "type" : "string",
+            "description" : "Time of day in the format HH:mm at which a SCHEDULED theme switches to light, in the time zone of the display.",
+            "writeOnly" : true
+          },
+          "light_until" : {
+            "type" : "string",
+            "description" : "Time of day in the format HH:mm at which a SCHEDULED theme switches back to dark, in the time zone of the display.",
+            "writeOnly" : true
+          },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "UUID of the location the screen is at. The location must belong to the same tenant.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of the display. Up to 128 characters.",
+            "writeOnly" : true
+          },
+          "redacted" : {
+            "type" : "boolean",
+            "description" : "Whether the display hides addresses and names. A redacted display receives alerts without their details and a topology without addresses and names. Defaults to false for a new display and to the current value on an update.",
+            "writeOnly" : true
+          },
+          "refresh_seconds" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Seconds between two requests of the display to Nzyme, between 10 and 3600. Defaults to 60.",
+            "writeOnly" : true
+          },
+          "rotation_seconds" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Seconds each dashboard stays on screen when the display shows more than one, between 5 and 3600. Defaults to 30.",
+            "writeOnly" : true
+          },
+          "scale_percent" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Size of the content in percent, between 50 and 200. Defaults to 100.",
+            "writeOnly" : true
+          },
+          "theme" : {
+            "type" : "string",
+            "description" : "DARK, LIGHT or SCHEDULED. Defaults to DARK.",
+            "writeOnly" : true
+          },
+          "time_zone" : {
+            "type" : "string",
+            "description" : "IANA time zone the display renders times in, for example Europe/Berlin. Defaults to UTC.",
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "name" ]
+      },
+      "DisplayResponse" : {
+        "type" : "object",
+        "properties" : {
+          "allowed_networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "clock_format" : {
+            "type" : "string"
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dashboards" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DisplayDashboardResponse"
+            }
+          },
+          "expired" : {
+            "type" : "boolean"
+          },
+          "expires_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "hide_cursor" : {
+            "type" : "boolean"
+          },
+          "last_remote_address" : {
+            "type" : "string"
+          },
+          "last_reported_version" : {
+            "type" : "string"
+          },
+          "last_seen_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "light_from" : {
+            "type" : "string"
+          },
+          "light_until" : {
+            "type" : "string"
+          },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "location_name" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "node_version" : {
+            "type" : "string"
+          },
+          "online" : {
+            "type" : "boolean"
+          },
+          "redacted" : {
+            "type" : "boolean"
+          },
+          "refresh_seconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rotation_seconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "scale_percent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "theme" : {
+            "type" : "string"
+          },
+          "time_zone" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DisplayTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DisplaysListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "displays" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DisplayResponse"
             }
           },
           "total" : {
@@ -47194,6 +48739,9 @@
       "SessionUserInformationDetailsResponse" : {
         "type" : "object",
         "properties" : {
+          "dashboards_enabled" : {
+            "type" : "boolean"
+          },
           "email" : {
             "type" : "string"
           },
@@ -47731,6 +49279,26 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "StatusWidgetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "active_alerts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "taps_online" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "taps_total" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

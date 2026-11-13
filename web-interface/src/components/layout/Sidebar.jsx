@@ -231,6 +231,13 @@ function Sidebar(props) {
                 show={user.is_orgadmin || user.is_superadmin}/>
           </SidebarSubmenu>
 
+          <NavigationLink
+            href={ApiRoutes.DASHBOARDS.INDEX}
+            title="Dashboards"
+            icon={<i className="sidebar-icon fa-solid fa-display"/>}
+            show={user.dashboards_enabled
+              && (userHasPermission(user, "dashboards_view") || userHasPermission(user, "dashboards_manage"))}/>
+
           <SidebarSubmenu title="System"
                           subhref="/system"
                           icon={<AlertedHealthIndicatorIcon icon="fa-solid fa-screwdriver-wrench" healthIndicatorLevel={alerts.health_indicator_level} />}

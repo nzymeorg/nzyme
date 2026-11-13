@@ -154,7 +154,7 @@ import SSIDMonitoringPage from "./components/dot11/monitoring/ssid/SSIDMonitorin
 import MonitoredClientsConfigurationPage from "./components/dot11/monitoring/clients/MonitoredClientsConfigurationPage";
 import SubsystemsPage from "./components/system/subsystems/SubsystemsPage";
 import ProtectedRoute from "./components/misc/ProtectedRoute";
-import {userHasSubsystem} from "./util/Tools";
+import {userHasPermission, userHasSubsystem} from "./util/Tools";
 import OrganizationTenantsPage
   from "./components/system/authentication/management/organizations/OrganizationTenantsPage";
 import OrganizationAdministratorsPage
@@ -243,10 +243,20 @@ import MonitorDetailsPage from "./components/monitors/MonitorDetailsPage";
 import OrganizationSubsystemsPage
   from "./components/system/authentication/management/organizations/OrganizationSubsystemsPage";
 import TenantSubsystemsPage from "./components/system/authentication/management/tenants/TenantSubsystemsPage";
+import TenantDashboardsPage from "./components/system/authentication/management/tenants/TenantDashboardsPage";
 import EditMonitorPage from "./components/monitors/EditMonitorPage";
 import Toast from "./components/misc/Toast";
 import BSSIDTimelinePage from "./components/dot11/bssids/BSSIDTimelinePage";
 import LocationsOverviewPage from "./components/locations/LocationsOverviewPage";
+import DashboardsPage from "./components/dashboards/DashboardsPage";
+import CreateDashboardPage from "./components/dashboards/CreateDashboardPage";
+import DashboardDetailsPage from "./components/dashboards/DashboardDetailsPage";
+import EditDashboardPage from "./components/dashboards/EditDashboardPage";
+import DashboardViewPage from "./components/dashboards/DashboardViewPage";
+import DisplaysPage from "./components/dashboards/displays/DisplaysPage";
+import CreateDisplayPage from "./components/dashboards/displays/CreateDisplayPage";
+import DisplayDetailsPage from "./components/dashboards/displays/DisplayDetailsPage";
+import EditDisplayPage from "./components/dashboards/displays/EditDisplayPage";
 import LocationDetailsPage from "./components/locations/LocationDetailsPage";
 import SSIDTimelinePage from "./components/dot11/bssids/ssids/SSIDTimelinePage";
 import RTSPStreamsPage from "./components/ethernet/streams/rtsp/RTSPStreamsPage";
@@ -575,6 +585,7 @@ function App() {
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DATABASE_PAGE(':organizationId', ':tenantId')} element={<TenantDatabasePage />}/>
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.QUOTAS_PAGE(':organizationId', ':tenantId')} element={<TenantQuotasPage />}/>
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.SUBSYSTEMS_PAGE(':organizationId', ':tenantId')} element={<TenantSubsystemsPage />}/>
+                              <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.DASHBOARDS_PAGE(':organizationId', ':tenantId')} element={<TenantDashboardsPage />}/>
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.MONITOR_PERFORMANCE_PAGE(':organizationId', ':tenantId')} element={<TenantMonitorPerformancePage />}/>
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.CREATE(':organizationId')} element={<CreateTenantPage />}/>
                               <Route path={ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.TENANTS.EDIT(':organizationId', ':tenantId')} element={<EditTenantPage />}/>
@@ -638,6 +649,24 @@ function App() {
                               { /* Locations. */ }
                               <Route path={ApiRoutes.LOCATIONS.INDEX} element={<LocationsOverviewPage />} />
                               <Route path={ApiRoutes.LOCATIONS.DETAILS(':uuid')} element={<LocationDetailsPage />} />
+
+                              { /* Dashboards. */ }
+                              <Route element={<ProtectedRoute execute={userInformation.dashboards_enabled
+                                && (userHasPermission(userInformation, "dashboards_view")
+                                  || userHasPermission(userInformation, "dashboards_manage"))} />}>
+                                <Route path={ApiRoutes.DASHBOARDS.INDEX} element={<DashboardsPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.DETAILS(':uuid')} element={<DashboardDetailsPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.VIEW(':uuid')} element={<DashboardViewPage />} />
+                              </Route>
+                              <Route element={<ProtectedRoute execute={userInformation.dashboards_enabled
+                                && userHasPermission(userInformation, "dashboards_manage")} />}>
+                                <Route path={ApiRoutes.DASHBOARDS.CREATE} element={<CreateDashboardPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.EDIT(':uuid')} element={<EditDashboardPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.DISPLAYS.INDEX} element={<DisplaysPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.DISPLAYS.CREATE} element={<CreateDisplayPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.DISPLAYS.DETAILS(':uuid')} element={<DisplayDetailsPage />} />
+                                <Route path={ApiRoutes.DASHBOARDS.DISPLAYS.EDIT(':uuid')} element={<EditDisplayPage />} />
+                              </Route>
 
                               { /* Ethernet. */ }
                               <Route element={<ProtectedRoute execute={userHasSubsystem(userInformation, "ethernet")} />}>

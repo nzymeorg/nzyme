@@ -486,6 +486,12 @@ input.form-control {
     color: #c4c4d4;
 }
 
+input.form-control[type="date"],
+input.form-control[type="datetime-local"],
+input.form-control[type="time"] {
+    color-scheme: dark;
+}
+
 textarea,
 textarea.form-control {
     background-color: #25252d !important;
@@ -1352,4 +1358,29 @@ tr:hover a.classification-edit, a.classification-edit:hover {
 
 .tcp-fp-app {
     color: #e0a458;
+}
+
+.dashboard-screen, .dashboard-canvas {
+    --db-bg: #050505;
+    --db-panel: #0a0a0b;
+    --db-rule: #2b2b2e;
+    --db-rule-soft: #19191b;
+    --db-text: #ededed;
+    --db-dim: #8d8d92;
+    --db-faint: #56565b;
+    --db-data: #f4f4f4;
+    --db-detail: #35e08a;
+    --db-alert: #ff3b2f;
+    --db-warn: #ffc21a;
+    --db-alert-fill: #ff3b2f;
+    --db-alert-ink: #000;
+    --db-warn-fill: #ffc21a;
+    --db-warn-ink: #000;
+    --db-ok-fill: #35e08a;
+    --db-ok-ink: #000;
+    --db-cell: #141416;
+    --db-cell-border: #3b3b40;
+    --db-cell-text: #cfcfd3;
+    --db-flow-in: #d455ad;
+    --db-glow: 8;
 }

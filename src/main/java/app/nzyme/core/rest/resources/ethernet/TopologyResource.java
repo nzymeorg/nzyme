@@ -76,9 +76,9 @@ public class TopologyResource extends TapDataHandlingResource {
     private static final int DEFAULT_LIVE_SESSIONS = 2000;
     private static final int MAX_LIVE_SESSIONS = 10000;
     // Assets are not marked as seen with every session, so the last seconds alone would miss most of them.
-    private static final int LIVE_ASSET_MINUTES = 15;
+    public static final int LIVE_ASSET_MINUTES = 15;
     // Sessions carry the time of the tap that recorded them.
-    private static final int LIVE_TAP_CLOCK_TOLERANCE_MINUTES = 1;
+    public static final int LIVE_TAP_CLOCK_TOLERANCE_MINUTES = 1;
 
     private static final String TIME_RANGE = "Time range selector. Accepts the same format as the web interface "
             + "time range picker.";
@@ -268,7 +268,7 @@ public class TopologyResource extends TapDataHandlingResource {
         }
 
         return Response.ok(TopologyLinksResponse.create(
-                nodeResponses(result.nodes(), request.taps(), request.selection().timeRange(), organizationId, tenantId),
+                nodeResponses(nzyme, result.nodes(), request.taps(), request.selection().timeRange(), organizationId, tenantId),
                 services, links, result.totalLinks(), result.totalSessions(), result.totalBytes(), limit,
                 seriesConfiguration(result.buckets())
         )).build();
@@ -380,22 +380,14 @@ public class TopologyResource extends TapDataHandlingResource {
         Topology.Live result = nzyme.getEthernet().topology()
                 .live(request.selection(), internalLevel, externalLevel, limit);
 
-        List<TopologyLiveSessionResponse> sessions = new ArrayList<>(result.sessions().size());
-        for (Topology.LiveSession s : result.sessions()) {
-            sessions.add(TopologyLiveSessionResponse.create(s.sessionKey(), s.tapUuid(), s.l4Type(), s.source(), s.target(),
-                    s.sourceAddress(), s.destinationAddress(), s.destinationPort(), s.startTime(),
-                    s.mostRecentSegmentTime(), s.bytesTx(), s.bytesRx(), s.latitude(), s.longitude(), s.city(),
-                    s.countryCode()));
-        }
-
         Sites sites = sites(request.taps(), organizationId, tenantId);
 
         return Response.ok(TopologyLiveResponse.create(
                 now,
                 seconds,
-                nodeResponses(result.nodes(), request.taps(),
+                nodeResponses(nzyme, result.nodes(), request.taps(),
                         TimeRange.create(now.minusMinutes(LIVE_ASSET_MINUTES), now, false), organizationId, tenantId),
-                sites.sites(), sites.unplaced(), sessions, limit, result.limited(), result.merged()
+                sites.sites(), sites.unplaced(), liveSessionResponses(result), limit, result.limited(), result.merged()
         )).build();
     }
 
@@ -460,7 +452,7 @@ public class TopologyResource extends TapDataHandlingResource {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         Map<String, TopologyNodeResponse> nodeResponses = new HashMap<>();
-        for (TopologyNodeResponse response : nodeResponses(rankedNodes, request.taps(),
+        for (TopologyNodeResponse response : nodeResponses(nzyme, rankedNodes, request.taps(),
                 request.selection().timeRange(), organizationId, tenantId)) {
             nodeResponses.put(response.id(), response);
         }
@@ -589,8 +581,8 @@ public class TopologyResource extends TapDataHandlingResource {
         }
     }
 
-    private List<TopologyNodeResponse> nodeResponses(List<Topology.Node> nodes, List<Tap> taps, TimeRange timeRange,
-                                                     UUID organizationId, UUID tenantId) {
+    public static List<TopologyNodeResponse> nodeResponses(NzymeNode nzyme, List<Topology.Node> nodes, List<Tap> taps,
+                                                           TimeRange timeRange, UUID organizationId, UUID tenantId) {
         Set<String> internalAddresses = nodes.stream()
                 .filter(node -> node.internal() && node.address() != null)
                 .map(Topology.Node::address)
@@ -627,6 +619,18 @@ public class TopologyResource extends TapDataHandlingResource {
         }
 
         return responses;
+    }
+
+    public static List<TopologyLiveSessionResponse> liveSessionResponses(Topology.Live live) {
+        List<TopologyLiveSessionResponse> sessions = new ArrayList<>(live.sessions().size());
+        for (Topology.LiveSession s : live.sessions()) {
+            sessions.add(TopologyLiveSessionResponse.create(s.sessionKey(), s.tapUuid(), s.l4Type(), s.source(), s.target(),
+                    s.sourceAddress(), s.destinationAddress(), s.destinationPort(), s.startTime(),
+                    s.mostRecentSegmentTime(), s.bytesTx(), s.bytesRx(), s.latitude(), s.longitude(), s.city(),
+                    s.countryCode()));
+        }
+
+        return sessions;
     }
 
     private static TopologyServiceResponse serviceResponse(Topology.Service service) {

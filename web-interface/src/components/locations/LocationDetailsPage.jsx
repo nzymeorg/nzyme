@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import usePageTitle from "../../util/UsePageTitle";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import {Link, useParams} from "react-router-dom";
@@ -17,7 +17,9 @@ import moment from "moment";
 import momentTimezone from "moment-timezone";
 import Clock from "./Clock";
 import WithPermission from "../misc/WithPermission";
+import {UserContext} from "../../App";
 import AlertsTableRow from "../alerts/AlertsTableRow";
+import DisplaysTable from "../dashboards/displays/DisplaysTable";
 import numeral from "numeral";
 import * as L from "leaflet";
 
@@ -28,6 +30,7 @@ export default function LocationDetailsPage() {
   const {uuid} = useParams();
 
   const [organizationId, tenantId] = useSelectedTenant();
+  const user = useContext(UserContext);
 
   const [location, setLocation] = useState(null);
 
@@ -212,6 +215,21 @@ export default function LocationDetailsPage() {
           </div>
         </div>
       </div>
+
+      {user.dashboards_enabled ?
+        <WithPermission permission="dashboards_manage">
+          <div className="row mt-3">
+            <div className="col-md-12">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Dashboard Displays" slim={true} />
+
+                  <DisplaysTable organizationId={organizationId} tenantId={tenantId} locationId={location.id} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </WithPermission> : null}
 
       <WithPermission permission="alerts_view">
         <div className="row mt-3">

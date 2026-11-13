@@ -40,6 +40,8 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.Streams;
 import org.joda.time.DateTime;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.*;
 import java.math.BigInteger;
 import java.nio.file.Paths;
@@ -384,6 +386,18 @@ public class Crypto {
             );
         } catch (CertificateException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    // A secret for one purpose that every node of the cluster computes the same and that needs no storage.
+    public byte[] deriveClusterSecret(String purpose) throws CryptoOperationException {
+        File privateKeyLocation = Paths.get(cryptoDirectoryConfig.toString(), PGP_PRIVATE_KEY_FILE_NAME).toFile();
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(java.nio.file.Files.readAllBytes(privateKeyLocation.toPath()), "HmacSHA256"));
+            return mac.doFinal(purpose.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } catch (IOException | GeneralSecurityException e) {
+            throw new CryptoOperationException("Cannot derive cluster secret.", e);
         }
     }
 

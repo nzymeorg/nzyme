@@ -97,6 +97,10 @@ public class QuotaService {
                 }
 
                 return users;
+            case DASHBOARDS:
+                return (int) nzyme.getDashboards().countDashboardsOfOrganization(organizationUuid);
+            case DASHBOARD_DISPLAYS:
+                return (int) nzyme.getDashboards().countDisplaysOfOrganization(organizationUuid);
         };
 
         return -1;
@@ -116,6 +120,10 @@ public class QuotaService {
                 return nzyme.getAuthenticationService()
                         .findAllUsersOfTenant(organizationUuid, tenantUuid, Integer.MAX_VALUE, 0)
                         .size();
+            case DASHBOARDS:
+                return (int) nzyme.getDashboards().countDashboards(organizationUuid, tenantUuid);
+            case DASHBOARD_DISPLAYS:
+                return (int) nzyme.getDashboards().countDisplays(organizationUuid, tenantUuid, null, null);
         };
 
         return -1;

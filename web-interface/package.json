@@ -46,7 +46,6 @@
     "papaparse": "5.4.1",
     "plotly.js": "3.5.0",
     "react": "19.3.0",
-    "react-datepicker": "9.1.0",
     "react-dom": "19.3.0",
     "react-plotly.js": "2.6.0",
     "react-qr-code": "2.0.18",

@@ -16,6 +16,8 @@ import app.nzyme.core.rest.resources.assets.WebInterfaceAssetsResource;
 import app.nzyme.core.rest.resources.bluetooth.BluetoothDevicesResource;
 import app.nzyme.core.rest.resources.context.AssetContextResource;
 import app.nzyme.core.rest.resources.context.NetworkContextResource;
+import app.nzyme.core.rest.resources.dashboards.DashboardsResource;
+import app.nzyme.core.rest.resources.dashboards.DisplayResource;
 import app.nzyme.core.rest.resources.dot11.*;
 import app.nzyme.core.rest.resources.dot11.BanditsResource;
 import app.nzyme.core.rest.resources.dot11.Dot11ClientsResource;
@@ -128,6 +130,7 @@ public class NzymeHttpServer {
         resourceConfig.register(new PreMFAAuthenticationFilter(nzyme));
         resourceConfig.register(new RESTAuthenticationFilter(nzyme));
         resourceConfig.register(new TapAuthenticationFilter(nzyme));
+        resourceConfig.register(new DisplayAuthenticationFilter(nzyme));
         resourceConfig.register(new PrometheusBasicAuthFilter(nzyme));
         resourceConfig.register(new CORSFilter());
         resourceConfig.register(new NzymeLeaderInjectionBinder(nzyme));
@@ -213,6 +216,8 @@ public class NzymeHttpServer {
         resourceConfig.register(WebRTCResource.class);
         resourceConfig.register(IPAddressesResource.class);
         resourceConfig.register(NetworkContextResource.class);
+        resourceConfig.register(DashboardsResource.class);
+        resourceConfig.register(DisplayResource.class);
 
         // Plugin-supplied REST resources.
         for (Object resource : pluginRestResources) {

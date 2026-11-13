@@ -431,6 +431,133 @@ public class DetectionAlertService {
         );
     }
 
+    // Alerts without a tap belong to no tap scope. They are only included when the scope covers all taps.
+    private static String scope(List<UUID> taps, boolean includeWithoutTap, @Nullable Subsystem subsystem) {
+        String ofSubsystem = subsystem == null ? "" : "AND subsystem = :subsystem ";
+
+        if (taps.isEmpty()) {
+            return (includeWithoutTap ? "AND tap_id IS NULL " : "AND FALSE ") + ofSubsystem;
+        }
+
+        return (includeWithoutTap ? "AND (tap_id IN (<taps>) OR tap_id IS NULL) " : "AND tap_id IN (<taps>) ")
+                + ofSubsystem;
+    }
+
+    private static Query bindScope(Query query, List<UUID> taps, @Nullable Subsystem subsystem) {
+        if (subsystem != null) {
+            query.bind("subsystem", subsystem.name());
+        }
+
+        return taps.isEmpty() ? query : query.bindList("taps", taps);
+    }
+
+    public List<DetectionAlertEntry> findActiveAlertsInScope(UUID organizationId,
+                                                             UUID tenantId,
+                                                             List<UUID> taps,
+                                                             boolean includeWithoutTap,
+                                                             @Nullable Subsystem subsystem,
+                                                             int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                bindScope(handle.createQuery("SELECT * FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff " +
+                                scope(taps, includeWithoutTap, subsystem) +
+                                "ORDER BY last_seen DESC, id DESC LIMIT :limit"), taps, subsystem)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
+                        .bind("limit", limit)
+                        .mapTo(DetectionAlertEntry.class)
+                        .list()
+        );
+    }
+
+    public long countActiveAlertsInScope(UUID organizationId,
+                                         UUID tenantId,
+                                         List<UUID> taps,
+                                         boolean includeWithoutTap,
+                                         @Nullable Subsystem subsystem) {
+        return nzyme.getDatabase().withHandle(handle ->
+                bindScope(handle.createQuery("SELECT COUNT(*) FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff " +
+                                scope(taps, includeWithoutTap, subsystem)), taps, subsystem)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public Map<UUID, Long> countActiveAlertsByTap(UUID organizationId, UUID tenantId, List<UUID> taps) {
+        Map<UUID, Long> counts = Maps.newHashMap();
+        if (taps.isEmpty()) {
+            return counts;
+        }
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createQuery("SELECT tap_id, COUNT(*) AS alert_count FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff AND tap_id IN (<taps>) " +
+                                "GROUP BY tap_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
+                        .bindList("taps", taps)
+                        .map((rs, ctx) -> Map.entry(UUID.fromString(rs.getString("tap_id")), rs.getLong("alert_count")))
+                        .forEach(row -> counts.put(row.getKey(), row.getValue()))
+        );
+
+        return counts;
+    }
+
+    public long countNewAlertsInScope(UUID organizationId,
+                                      UUID tenantId,
+                                      List<UUID> taps,
+                                      boolean includeWithoutTap,
+                                      @Nullable Subsystem subsystem,
+                                      DateTime from,
+                                      DateTime to) {
+        return nzyme.getDatabase().withHandle(handle ->
+                bindScope(handle.createQuery("SELECT COUNT(*) FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND created_at >= :from AND created_at < :to " +
+                                scope(taps, includeWithoutTap, subsystem)), taps, subsystem)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("from", from)
+                        .bind("to", to)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<GenericIntegerHistogramEntry> getNewAlertsHistogramInScope(UUID organizationId,
+                                                                           UUID tenantId,
+                                                                           List<UUID> taps,
+                                                                           boolean includeWithoutTap,
+                                                                           @Nullable Subsystem subsystem,
+                                                                           DateTime from,
+                                                                           DateTime to,
+                                                                           Bucketing.BucketingConfiguration bucketing) {
+        return nzyme.getDatabase().withHandle(handle ->
+                bindScope(handle.createQuery("SELECT date_trunc(:date_trunc, created_at) AS bucket, " +
+                                "COUNT(*) AS value FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND created_at >= :from AND created_at < :to " +
+                                scope(taps, includeWithoutTap, subsystem) +
+                                "GROUP BY bucket ORDER BY bucket ASC"), taps, subsystem)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("from", from)
+                        .bind("to", to)
+                        .mapTo(GenericIntegerHistogramEntry.class)
+                        .list()
+        );
+    }
+
     // TODO the org/tenant handling here can probably go away as we are now enforcing org and tenant selection in UI
     public Optional<DetectionAlertEntry> findAlert(UUID uuid,
                                                    @Nullable UUID organizationId,

@@ -409,6 +409,11 @@ public class NodeManager {
             writeTimer(MetricExternalName.IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER));
 
+            writeTimer(MetricExternalName.DASHBOARD_CONTENT_BUILD_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DASHBOARD_CONTENT_BUILD_TIMER));
+            writeTimer(MetricExternalName.DASHBOARD_TOPOLOGY_BUILD_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DASHBOARD_TOPOLOGY_BUILD_TIMER));
+
             // Write all monitor execution timers.
             for (Map.Entry<String, Timer> timer : metrics.getTimers().entrySet()) {
                 if (timer.getKey().startsWith(MetricNames.MONITOR_EXECUTION_TIMER_BASE)) {

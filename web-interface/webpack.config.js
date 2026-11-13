@@ -44,10 +44,4 @@ module.exports = {
   plugins: [
     htmlPlugin
   ],
-  ignoreWarnings: [
-    {
-      module: /react-datepicker/,
-      message: /Critical dependency/,
-    },
-  ],
 };

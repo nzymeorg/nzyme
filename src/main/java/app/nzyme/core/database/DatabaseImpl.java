@@ -10,6 +10,8 @@ import app.nzyme.core.context.db.NetworkContextEntryMapper;
 import app.nzyme.core.context.db.MacAddressContextEntryMapper;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntryMapper;
 import app.nzyme.core.crypto.database.TLSKeyAndCertificateEntryMapper;
+import app.nzyme.core.dashboards.db.DashboardEntryMapper;
+import app.nzyme.core.dashboards.db.DisplayEntryMapper;
 import app.nzyme.core.crypto.database.TLSWildcardKeyAndCertificateEntryMapper;
 import app.nzyme.core.database.generic.*;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntryMapper;
@@ -358,7 +360,9 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new AssetPairNumberAggregationResultMapper())
                 .registerRowMapper(new L4AddressPairNumberAggregationResultMapper())
                 .registerRowMapper(new NetworkContextEntryMapper())
-                .registerRowMapper(new ApiKeyEntryMapper());
+                .registerRowMapper(new ApiKeyEntryMapper())
+                .registerRowMapper(new DashboardEntryMapper())
+                .registerRowMapper(new DisplayEntryMapper());
 
         if (configuration.slowQueryLogThreshold().isPresent()) {
             LOG.info("Slow query log enabled with threshold <{}ms>.", configuration.slowQueryLogThreshold().get());

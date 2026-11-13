@@ -213,7 +213,9 @@ public class AuthenticationResource extends UserAuthenticatedResource {
             description = "Returns the user behind the session, their permissions, the enabled subsystems, the "
                     + "multi-factor authentication state of the session and the branding of the web interface. The "
                     + "organization and tenant parameters are optional because the web interface calls this endpoint "
-                    + "before the user has selected a tenant. Pass both to also receive the active alert status. "
+                    + "before the user has selected a tenant. Pass both to also receive the active alert status and "
+                    + "whether dashboards are enabled for that tenant. Without them, the dashboards setting of the "
+                    + "tenant of the user is returned, which is always false for administrators. "
                     + "Available while multi-factor authentication is still pending for the session.")
     @ApiResponse(responseCode = "200", description = "Session information found.",
             content = @Content(schema = @Schema(implementation = SessionInformationResponse.class)))
@@ -298,6 +300,12 @@ public class AuthenticationResource extends UserAuthenticatedResource {
             subsystems.add("uav");
         }
 
+        // Administrators have no tenant of their own and work on the one they selected.
+        UUID dashboardsOrganizationId = organizationId != null && tenantId != null ? organizationId : u.organizationId();
+        UUID dashboardsTenantId = organizationId != null && tenantId != null ? tenantId : u.tenantId();
+        boolean dashboardsEnabled = dashboardsOrganizationId != null && dashboardsTenantId != null
+                && nzyme.getDashboards().isEnabled(dashboardsOrganizationId, dashboardsTenantId);
+
         String healthIndicatorLevel = null;
         if (user.get().isSuperAdmin()) {
             boolean hasRed = false;
@@ -336,6 +344,7 @@ public class AuthenticationResource extends UserAuthenticatedResource {
                         u.tenantId(),
                         featurePermissions,
                         subsystems,
+                        dashboardsEnabled,
                         u.hasMfaDisabled(),
                         u.unitSystem()
                 ),

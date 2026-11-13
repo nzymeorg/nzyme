@@ -882,6 +882,8 @@ export default function Filters(props) {
   const preSelectedValue = props.preSelectedValue;
   const preSelectedOperator = props.preSelectedOperator;
   const quickFilters = props.quickFilters;
+  // An embedded instance, like one inside a form, keeps the page URL as it is.
+  const embedded = Boolean(props.embedded);
 
   const onSaveAsMonitor = props.onSaveAsMonitor;
   const monitorType = props.monitorType;
@@ -1206,7 +1208,7 @@ export default function Filters(props) {
 
   // Store filters in URL query param. The instance embedded in a quick filter dialog must not touch the page URL.
   useEffect(() => {
-    if (preSelectedField) {
+    if (preSelectedField || embedded) {
       return;
     }
 
@@ -1237,7 +1239,7 @@ export default function Filters(props) {
 
   // Load monitor that was requested via URL query param.
   useEffect(() => {
-    if (!preSelectedField && urlRequestedMonitor && (!appliedMonitor || urlRequestedMonitor !== appliedMonitor.uuid)) {
+    if (!preSelectedField && !embedded && urlRequestedMonitor && (!appliedMonitor || urlRequestedMonitor !== appliedMonitor.uuid)) {
       monitorsService.findOne(urlRequestedMonitor, organizationId, tenantId, applyMonitor)
       setShowUrlAppliedFilterHint(true);
     } else {
@@ -1427,7 +1429,7 @@ export default function Filters(props) {
     setShowMonitorClearedHint(true);
   }
 
-  if (!preSelectedField && (urlRequestedMonitor && !appliedMonitor)) {
+  if (!preSelectedField && !embedded && (urlRequestedMonitor && !appliedMonitor)) {
     return (
       <LoadingSpinner/>
     )

@@ -50,7 +50,8 @@ export default function useTopologyLive(key, enabled, load, options) {
       const seconds = lastSuccess === 0 ? FIRST_LOOKBACK_SECONDS
           : Math.min(FIRST_LOOKBACK_SECONDS, Math.ceil((now - lastSuccess) / 1000) + LATENESS_SECONDS);
 
-      loadRef.current(seconds, (response) => {
+      // A response that was built a moment ago, like one that several screens share, says how long ago.
+      loadRef.current(seconds, (response, ageMs = 0) => {
         if (cancelled) return;
         requestedAt = 0;
         failing = false;
@@ -58,7 +59,7 @@ export default function useTopologyLive(key, enabled, load, options) {
         const first = clockOffset === null;
         lastSuccess = Date.now();
         // The timestamps of sessions are compared with the clock the node answers with, not with the browser's.
-        clockOffset = Date.parse(response.now) - lastSuccess;
+        clockOffset = Date.parse(response.now) + ageMs - lastSuccess;
         ingestLive(live, response);
         if (first) tick();
       }, (error) => {
@@ -66,7 +67,7 @@ export default function useTopologyLive(key, enabled, load, options) {
         requestedAt = 0;
 
         // Once per run of failures, not with every attempt.
-        if (!failing) toast.error("REST call failed. (HTTP " + error.response.status + ")");
+        if (!failing && error && error.response) toast.error("REST call failed. (HTTP " + error.response.status + ")");
         failing = true;
       });
     }

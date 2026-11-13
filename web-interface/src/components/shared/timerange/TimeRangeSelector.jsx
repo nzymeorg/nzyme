@@ -1,7 +1,6 @@
-import React, {forwardRef, useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
+import moment from "moment";
 import {Absolute, Named, Relative} from "./TimeRange";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import {useApplyTimeRange} from "./TimeRangeUrl";
 
 export {deserializeTimeRange, timeRangeFromURLOrDefault, useUrlTimeRange} from "./TimeRangeUrl";
@@ -21,8 +20,12 @@ export default function TimeRangeSelector(props) {
   const [relativeUnit, setRelativeUnit] = useState(dayGranularity ? "Days" : "Minutes");
   const [relativeValue, setRelativeValue] = useState(dayGranularity ? 7 : 5);
 
-  const [absoluteStart, setAbsoluteStart] = useState(new Date(new Date().setDate(new Date().getDate() - 1)));
-  const [absoluteEnd, setAbsoluteEnd] = useState(new Date());
+  // The absolute range is kept as the text of its inputs. A partly filled input reports an empty value.
+  const absoluteFormat = dayGranularity ? "YYYY-MM-DD" : "YYYY-MM-DDTHH:mm:ss";
+  const [absoluteStartInput, setAbsoluteStartInput] = useState(moment().subtract(1, "days").format(absoluteFormat));
+  const [absoluteEndInput, setAbsoluteEndInput] = useState(moment().format(absoluteFormat));
+  const absoluteStart = moment(absoluteStartInput).toDate();
+  const absoluteEnd = moment(absoluteEndInput).toDate();
   const [absoluteErrorMessage, setAbsoluteErrorMessage] = useState(null);
   const [absoluteSubmitEnabled, setAbsoluteSubmitEnabled] = useState(true);
 
@@ -30,6 +33,12 @@ export default function TimeRangeSelector(props) {
   const endOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 0);
 
   useEffect(() => {
+    if (isNaN(absoluteStart.getTime()) || isNaN(absoluteEnd.getTime())) {
+      setAbsoluteErrorMessage(null);
+      setAbsoluteSubmitEnabled(false);
+      return;
+    }
+
     const valid = dayGranularity
         ? startOfDay(absoluteStart).getTime() <= startOfDay(absoluteEnd).getTime()
         : absoluteStart.getTime() < absoluteEnd.getTime();
@@ -43,11 +52,7 @@ export default function TimeRangeSelector(props) {
           : "\"From\" date must be before \"To\" date.");
       setAbsoluteSubmitEnabled(false);
     }
-  }, [absoluteStart, absoluteEnd, dayGranularity]);
-
-  const AbsoluteInput = forwardRef(({ value, onClick }, ref) => (
-    <input type="text" className="form-control" onClick={onClick} ref={ref} defaultValue={value} />
-  ));
+  }, [absoluteStartInput, absoluteEndInput, dayGranularity]);
 
   const updateRelativeValue = (e) => {
     if (parseInt(e.target.value, 10) > 0) {
@@ -155,15 +160,13 @@ export default function TimeRangeSelector(props) {
     )
   }
 
-  const absoluteDatePicker = (selected, onChange) => {
+  const absoluteDatePicker = (value, setValue) => {
     if (dayGranularity) {
-      return <DatePicker dateFormat="YYYY-MM-dd" customInput={<AbsoluteInput />}
-                         selected={selected} onChange={onChange} />
+      return <input type="date" className="form-control" value={value} onChange={(e) => setValue(e.target.value)} />
     }
 
-    return <DatePicker showTimeSelect={true} dateFormat="YYYY-MM-dd HH:mm:SS" timeFormat="HH:mm:SS"
-                       timeIntervals={1} timeCaption="Time" customInput={<AbsoluteInput />}
-                       selected={selected} onChange={onChange} />
+    return <input type="datetime-local" className="form-control" step={1}
+                  value={value} onChange={(e) => setValue(e.target.value)} />
   }
 
   const absoluteErrorMessageBox = () => {
@@ -254,12 +257,12 @@ export default function TimeRangeSelector(props) {
             <div className="accordion-body">
               <div className="row">
                 <div className="col-6">
-                  <label className="form-label">From Date:</label><br />
-                  {absoluteDatePicker(absoluteStart, (date) => setAbsoluteStart(date))}
+                  <label className="form-label">From Date:</label>
+                  {absoluteDatePicker(absoluteStartInput, setAbsoluteStartInput)}
                 </div>
                 <div className="col-6">
-                  <label className="form-label">To Date:</label><br/>
-                  {absoluteDatePicker(absoluteEnd, (date) => setAbsoluteEnd(date))}
+                  <label className="form-label">To Date:</label>
+                  {absoluteDatePicker(absoluteEndInput, setAbsoluteEndInput)}
                 </div>
               </div>
 

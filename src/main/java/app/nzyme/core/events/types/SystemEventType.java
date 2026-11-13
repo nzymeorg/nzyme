@@ -121,6 +121,14 @@ public enum SystemEventType {
             "A super administrator created an API key that is valid for their scope of access."
     ),
 
+    DASHBOARD_DISPLAY_TOKEN_CREATED(
+            SystemEventCategory.AUTHENTICATION,
+            SystemEventScope.ORGANIZATION,
+            "A dashboard display token was created",
+            "A user created a dashboard display or replaced its token. The token lets a screen show the " +
+                    "dashboards of the display without a user session."
+    ),
+
     HEALTH_INDICATOR_CRYPTO_SYNC_TOGGLED(
             SystemEventCategory.HEALTH_INDICATOR,
             SystemEventScope.SYSTEM,

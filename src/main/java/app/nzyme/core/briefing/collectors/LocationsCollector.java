@@ -1,5 +1,6 @@
 package app.nzyme.core.briefing.collectors;
 
+import app.nzyme.core.NzymeNode;
 import app.nzyme.core.briefing.BriefingContext;
 import app.nzyme.core.briefing.BriefingLinks;
 import app.nzyme.core.detection.alerts.DetectionAlertService;
@@ -54,7 +55,7 @@ public class LocationsCollector {
 
             locations.add(BriefingLocationResponse.create(
                     location.uuid(), location.name(), taps.size(), taps.size() - offline.size(), offline,
-                    alertCount, environment(location), BriefingLinks.to("LOCATION", "uuid", location.uuid().toString())
+                    alertCount, environment(ctx.nzyme(), location), BriefingLinks.to("LOCATION", "uuid", location.uuid().toString())
             ));
         }
 
@@ -86,12 +87,12 @@ public class LocationsCollector {
         });
     }
 
-    private @Nullable BriefingLocationEnvironmentResponse environment(TenantLocationEntry location) {
+    public static @Nullable BriefingLocationEnvironmentResponse environment(NzymeNode nzyme, TenantLocationEntry location) {
         if (location.latitude() == null || location.longitude() == null) {
             return null;
         }
 
-        Optional<EnvironmentData> data = ctx.nzyme().getEnvironmentService().getEnvironmentData(location.uuid());
+        Optional<EnvironmentData> data = nzyme.getEnvironmentService().getEnvironmentData(location.uuid());
         if (data.isEmpty()) {
             return null;
         }

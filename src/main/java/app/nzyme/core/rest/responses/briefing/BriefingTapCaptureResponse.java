@@ -2,6 +2,7 @@ package app.nzyme.core.rest.responses.briefing;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @AutoValue
 public abstract class BriefingTapCaptureResponse {
@@ -15,23 +16,26 @@ public abstract class BriefingTapCaptureResponse {
     @JsonProperty("is_running")
     public abstract boolean isRunning();
 
+    @Schema(description = "Packets or frames received since the tap started.")
     @JsonProperty("received")
     public abstract long received();
 
+    @Schema(description = "Packets or frames dropped in the buffer and on the interface during the last reporting interval of the tap. Not a total, so it cannot be compared to the received count.")
     @JsonProperty("dropped")
     public abstract long dropped();
 
-    @JsonProperty("drop_ratio")
-    public abstract double dropRatio();
+    @Schema(description = "True if the capture dropped enough during the last reporting interval to turn the tap drop health indicator red.")
+    @JsonProperty("dropping")
+    public abstract boolean dropping();
 
-    public static BriefingTapCaptureResponse create(String interfaceName, String captureType, boolean isRunning, long received, long dropped, double dropRatio) {
+    public static BriefingTapCaptureResponse create(String interfaceName, String captureType, boolean isRunning, long received, long dropped, boolean dropping) {
         return builder()
                 .interfaceName(interfaceName)
                 .captureType(captureType)
                 .isRunning(isRunning)
                 .received(received)
                 .dropped(dropped)
-                .dropRatio(dropRatio)
+                .dropping(dropping)
                 .build();
     }
 
@@ -51,7 +55,7 @@ public abstract class BriefingTapCaptureResponse {
 
         public abstract Builder dropped(long dropped);
 
-        public abstract Builder dropRatio(double dropRatio);
+        public abstract Builder dropping(boolean dropping);
 
         public abstract BriefingTapCaptureResponse build();
     }

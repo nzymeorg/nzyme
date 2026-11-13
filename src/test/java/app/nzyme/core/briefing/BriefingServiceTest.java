@@ -24,6 +24,7 @@ import app.nzyme.core.events.EventEngine;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitoring.health.HealthMonitor;
 import app.nzyme.core.database.maintenance.DatabaseMaintenance;
+import app.nzyme.core.dashboards.Dashboards;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.ouis.OuiService;
 import app.nzyme.core.quota.QuotaService;
@@ -248,6 +249,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         @Override public QuotaService getQuotaService() { throw unavailable(); }
         @Override public EventEngine getEventEngine() { throw unavailable(); }
         @Override public Monitors getMonitors() { throw unavailable(); }
+        @Override public Dashboards getDashboards() { throw unavailable(); }
         @Override public TablesService getTablesService() { throw unavailable(); }
         @Override public GeoIpService getGeoIpService() { throw unavailable(); }
         @Override public OuiService getOuiService() { throw unavailable(); }

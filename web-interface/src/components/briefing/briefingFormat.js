@@ -58,18 +58,24 @@ export function formatBytes(value) {
   return numeral(value).format("0.0 b");
 }
 
+const BITRATE_UNITS = ["bit/s", "kbit/s", "Mbit/s", "Gbit/s", "Tbit/s"];
+
+export function bitrateScale(bitsPerSecond) {
+  let divisor = 1;
+  let i = 0;
+  while (bitsPerSecond/divisor >= 1000 && i < BITRATE_UNITS.length - 1) {
+    divisor *= 1000;
+    i++;
+  }
+  return {divisor: divisor, unit: BITRATE_UNITS[i]};
+}
+
 export function formatBitrate(bitsPerSecond) {
   if (bitsPerSecond === null || bitsPerSecond === undefined) {
     return "–";
   }
-  const units = ["bit/s", "kbit/s", "Mbit/s", "Gbit/s", "Tbit/s"];
-  let value = bitsPerSecond;
-  let i = 0;
-  while (value >= 1000 && i < units.length - 1) {
-    value /= 1000;
-    i++;
-  }
-  return numeral(value).format(i === 0 ? "0" : "0.0") + " " + units[i];
+  const scale = bitrateScale(bitsPerSecond);
+  return numeral(bitsPerSecond/scale.divisor).format(scale.divisor === 1 ? "0" : "0.0") + " " + scale.unit;
 }
 
 export function formatValue(value, unit) {

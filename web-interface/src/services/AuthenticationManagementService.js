@@ -117,6 +117,14 @@ class AuthenticationManagementService {
     RESTClient.put(`/system/authentication/mgmt/organizations/show/${organizationId}/tenants/show/${tenantId}/subsystems/configuration`, {change: newConfig}, successCallback, errorCallback)
   }
 
+  getDashboardsConfigurationOfTenantOfOrganization(organizationId, tenantId, setConfiguration) {
+    RESTClient.get(`/system/authentication/mgmt/organizations/show/${organizationId}/tenants/show/${tenantId}/dashboards/configuration`, {}, (response) => setConfiguration(response.data))
+  }
+
+  updateDashboardsConfigurationOfTenantOfOrganization(newConfig, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/system/authentication/mgmt/organizations/show/${organizationId}/tenants/show/${tenantId}/dashboards/configuration`, {change: newConfig}, successCallback, errorCallback)
+  }
+
   findAllOrganizationAdmins(organizationId, setUsers, limit, offset) {
     RESTClient.get('/system/authentication/mgmt/organizations/show/' + organizationId + '/administrators',
         {limit: limit, offset: offset}, function (response) {

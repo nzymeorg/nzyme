@@ -70,6 +70,23 @@ public class Permissions {
                         "including DHCP fingerprint exclusions and deleting hostnames and IP addresses of assets.",
                 false
         ));
+        put("dashboards_view", Permission.create(
+                "dashboards_view",
+                "View Dashboards",
+                "Allows user to view the dashboards of the tenant the user belongs to. A dashboard shows data " +
+                        "from all taps it covers and can show alerts, independent of the taps and alerts the user " +
+                        "can otherwise access.",
+                false
+        ));
+        put("dashboards_manage", Permission.create(
+                "dashboards_manage",
+                "Manage Dashboards",
+                "Allows user to create, edit and delete dashboards and to share them on displays. A display " +
+                        "shows its dashboards to anyone who has the link of the display, without a user session. " +
+                        "The user decides what a dashboard shows, limited to the taps and alerts the user can " +
+                        "access.",
+                false
+        ));
         put("api_keys_manage_own", Permission.create(
                 "api_keys_manage_own",
                 "Manage own API Keys",

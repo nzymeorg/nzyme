@@ -26,7 +26,10 @@ const AUTO_LABELS = 12;
 const MAX_GROUPS_PER_RING = 12;
 const GROUP_LABEL_OFFSET = 22;
 const OTHER_GROUP = "__other__";
-const FIT_PADDING = 40;
+const FIT_PADDING = {x: 40, top: 40, bottom: 40};
+// Nobody can pan a stage, so it gives less room away. Labels hang below their nodes.
+const STAGE_FIT_PADDING = {x: 28, top: 14, bottom: 36};
+const STAGE_LABEL_AREA = 45000;
 const FIT_MAX_SCALE = 1.6;
 // Shadows are the most expensive part of a frame. Past this many nodes the glow goes.
 const GLOW_NODE_LIMIT = 350;
@@ -111,7 +114,7 @@ const groupLabelPosition = (group) => {
   return {x: group.cx + group.ux * distance, y: group.cy + group.uy * distance};
 }
 
-const fitTransform = (nodes, groups, width, height) => {
+const fitTransform = (nodes, groups, width, height, padding) => {
   if (nodes.length === 0 || width <= 0 || height <= 0) return null;
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -127,10 +130,11 @@ const fitTransform = (nodes, groups, width, height) => {
     include(l.x, l.y, 60);
   });
 
-  const k = Math.min(FIT_MAX_SCALE, (width - FIT_PADDING * 2) / Math.max(1, maxX - minX),
-      (height - FIT_PADDING * 2) / Math.max(1, maxY - minY));
+  const room = Math.max(1, height - padding.top - padding.bottom);
+  const k = Math.min(FIT_MAX_SCALE, Math.max(1, width - padding.x * 2) / Math.max(1, maxX - minX),
+      room / Math.max(1, maxY - minY));
   return zoomIdentity
-      .translate(width / 2 - k * (minX + maxX) / 2, height / 2 - k * (minY + maxY) / 2)
+      .translate(width / 2 - k * (minX + maxX) / 2, padding.top + room / 2 - k * (minY + maxY) / 2)
       .scale(k);
 }
 
@@ -235,7 +239,10 @@ const pairDirectionText = (pair, a, b) => {
 export default function TopologyGraph({model, scale = null, dataKey, minBytes = 0, arrangement = "force",
                                         sizeBy = "bytes", labels = "auto", selectedId = null, onSelect, onFilter,
                                         focus = null, height = 560, exportRef = null, live = false,
-                                        pulses = null}) {
+                                        pulses = null, stage = null}) {
+
+  // A stage ({colors, fontFamily, unit}) is a drawing that nobody operates, like a widget on a wall: it fills its
+  // container, has no controls and takes no pointer. One unit is that many pixels.
 
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -268,6 +275,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
   const scaleRef = useRef(scale);
   const easingRef = useRef(null);
   const colorsRef = useRef(colorsForMode(false));
+  const stageRef = useRef(stage);
+  const resizeRef = useRef(null);
   const callbacksRef = useRef({onSelect: null, onFilter: null});
   // A focus that was already there when the graph was created is old news, not a request to move.
   const handledFocusRef = useRef(focus ? focus.at : null);
@@ -325,10 +334,11 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
-    const dpr = target ? target.scale : (window.devicePixelRatio || 1);
+    const dpr = target ? target.scale : (window.devicePixelRatio || 1) * (stageRef.current ? stageRef.current.unit : 1);
     const {width, height: h} = sizeRef.current;
     const t = transformRef.current;
     const c = colorsRef.current;
+    const fontFamily = stageRef.current ? stageRef.current.fontFamily : FONT_FAMILY;
     const {nodes, links} = visibleRef.current;
     const hovered = hoveredRef.current;
     const hoveredLink = hoveredLinkRef.current;
@@ -525,7 +535,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     const placed = [];
     const overlaps = (x, y, w, h) => placed.some((p) => x < p.x + p.w && p.x < x + w && y < p.y + p.h && p.y < y + h);
 
-    ctx.font = "bold " + fontSize + "px " + FONT_FAMILY;
+    ctx.font = "bold " + fontSize + "px " + fontFamily;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     groupsRef.current.forEach((group) => {
@@ -551,12 +561,15 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     });
 
     const mode = optionsRef.current.labels;
+    const autoLabels = stageRef.current
+        ? Math.max(3, Math.min(16, Math.round(width * h / STAGE_LABEL_AREA))) : AUTO_LABELS;
     const labeled = (node) => {
+      if (!node.label) return false;
       if (isHighlighted(node)) return true;
       if (!node.active) return false;
       if (lit !== null) return lit.has(node.id) && (lit.size <= 30 || node.rank < AUTO_LABELS);
       if (mode === "all") return true;
-      return mode === "auto" && node.rank < AUTO_LABELS;
+      return mode === "auto" && node.rank < autoLabels;
     }
 
     ctx.textBaseline = "top";
@@ -571,20 +584,24 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       const plateWidth = textWidth + padding * 2;
       const plateHeight = lines.length * lineHeight + padding * 2 - (lineHeight - fontSize);
 
-      if (!strong && overlaps(node.x - plateWidth / 2, top, plateWidth, plateHeight)) return;
-      placed.push({x: node.x - plateWidth / 2, y: top, w: plateWidth, h: plateHeight});
+      // A stage cannot be panned, so a label at its edge is moved in.
+      const center = stageRef.current && plateWidth < width / t.k
+          ? Math.max(t.invertX(0) + plateWidth / 2, Math.min(t.invertX(width) - plateWidth / 2, node.x)) : node.x;
+
+      if (!strong && overlaps(center - plateWidth / 2, top, plateWidth, plateHeight)) return;
+      placed.push({x: center - plateWidth / 2, y: top, w: plateWidth, h: plateHeight});
 
       ctx.globalAlpha = strong ? 0.9 : 0.7;
       ctx.fillStyle = c.background;
       ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(node.x - plateWidth / 2, top, plateWidth, plateHeight, 3 / t.k);
-      else ctx.rect(node.x - plateWidth / 2, top, plateWidth, plateHeight);
+      if (ctx.roundRect) ctx.roundRect(center - plateWidth / 2, top, plateWidth, plateHeight, 3 / t.k);
+      else ctx.rect(center - plateWidth / 2, top, plateWidth, plateHeight);
       ctx.fill();
       ctx.globalAlpha = 1;
 
       lines.forEach((line, i) => {
         ctx.fillStyle = i === 0 ? c.text : c.muted;
-        ctx.fillText(line, node.x, top + padding + i * lineHeight);
+        ctx.fillText(line, center, top + padding + i * lineHeight);
       });
     });
 
@@ -592,10 +609,11 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
 
     ctx.save();
     ctx.scale(dpr, dpr);
-    ctx.font = "11px " + FONT_FAMILY;
+    ctx.font = "11px " + fontFamily;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    const legend = [
+    // A stage explains its marks itself, in its own type.
+    const legend = stageRef.current ? [] : [
       {text: "Internal node", node: "circle", color: c.internal},
       {text: "External node", node: "square", color: c.external},
       {text: "Outbound", color: c.outbound},
@@ -654,10 +672,16 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (exportRef) exportRef.current = null;
   }, [exportRef]);
 
+  const stageColors = stage ? stage.colors : null;
+  const stageFont = stage ? stage.fontFamily : null;
+  const stageUnit = stage ? stage.unit : null;
+
   useEffect(() => {
-    colorsRef.current = colorsForMode(darkMode);
+    stageRef.current = stage;
+    colorsRef.current = stageColors ? stageColors : colorsForMode(darkMode);
+    if (resizeRef.current) resizeRef.current();
     scheduleDraw();
-  }, [darkMode, scheduleDraw]);
+  }, [darkMode, stageColors, stageFont, stageUnit, scheduleDraw]);
 
   const fitView = useCallback((animated, eased = false) => {
     const canvas = canvasRef.current;
@@ -665,7 +689,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     if (!canvas || !zoomBehavior) return;
 
     const {width, height: h} = sizeRef.current;
-    let transform = fitTransform(visibleRef.current.nodes, groupsRef.current, width, h);
+    let transform = fitTransform(visibleRef.current.nodes, groupsRef.current, width, h,
+        stageRef.current ? STAGE_FIT_PADDING : FIT_PADDING);
     if (!transform) return;
 
     if (eased && fittedRef.current) {
@@ -914,18 +939,22 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     simulationRef.current = simulation;
 
     const resize = () => {
-      const width = container.clientWidth;
+      const unit = stageRef.current ? stageRef.current.unit : 1;
+      const cssWidth = container.clientWidth;
+      const cssHeight = stageRef.current ? container.clientHeight : height;
       const dpr = window.devicePixelRatio || 1;
-      const pixelWidth = Math.round(width * dpr);
-      const pixelHeight = Math.round(height * dpr);
-      if (canvas.width === pixelWidth && canvas.height === pixelHeight) {
+      const pixelWidth = Math.round(cssWidth * dpr);
+      const pixelHeight = Math.round(cssHeight * dpr);
+      const size = {width: cssWidth / unit, height: cssHeight / unit};
+      if (canvas.width === pixelWidth && canvas.height === pixelHeight
+          && sizeRef.current.width === size.width && sizeRef.current.height === size.height) {
         return;
       }
-      sizeRef.current = {width: width, height: height};
+      sizeRef.current = size;
       canvas.width = pixelWidth;
       canvas.height = pixelHeight;
-      canvas.style.width = width + "px";
-      canvas.style.height = height + "px";
+      canvas.style.width = cssWidth + "px";
+      canvas.style.height = cssHeight + "px";
       // Anchors are absolute, so a new center means a new layout.
       if (visibleRef.current.nodes.length > 0) sync(false, 0.2, true); else scheduleDraw();
     }
@@ -941,6 +970,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     }
 
     resize();
+    resizeRef.current = resize;
 
     let observer = null;
     if (typeof window.ResizeObserver !== "undefined") {
@@ -1002,7 +1032,8 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
 
     const pointerPosition = (event) => {
       const rect = canvas.getBoundingClientRect();
-      return [event.clientX - rect.left, event.clientY - rect.top];
+      const unit = stageRef.current ? stageRef.current.unit : 1;
+      return [(event.clientX - rect.left) / unit, (event.clientY - rect.top) / unit];
     }
 
     const spotlight = (node) => {
@@ -1094,6 +1125,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       simulation.on("tick", null);
       simulationRef.current = null;
       zoomRef.current = null;
+      resizeRef.current = null;
 
       if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
       if (observer) observer.disconnect(); else window.removeEventListener("resize", onResize);
@@ -1194,6 +1226,14 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     } else {
       simulation.alpha(0.3).restart();
     }
+  }
+
+  if (stage) {
+    return (
+        <div ref={containerRef} style={{position: "relative", width: "100%", height: "100%", overflow: "hidden"}}>
+          <canvas ref={canvasRef} style={{position: "absolute", top: 0, left: 0, display: "block", pointerEvents: "none"}} />
+        </div>
+    )
   }
 
   if (!hasData) {

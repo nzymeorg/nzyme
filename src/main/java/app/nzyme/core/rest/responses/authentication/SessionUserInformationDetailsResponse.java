@@ -39,13 +39,16 @@ public abstract class SessionUserInformationDetailsResponse {
     @JsonProperty("subsystems")
     public abstract List<String> subsystems();
 
+    @JsonProperty("dashboards_enabled")
+    public abstract boolean dashboardsEnabled();
+
     @JsonProperty("has_mfa_disabled")
     public abstract boolean hasMfaDisabled();
 
     @JsonProperty("unit_system")
     public abstract String unitSystem();
 
-    public static SessionUserInformationDetailsResponse create(UUID id, String email, String name, boolean isSuperAdmin, boolean isOrgAdmin, UUID organizationId, UUID tenantId, List<String> featurePermissions, List<String> subsystems, boolean hasMfaDisabled, String unitSystem) {
+    public static SessionUserInformationDetailsResponse create(UUID id, String email, String name, boolean isSuperAdmin, boolean isOrgAdmin, UUID organizationId, UUID tenantId, List<String> featurePermissions, List<String> subsystems, boolean dashboardsEnabled, boolean hasMfaDisabled, String unitSystem) {
         return builder()
                 .id(id)
                 .email(email)
@@ -56,6 +59,7 @@ public abstract class SessionUserInformationDetailsResponse {
                 .tenantId(tenantId)
                 .featurePermissions(featurePermissions)
                 .subsystems(subsystems)
+                .dashboardsEnabled(dashboardsEnabled)
                 .hasMfaDisabled(hasMfaDisabled)
                 .unitSystem(unitSystem)
                 .build();
@@ -84,6 +88,8 @@ public abstract class SessionUserInformationDetailsResponse {
         public abstract Builder featurePermissions(List<String> featurePermissions);
 
         public abstract Builder subsystems(List<String> subsystems);
+
+        public abstract Builder dashboardsEnabled(boolean dashboardsEnabled);
 
         public abstract Builder hasMfaDisabled(boolean hasMfaDisabled);
 

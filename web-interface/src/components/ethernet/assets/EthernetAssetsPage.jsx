@@ -67,7 +67,6 @@ export default function EthernetAssetsPage() {
               <div className="card-body">
                 <CardTitleWithControls title="Active Assets"
                                        timeRange={timeRange}
-                                       setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
 
                 <ActiveAssetsHistogram timeRange={timeRange}
@@ -104,7 +103,6 @@ export default function EthernetAssetsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Newest Assets"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <LatestAssetsHistogram filters={filters}
@@ -120,7 +118,6 @@ export default function EthernetAssetsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Recently Disappeared Assets"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <DisappearedAssetsHistogram filters={filters}
@@ -138,7 +135,6 @@ export default function EthernetAssetsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Assets"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <AssetsTable assets={assets}
