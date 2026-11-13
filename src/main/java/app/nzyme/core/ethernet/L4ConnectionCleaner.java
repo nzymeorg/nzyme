@@ -8,8 +8,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
-import java.util.List;
-
 public class L4ConnectionCleaner extends Periodical {
 
     /*
@@ -18,6 +16,11 @@ public class L4ConnectionCleaner extends Periodical {
      */
 
     private static final Logger LOG = LogManager.getLogger(L4ConnectionCleaner.class);
+
+    // Must stay identical to the predicate of the l4_sessions_open_l4_type_most_recent_segment_time_idx index or
+    // the planner cannot use it.
+    private static final String OPEN_STATE = "state NOT IN ('CLOSED', 'CLOSEDNODE', 'CLOSEDFIN', 'CLOSEDRST', " +
+            "'CLOSEDTIMEOUT', 'CLOSEDTIMEOUTNODE', 'REFUSED')";
 
     private final NzymeNodeImpl nzyme;
 
@@ -39,28 +42,26 @@ public class L4ConnectionCleaner extends Periodical {
             tcpSessionTimeoutSeconds = 43200;
         }
 
+        // SKIP LOCKED so that we never wait on a row lock. Tap reports and retention purges lock the same rows in
+        // a different order and would deadlock with us.
+
         // TCP.
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE l4_sessions SET state = :new_state " +
+                handle.createUpdate("UPDATE l4_sessions SET state = :new_state WHERE id IN (" +
+                                "SELECT id FROM l4_sessions " +
                                 "WHERE l4_type = 'TCP' AND most_recent_segment_time < :cutoff " +
-                                "AND state NOT IN (<states>)")
+                                "AND " + OPEN_STATE + " FOR UPDATE SKIP LOCKED)")
                         .bind("new_state", TcpSessionState.CLOSEDTIMEOUTNODE)
                         .bind("cutoff", DateTime.now().minusSeconds(tcpSessionTimeoutSeconds))
-                        .bindList("states", List.of(
-                                TcpSessionState.CLOSEDFIN,
-                                TcpSessionState.CLOSEDRST,
-                                TcpSessionState.CLOSEDTIMEOUT,
-                                TcpSessionState.CLOSEDTIMEOUTNODE,
-                                TcpSessionState.REFUSED)
-                        )
                         .execute()
         );
 
         // UDP.
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE l4_sessions SET state = :new_state " +
+                handle.createUpdate("UPDATE l4_sessions SET state = :new_state WHERE id IN (" +
+                                "SELECT id FROM l4_sessions " +
                                 "WHERE l4_type = 'UDP' AND most_recent_segment_time < :cutoff " +
-                                "AND state <> 'CLOSED'")
+                                "AND " + OPEN_STATE + " FOR UPDATE SKIP LOCKED)")
                         .bind("new_state", UdpConversationState.CLOSEDNODE)
                         .bind("cutoff", DateTime.now().minusSeconds(120))
                         .execute()

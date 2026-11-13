@@ -12709,4 +12709,15 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_l4_sessions_open_sessions_idx" author="lennartkoopmann" runInTransaction="false">
+        <sql>
+            CREATE INDEX CONCURRENTLY l4_sessions_open_l4_type_most_recent_segment_time_idx
+                ON l4_sessions (l4_type, most_recent_segment_time)
+                WHERE state NOT IN ('CLOSED', 'CLOSEDNODE', 'CLOSEDFIN', 'CLOSEDRST', 'CLOSEDTIMEOUT', 'CLOSEDTIMEOUTNODE', 'REFUSED');
+        </sql>
+        <rollback>
+            DROP INDEX CONCURRENTLY l4_sessions_open_l4_type_most_recent_segment_time_idx;
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>
