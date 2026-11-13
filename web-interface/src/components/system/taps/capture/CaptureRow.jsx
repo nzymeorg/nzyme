@@ -21,17 +21,17 @@ function CaptureRow (props) {
       <td>{c.interface_name}</td>
       <td>{captureType(c.capture_type)}</td>
       <td>
-        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name) + ".received")}>
+        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name.toLowerCase()) + ".received")}>
          {numeral(c.received).format('0,0')}
        </Link>
       </td>
       <td>
-        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name) + ".dropped_if")}>
+        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name.toLowerCase()) + ".dropped_if")}>
           {numeral(c.dropped_interface).format('0,0')}
         </Link>
       </td>
       <td>
-        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name) + ".dropped_buffer")}>
+        <Link to={ApiRoutes.SYSTEM.TAPS.METRICDETAILS(tap.uuid, "gauge", "captures." + sanitizeHtml(c.interface_name.toLowerCase()) + ".dropped_buffer")}>
           {numeral(c.dropped_buffer).format('0,0')}
         </Link>
       </td>
