@@ -15,9 +15,13 @@ export default function DatabaseIndexesTable({indexes, reindexThresholdPercent, 
       return undefined;
     }
 
-    return "Above the " + reindexThresholdPercent + "% bloat threshold. " + (autoReindexEnabled
-        ? "Rebuilt automatically in the next maintenance window."
-        : "Automatic reindexing is off. Rebuild with the Rebuild button.");
+    if (!autoReindexEnabled) {
+      return "Above the " + reindexThresholdPercent + "% bloat threshold. Automatic reindexing is off. Rebuild with the Rebuild button.";
+    }
+
+    return "Above the " + reindexThresholdPercent + "% bloat threshold. " + (i.rebuild_overdue
+        ? "Not rebuilt in the last maintenance window."
+        : "Rebuilt automatically in the next maintenance window.");
   };
 
   const visible = showAll ? indexes : indexes.slice(0, 25);
@@ -49,9 +53,10 @@ export default function DatabaseIndexesTable({indexes, reindexThresholdPercent, 
             <td className="machine-data">{i.name}</td>
             <td className="machine-data">{i.table}</td>
             <td>{numeral(i.bytes).format("0.0b")}</td>
-            <td className={qualifies(i) ? "text-warning" : ""} title={bloatTitle(i)}>
+            <td className={i.rebuild_overdue ? "text-danger" : (qualifies(i) ? "text-warning" : "")} title={bloatTitle(i)}>
               {i.bloat_percent === null || i.bloat_percent === undefined ? <span className="text-muted">n/a</span> :
                 <span>{numeral(i.bloat_percent).format("0")}% <span className="text-muted">({numeral(i.bloat_bytes).format("0.0b")})</span></span>}
+              {i.rebuild_overdue ? " (overdue)" : null}
             </td>
             <td className={i.scans === 0 ? "text-muted" : ""}>{numeral(i.scans).format("0,0")}</td>
             <td>

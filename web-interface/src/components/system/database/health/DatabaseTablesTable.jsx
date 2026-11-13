@@ -22,9 +22,14 @@ export default function DatabaseTablesTable({tables, indexes, reindexThresholdPe
 
   const minimumBytes = reindexMinimumMb * 1024 * 1024;
   const qualifyingByTable = {};
+  const overdueTables = new Set();
   for (const i of indexes) {
     if (i.valid !== false && i.bytes >= minimumBytes && i.bloat_percent !== null && i.bloat_percent >= reindexThresholdPercent) {
       qualifyingByTable[i.table] = (qualifyingByTable[i.table] || 0) + 1;
+    }
+
+    if (i.rebuild_overdue) {
+      overdueTables.add(i.table);
     }
   }
 
@@ -35,11 +40,12 @@ export default function DatabaseTablesTable({tables, indexes, reindexThresholdPe
     }
 
     const what = count === 1 ? "One index of this table is" : count + " indexes of this table are";
-    const action = autoReindexEnabled
-        ? "Rebuilt automatically in the next maintenance window."
-        : "Automatic reindexing is off. Rebuild with the Reindex button.";
+    const overdue = overdueTables.has(t.name);
+    const action = !autoReindexEnabled
+        ? "Automatic reindexing is off. Rebuild with the Reindex button."
+        : (overdue ? "Not rebuilt in the last maintenance window." : "Rebuilt automatically in the next maintenance window.");
 
-    return <span className="text-warning"
+    return <span className={overdue ? "text-danger" : "text-warning"}
                  title={what + " above the " + reindexThresholdPercent + "% bloat threshold. " + action}> <i className="fa-solid fa-triangle-exclamation" /></span>;
   };
 

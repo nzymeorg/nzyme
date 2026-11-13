@@ -34387,7 +34387,7 @@
     },
     "/api/system/database/maintenance/health" : {
       "get" : {
-        "description" : "Returns the latest statistics snapshot of the PostgreSQL server: version and size, cache and checkpoint behavior over the last minutes, every relevant server setting with its recommended value, all tables with their dead row share and last vacuum, all indexes of at least 1 MB with an estimate of their bloat, and the maintenance action that is running or queued. Statistics are collected once a minute.",
+        "description" : "Returns the latest statistics snapshot of the PostgreSQL server: version and size, cache and checkpoint behavior over the last minutes, every relevant server setting with its recommended value, all tables with their dead row share and last vacuum, all indexes of at least 1 MB with an estimate of their bloat and whether an automatic rebuild is overdue, and the maintenance action that is running or queued. Statistics are collected once a minute.",
         "operationId" : "findDatabaseHealth",
         "responses" : {
           "200" : {
@@ -42284,6 +42284,9 @@
             "type" : "string"
           },
           "primary" : {
+            "type" : "boolean"
+          },
+          "rebuild_overdue" : {
             "type" : "boolean"
           },
           "scans" : {

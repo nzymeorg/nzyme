@@ -23,6 +23,7 @@ import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
@@ -173,6 +174,12 @@ public class DatabaseMaintenance {
         } catch (Exception e) {
             LOG.error("Could not collect database statistics.", e);
             return;
+        }
+
+        try {
+            trackRebuildCandidates(statistics.get());
+        } catch (Exception e) {
+            LOG.error("Could not track bloated indexes.", e);
         }
 
         try {
@@ -437,14 +444,7 @@ public class DatabaseMaintenance {
         }
 
         if (isAutoReindexEnabled() && isInMaintenanceWindow(now)) {
-            long minimumBytes = reindexMinimumIndexMb() * 1024L * 1024L;
-            int threshold = reindexBloatThresholdPercent();
-
-            for (IndexStatistics i : stats.indexes()) {
-                if (!i.valid() || i.bytes() < minimumBytes || i.bloatPercent() == null || i.bloatPercent() < threshold) {
-                    continue;
-                }
-
+            for (IndexStatistics i : rebuildCandidates(stats)) {
                 // A rebuild that did not shrink the index means the estimate is off for it. Back off for a week.
                 if (ranRecently(ActionType.REINDEX_INDEX, i.name(), now.minusHours(REINDEX_COOLDOWN_HOURS))
                         || lastReindexWasIneffective(i.name(), now.minusDays(INEFFECTIVE_REINDEX_COOLDOWN_DAYS))) {
@@ -457,6 +457,89 @@ public class DatabaseMaintenance {
                 return;
             }
         }
+    }
+
+    private List<IndexStatistics> rebuildCandidates(DatabaseStatistics stats) {
+        long minimumBytes = reindexMinimumIndexMb() * 1024L * 1024L;
+        int threshold = reindexBloatThresholdPercent();
+
+        return stats.indexes().stream()
+                .filter(i -> i.valid() && i.bytes() >= minimumBytes && i.bloatPercent() != null && i.bloatPercent() >= threshold)
+                .toList();
+    }
+
+    private void trackRebuildCandidates(DatabaseStatistics stats) {
+        // A failed bloat estimate must not look like every index recovered.
+        if (stats.indexes().stream().allMatch(i -> i.bloatPercent() == null)) {
+            return;
+        }
+
+        // Sorted, because two nodes that insert the same rows in a different order can deadlock.
+        List<String> names = rebuildCandidates(stats).stream().map(IndexStatistics::name).sorted().toList();
+
+        nzyme.getDatabase().useHandle(handle -> {
+            if (names.isEmpty()) {
+                handle.createUpdate("DELETE FROM database_bloated_indexes").execute();
+                return;
+            }
+
+            handle.createUpdate("DELETE FROM database_bloated_indexes WHERE index_name NOT IN (<names>)")
+                    .bindList("names", names)
+                    .execute();
+
+            PreparedBatch batch = handle.prepareBatch("INSERT INTO database_bloated_indexes(index_name, detected_at) " +
+                    "VALUES(:index_name, NOW()) ON CONFLICT DO NOTHING");
+            for (String name : names) {
+                batch.bind("index_name", name).add();
+            }
+            batch.execute();
+        });
+    }
+
+    public List<IndexStatistics> findOverdueRebuildCandidates(DatabaseStatistics stats) {
+        List<IndexStatistics> candidates = rebuildCandidates(stats);
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+
+        DateTime windowStart = lastCompletedWindowStart(
+                DateTime.now(), maintenanceWindowStartHour(), maintenanceWindowHours());
+
+        Set<String> detectedBeforeWindow = nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT index_name FROM database_bloated_indexes WHERE detected_at <= :window_start")
+                        .bind("window_start", windowStart)
+                        .mapTo(String.class)
+                        .set());
+        List<PendingAction> pending = findPendingActions();
+
+        List<IndexStatistics> overdue = Lists.newArrayList();
+        for (IndexStatistics i : candidates) {
+            if (!detectedBeforeWindow.contains(i.name())) {
+                continue;
+            }
+
+            boolean rebuilding = pending.stream().anyMatch(a ->
+                    (a.action().type() == ActionType.REINDEX_INDEX && i.name().equals(a.action().target()))
+                            || (a.action().type() == ActionType.REINDEX_TABLE && i.table().equals(a.action().target())));
+
+            // A rebuild that did not shrink the index means the estimate is off for it.
+            if (rebuilding || lastReindexWasIneffective(i.name(), new DateTime(0))) {
+                continue;
+            }
+
+            overdue.add(i);
+        }
+
+        return overdue;
+    }
+
+    static DateTime lastCompletedWindowStart(DateTime now, int startHour, int hours) {
+        DateTime start = now.withZone(DateTimeZone.UTC).withTimeAtStartOfDay().plusHours(startHour);
+        while (start.plusHours(hours).isAfter(now)) {
+            start = start.minusDays(1);
+        }
+
+        return start;
     }
 
     public boolean isInMaintenanceWindow(DateTime now) {

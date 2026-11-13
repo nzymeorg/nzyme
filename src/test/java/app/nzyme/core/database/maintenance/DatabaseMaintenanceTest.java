@@ -48,6 +48,28 @@ public class DatabaseMaintenanceTest {
     }
 
     @Test
+    public void testLastCompletedWindowStart() {
+        DateTime today = new DateTime(2026, 11, 8, 2, 0, DateTimeZone.UTC);
+
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 12, 0, DateTimeZone.UTC), 2, 4), today);
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 6, 0, DateTimeZone.UTC), 2, 4), today);
+
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 3, 30, DateTimeZone.UTC), 2, 4), today.minusDays(1));
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 1, 0, DateTimeZone.UTC), 2, 4), today.minusDays(1));
+
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 3, 0, DateTimeZone.UTC), 22, 4),
+                new DateTime(2026, 11, 7, 22, 0, DateTimeZone.UTC));
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 1, 0, DateTimeZone.UTC), 22, 4),
+                new DateTime(2026, 11, 6, 22, 0, DateTimeZone.UTC));
+
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 3, 30, DateTimeZone.UTC).withZone(DateTimeZone.forID("America/Chicago")), 2, 4),
+                today.minusDays(1));
+
+        assertEquals(DatabaseMaintenance.lastCompletedWindowStart(new DateTime(2026, 11, 8, 12, 0, DateTimeZone.UTC), 0, 24),
+                new DateTime(2026, 11, 7, 0, 0, DateTimeZone.UTC));
+    }
+
+    @Test
     public void testEveryTableBelongsToAtMostOneClass() {
         for (TableClass a : TableClass.values()) {
             for (String table : a.getTables()) {

@@ -35,7 +35,10 @@ public abstract class DatabaseIndexResponse {
     @JsonProperty("bloat_bytes")
     public abstract long bloatBytes();
 
-    public static DatabaseIndexResponse create(String name, String table, long bytes, long scans, boolean primary, boolean unique, boolean valid, Double bloatPercent, long bloatBytes) {
+    @JsonProperty("rebuild_overdue")
+    public abstract boolean rebuildOverdue();
+
+    public static DatabaseIndexResponse create(String name, String table, long bytes, long scans, boolean primary, boolean unique, boolean valid, Double bloatPercent, long bloatBytes, boolean rebuildOverdue) {
         return builder()
                 .name(name)
                 .table(table)
@@ -46,6 +49,7 @@ public abstract class DatabaseIndexResponse {
                 .valid(valid)
                 .bloatPercent(bloatPercent)
                 .bloatBytes(bloatBytes)
+                .rebuildOverdue(rebuildOverdue)
                 .build();
     }
 
@@ -64,6 +68,7 @@ public abstract class DatabaseIndexResponse {
         public abstract Builder valid(boolean valid);
         public abstract Builder bloatPercent(Double bloatPercent);
         public abstract Builder bloatBytes(long bloatBytes);
+        public abstract Builder rebuildOverdue(boolean rebuildOverdue);
 
         public abstract DatabaseIndexResponse build();
     }

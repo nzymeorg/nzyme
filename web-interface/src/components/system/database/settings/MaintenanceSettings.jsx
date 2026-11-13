@@ -14,7 +14,7 @@ const GENERAL = [
   {key: "auto_reindex_enabled", title: "Rebuild bloated indexes in the maintenance window", boolean: true,
     help: "One index at a time with REINDEX CONCURRENTLY while the window is open."},
   {key: "reindex_bloat_threshold_percent", title: "Rebuild indexes estimated to be more than this percent empty",
-    help: "The DB Bloat health indicator turns orange at 60% and red at 85%."},
+    help: "The DB Bloat health indicator turns on when such an index was not rebuilt in a full maintenance window."},
   {key: "reindex_minimum_index_mb", title: "Only rebuild indexes of at least this size (MB)",
     help: "Small indexes are not worth a rebuild."},
   {key: "session_tuning_enabled", title: "Apply session settings to Nzyme connections", boolean: true,

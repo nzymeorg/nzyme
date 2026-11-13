@@ -12720,4 +12720,15 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="create_database_bloated_indexes" author="lennartkoopmann">
+        <createTable tableName="database_bloated_indexes">
+            <column name="index_name" type="varchar(255)">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="detected_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

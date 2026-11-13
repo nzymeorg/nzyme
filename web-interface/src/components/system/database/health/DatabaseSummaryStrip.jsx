@@ -95,16 +95,18 @@ export default function DatabaseSummaryStrip({health, indicators}) {
     : <span className="text-muted">n/a</span>;
   const deadDetail = worstTable ? "worst table" : null;
 
-  const largeIndexes = health.indexes.filter((i) => i.bytes >= 100 * 1024 * 1024 && i.bloat_percent !== null);
+  const largeIndexes = health.indexes.filter((i) => i.valid !== false
+      && i.bytes >= health.reindex_minimum_index_mb * 1024 * 1024 && i.bloat_percent !== null);
   const worstIndex = largeIndexes.reduce((a, i) => (!a || i.bloat_percent > a.bloat_percent) ? i : a, null);
+  const overdue = health.indexes.filter((i) => i.rebuild_overdue);
   const wasted = health.indexes.reduce((sum, i) => sum + (i.bloat_bytes || 0), 0);
   const bloatValue = worstIndex
-    ? <span className={worstIndex.bloat_percent >= 85 ? "text-danger" : (worstIndex.bloat_percent >= 60 ? "text-warning" : "")}>
+    ? <span className={overdue.some((i) => i.bloat_percent >= 85) ? "text-danger" : (overdue.length > 0 ? "text-warning" : "")}>
         {numeral(worstIndex.bloat_percent).format("0")}%
       </span>
     : <span className="text-muted">n/a</span>;
   const bloatDetail = worstIndex
-    ? <span>worst index, {numeral(wasted).format("0.0b")} wasted in total</span>
+    ? <span>worst index, {overdue.length > 0 ? overdue.length + " overdue, " : ""}{numeral(wasted).format("0.0b")} wasted in total</span>
     : null;
 
   const maintenanceValue = health.running_action

@@ -62,7 +62,7 @@ public class DatabaseMaintenanceResource extends UserAuthenticatedResource {
             description = "Returns the latest statistics snapshot of the PostgreSQL server: version and size, cache "
                     + "and checkpoint behavior over the last minutes, every relevant server setting with its "
                     + "recommended value, all tables with their dead row share and last vacuum, all indexes of at "
-                    + "least 1 MB with an estimate of their bloat, and the maintenance action that is running or "
+                    + "least 1 MB with an estimate of their bloat and whether an automatic rebuild is overdue, and the maintenance action that is running or "
                     + "queued. Statistics are collected once a minute.")
     @ApiResponse(responseCode = "200", description = "Statistics found.",
             content = @Content(schema = @Schema(implementation = DatabaseHealthResponse.class)))
@@ -99,10 +99,13 @@ public class DatabaseMaintenanceResource extends UserAuthenticatedResource {
             ));
         }
 
+        List<DatabaseStatistics.IndexStatistics> overdue = maintenance.findOverdueRebuildCandidates(stats.get());
+
         List<DatabaseIndexResponse> indexes = Lists.newArrayList();
         for (DatabaseStatistics.IndexStatistics i : stats.get().indexes()) {
             indexes.add(DatabaseIndexResponse.create(
-                    i.name(), i.table(), i.bytes(), i.scans(), i.primary(), i.unique(), i.valid(), i.bloatPercent(), i.bloatBytes()
+                    i.name(), i.table(), i.bytes(), i.scans(), i.primary(), i.unique(), i.valid(), i.bloatPercent(),
+                    i.bloatBytes(), overdue.contains(i)
             ));
         }
 

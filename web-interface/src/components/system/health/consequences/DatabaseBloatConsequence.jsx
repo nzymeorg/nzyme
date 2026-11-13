@@ -12,10 +12,10 @@ function DatabaseBloatConsequence(props) {
       <Consequence
           indicator="Database Index Bloat"
           color="orange"
-          problem="One or more large indexes consist mostly of empty space."
+          problem="One or more bloated indexes were not rebuilt in the last maintenance window."
           acceptableRange={[
-            "No index of 100 MB or more is estimated over 60% empty",
-            "Red: over 85% empty"
+            "Every index above the rebuild threshold is rebuilt in the next maintenance window",
+            "Red: an index that was not rebuilt is over 85% empty"
           ]}
           consequences={[
             "Wasted disk space",

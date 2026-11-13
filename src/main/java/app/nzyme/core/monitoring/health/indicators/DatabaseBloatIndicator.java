@@ -7,12 +7,11 @@ import app.nzyme.core.events.types.SystemEventType;
 import app.nzyme.core.monitoring.health.Indicator;
 import app.nzyme.core.monitoring.health.db.IndicatorStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 public class DatabaseBloatIndicator extends Indicator {
 
-    public static final long MINIMUM_INDEX_BYTES = 100L * 1024L * 1024L;
-    public static final int ORANGE_BLOAT_PERCENT = 60;
     public static final int RED_BLOAT_PERCENT = 85;
 
     private final DatabaseMaintenance maintenance;
@@ -28,22 +27,13 @@ public class DatabaseBloatIndicator extends Indicator {
             return NO_RESULT;
         }
 
-        boolean orange = false;
-        for (IndexStatistics i : stats.get().indexes()) {
-            if (i.bytes() < MINIMUM_INDEX_BYTES || i.bloatPercent() == null) {
-                continue;
-            }
-
-            if (i.bloatPercent() >= RED_BLOAT_PERCENT) {
-                return IndicatorStatus.red(this);
-            }
-
-            if (i.bloatPercent() >= ORANGE_BLOAT_PERCENT) {
-                orange = true;
-            }
+        List<IndexStatistics> overdue = maintenance.findOverdueRebuildCandidates(stats.get());
+        if (overdue.isEmpty()) {
+            return IndicatorStatus.green(this);
         }
 
-        return orange ? IndicatorStatus.orange(this) : IndicatorStatus.green(this);
+        return overdue.stream().anyMatch(i -> i.bloatPercent() >= RED_BLOAT_PERCENT)
+                ? IndicatorStatus.red(this) : IndicatorStatus.orange(this);
     }
 
     @Override

@@ -330,7 +330,7 @@ public class SystemCollector {
             case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
             case "db_configuration" -> "PostgreSQL server settings are below the Nzyme requirements.";
             case "db_vacuum" -> "A large table has too many dead rows. Vacuum is not keeping up.";
-            case "db_bloat" -> "A large index consists mostly of empty space.";
+            case "db_bloat" -> "A bloated index was not rebuilt in the last maintenance window.";
             case "db_performance" -> "The PostgreSQL server shows signs of insufficient memory, WAL size or disk speed.";
             case "db_transactions" -> "A long open transaction or a high transaction ID age blocks vacuum.";
             default -> "See the health page for details.";
