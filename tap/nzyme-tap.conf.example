@@ -38,6 +38,9 @@ supported_channels_2g = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14]
 supported_channels_5g = [36, 40, 44, 48, 52, 56, 60, 64, 173, 100, 102, 104, 106, 108, 110, 112, 136, 138, 140, 149, 151, 153, 155, 157, 159, 161, 165]
 supported_channels_6g = []
 
+# USB Bluetooth adapters can change their name (hci0) when they reset. To follow an adapter across
+# name changes, configure it by address instead: [bluetooth_interfaces."bt-08:BE:AC:4D:34:F2"]
+
 [bluetooth_interfaces.hci0]
 active = false
 bt_classic_enabled = true

@@ -3,13 +3,14 @@ use std::panic::catch_unwind;
 use std::sync::{Arc, Mutex};
 use std::thread::sleep;
 use std::time::Duration;
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
 use chrono::Utc;
 use dbus::arg;
 use dbus::arg::{RefArg, Variant};
 use dbus::blocking::{Connection};
 use dbus::blocking::stdintf::org_freedesktop_dbus::Properties;
 use log::{debug, error, info, warn};
+use crate::wireless::bluetooth::adapter::{Adapter, AdapterSelector};
 use crate::wireless::bluetooth::bluetooth_device_advertisement::BluetoothDeviceAdvertisement;
 use crate::configuration::BluetoothInterface;
 use crate::messagebus::bus::Bus;
@@ -24,41 +25,90 @@ pub struct Capture {
 }
 
 const DBUS_INTERFACE: &str = "org.bluez.Adapter1";
+const ADAPTER_PATH_PREFIX: &str = "/org/bluez/";
+
+type ManagedObjects = HashMap<dbus::Path<'static>, HashMap<String, HashMap<String, Variant<Box<dyn RefArg>>>>>;
 
 impl Capture {
 
-    pub fn run(&mut self, device_name: &str) {
-        info!("Starting Bluetooth capture on [{}]", device_name);
+    pub fn run(&mut self, interface_name: &str) {
+        info!("Starting Bluetooth capture on [{}]", interface_name);
+
+        let selector = match AdapterSelector::from_interface_name(interface_name) {
+            Ok(selector) => selector,
+            Err(e) => {
+                error!("Could not start Bluetooth capture: {}", e);
+                return;
+            }
+        };
+
+        let mut transports = Vec::new();
+        if self.configuration.bt_classic_enabled {
+            transports.push(("bredr", "Bluetooth Classic"));
+        }
+        if self.configuration.bt_le_enabled {
+            transports.push(("le", "Bluetooth LE"));
+        }
+
+        let mut adapter_name: Option<String> = None;
 
         loop {
             let result = catch_unwind(|| {
-                if self.configuration.bt_classic_enabled {
-                    match self.discover_devices(device_name, "bredr") {
-                        Ok(devices) => self.discovered_devices_to_pipeline(device_name, devices),
+                let mut discovered_on = None;
+
+                for (transport, transport_name) in &transports {
+                    match self.discover_devices(interface_name, &selector, transport) {
+                        Ok((adapter, devices)) => {
+                            self.discovered_devices_to_pipeline(interface_name, devices);
+                            discovered_on = Some(adapter);
+                        },
                         Err(e) => {
-                            error!("Could not discover Bluetooth Classic devices: {}", e);
+                            error!("Could not discover {} devices on [{}]: {:#}",
+                                transport_name, interface_name, e);
                         }
                     }
                 }
 
-                if self.configuration.bt_le_enabled {
-                    match self.discover_devices(device_name, "le") {
-                        Ok(devices) => self.discovered_devices_to_pipeline(device_name, devices),
-                        Err(e) => {
-                            error!("Could not discover Bluetooth LE devices: {}", e);
-                        }
-                    }
-                }
+                discovered_on
             });
 
-            if let Err(e) = result {
-                match e.downcast_ref::<&str>() { Some(s) => {
-                    error!("Could not discover Bluetooth devices: {}", s);
-                } _ => { match e.downcast_ref::<String>() { Some(s) => {
-                    error!("Could not discover Bluetooth devices: {}", s);
-                } _ => {
-                    error!("Could not discover Bluetooth devices. Panicked with an unknown type.");
-                }}}}
+            let discovered_on = match result {
+                Ok(discovered_on) => discovered_on,
+                Err(e) => {
+                    match e.downcast_ref::<&str>() { Some(s) => {
+                        error!("Could not discover Bluetooth devices: {}", s);
+                    } _ => { match e.downcast_ref::<String>() { Some(s) => {
+                        error!("Could not discover Bluetooth devices: {}", s);
+                    } _ => {
+                        error!("Could not discover Bluetooth devices. Panicked with an unknown type.");
+                    }}}}
+
+                    None
+                }
+            };
+
+            if let Some(adapter) = &discovered_on {
+                if adapter != interface_name && adapter_name.as_ref() != Some(adapter) {
+                    match &adapter_name {
+                        Some(previous) => info!("Bluetooth interface [{}] moved from adapter \
+                            [{}] to [{}].", interface_name, previous, adapter),
+                        None => info!("Bluetooth interface [{}] is adapter [{}].",
+                            interface_name, adapter)
+                    }
+                }
+
+                adapter_name = discovered_on.clone();
+            }
+
+            match self.metrics.lock() {
+                Ok(mut metrics) => {
+                    if discovered_on.is_some() {
+                        metrics.update_capture(interface_name, true, 0, 0, false);
+                    } else {
+                        metrics.mark_capture_as_failed(interface_name);
+                    }
+                },
+                Err(e) => error!("Could not acquire metrics mutex: {}", e)
             }
 
             /*
@@ -69,8 +119,11 @@ impl Capture {
         }
     }
 
-    pub fn discover_devices(&self, device_name: &str, transport: &str)
-        -> Result<HashMap<String, BluetoothDeviceAdvertisement>, Error> {
+    pub fn discover_devices(&self,
+                            interface_name: &str,
+                            selector: &AdapterSelector,
+                            transport: &str)
+        -> Result<(String, HashMap<String, BluetoothDeviceAdvertisement>), Error> {
 
         /*
          * Using a Map to avoid unlikely case of multiple reports per discovery cycle from
@@ -78,14 +131,18 @@ impl Capture {
          */
         let mut discovered: HashMap<String, BluetoothDeviceAdvertisement> = HashMap::new();
 
+        let timeout = Duration::from_secs(self.configuration.dbus_method_call_timeout_seconds as u64);
+
         // Connect do D-Bus.
         let conn = Connection::new_system().context("Could not establish connection to D-Bus")?;
+
+        let adapter_name = selector.resolve(&Self::adapters(&Self::managed_objects(&conn, timeout)?))?;
 
         // Obtain bluez reference.
         let adapter = conn.with_proxy(
             "org.bluez",
-            format!("/org/bluez/{}", device_name),
-            Duration::from_secs(self.configuration.dbus_method_call_timeout_seconds as u64)
+            format!("{}{}", ADAPTER_PATH_PREFIX, adapter_name),
+            timeout
         );
 
         // Set the adapter to not discoverable and not pairable.
@@ -108,20 +165,20 @@ impl Capture {
         sleep(Duration::from_secs(self.configuration.discovery_period_seconds as u64));
 
         // Access the object manager to list all devices
-        let obj_manager_path = "/";
-        let obj_manager = conn.with_proxy(
-            "org.bluez",
-            obj_manager_path,
-            Duration::from_secs(self.configuration.dbus_method_call_timeout_seconds as u64)
-        );
-        #[allow(clippy::complexity)]
-        let (devices, ): (HashMap<dbus::Path<'static>, HashMap<String, HashMap<String, Variant<Box<dyn RefArg>>>>>, ) =
-            obj_manager.method_call("org.freedesktop.DBus.ObjectManager", "GetManagedObjects", ())
-                .context("Could not fetch devices from object manager")?;
+        let devices = Self::managed_objects(&conn, timeout)?;
+
+        /*
+         * If the adapter reset during discovery, the name can now belong to another adapter and
+         * the devices below it would not be ours.
+         */
+        let current_adapter_name = selector.resolve(&Self::adapters(&devices))?;
+        if current_adapter_name != adapter_name {
+            bail!("Adapter moved from [{}] to [{}] during discovery", adapter_name, current_adapter_name);
+        }
 
         // Iterate over all discovered devices.
         for (path, interfaces) in devices {
-            if path.to_string().starts_with(&format!("/org/bluez/{}/dev_", device_name)) {
+            if path.to_string().starts_with(&format!("{}{}/dev_", ADAPTER_PATH_PREFIX, adapter_name)) {
                 // Only discovered bluetooth devices.
                 if let Some(props) = interfaces.get("org.bluez.Device1") {
                     /*
@@ -134,7 +191,7 @@ impl Capture {
                     if let Some(true) = Self::parse_optional_bool_prop(props, "Connected") {
                         warn!("Bluetooth adapter [{}] has a connected device. This will \
                         negatively impact discovery. Disconnected and un-pair all bluetooth \
-                        devices from this machine. Device: {:?}", device_name, props)
+                        devices from this machine. Device: {:?}", interface_name, props)
                     }
 
                     // Mandatory fields.
@@ -171,7 +228,7 @@ impl Capture {
                         manufacturer_data,
                         uuids,
                         service_data,
-                        device: device_name.to_string(),
+                        device: interface_name.to_string(),
                         transport: transport.to_string(),
                         timestamp: Utc::now(),
                     });
@@ -183,11 +240,34 @@ impl Capture {
         adapter.method_call::<(), _, _, _>(DBUS_INTERFACE, "StopDiscovery", ())
             .context("Could not stop discovery")?;
 
-        Ok(discovered)
+        Ok((adapter_name, discovered))
+    }
+
+    fn managed_objects(conn: &Connection, timeout: Duration) -> Result<ManagedObjects, Error> {
+        let obj_manager = conn.with_proxy("org.bluez", "/", timeout);
+
+        let (objects, ): (ManagedObjects, ) =
+            obj_manager.method_call("org.freedesktop.DBus.ObjectManager", "GetManagedObjects", ())
+                .context("Could not fetch objects from object manager")?;
+
+        Ok(objects)
+    }
+
+    fn adapters(objects: &ManagedObjects) -> Vec<Adapter> {
+        objects.iter()
+            .filter_map(|(path, interfaces)| {
+                let props = interfaces.get(DBUS_INTERFACE)?;
+
+                Some(Adapter {
+                    name: path.strip_prefix(ADAPTER_PATH_PREFIX)?.to_string(),
+                    address: props.get("Address")?.as_str()?.to_string()
+                })
+            })
+            .collect()
     }
 
     fn discovered_devices_to_pipeline(&self,
-                                      device_name: &str,
+                                      interface_name: &str,
                                       devices: HashMap<String, BluetoothDeviceAdvertisement>) {
         for device in devices.values() {
             to_pipeline!(
@@ -200,7 +280,7 @@ impl Capture {
             match self.metrics.lock() {
                 Ok(mut metrics) => {
                     metrics.increment_processed_bytes_total(device.estimate_struct_size());
-                    metrics.update_capture(device_name, true, 0, 0, true);
+                    metrics.update_capture(interface_name, true, 0, 0, true);
                 },
                 Err(e) => error!("Could not acquire metrics mutex: {}", e)
             }

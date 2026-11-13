@@ -8,6 +8,7 @@ use cidr::{Ipv4Cidr, Ipv6Cidr};
 use regex::Regex;
 use reqwest::Url;
 use serde::Deserialize;
+use crate::wireless::bluetooth::adapter::AdapterSelector;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Configuration {
@@ -530,7 +531,14 @@ pub fn load(path: String) -> Result<Configuration, Error> {
 
     // Validate Bluetooth interfaces configuration.
     if let Some(bluetooth_interfaces) = &doc.bluetooth_interfaces {
-        for interface in bluetooth_interfaces.values() {
+        let mut selectors = Vec::new();
+        for (interface_name, interface) in bluetooth_interfaces {
+            let selector = AdapterSelector::from_interface_name(interface_name)?;
+            if selectors.contains(&selector) {
+                bail!("Bluetooth interface [{}] is configured more than once.", interface_name);
+            }
+            selectors.push(selector);
+
             if interface.discovery_period_seconds <= 0 {
                 bail!("Configuration variable `bluetooth_interfaces.*.discovery_period_seconds` \
                     must be set to a value greater than 0.");
