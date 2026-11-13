@@ -94,7 +94,7 @@ export default function DashboardDetailsPage() {
         <div className={canManage ? "col-8" : "col-12"}>
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Details" />
+              <CardTitleWithControls title="Details" helpLink="https://go.nzyme.org/dashboards" />
 
               <dl className="mb-0">
                 <dt>Description</dt>
@@ -143,7 +143,9 @@ export default function DashboardDetailsPage() {
           <div className="col-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Displays" refreshAction={() => setRevision(new Date())} />
+                <CardTitleWithControls title="Displays"
+                                       helpLink="https://go.nzyme.org/dashboards-displays"
+                                       refreshAction={() => setRevision(new Date())} />
 
                 <DisplaysTable organizationId={organizationId}
                                tenantId={tenantId}

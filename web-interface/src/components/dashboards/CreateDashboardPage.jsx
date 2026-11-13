@@ -2,6 +2,7 @@ import React, {useState} from "react";
 import {Link, Navigate} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../util/ApiRoutes";
+import CardTitleWithControls from "../shared/CardTitleWithControls";
 import usePageTitle from "../../util/UsePageTitle";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import DashboardsService from "../../services/DashboardsService";
@@ -55,6 +56,8 @@ export default function CreateDashboardPage() {
         <div className="col-xl-12 col-xxl-10">
           <div className="card">
             <div className="card-body">
+              <CardTitleWithControls title="Dashboard Settings" helpLink="https://go.nzyme.org/dashboards-create" />
+
               <DashboardForm submitText="Create Dashboard" onSubmit={create} />
             </div>
           </div>

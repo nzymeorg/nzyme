@@ -309,8 +309,7 @@ export default function DashboardLayoutEditor({widgets, setWidgets, windowMinute
                          fields={L4_SESSIONS_FILTER_FIELDS}
                          quickFilters={L4_SESSIONS_QUICK_FILTERS} />
                 <div className="form-text">
-                  The topology shows the connections of the last 30 seconds that match all filters. On displays that
-                  hide addresses and names, only taps and countries are labeled.
+                  The topology shows the connections of the last 30 seconds that match all filters.
                 </div>
               </div>
             </React.Fragment> : null}

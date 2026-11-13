@@ -5,6 +5,7 @@ import ApiRoutes from "../../util/ApiRoutes";
 import usePageTitle from "../../util/UsePageTitle";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../misc/LoadingSpinner";
+import CardTitleWithControls from "../shared/CardTitleWithControls";
 import DashboardsService from "../../services/DashboardsService";
 import DashboardForm from "./DashboardForm";
 
@@ -76,6 +77,8 @@ export default function EditDashboardPage() {
         <div className="col-xl-12 col-xxl-10">
           <div className="card">
             <div className="card-body">
+              <CardTitleWithControls title="Dashboard Settings" helpLink="https://go.nzyme.org/dashboards-create" />
+
               {dashboard ?
                 <DashboardForm initialValues={dashboard}
                                submitText="Save Dashboard"

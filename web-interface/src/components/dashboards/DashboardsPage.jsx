@@ -44,13 +44,11 @@ export default function DashboardsPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Dashboards" refreshAction={() => setRevision(new Date())} />
+              <CardTitleWithControls title="Dashboards"
+                                     helpLink="https://go.nzyme.org/dashboards"
+                                     refreshAction={() => setRevision(new Date())} />
 
-              <p className="text-muted">
-                Dashboards are pages made to run permanently on a screen. A dashboard is shown on a screen by
-                sharing it on a{' '}
-                {canManage ? <Link to={ApiRoutes.DASHBOARDS.DISPLAYS.INDEX}>display</Link> : "display"}.
-              </p>
+              <p className="text-muted">Dashboards are pages made to run permanently on a screen.</p>
 
               {canManage ?
                 <p>

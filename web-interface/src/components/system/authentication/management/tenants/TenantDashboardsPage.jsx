@@ -93,12 +93,10 @@ export default function TenantDashboardsPage() {
         <div className="col-xl-12 col-xxl-6">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Dashboards" slim={true} />
+              <CardTitleWithControls title="Dashboards" slim={true}
+                                     helpLink="https://go.nzyme.org/dashboards-availability" />
 
-              <p>
-                This setting governs dashboards availability for this tenant. Displays of the tenant stop showing
-                dashboards while dashboards are disabled.
-              </p>
+              <p>This setting governs dashboards availability for this tenant.</p>
 
               {configuration ?
               <table className="table table-sm table-hover table-striped">

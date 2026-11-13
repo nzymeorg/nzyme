@@ -6,6 +6,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../../misc/LoadingSpinner";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import DashboardsService from "../../../services/DashboardsService";
 import DisplayForm from "./DisplayForm";
 
@@ -78,6 +79,9 @@ export default function EditDisplayPage() {
         <div className="col-xl-12 col-xxl-8">
           <div className="card">
             <div className="card-body">
+              <CardTitleWithControls title="Display Settings"
+                                     helpLink="https://go.nzyme.org/dashboards-displays-settings" />
+
               {display ?
                 <DisplayForm organizationId={organizationId}
                              tenantId={tenantId}

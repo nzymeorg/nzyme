@@ -164,8 +164,7 @@ export default function DashboardForm({initialValues = undefined, submitText, on
             })}
           </select>
           <div className="form-text">
-            Everyone who can view the dashboard sees the data of all taps it covers. You can choose from the taps
-            you can access.
+            Everyone who can view the dashboard sees the data of all taps it covers.
           </div>
         </div>
 

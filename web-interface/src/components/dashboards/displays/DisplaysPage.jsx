@@ -28,13 +28,11 @@ export default function DisplaysPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Displays" refreshAction={() => setRevision(new Date())} />
+              <CardTitleWithControls title="Displays"
+                                     helpLink="https://go.nzyme.org/dashboards-displays"
+                                     refreshAction={() => setRevision(new Date())} />
 
-              <p className="text-muted">
-                A display is a screen that shows <Link to={ApiRoutes.DASHBOARDS.INDEX}>dashboards</Link> without
-                a user session. Each display has its own link, its own settings and can rotate through several
-                dashboards.
-              </p>
+              <p className="text-muted">A display is a screen that shows dashboards without a user session.</p>
 
               <p>
                 <Link to={ApiRoutes.DASHBOARDS.DISPLAYS.CREATE} className="btn btn-sm btn-primary">

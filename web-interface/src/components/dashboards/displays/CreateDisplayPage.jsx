@@ -2,6 +2,7 @@ import React, {useState} from "react";
 import {Link} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../../util/ApiRoutes";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import usePageTitle from "../../../util/UsePageTitle";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import DashboardsService from "../../../services/DashboardsService";
@@ -55,6 +56,9 @@ export default function CreateDisplayPage() {
             <div className="card-body">
               {created ?
                 <React.Fragment>
+                  <CardTitleWithControls title="Display Link"
+                                         helpLink="https://go.nzyme.org/dashboards-displays-link" />
+
                   <DisplayLink token={created.token} />
 
                   <Link to={ApiRoutes.DASHBOARDS.DISPLAYS.DETAILS(created.uuid)} className="btn btn-primary">
@@ -62,11 +66,16 @@ export default function CreateDisplayPage() {
                   </Link>
                 </React.Fragment>
                 :
-                <DisplayForm organizationId={organizationId}
-                             tenantId={tenantId}
-                             initialValues={{}}
-                             submitText="Create Display"
-                             onSubmit={create} />}
+                <React.Fragment>
+                  <CardTitleWithControls title="Display Settings"
+                                         helpLink="https://go.nzyme.org/dashboards-displays-settings" />
+
+                  <DisplayForm organizationId={organizationId}
+                               tenantId={tenantId}
+                               initialValues={{}}
+                               submitText="Create Display"
+                               onSubmit={create} />
+                </React.Fragment>}
             </div>
           </div>
         </div>

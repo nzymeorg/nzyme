@@ -222,7 +222,8 @@ export default function LocationDetailsPage() {
             <div className="col-md-12">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Dashboard Displays" slim={true} />
+                  <CardTitleWithControls title="Dashboard Displays" slim={true}
+                                         helpLink="https://go.nzyme.org/dashboards-displays" />
 
                   <DisplaysTable organizationId={organizationId} tenantId={tenantId} locationId={location.id} />
                 </div>

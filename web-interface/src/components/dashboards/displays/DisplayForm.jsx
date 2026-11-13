@@ -199,8 +199,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
           </button>
         </div>
         <div className="form-text">
-          The display rotates through its dashboards in this order. A display can show up to {MAXIMUM_DASHBOARDS}{' '}
-          dashboards.
+          The display rotates through up to {MAXIMUM_DASHBOARDS} dashboards in this order.
           {available && available.total > MAXIMUM_LISTED_DASHBOARDS ?
             " Only the first " + MAXIMUM_LISTED_DASHBOARDS + " dashboards are listed." : null}
         </div>
@@ -214,10 +213,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
                    value={values.rotation_seconds} onChange={update("rotation_seconds")} />
             <span className="input-group-text">seconds</span>
           </div>
-          <div className="form-text">
-            How long each dashboard stays on screen when the display shows more than one. Between 5 and 3600
-            seconds.
-          </div>
+          <div className="form-text">Between 5 and 3600 seconds.</div>
         </div>
 
         <div className="col-md-6 mb-3">
@@ -227,9 +223,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
                    value={values.refresh_seconds} onChange={update("refresh_seconds")} />
             <span className="input-group-text">seconds</span>
           </div>
-          <div className="form-text">
-            How often the display requests new data and settings from Nzyme. Between 10 and 3600 seconds.
-          </div>
+          <div className="form-text">Between 10 and 3600 seconds.</div>
         </div>
       </div>
 
@@ -252,10 +246,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
                    value={values.scale_percent} onChange={update("scale_percent")} />
             <span className="input-group-text">%</span>
           </div>
-          <div className="form-text">
-            The size of the content. Increase it for a screen that is read from a distance. Between 50 and 200
-            percent.
-          </div>
+          <div className="form-text">Between 50 and 200 percent.</div>
         </div>
       </div>
 
@@ -283,7 +274,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
             {TIME_ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
           </select>
           <div className="form-text">
-            The display shows all times in this time zone, independent of the time zone of the screen.
+            Used for the theme schedule and for the clock of a display without a dashboard.
           </div>
         </div>
 
@@ -318,10 +309,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
             <option value="false">Shown</option>
             <option value="true">Hidden</option>
           </select>
-          <div className="form-text">
-            A display that hides them receives alerts without their details. Hide them on screens that visitors
-            can see.
-          </div>
+          <div className="form-text">Hide them on screens that visitors can see.</div>
         </div>
       </div>
 
@@ -332,8 +320,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
                     placeholder="10.0.0.0/8"
                     value={values.allowed_networks} onChange={update("allowed_networks")} />
           <div className="form-text">
-            IP addresses or CIDR networks the display may connect from, one per line. The display link works from
-            every address when this is empty.
+            IP addresses or CIDR networks the display may connect from, one per line.
           </div>
         </div>
 
@@ -342,8 +329,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
           <input type="datetime-local" className="form-control" id="display-expires-at"
                  value={values.expires_at} onChange={update("expires_at")} />
           <div className="form-text">
-            The display link stops working at this time, in the time zone of this browser. The display does not
-            expire when this is empty.
+            The display link stops working at this time, in the time zone of this browser.
           </div>
         </div>
       </div>

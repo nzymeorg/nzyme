@@ -109,7 +109,7 @@ export default function DisplayDetailsPage() {
         <div className="col-8">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Details" />
+              <CardTitleWithControls title="Details" helpLink="https://go.nzyme.org/dashboards-displays" />
 
               <dl className="mb-0">
                 <dt>Location</dt>
@@ -130,7 +130,8 @@ export default function DisplayDetailsPage() {
             <div className="col-6">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Presentation" />
+                  <CardTitleWithControls title="Presentation"
+                                         helpLink="https://go.nzyme.org/dashboards-displays-settings" />
 
                   <dl className="mb-0">
                     <dt>Theme</dt>
@@ -155,7 +156,8 @@ export default function DisplayDetailsPage() {
             <div className="col-6">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Access" />
+                  <CardTitleWithControls title="Access"
+                                         helpLink="https://go.nzyme.org/dashboards-displays-security" />
 
                   <dl className="mb-0">
                     <dt>Addresses and Names</dt>
@@ -183,7 +185,9 @@ export default function DisplayDetailsPage() {
         <div className="col-4">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Status" refreshAction={() => setRevision(new Date())} />
+              <CardTitleWithControls title="Status"
+                                     helpLink="https://go.nzyme.org/dashboards-displays-status"
+                                     refreshAction={() => setRevision(new Date())} />
 
               <dl className="mb-0">
                 <dt>Status</dt>
@@ -208,16 +212,14 @@ export default function DisplayDetailsPage() {
 
           <div className="card mt-3">
             <div className="card-body">
-              <CardTitleWithControls title="Display Link" slim={true} />
+              <CardTitleWithControls title="Display Link" slim={true}
+                                     helpLink="https://go.nzyme.org/dashboards-displays-link" />
 
               {newToken ?
                 <DisplayLink token={newToken} />
                 :
                 <React.Fragment>
-                  <p>
-                    The link of a display is only shown when it is created. Replace it if it was lost or if it
-                    should stop working on the current screen.
-                  </p>
+                  <p>Replace the link if it was lost or if it should stop working on the current screen.</p>
 
                   <button className="btn btn-sm btn-warning" onClick={onReplaceLink}>Replace Link</button>
                 </React.Fragment>}
