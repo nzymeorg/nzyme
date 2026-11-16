@@ -27,6 +27,8 @@ public class ReconScanFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "source_address", operator), "");
             case "source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "source_mac", operator), "");
+            case "source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "source_mac", operator), "");
             case "target_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "target_address", operator), "");
             case "host_count":

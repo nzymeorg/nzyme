@@ -19,7 +19,7 @@ public class L4ConnectionCleaner extends Periodical {
 
     // Must stay identical to the predicate of the l4_sessions_open_l4_type_most_recent_segment_time_idx index or
     // the planner cannot use it.
-    private static final String OPEN_STATE = "state NOT IN ('CLOSED', 'CLOSEDNODE', 'CLOSEDFIN', 'CLOSEDRST', " +
+    public static final String OPEN_STATE = "state NOT IN ('CLOSED', 'CLOSEDNODE', 'CLOSEDFIN', 'CLOSEDRST', " +
             "'CLOSEDTIMEOUT', 'CLOSEDTIMEOUTNODE', 'REFUSED')";
 
     private final NzymeNodeImpl nzyme;

@@ -25,6 +25,8 @@ public class DnsTunnelFindingFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "client_address", operator), "");
             case "client_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "client_mac", operator), "");
+            case "client_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "client_mac", operator), "");
             case "domain":
                 return GeneratedSql.create(stringMatch(bindId, prefix + "domain", operator), "");
             case "query_count":

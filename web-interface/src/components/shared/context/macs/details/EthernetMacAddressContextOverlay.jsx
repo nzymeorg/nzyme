@@ -6,6 +6,7 @@ import ContextService from "../../../../../services/ContextService";
 import {truncate} from "../../../../../util/Tools";
 import FirstContextIpAddress from "./FirstContextIpAddress";
 import FirstContextHostname from "./FirstContextHostname";
+import FirstContextTag from "./FirstContextTag";
 import useSelectedTenant from "../../../../system/tenantselector/useSelectedTenant";
 import ContextOverlayLoading from "../../ContextOverlayLoading";
 
@@ -62,6 +63,8 @@ export default function EthernetMacAddressContextOverlay(props) {
               <dd>Ethernet</dd>
               <dt>OUI:</dt>
               <dd>{oui ? truncate(oui, 20) : <span className="text-muted">Unknown</span>}</dd>
+              <dt>Tags</dt>
+              <dd><FirstContextTag tags={ctx.tags}/></dd>
               <dt>Has Notes:</dt>
               <dd>No</dd>
             </dl>
@@ -104,6 +107,8 @@ export default function EthernetMacAddressContextOverlay(props) {
             <dd><FirstContextIpAddress addresses={ctx.context.transparent_ip_addresses}/></dd>
             <dt>Hostname</dt>
             <dd><FirstContextHostname hostnames={ctx.context.transparent_hostnames}/></dd>
+            <dt>Tags</dt>
+            <dd><FirstContextTag tags={ctx.tags}/></dd>
             <dt>Has Notes:</dt>
             <dd>{ctx.context.notes ? "Yes" : "No"}</dd>
           </dl>

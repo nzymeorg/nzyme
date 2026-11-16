@@ -25,8 +25,12 @@ public class ArpSpoofingFindingFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "address", operator), "");
             case "spoofer_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "spoofer_mac", operator), "");
+            case "spoofer_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "spoofer_mac", operator), "");
             case "owner_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "owner_mac", operator), "");
+            case "owner_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "owner_mac", operator), "");
             case "claim_count":
                 return GeneratedSql.create(numericMatch(bindId, prefix + "claim_count", operator), "");
             case "unsolicited_count":

@@ -27,12 +27,16 @@ public class L4Filters implements SqlFilterProvider  {
                 return GeneratedSql.create(stringMatch(bindId, "l4_Type", operator), "");
             case "source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "source_mac", operator), "");
+            case "source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "source_mac", operator), "");
             case "source_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "source_address", operator), "");
             case "source_port":
                 return GeneratedSql.create(numericMatch(bindId, "source_port", operator), "");
             case "destination_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "destination_mac", operator), "");
+            case "destination_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "destination_mac", operator), "");
             case "destination_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "destination_address", operator), "");
             case "destination_port":

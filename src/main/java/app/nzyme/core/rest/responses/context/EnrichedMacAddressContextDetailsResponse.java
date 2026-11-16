@@ -2,8 +2,10 @@ package app.nzyme.core.rest.responses.context;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 @AutoValue
 public abstract class EnrichedMacAddressContextDetailsResponse {
@@ -19,11 +21,17 @@ public abstract class EnrichedMacAddressContextDetailsResponse {
     @Nullable
     public abstract Dot11MonitoredNetworkContextResponse servesDot11MonitoredNetwork();
 
-    public static EnrichedMacAddressContextDetailsResponse create(MacAddressContextDetailsResponse context, MacAddressContextTypeResponse contextType, Dot11MonitoredNetworkContextResponse servesDot11MonitoredNetwork) {
+    @Schema(description = "Tags of the asset that has this MAC address, ordered by name. Empty if there is no "
+            + "such asset or it has no tags.")
+    @JsonProperty("tags")
+    public abstract List<MacAddressTagResponse> tags();
+
+    public static EnrichedMacAddressContextDetailsResponse create(MacAddressContextDetailsResponse context, MacAddressContextTypeResponse contextType, Dot11MonitoredNetworkContextResponse servesDot11MonitoredNetwork, List<MacAddressTagResponse> tags) {
         return builder()
                 .context(context)
                 .contextType(contextType)
                 .servesDot11MonitoredNetwork(servesDot11MonitoredNetwork)
+                .tags(tags)
                 .build();
     }
 
@@ -38,6 +46,8 @@ public abstract class EnrichedMacAddressContextDetailsResponse {
         public abstract Builder contextType(MacAddressContextTypeResponse contextType);
 
         public abstract Builder servesDot11MonitoredNetwork(Dot11MonitoredNetworkContextResponse servesDot11MonitoredNetwork);
+
+        public abstract Builder tags(List<MacAddressTagResponse> tags);
 
         public abstract EnrichedMacAddressContextDetailsResponse build();
     }

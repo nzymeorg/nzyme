@@ -23,6 +23,8 @@ public class NameResolutionSpoofingFindingFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "responder_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "responder_mac", operator), "");
+            case "responder_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "responder_mac", operator), "");
             case "name_count":
                 return GeneratedSql.create(numericMatch(bindId, prefix + "name_count", operator), "");
             case "response_count":

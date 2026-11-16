@@ -134,6 +134,8 @@ public class EthernetCollector {
         method("duplicate MAC addresses", identity.duplicateDetectionEnabled());
         method("asset identity changes", identity.changeDetectionEnabled());
         method("MAC address changes", identity.successorDetectionEnabled());
+        method("segmentation", ctx.nzyme().getEthernet().segmentation()
+                .getConfiguration(ctx.organizationId(), ctx.tenantId()).enabled());
 
         beaconDetectionEnabled = beacons.detectionEnabled();
         dhcpDetectionEnabled = spoofing.dhcpDetectionEnabled();

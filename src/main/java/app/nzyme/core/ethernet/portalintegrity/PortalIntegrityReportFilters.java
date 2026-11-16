@@ -19,6 +19,8 @@ public class PortalIntegrityReportFilters implements SqlFilterProvider {
                 return GeneratedSql.create(stringMatch(bindId, "r.probe_interface", operator), "");
             case "probe_mac":
                 return GeneratedSql.create(stringMatch(bindId, "r.probe_mac", operator), "");
+            case "probe_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "r.probe_mac", operator), "");
             case "dhcp_server_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "dhcp_server_address", operator), "");
             case "assigned_address":

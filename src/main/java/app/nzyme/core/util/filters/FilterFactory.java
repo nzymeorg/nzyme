@@ -2,6 +2,8 @@ package app.nzyme.core.util.filters;
 
 import app.nzyme.core.rest.parameters.FiltersParameter;
 
+import java.util.UUID;
+
 public class FilterFactory {
 
     /*
@@ -15,6 +17,10 @@ public class FilterFactory {
 
     public static Filter fromRestQuery(FiltersParameter parameter) {
         switch (parameter.operator().toLowerCase()) {
+            case "asset_tag_equals":
+                return Filter.create(parameter.field(), FilterOperator.EQUALS, tagUuid(parameter), parameter.value());
+            case "asset_tag_not_equals":
+                return Filter.create(parameter.field(), FilterOperator.NOT_EQUALS, tagUuid(parameter), parameter.value());
             case "equals":
             case "completion_status_equals":
             case "active_status_equals":
@@ -35,6 +41,10 @@ public class FilterFactory {
             case "icmp_type_equals":
             case "protocol_equals":
             case "asset_change_type_equals":
+            case "segment_kind_equals":
+            case "segmentation_policy_status_equals":
+            case "segmentation_finding_class_equals":
+            case "segmentation_outcome_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );
@@ -58,6 +68,10 @@ public class FilterFactory {
             case "icmp_type_not_equals":
             case "protocol_not_equals":
             case "asset_change_type_not_equals":
+            case "segment_kind_not_equals":
+            case "segmentation_policy_status_not_equals":
+            case "segmentation_finding_class_not_equals":
+            case "segmentation_outcome_not_equals":
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_EQUALS, optionallyTransformedValue(parameter), parameter.value()
                 );
@@ -161,6 +175,14 @@ public class FilterFactory {
                 );
             default:
                 throw new RuntimeException("Unknown filter operator: [" + parameter.operator() + "]");
+        }
+    }
+
+    private static String tagUuid(FiltersParameter parameter) {
+        try {
+            return UUID.fromString(parameter.value().trim()).toString();
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IllegalArgumentException("Not the UUID of a tag: [" + parameter.value() + "].");
         }
     }
 

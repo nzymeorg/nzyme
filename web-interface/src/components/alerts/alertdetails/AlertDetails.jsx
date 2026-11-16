@@ -27,6 +27,7 @@ import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 import AssetNewAlertDetails from "./ethernet/AssetNewAlertDetails";
 import AssetDhcpFingerprintAlertDetails from "./ethernet/AssetDhcpFingerprintAlertDetails";
 import AssetIdentityAlertDetails from "./ethernet/AssetIdentityAlertDetails";
+import SegmentationPolicyAlertDetails from "./ethernet/SegmentationPolicyAlertDetails";
 
 function AlertDetails(props) {
 
@@ -103,6 +104,9 @@ function AlertDetails(props) {
     case "ASSETS_IDENTITY_CHANGED":
     case "ASSETS_MAC_CHANGED":
       return <AssetIdentityAlertDetails alert={alert} />
+    case "SEGMENTATION_POLICY_CROSSED":
+    case "SEGMENTATION_POLICY_ATTEMPT":
+      return <SegmentationPolicyAlertDetails alert={alert} />
     default:
       return <GenericAlertDetails alert={alert} />
   }

@@ -29,6 +29,8 @@ public enum DetectionType {
     ICMP_REDIRECT("ICMP redirect detected", Subsystem.ETHERNET),
     ICMP_TRACEROUTE("Traceroute detected", Subsystem.ETHERNET),
     ICMP_TUNNEL("ICMP tunnel detected", Subsystem.ETHERNET),
+    SEGMENTATION_POLICY_CROSSED("Connection across a segmentation policy", Subsystem.ETHERNET),
+    SEGMENTATION_POLICY_ATTEMPT("Connection attempt across a segmentation policy", Subsystem.ETHERNET),
 
     // Monitors.
     MONITOR_TRIGGERED_ETHERNET("Ethernet Monitor triggered", Subsystem.ETHERNET),

@@ -19,6 +19,7 @@ import MessageStuckConsequence from "./consequences/MessageStuckConsequence";
 import MessageFailureConsequence from "./consequences/MessageFailureConsequence";
 import ConnectConsequence from "./consequences/ConnectConsequence";
 import AssetIdentityBacklogConsequence from "./consequences/AssetIdentityBacklogConsequence";
+import SegmentationLagConsequence from "./consequences/SegmentationLagConsequence";
 import DatabaseConfigurationConsequence from "./consequences/DatabaseConfigurationConsequence";
 import DatabaseVacuumConsequence from "./consequences/DatabaseVacuumConsequence";
 import DatabaseBloatConsequence from "./consequences/DatabaseBloatConsequence";
@@ -78,6 +79,7 @@ function Consequences(props) {
         <MessageStuckConsequence show={consequences.includes("message_bus_message_stuck")} />
         <ConnectConsequence show={consequences.includes("connect")} />
         <AssetIdentityBacklogConsequence show={consequences.includes("asset_identity_backlog")} />
+        <SegmentationLagConsequence show={consequences.includes("segmentation_lag")} />
         <DatabaseConfigurationConsequence show={consequences.includes("db_configuration")} />
         <DatabaseVacuumConsequence show={consequences.includes("db_vacuum")} />
         <DatabaseBloatConsequence show={consequences.includes("db_bloat")} />

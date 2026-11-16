@@ -12,7 +12,8 @@ export const WIDGET_TYPES = {
   CLOCK: {title: "Clock", w: 2, h: 2, minimumW: 2, minimumH: 1},
   LOCATIONS: {title: "Locations", w: 6, h: 3, minimumW: 4, minimumH: 1},
   TEXT: {title: "Text", w: 4, h: 2, minimumW: 2, minimumH: 1},
-  TOPOLOGY: {title: "Live Topology", w: 6, h: 4, minimumW: 4, minimumH: 2}
+  TOPOLOGY: {title: "Live Topology", w: 6, h: 4, minimumW: 4, minimumH: 2},
+  SEGMENTATION: {title: "Segmentation", w: 4, h: 3, minimumW: 3, minimumH: 1}
 };
 
 export const WINDOWS = [

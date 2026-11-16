@@ -13,6 +13,8 @@ public class AssetFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "a.mac", operator), "");
+            case "tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "a.mac", operator), "");
             case "hostname":
                 return GeneratedSql.create("", anyStringMatch(bindId, "h.hostname", operator));
             case "ip_address":

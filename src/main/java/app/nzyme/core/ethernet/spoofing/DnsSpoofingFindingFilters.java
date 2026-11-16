@@ -25,8 +25,12 @@ public class DnsSpoofingFindingFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "server_address", operator), "");
             case "spoofer_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "spoofer_mac", operator), "");
+            case "spoofer_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "spoofer_mac", operator), "");
             case "owner_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "owner_mac", operator), "");
+            case "owner_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "owner_mac", operator), "");
             case "forged_count":
                 return GeneratedSql.create(numericMatch(bindId, prefix + "forged_count", operator), "");
             case "won_count":

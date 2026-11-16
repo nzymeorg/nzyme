@@ -287,6 +287,12 @@ public class NodesResource {
                     node.uuid(), MetricExternalName.SPOOFING_DNS_DETECTION_RUN_TIMER.database_label, handle)));
             timers.put("dns_tunnel_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.DNS_TUNNEL_DETECTION_RUN_TIMER.database_label, handle)));
+            timers.put("segmentation_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.SEGMENTATION_RUN_TIMER.database_label, handle)));
+            timers.put("segmentation_window", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.SEGMENTATION_WINDOW_TIMER.database_label, handle)));
+            timers.put("segmentation_restamp", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.SEGMENTATION_RESTAMP_TIMER.database_label, handle)));
 
             timers.put("identity_duplicate_mac_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label, handle)));

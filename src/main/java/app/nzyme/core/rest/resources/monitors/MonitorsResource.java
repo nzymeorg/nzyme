@@ -8,6 +8,7 @@ import app.nzyme.core.monitors.MonitorType;
 import app.nzyme.core.monitors.Monitors;
 import app.nzyme.core.monitors.db.MonitorEntry;
 import app.nzyme.core.rest.TapDataHandlingResource;
+import app.nzyme.core.rest.authentication.AssetTagFilterGuard;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.requests.CreateMonitorRequest;
 import app.nzyme.core.rest.requests.UpdateMonitorRequest;
@@ -339,6 +340,10 @@ public class MonitorsResource extends TapDataHandlingResource {
                            @Parameter(description = "Type of monitor to create.") @PathParam("monitor_type") MonitorType monitorType) {
         AuthenticatedUser user = getAuthenticatedUser(sc);
 
+        if (!AssetTagFilterGuard.permitted(nzyme, user, req.filters())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
         List<UUID> tapUuids;
         if (req.taps() == null) {
             // All taps selected.
@@ -405,6 +410,10 @@ public class MonitorsResource extends TapDataHandlingResource {
         // Check permissions.
         if (!userHasWritePermissionsForMonitorType(
                 user, monitor.get().organizationId(), MonitorType.valueOf(monitor.get().type()))) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        if (!AssetTagFilterGuard.permitted(nzyme, user, req.filters())) {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
 

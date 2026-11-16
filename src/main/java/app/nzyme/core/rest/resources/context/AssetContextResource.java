@@ -1,6 +1,8 @@
 package app.nzyme.core.rest.resources.context;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.assets.db.AssetEntry;
+import app.nzyme.core.assets.tags.AssetTag;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.dot11.Dot11MacAddressMetadata;
@@ -201,8 +203,16 @@ public class AssetContextResource extends UserAuthenticatedResource {
             }
         }
 
+        List<MacAddressTagResponse> tags = Lists.newArrayList();
+        Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(mac, organizationId, tenantId);
+        if (asset.isPresent()) {
+            for (AssetTag tag : nzyme.getAssetsManager().tags().findTagsOfAsset(asset.get().id())) {
+                tags.add(MacAddressTagResponse.create(tag.uuid(), tag.name(), tag.description()));
+            }
+        }
+
         return Response.ok(EnrichedMacAddressContextDetailsResponse.create(
-                contextDetails, contextType, servesMonitoredNetwork
+                contextDetails, contextType, servesMonitoredNetwork, tags
         )).build();
     }
 

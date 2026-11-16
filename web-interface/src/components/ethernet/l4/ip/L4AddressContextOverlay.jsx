@@ -4,6 +4,7 @@ import ApiRoutes from "../../../../util/ApiRoutes";
 import ContextService from "../../../../services/ContextService";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import ContextOverlayLoading from "../../../shared/context/ContextOverlayLoading";
+import {hasSegmentContext, L4AddressSegmentDetails, segmentHasNotes} from "../../shared/L4AddressSegment";
 
 const countries = require("i18n-iso-countries");
 countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
@@ -113,6 +114,10 @@ export default function L4AddressContextOverlay({address}) {
   }
 
   const hasNotes = () => {
+    if (segmentHasNotes(address.context)) {
+      return true;
+    }
+
     if (!ctx || ctx.context.length === 0) {
       return false;
     }
@@ -206,6 +211,19 @@ export default function L4AddressContextOverlay({address}) {
     );
   }
 
+  const segmentRow = () => {
+    if (!hasSegmentContext(address.context)) {
+      return null;
+    }
+
+    return (
+      <React.Fragment>
+        <dt>Segment:</dt>
+        <dd><L4AddressSegmentDetails context={address.context} /></dd>
+      </React.Fragment>
+    )
+  }
+
   if (!ctx) {
     return <ContextOverlayLoading />
   }
@@ -236,6 +254,7 @@ export default function L4AddressContextOverlay({address}) {
               <dl className="ip-address">
                 <dt>Network Name:</dt>
                 <dd>{name()}</dd>
+                {segmentRow()}
                 <dt>Attributes:</dt>
                 <dd>{attributes()}</dd>
                 <dt>Associated Asset:</dt>
@@ -268,6 +287,7 @@ export default function L4AddressContextOverlay({address}) {
               <dl className="ip-address">
                 <dt>Network Name:</dt>
                 <dd>{name()}</dd>
+                {segmentRow()}
                 <dt>Attributes:</dt>
                 <dd>{attributes()}</dd>
                 <dt>ASN:</dt>
@@ -313,6 +333,7 @@ export default function L4AddressContextOverlay({address}) {
             <dl className="ip-address">
               <dt>Network Name:</dt>
               <dd>{name()}</dd>
+              {segmentRow()}
               <dt>Attributes:</dt>
               <dd>{attributes()}</dd>
               <dt>Has Notes:</dt>

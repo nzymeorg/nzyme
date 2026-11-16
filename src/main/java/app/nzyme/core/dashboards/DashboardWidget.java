@@ -21,7 +21,8 @@ public record DashboardWidget(String id,
         CLOCK(2, 1),
         LOCATIONS(4, 1),
         TEXT(2, 1),
-        TOPOLOGY(4, 2);
+        TOPOLOGY(4, 2),
+        SEGMENTATION(3, 1);
 
         private final int minimumWidth;
         private final int minimumHeight;

@@ -13,6 +13,7 @@ import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.dot11.db.BSSIDAndSSIDCountHistogramEntry;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.rest.responses.briefing.BriefingHistogramBucketResponse;
+import app.nzyme.core.ethernet.segmentation.SegmentationViews;
 import app.nzyme.core.rest.responses.dashboards.*;
 import app.nzyme.core.taps.CaptureSummary;
 import app.nzyme.core.taps.Tap;
@@ -59,6 +60,7 @@ public class DashboardContent {
     public static final int MAXIMUM_TAP_CELLS = 250;
     public static final int MAXIMUM_TAP_PROBLEMS = 50;
     public static final int MAXIMUM_LOCATIONS = 100;
+    public static final int MAXIMUM_SEGMENTATION_POLICIES = 6;
 
     private static final long DEGRADED_CLOCK_DRIFT_MS = 5000;
 
@@ -165,6 +167,11 @@ public class DashboardContent {
                         .map(a -> AlertsWidgetAlertResponse.create(
                                 a.title(), a.subsystem(), null, a.tapName(), a.firstSeen(), a.lastSeen()))
                         .toList()));
+            } else if (entry.getValue() instanceof SegmentationWidgetResponse segmentation) {
+                // The names of policies tell what a network is made of.
+                data.put(entry.getKey(), SegmentationWidgetResponse.create(segmentation.holding(),
+                        segmentation.crossed(), segmentation.attempted(), segmentation.notObservable(),
+                        segmentation.audit(), segmentation.paused(), List.of()));
             } else {
                 data.put(entry.getKey(), entry.getValue());
             }
@@ -249,6 +256,7 @@ public class DashboardContent {
         private List<TenantLocationEntry> tenantLocations;
         private TapsWidgetResponse tapsWidget;
         private LocationsWidgetResponse locationsWidget;
+        private Optional<SegmentationWidgetResponse> segmentationWidget;
 
         private Build(DashboardEntry dashboard) {
             this.dashboard = dashboard;
@@ -288,7 +296,60 @@ public class DashboardContent {
                     }
                     yield locationsWidget;
                 }
+                case SEGMENTATION -> {
+                    if (segmentationWidget == null) {
+                        segmentationWidget = segmentation();
+                    }
+                    yield segmentationWidget.orElse(null);
+                }
             };
+        }
+
+        /*
+         * Policies are about the whole network of a tenant. A dashboard that is limited to some locations or taps
+         * does not get them.
+         */
+        private Optional<SegmentationWidgetResponse> segmentation() {
+            if (!allTaps) {
+                return Optional.empty();
+            }
+
+            long holding = 0;
+            long crossed = 0;
+            long attempted = 0;
+            long notObservable = 0;
+            long audit = 0;
+            long paused = 0;
+            List<SegmentationWidgetPolicyResponse> policies = Lists.newArrayList();
+
+            for (SegmentationViews.PolicyOverview overview : nzyme.getEthernet().segmentation().views()
+                    .policies(organizationId, tenantId, from)) {
+                switch (overview.state()) {
+                    case HOLDING -> holding++;
+                    case CROSSED -> crossed++;
+                    case ATTEMPTED -> attempted++;
+                    case NOT_OBSERVABLE -> notObservable++;
+                    case AUDIT -> audit++;
+                    case PAUSED -> paused++;
+                }
+
+                if (overview.state() == SegmentationViews.PolicyState.CROSSED
+                        || overview.state() == SegmentationViews.PolicyState.ATTEMPTED) {
+                    policies.add(SegmentationWidgetPolicyResponse.create(overview.policy().name(),
+                            overview.state().name(), overview.summary().crossedFindings(),
+                            overview.summary().attemptedFindings()));
+                }
+            }
+
+            policies.sort(Comparator.comparing((SegmentationWidgetPolicyResponse p) -> !p.state().equals("CROSSED"))
+                    .thenComparing(SegmentationWidgetPolicyResponse::name));
+
+            if (policies.size() > MAXIMUM_SEGMENTATION_POLICIES) {
+                policies = Lists.newArrayList(policies.subList(0, MAXIMUM_SEGMENTATION_POLICIES));
+            }
+
+            return Optional.of(SegmentationWidgetResponse.create(holding, crossed, attempted, notObservable,
+                    audit, paused, policies));
         }
 
         private List<TenantLocationEntry> tenantLocations() {

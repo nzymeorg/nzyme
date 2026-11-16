@@ -6,6 +6,7 @@ export const PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS = {
   probe_name: { title: "Probe Name", type: FILTER_TYPE.STRING },
   probe_interface: { title: "Probe Interface", type: FILTER_TYPE.STRING },
   probe_mac: { title: "Probe MAC Address", type: FILTER_TYPE.STRING },
+  probe_tag: { title: "Probe Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   dhcp_server_address: { title: "DHCP Server Address", type: FILTER_TYPE.IP_ADDRESS },
   assigned_address: { title: "Assigned IP Address", type: FILTER_TYPE.IP_ADDRESS },
   gateway_address: { title: "Assigned Gateway Address", type: FILTER_TYPE.IP_ADDRESS },

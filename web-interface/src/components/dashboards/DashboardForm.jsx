@@ -222,7 +222,9 @@ export default function DashboardForm({initialValues = undefined, submitText, on
                              alertsAllowed={options.can_show_alerts}
                              subsystems={options.subsystems}
                              topologyAllowed={options.subsystems.includes("ETHERNET") || initialValues !== undefined
-                               && initialValues.widgets.some((widget) => widget.type === "TOPOLOGY")} />
+                               && initialValues.widgets.some((widget) => widget.type === "TOPOLOGY")}
+                             segmentationAllowed={options.can_show_alerts && scopeType === "ALL"
+                               && options.subsystems.includes("ETHERNET")} />
 
       {submitError ? <div className="alert alert-danger">{submitError}</div> : null}
 

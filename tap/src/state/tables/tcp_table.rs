@@ -26,6 +26,9 @@ pub struct TcpTable {
     probe_triples: Mutex<HashMap<TcpProbeTriple, DateTime<Utc>>>,
     probe_replies: Mutex<HashMap<TcpProbeTriple, TcpProbeReply>>,
     probes_dropped: AtomicU64,
+    // Handshake outcomes observed since the last report. Start over with every report.
+    syn_retransmissions: AtomicU64,
+    sessions_refused: AtomicU64,
     reassembly_buffer_size: i32,
     session_timeout_seconds: i32,
     handshake_timeout_seconds: i32
@@ -217,6 +220,8 @@ impl TcpTable {
             probe_triples: Mutex::new(HashMap::new()),
             probe_replies: Mutex::new(HashMap::new()),
             probes_dropped: AtomicU64::new(0),
+            syn_retransmissions: AtomicU64::new(0),
+            sessions_refused: AtomicU64::new(0),
             reassembly_buffer_size,
             session_timeout_seconds,
             handshake_timeout_seconds
@@ -230,6 +235,14 @@ impl TcpTable {
                     Some(session) => {
                         let mut timer = Timer::new();
                         let session_state = Self::determine_session_state(segment, Some(session));
+
+                        if is_syn_retransmission(segment, session) {
+                            self.syn_retransmissions.fetch_add(1, Ordering::Relaxed);
+                        }
+
+                        if session_state == Refused && session.state != Refused {
+                            self.sessions_refused.fetch_add(1, Ordering::Relaxed);
+                        }
 
                         session.most_recent_segment_time = segment.timestamp;
                         session.state = session_state.clone();
@@ -482,7 +495,7 @@ impl TcpTable {
             Ok(mut sessions) => {
                 // Mark all timed out sessions in table as ClosedTimeout.
                 let mut timer = Timer::new();
-                timeout_sweep(
+                let handshakes_timed_out = timeout_sweep(
                     &mut sessions,
                     self.session_timeout_seconds as i64,
                     self.handshake_timeout_seconds as i64
@@ -493,6 +506,8 @@ impl TcpTable {
                     "tables.tcp.timer.sessions.timeout_sweep",
                     &self.metrics
                 );
+
+                self.record_handshake_metrics(handshakes_timed_out);
 
                 // Scan session payloads and tag.
                 let mut timer = Timer::new();
@@ -632,6 +647,20 @@ impl TcpTable {
         }
     }
 
+    fn record_handshake_metrics(&self, handshakes_timed_out: u64) {
+        let syn_retransmissions = self.syn_retransmissions.swap(0, Ordering::Relaxed);
+        let sessions_refused = self.sessions_refused.swap(0, Ordering::Relaxed);
+
+        match self.metrics.lock() {
+            Ok(mut metrics) => {
+                metrics.set_gauge("tables.tcp.sessions.handshake.syn_retransmissions", syn_retransmissions as i128);
+                metrics.set_gauge("tables.tcp.sessions.handshake.refused", sessions_refused as i128);
+                metrics.set_gauge("tables.tcp.sessions.handshake.timed_out", handshakes_timed_out as i128);
+            },
+            Err(e) => error!("Could not acquire metrics mutex: {}", e)
+        }
+    }
+
     fn determine_session_state(segment: &TcpSegment, session: Option<&TcpSession>)
         -> TcpSessionState {
         match session {
@@ -641,17 +670,34 @@ impl TcpTable {
                 if session.state == ClosedRst { return ClosedRst }
                 if session.state == ClosedTimeout { return ClosedTimeout }
 
-                if segment.flags.syn && segment.flags.ack {
-                    // SYN ACK.
-                    SynReceived
+                // A rejected attempt stays rejected. Some stacks send the SYN again after the reset.
+                if session.state == Refused { return Refused }
+
+                if segment.flags.reset {
+                    /*
+                     * Resets are evaluated before any ACK-based transition. A reset usually carries
+                     * the ACK flag as well and would be taken for the final ACK of the handshake.
+                     */
+                    if session.state == SynSent
+                        && matches!(segment.determine_direction(session), TrafficDirection::ServerToClient) {
+                        // SYN got a RST response from the server and no SYN ACK. Connection rejected by host.
+                        Refused
+                    } else {
+                        ClosedRst
+                    }
+                } else if segment.flags.syn && !segment.flags.ack {
+                    // Retransmitted SYN. Never advances the state.
+                    session.state.clone()
+                } else if segment.flags.syn && segment.flags.ack {
+                    if session.state == SynSent || session.state == SynReceived {
+                        // SYN ACK.
+                        SynReceived
+                    } else {
+                        session.state.clone()
+                    }
                 } else if segment.flags.ack && session.state == SynReceived {
                     // Final ACK. Handshake complete.
                     Established
-                } else if segment.flags.reset && session.state == SynSent {
-                    // SYN got an immediate RST response. Connection rejected by host.
-                    Refused
-                } else if segment.flags.reset {
-                    ClosedRst
                 } else if segment.flags.fin && session.state == Established {
                     // Initial FIN
                     FinWait1
@@ -762,12 +808,19 @@ fn is_terminal_state(state: &TcpSessionState) -> bool {
     matches!(state, ClosedFin | ClosedRst | ClosedTimeout | Refused)
 }
 
+fn is_syn_retransmission(segment: &TcpSegment, session: &TcpSession) -> bool {
+    segment.flags.syn && !segment.flags.ack && !segment.flags.reset
+        && matches!(session.state, SynSent | SynReceived | Refused)
+        && matches!(segment.determine_direction(session), TrafficDirection::ClientToServer)
+}
+
 fn timeout_sweep(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession>>,
                  session_timeout: i64,
-                 handshake_timeout: i64) {
+                 handshake_timeout: i64) -> u64 {
     let now = Utc::now();
     let session_timeout = Duration::try_seconds(session_timeout).unwrap();
     let handshake_timeout = Duration::try_seconds(handshake_timeout).unwrap();
+    let mut handshakes_timed_out: u64 = 0;
 
     for session in sessions.values_mut() {
         // Never overwrite a state that is already final. (Would turn Refused into ClosedTimeout.)
@@ -785,10 +838,17 @@ fn timeout_sweep(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession>>,
 
         if idle > timeout {
             debug!("Timeout sweep for TCP session: {:?}", session);
+
+            if matches!(session.state, SynSent | SynReceived) {
+                handshakes_timed_out += 1;
+            }
+
             session.state = ClosedTimeout;
             session.end_time = Some(now);
         }
     }
+
+    handshakes_timed_out
 }
 
 fn retention_sweep(sessions: &mut MutexGuard<HashMap<L4Key, TcpSession>>) {
@@ -900,6 +960,56 @@ mod tests {
 
     fn flags(syn: bool, ack: bool, fin: bool, reset: bool, psh: bool, urg: bool) -> TcpFlags {
         TcpFlags { syn, ack, fin, reset, psh, urg, ece: false, cwr: false }
+    }
+
+    fn syn() -> TcpFlags { flags(true, false, false, false, false, false) }
+    fn syn_ack() -> TcpFlags { flags(true, true, false, false, false, false) }
+    fn ack() -> TcpFlags { flags(false, true, false, false, false, false) }
+    fn psh_ack() -> TcpFlags { flags(false, true, false, false, true, false) }
+    fn fin_ack() -> TcpFlags { flags(false, true, true, false, false, false) }
+    fn rst() -> TcpFlags { flags(false, false, false, true, false, false) }
+    fn rst_ack() -> TcpFlags { flags(false, true, false, true, false, false) }
+
+    fn segment_of(session: &TcpSession, direction: TrafficDirection, flags: TcpFlags) -> TcpSegment {
+        let client = (session.source_address, session.source_port);
+        let server = (session.destination_address, session.destination_port);
+        let (source, destination) = match direction {
+            TrafficDirection::ClientToServer => (client, server),
+            TrafficDirection::ServerToClient => (server, client)
+        };
+
+        let mut segment = segment(flags, vec![]);
+        segment.source_address = source.0;
+        segment.source_port = source.1;
+        segment.destination_address = destination.0;
+        segment.destination_port = destination.1;
+        segment.session_key = L4Key::new(source.0, source.1, destination.0, destination.1);
+
+        segment
+    }
+
+    fn client(flags: TcpFlags) -> (TrafficDirection, TcpFlags) {
+        (TrafficDirection::ClientToServer, flags)
+    }
+
+    fn server(flags: TcpFlags) -> (TrafficDirection, TcpFlags) {
+        (TrafficDirection::ServerToClient, flags)
+    }
+
+    fn drive(session: &mut TcpSession, segments: Vec<(TrafficDirection, TcpFlags)>) -> TcpSessionState {
+        for (direction, flags) in segments {
+            let segment = segment_of(session, direction, flags);
+            session.state = TcpTable::determine_session_state(&segment, Some(session));
+        }
+
+        session.state.clone()
+    }
+
+    fn after_syn(segments: Vec<(TrafficDirection, TcpFlags)>) -> TcpSessionState {
+        assert_eq!(TcpTable::determine_session_state(&segment(syn(), vec![]), None), SynSent);
+
+        let (_, mut s) = session(1, SynSent, 0);
+        drive(&mut s, segments)
     }
 
     #[test]
@@ -1018,5 +1128,178 @@ mod tests {
         assert_eq!(state_of(&sessions, 5), SynSent);
         assert_eq!(state_of(&sessions, 6), Established);
         assert_eq!(state_of(&sessions, 7), FinWait2);
+    }
+
+    #[test]
+    fn test_segments_travel_in_both_directions_of_a_session() {
+        let (key, s) = session(1, SynSent, 0);
+        let request = segment_of(&s, TrafficDirection::ClientToServer, syn());
+        let response = segment_of(&s, TrafficDirection::ServerToClient, rst_ack());
+
+        assert!(matches!(request.determine_direction(&s), TrafficDirection::ClientToServer));
+        assert!(matches!(response.determine_direction(&s), TrafficDirection::ServerToClient));
+        assert_eq!(request.session_key, key);
+        assert_eq!(response.session_key, key);
+    }
+
+    #[test]
+    fn retransmitted_syn_stays_syn_sent_and_times_out_as_handshake() {
+        let (key, mut s) = session(1, SynSent, 90);
+        assert_eq!(drive(&mut s, vec![client(syn())]), SynSent);
+        assert_eq!(drive(&mut s, vec![client(syn())]), SynSent);
+
+        let t = table(vec![(key, s)]);
+        let mut sessions = t.lock().unwrap();
+
+        timeout_sweep(&mut sessions, 1800, 60);
+
+        assert_eq!(state_of(&sessions, 1), ClosedTimeout);
+    }
+
+    #[test]
+    fn reset_from_server_refuses_syn() {
+        assert_eq!(after_syn(vec![server(rst_ack())]), Refused);
+        assert_eq!(after_syn(vec![server(rst())]), Refused);
+
+        assert_eq!(after_syn(vec![client(syn()), server(rst_ack())]), Refused);
+    }
+
+    #[test]
+    fn refused_stays_refused_when_client_retries() {
+        assert_eq!(after_syn(vec![server(rst_ack()), client(syn())]), Refused);
+        assert_eq!(after_syn(vec![server(rst_ack()), client(syn()), server(rst_ack())]), Refused);
+        assert_eq!(
+            after_syn(vec![
+                server(rst_ack()), client(syn()), server(rst_ack()), client(syn()), server(rst_ack())
+            ]),
+            Refused
+        );
+    }
+
+    #[test]
+    fn reset_after_syn_ack_is_closed_rst() {
+        assert_eq!(after_syn(vec![server(syn_ack()), server(rst_ack())]), ClosedRst);
+        assert_eq!(after_syn(vec![server(syn_ack()), server(rst())]), ClosedRst);
+
+        assert_eq!(after_syn(vec![server(syn_ack()), client(rst())]), ClosedRst);
+        assert_eq!(after_syn(vec![server(syn_ack()), client(rst_ack())]), ClosedRst);
+    }
+
+    #[test]
+    fn reset_from_client_is_not_a_refusal() {
+        assert_eq!(after_syn(vec![client(rst())]), ClosedRst);
+        assert_eq!(after_syn(vec![client(rst_ack())]), ClosedRst);
+        assert_eq!(after_syn(vec![client(syn()), client(rst())]), ClosedRst);
+    }
+
+    #[test]
+    fn reset_of_established_session_is_closed_rst() {
+        assert_eq!(after_syn(vec![server(syn_ack()), client(ack()), server(rst())]), ClosedRst);
+        assert_eq!(after_syn(vec![server(syn_ack()), client(ack()), server(rst_ack())]), ClosedRst);
+        assert_eq!(after_syn(vec![server(syn_ack()), client(ack()), client(rst_ack())]), ClosedRst);
+    }
+
+    #[test]
+    fn retransmitted_syn_ack_stays_syn_received() {
+        assert_eq!(after_syn(vec![server(syn_ack()), server(syn_ack())]), SynReceived);
+
+        assert_eq!(after_syn(vec![server(syn_ack()), client(syn())]), SynReceived);
+    }
+
+    #[test]
+    fn late_syn_ack_does_not_reopen_the_handshake() {
+        assert_eq!(after_syn(vec![server(syn_ack()), client(ack()), server(syn_ack())]), Established);
+
+        for state in [Established, FinWait1, FinWait2] {
+            let (_, mut s) = session(1, state.clone(), 0);
+            assert_eq!(drive(&mut s, vec![server(syn_ack())]), state);
+        }
+    }
+
+    #[test]
+    fn handshake_and_fin_sequence_complete() {
+        let (_, mut s) = session(1, SynSent, 0);
+
+        assert_eq!(drive(&mut s, vec![server(syn_ack())]), SynReceived);
+        assert_eq!(drive(&mut s, vec![client(ack())]), Established);
+        assert_eq!(drive(&mut s, vec![client(psh_ack()), server(ack()), server(psh_ack())]), Established);
+
+        assert_eq!(drive(&mut s, vec![client(fin_ack())]), FinWait1);
+        assert_eq!(drive(&mut s, vec![server(ack())]), FinWait2);
+        assert_eq!(drive(&mut s, vec![server(ack())]), ClosedFin);
+
+        assert_eq!(
+            after_syn(vec![
+                server(syn_ack()), client(ack()), client(fin_ack()), server(ack()), server(fin_ack()), client(ack())
+            ]),
+            ClosedFin
+        );
+        assert_eq!(
+            after_syn(vec![server(syn_ack()), client(ack()), client(fin_ack()), server(fin_ack()), client(ack())]),
+            ClosedFin
+        );
+    }
+
+    #[test]
+    fn client_data_without_syn_ack_establishes() {
+        // The tap may have missed the SYN ACK.
+        assert_eq!(after_syn(vec![client(ack())]), Established);
+        assert_eq!(after_syn(vec![client(psh_ack())]), Established);
+    }
+
+    #[test]
+    fn syn_never_advances_an_existing_session() {
+        for state in [SynSent, SynReceived, Established, FinWait1, FinWait2] {
+            let (_, mut s) = session(1, state.clone(), 0);
+            assert_eq!(drive(&mut s, vec![client(syn())]), state);
+        }
+    }
+
+    #[test]
+    fn syn_retransmissions_are_recognized() {
+        let (_, unanswered) = session(1, SynSent, 0);
+        let (_, answered) = session(2, SynReceived, 0);
+        let (_, refused) = session(3, Refused, 0);
+        let (_, established) = session(4, Established, 0);
+
+        for s in [&unanswered, &answered, &refused] {
+            assert!(is_syn_retransmission(&segment_of(s, TrafficDirection::ClientToServer, syn()), s));
+        }
+
+        assert!(!is_syn_retransmission(&segment_of(&unanswered, TrafficDirection::ClientToServer, ack()), &unanswered));
+        assert!(!is_syn_retransmission(&segment_of(&unanswered, TrafficDirection::ServerToClient, syn_ack()), &unanswered));
+        assert!(!is_syn_retransmission(&segment_of(&unanswered, TrafficDirection::ServerToClient, rst_ack()), &unanswered));
+        assert!(!is_syn_retransmission(&segment_of(&unanswered, TrafficDirection::ServerToClient, syn()), &unanswered));
+        assert!(!is_syn_retransmission(&segment_of(&established, TrafficDirection::ClientToServer, syn()), &established));
+    }
+
+    #[test]
+    fn timeout_sweep_counts_timed_out_handshakes() {
+        let t = table(vec![
+            session(1, SynSent, 90),
+            session(2, SynReceived, 90),
+            session(3, SynSent, 30),
+            session(4, Established, 1900),
+            session(5, Refused, 5000)
+        ]);
+        let mut sessions = t.lock().unwrap();
+
+        assert_eq!(timeout_sweep(&mut sessions, 1800, 60), 2);
+        assert_eq!(state_of(&sessions, 4), ClosedTimeout);
+
+        assert_eq!(timeout_sweep(&mut sessions, 1800, 60), 0);
+    }
+
+    #[test]
+    fn closed_sessions_are_not_reopened() {
+        let shapes: [fn() -> TcpFlags; 7] = [syn, syn_ack, ack, psh_ack, fin_ack, rst, rst_ack];
+
+        for state in [ClosedFin, ClosedRst, ClosedTimeout, Refused] {
+            for shape in shapes {
+                let (_, mut s) = session(1, state.clone(), 0);
+                assert_eq!(drive(&mut s, vec![client(shape())]), state);
+                assert_eq!(drive(&mut s, vec![server(shape())]), state);
+            }
+        }
     }
 }

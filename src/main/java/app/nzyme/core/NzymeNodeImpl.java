@@ -53,6 +53,7 @@ import app.nzyme.core.ethernet.beacons.BeaconsThread;
 import app.nzyme.core.ethernet.recon.ReconThread;
 import app.nzyme.core.ethernet.spoofing.SpoofingThread;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelThread;
+import app.nzyme.core.ethernet.segmentation.SegmentationThread;
 import app.nzyme.core.ethernet.icmp.IcmpThread;
 import app.nzyme.core.dashboards.Dashboards;
 import app.nzyme.core.monitors.Monitors;
@@ -363,6 +364,7 @@ public class NzymeNodeImpl implements NzymeNode {
         periodicalManager.scheduleAtFixedRate(new ReconThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new SpoofingThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new DnsTunnelThread(this), 1, 1, TimeUnit.MINUTES);
+        periodicalManager.scheduleAtFixedRate(new SegmentationThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new IcmpThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new TimelinesThread(this), 0, EVENT_HORIZON_MINUTES, TimeUnit.MINUTES);
         if (configuration.versionchecksEnabled()) {

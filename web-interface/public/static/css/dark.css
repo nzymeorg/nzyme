@@ -477,6 +477,12 @@ input.form-control {
     color: #e8e8ed !important;
 }
 
+/* Bootstrap takes the placeholder color from a variable that is only light in its own dark theme. */
+.form-control::placeholder {
+    color: #6b7280;
+    opacity: 1;
+}
+
 .form-control:focus {
     border-color: #7b93db;
     box-shadow: 0 0 0 2px rgba(123, 147, 219, 0.2) !important;
@@ -934,6 +940,41 @@ ul.selected-org-tenant span {
 .applied-filter-connector--and {
     color: #60a5fa;
     background-color: rgba(96, 165, 250, 0.1);
+}
+
+.segmentation-overview-view:fullscreen {
+    background-color: #1c1c22;
+}
+
+.policy-rule-side {
+    border-color: #33333d;
+}
+
+.policy-rule-label {
+    color: #e8e8ed;
+}
+
+.policy-entries {
+    background-color: #141418;
+    border-color: #33333d;
+}
+
+.policy-entries-empty {
+    background-color: #141418;
+    border-color: #33333d;
+    color: #9a9ab0;
+}
+
+.policy-entry + .policy-entry {
+    border-top-color: #33333d;
+}
+
+.policy-entry-name {
+    color: #e8e8ed;
+}
+
+.policy-entry-detail {
+    color: #9a9ab0;
 }
 
 i.filter-value {

@@ -12731,4 +12731,485 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="add_l4_sessions_tap_uuid_created_at_idx" author="lennartkoopmann" runInTransaction="false">
+        <sql>
+            CREATE INDEX CONCURRENTLY l4_sessions_tap_uuid_created_at_idx
+                ON l4_sessions (tap_uuid, created_at);
+        </sql>
+        <rollback>
+            DROP INDEX CONCURRENTLY l4_sessions_tap_uuid_created_at_idx;
+        </rollback>
+    </changeSet>
+
+    <changeSet id="create_assets_tags" author="lennartkoopmann">
+        <createTable tableName="assets_tags">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="varchar(24)">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="varchar(64)" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="assets_tags" indexName="assets_tags_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <sql>
+            CREATE UNIQUE INDEX assets_tags_organization_id_tenant_id_name_key
+                ON assets_tags (organization_id, tenant_id, lower(name));
+        </sql>
+
+        <addForeignKeyConstraint constraintName="link_assets_tags2tenants"
+                                 baseTableName="assets_tags"
+                                 baseColumnNames="tenant_id"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="assets_tag_assignments">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tag_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="asset_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addForeignKeyConstraint constraintName="link_assets_tag_assignments2tags"
+                                 baseTableName="assets_tag_assignments"
+                                 baseColumnNames="tag_id"
+                                 referencedTableName="assets_tags"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <addForeignKeyConstraint constraintName="link_assets_tag_assignments2assets"
+                                 baseTableName="assets_tag_assignments"
+                                 baseColumnNames="asset_id"
+                                 referencedTableName="assets"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <createIndex tableName="assets_tag_assignments" indexName="assets_tag_assignments_tag_id_asset_id_key" unique="true">
+            <column name="tag_id" />
+            <column name="asset_id" />
+        </createIndex>
+        <createIndex tableName="assets_tag_assignments" indexName="assets_tag_assignments_asset_id_idx">
+            <column name="asset_id" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="create_segmentation" author="lennartkoopmann">
+        <createTable tableName="segmentation_segments">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="kind" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="varchar(12)">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="varchar(32)" />
+            <column name="notes" type="text" />
+            <column name="tap_uuids" type="jsonb" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="segmentation_segments" indexName="segmentation_segments_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <sql>
+            CREATE UNIQUE INDEX segmentation_segments_organization_id_tenant_id_name_key
+                ON segmentation_segments (organization_id, tenant_id, lower(name));
+        </sql>
+
+        <addForeignKeyConstraint constraintName="link_segmentation_segments2tenants"
+                                 baseTableName="segmentation_segments"
+                                 baseColumnNames="tenant_id"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="segmentation_segment_members">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="segment_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="member_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="network" type="cidr" />
+            <column name="asn" type="bigint" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addForeignKeyConstraint constraintName="link_segmentation_segment_members2segments"
+                                 baseTableName="segmentation_segment_members"
+                                 baseColumnNames="segment_id"
+                                 referencedTableName="segmentation_segments"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <createIndex tableName="segmentation_segment_members" indexName="segmentation_segment_members_segment_id_idx">
+            <column name="segment_id" />
+        </createIndex>
+        <sql>
+        <![CDATA[
+            ALTER TABLE segmentation_segment_members ADD CONSTRAINT segmentation_segment_members_member_check
+                CHECK ((member_type = 'CIDR' AND network IS NOT NULL AND asn IS NULL)
+                    OR (member_type = 'ASN' AND asn IS NOT NULL AND network IS NULL));
+            ALTER TABLE segmentation_segment_members ADD CONSTRAINT segmentation_segment_members_no_ipv4_mapped
+                CHECK (network IS NULL OR NOT (family(network) = 6 AND network <<= '::ffff:0.0.0.0/96'));
+        ]]>
+        </sql>
+
+        <createTable tableName="segmentation_policies">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="name" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+            <column name="description" type="text" />
+            <column name="status" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="alert_on_connected" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="alert_on_attempted" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="scope" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="allowed" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="segmentation_policies" indexName="segmentation_policies_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="segmentation_policies" indexName="segmentation_policies_organization_id_tenant_id_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+
+        <addForeignKeyConstraint constraintName="link_segmentation_policies2tenants"
+                                 baseTableName="segmentation_policies"
+                                 baseColumnNames="tenant_id"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+
+        <createTable tableName="segmentation_flows">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="bucket" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_key" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address" type="inet" />
+            <column name="source_internal" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_segment_id" type="bigint" />
+            <column name="source_asn" type="bigint" />
+            <column name="source_country_code" type="varchar(2)" />
+            <column name="destination_key" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_address" type="inet" />
+            <column name="destination_internal" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_segment_id" type="bigint" />
+            <column name="destination_asn" type="bigint" />
+            <column name="destination_country_code" type="varchar(2)" />
+            <column name="l4_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocol" type="text" defaultValue="">
+                <constraints nullable="false" />
+            </column>
+            <column name="outcome" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="sessions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="continued" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="segmentation_flows" indexName="segmentation_flows_org_tenant_bucket_tap_uuid_flow_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="bucket" />
+            <column name="tap_uuid" />
+            <column name="source_key" />
+            <column name="destination_key" />
+            <column name="l4_type" />
+            <column name="destination_port" />
+            <column name="protocol" />
+            <column name="outcome" />
+        </createIndex>
+        <createIndex tableName="segmentation_flows" indexName="segmentation_flows_org_tenant_source_address_bucket_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="source_address" />
+            <column name="bucket" />
+        </createIndex>
+        <createIndex tableName="segmentation_flows" indexName="segmentation_flows_org_tenant_destination_address_bucket_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="destination_address" />
+            <column name="bucket" />
+        </createIndex>
+        <createIndex tableName="segmentation_flows" indexName="segmentation_flows_org_tenant_segment_ids_bucket_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="source_segment_id" />
+            <column name="destination_segment_id" />
+            <column name="bucket" />
+        </createIndex>
+
+        <createTable tableName="segmentation_crossings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="bucket" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_group" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_group" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="l4_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_port" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="protocol" type="text" defaultValue="">
+                <constraints nullable="false" />
+            </column>
+            <column name="outcome" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="sessions" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="continued" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <createIndex tableName="segmentation_crossings" indexName="segmentation_crossings_org_tenant_bucket_tap_uuid_crossing_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="bucket" />
+            <column name="tap_uuid" />
+            <column name="source_group" />
+            <column name="destination_group" />
+            <column name="l4_type" />
+            <column name="destination_port" />
+            <column name="protocol" />
+            <column name="outcome" />
+        </createIndex>
+
+        <createTable tableName="segmentation_findings">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="policy_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="finding_class" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_key" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_address" type="inet" />
+            <column name="source_internal" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_asn" type="bigint" />
+            <column name="source_country_code" type="varchar(2)" />
+            <column name="source_addresses" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="targets" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="session_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="tap_uuids" type="jsonb" defaultValue="[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="audit" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addForeignKeyConstraint constraintName="link_segmentation_findings2policies"
+                                 baseTableName="segmentation_findings"
+                                 baseColumnNames="policy_id"
+                                 referencedTableName="segmentation_policies"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <createIndex tableName="segmentation_findings" indexName="segmentation_findings_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="segmentation_findings" indexName="segmentation_findings_policy_id_finding_class_source_key_key" unique="true">
+            <column name="policy_id" />
+            <column name="finding_class" />
+            <column name="source_key" />
+        </createIndex>
+        <createIndex tableName="segmentation_findings" indexName="segmentation_findings_organization_id_tenant_id_last_seen_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="segmentation_engine_state">
+            <column name="organization_id" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="watermark" type="timestamp with time zone" />
+            <column name="carryover_bucket" type="timestamp with time zone" />
+            <column name="restamp_requested_at" type="timestamp with time zone" />
+            <column name="restamp_completed_at" type="timestamp with time zone" />
+            <column name="last_run_at" type="timestamp with time zone" />
+            <column name="last_run_duration_ms" type="bigint" />
+            <column name="last_run_sessions" type="bigint" />
+            <column name="last_run_flows" type="bigint" />
+            <column name="last_run_findings" type="bigint" />
+            <column name="limit_reached_at" type="timestamp with time zone" />
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
 </databaseChangeLog>

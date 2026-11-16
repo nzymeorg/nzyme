@@ -260,7 +260,13 @@ public class TCPTable implements DataTable {
         DateTime activityCutoff = DateTime.now().minusMinutes(1);
         Map<String, TcpSessionReport> deduplicated = new LinkedHashMap<>();
         for (TcpSessionReport session : sessions) {
-            if (session.mostRecentSegmentTime() == null || !session.mostRecentSegmentTime().isAfter(activityCutoff)) {
+            if (session.mostRecentSegmentTime() == null) {
+                continue;
+            }
+
+            // Idle sessions carry nothing new, except in the report in which the tap closes them: the final state and
+            // end time of a session that timed out would never be recorded if that report was skipped as well.
+            if (!session.mostRecentSegmentTime().isAfter(activityCutoff) && !isClosed(session)) {
                 continue;
             }
 
@@ -470,6 +476,11 @@ public class TCPTable implements DataTable {
                         .bind("created_at", timestamp)
                         .add();
 
+                // The closing report of an idle session only updates its row. It is no activity.
+                if (!session.mostRecentSegmentTime().isAfter(activityCutoff)) {
+                    continue;
+                }
+
                 totalRxBytes += session.bytesCountRxIncremental();
                 totalTxBytes += session.bytesCountTxIncremental();
                 totalSegments += session.segmentsCountIncremental();
@@ -602,6 +613,21 @@ public class TCPTable implements DataTable {
             batch.execute();
         } catch (Exception e) {
             LOG.error("Could not write TCP probes.", e);
+        }
+    }
+
+    private static boolean isClosed(TcpSessionReport session) {
+        if (session.state() == null) {
+            return false;
+        }
+
+        try {
+            return switch (TcpSessionState.valueOf(session.state().toUpperCase())) {
+                case CLOSEDFIN, CLOSEDRST, CLOSEDTIMEOUT, REFUSED -> true;
+                default -> false;
+            };
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 

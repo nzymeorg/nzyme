@@ -5,6 +5,7 @@ import app.nzyme.core.assets.AssetRegistryKeys;
 import app.nzyme.core.assets.identity.AssetIdentityRegistryKeys;
 import app.nzyme.core.dot11.Dot11RegistryKeys;
 import app.nzyme.core.ethernet.EthernetRegistryKeys;
+import app.nzyme.core.ethernet.segmentation.SegmentationRegistryKeys;
 import app.nzyme.core.rest.responses.bluetooth.BluetoothRegistryKeys;
 import app.nzyme.core.timelines.TimelinesRegistryKeys;
 import app.nzyme.core.uav.UavRegistryKeys;
@@ -68,6 +69,14 @@ public class DatabaseTools {
             case ASSET_IDENTITY -> {
                 key = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.key();
                 defaultValue = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
+            }
+            case SEGMENTATION_FLOWS -> {
+                key = SegmentationRegistryKeys.FLOW_RETENTION_TIME_DAYS.key();
+                defaultValue = SegmentationRegistryKeys.FLOW_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
+            }
+            case SEGMENTATION_FINDINGS -> {
+                key = SegmentationRegistryKeys.FINDING_RETENTION_TIME_DAYS.key();
+                defaultValue = SegmentationRegistryKeys.FINDING_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
             }
             case TIMELINE_EVENTS_DOT11 -> {
                 key = TimelinesRegistryKeys.DOT11_EVENTS_RETENTION_TIME_DAYS.key();

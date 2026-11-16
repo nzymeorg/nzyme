@@ -941,9 +941,9 @@ div.context-overlay {
     top: -16px;
     left: -2px;
     height: 270px;
-    width: 300px;
+    width: 340px;
     margin-top: -270px;
-    margin-right: -300px;
+    margin-right: -340px;
     overflow: hidden;
     padding: 10px;
     box-shadow: 0 0 8px 3px #c5c5c5;
@@ -1029,10 +1029,28 @@ div.context-overlay h6 span.context-name {
 
 span.context-name-asset {
     background-color: #fdff32;
+    white-space: nowrap;
 }
 
 span.context-name-network {
     background-color: #72affa;
+}
+
+span.context-name-segment, a.context-name-segment {
+    background-color: #9ee6b4;
+    white-space: nowrap;
+}
+
+a.context-name-segment {
+    font-family: 'B612 Mono', monospace;
+    padding-left: 2px;
+    padding-right: 2px;
+    color: #000;
+    text-decoration: none;
+}
+
+a.context-name-segment:hover {
+    text-decoration: underline;
 }
 
 div.context-overlay i.context-owner-information {
@@ -1295,6 +1313,113 @@ i.filter-value {
     background: #eff6ff;
     align-self: flex-start;
     margin-left: 8px;
+}
+
+/* On the whole screen, the view brings the background of the card it came from. */
+.segmentation-overview-view:fullscreen {
+    padding: 16px;
+    overflow: auto;
+    background-color: #f9f9f9;
+}
+
+/*
+ * Each side of a rule is a box of four parts: a label, the inputs, a help text and the list of what was added.
+ * Where the editor has the room, the sides are next to each other and share their rows, so that the same part of
+ * all three is on one line.
+ */
+.policy-rule-container {
+    container-type: inline-size;
+    container-name: policy-rule;
+}
+
+.policy-rule {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    max-width: 640px;
+    margin-bottom: 1rem;
+}
+
+.policy-rule-side {
+    min-width: 0;
+    padding: 12px 14px 14px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+.policy-rule-side > * {
+    min-width: 0;
+}
+
+.policy-rule-label {
+    font-weight: 600;
+}
+
+@container policy-rule (min-width: 1250px) {
+    .policy-rule {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: repeat(4, auto);
+        row-gap: 0;
+        max-width: none;
+    }
+
+    .policy-rule-side {
+        display: grid;
+        grid-template-rows: subgrid;
+        grid-row: span 4;
+    }
+}
+
+.policy-entries {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+.policy-entries-empty {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #f9fafb;
+    border: 1px dashed #d1d5db;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.policy-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+}
+
+.policy-entry + .policy-entry {
+    border-top: 1px solid #e5e7eb;
+}
+
+.policy-entry-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    color: #374151;
+}
+
+.policy-entry-detail {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #6b7280;
+}
+
+.policy-entry-remove {
+    flex: 0 0 auto;
+    margin-left: auto;
+    text-decoration: none;
 }
 
 div.filters-modal div.modal-dialog {
@@ -3214,6 +3339,72 @@ a.briefing-tile-link:hover .briefing-tile-value {
 
 @container widget (max-width: 24em) {
     .dashboard-readouts {
+        display: none;
+    }
+}
+
+.dashboard-segmentation {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 1.6em;
+    margin-top: 0.5em;
+}
+
+.dashboard-segmentation-readouts {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 0.5em 1.6em;
+    align-content: space-around;
+    white-space: nowrap;
+    font-family: "Barlow Condensed", sans-serif;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+}
+
+.dashboard-segmentation-readouts .v {
+    display: block;
+    font-size: 2.6em;
+    line-height: 0.95;
+    letter-spacing: 0.03em;
+}
+
+.dashboard-segmentation-readouts .l {
+    display: block;
+    font-size: 0.9em;
+    letter-spacing: 0.14em;
+    color: var(--db-dim);
+}
+
+.dashboard-segmentation-policies {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3em;
+}
+
+.dashboard-segmentation-policies div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@container widget (max-width: 24em) {
+    .dashboard-segmentation-policies {
+        display: none;
+    }
+}
+
+@container widget (max-height: 8em) {
+    .dashboard-segmentation-readouts {
+        grid-template-columns: repeat(4, auto);
+    }
+
+    .dashboard-segmentation-policies {
         display: none;
     }
 }

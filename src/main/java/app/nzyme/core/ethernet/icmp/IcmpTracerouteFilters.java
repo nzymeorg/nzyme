@@ -27,6 +27,8 @@ public class IcmpTracerouteFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "source_address", operator), "");
             case "source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "source_mac", operator), "");
+            case "source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "source_mac", operator), "");
             case "destination_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "destination_address", operator), "");
             case "protocol":

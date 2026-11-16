@@ -16,10 +16,14 @@ public class VPNFilters implements SqlFilterProvider {
                 return GeneratedSql.create("", ipAddressMatch(bindId, "MIN(vpn.source_address)", operator));
             case "client_mac":
                 return GeneratedSql.create("", macAddressMatch(bindId, "MIN(vpn.source_mac)", operator));
+            case "client_tag":
+                return GeneratedSql.create("", assetTagMatch(bindId, "MIN(vpn.source_mac)", operator));
             case "server_address":
                 return GeneratedSql.create("", ipAddressMatch(bindId, "MIN(vpn.destination_address)", operator));
             case "server_mac":
                 return GeneratedSql.create("", macAddressMatch(bindId, "MIN(vpn.destination_mac)", operator));
+            case "server_tag":
+                return GeneratedSql.create("", assetTagMatch(bindId, "MIN(vpn.destination_mac)", operator));
             case "server_port":
                 return GeneratedSql.create("", numericMatch(bindId, "MIN(vpn.destination_port)", operator));
             case "type":

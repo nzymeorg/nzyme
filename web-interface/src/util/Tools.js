@@ -69,6 +69,10 @@ export function isValidMACAddress(mac) {
   return /^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/.test(mac.trim());
 }
 
+export function isValidUUID(uuid) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
+}
+
 export function isValidCIDR(cidr) {
   if (typeof cidr !== "string" || cidr.trim() === "") {
     return false;
@@ -392,6 +396,10 @@ export function humanReadableDatabaseCategoryName(category) {
       return "Assets: Statistics"
     case "ASSET_IDENTITY":
       return "Assets: Identity"
+    case "SEGMENTATION_FLOWS":
+      return "Segmentation: Flows"
+    case "SEGMENTATION_FINDINGS":
+      return "Segmentation: Findings"
   }
 
   return category;
@@ -490,4 +498,16 @@ export function onNumberInputKeyDown(e) {
   if (e.key.length === 1 && !(e.key >= "0" && e.key <= "9")) {
     e.preventDefault();
   }
+}
+
+export function apiErrorMessage(error, fallback) {
+  if (error && error.response && error.response.data && error.response.data.message) {
+    return error.response.data.message;
+  }
+
+  return fallback;
+}
+
+export function filtersApplied(filters) {
+  return !!filters && Object.keys(filters).length > 0;
 }

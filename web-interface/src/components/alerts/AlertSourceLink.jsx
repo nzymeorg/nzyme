@@ -42,6 +42,10 @@ export default function AlertSourceLink({alert}) {
       return a.finding_uuid ? link(ApiRoutes.ETHERNET.SPOOFING.DNS.DETAILS(a.finding_uuid), "Finding") : null;
     case "DNS_TUNNEL":
       return a.finding_uuid ? link(ApiRoutes.ETHERNET.DNS.TUNNELS.DETAILS(a.finding_uuid), "Finding") : null;
+    case "SEGMENTATION_POLICY_CROSSED":
+    case "SEGMENTATION_POLICY_ATTEMPT":
+      return a.policy_uuid ? link(ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.DETAILS(a.policy_uuid), "Policy")
+          : link(ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.INDEX, "Policies");
     case "ICMP_TUNNEL":
       return a.tunnel_uuid ? link(ApiRoutes.ETHERNET.ICMP.TUNNELS.DETAILS(a.tunnel_uuid), "Tunnel")
           : link(ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX, "Tunnels");

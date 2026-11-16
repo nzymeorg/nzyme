@@ -125,6 +125,16 @@ export default function sampleData(widgets, metrics, windowMinutes) {
           ]
         };
         break;
+      case "SEGMENTATION":
+        data[widget.id] = {
+          holding: 9, crossed: 1, attempted: 2, not_observable: 1, audit: 2, paused: 0,
+          policies: [
+            {name: "Database access", state: "CROSSED", crossed_findings: 1, attempted_findings: 0},
+            {name: "Guest isolation", state: "ATTEMPTED", crossed_findings: 0, attempted_findings: 4},
+            {name: "Servers outbound", state: "ATTEMPTED", crossed_findings: 0, attempted_findings: 1}
+          ]
+        };
+        break;
       case "LOCATIONS":
         data[widget.id] = {
           total: 4,

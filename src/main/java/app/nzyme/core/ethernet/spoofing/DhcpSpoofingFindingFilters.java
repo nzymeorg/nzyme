@@ -25,6 +25,8 @@ public class DhcpSpoofingFindingFilters implements SqlFilterProvider {
                 return GeneratedSql.create(stringMatch(bindId, prefix + "type", operator), "");
             case "server_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, prefix + "server_mac", operator), "");
+            case "server_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, prefix + "server_mac", operator), "");
             case "server_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, prefix + "server_address", operator), "");
             case "response_count":

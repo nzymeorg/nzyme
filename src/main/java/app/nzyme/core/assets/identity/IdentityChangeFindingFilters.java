@@ -13,6 +13,8 @@ public class IdentityChangeFindingFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "mac", operator), "");
+            case "tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "mac", operator), "");
             case "score":
                 return GeneratedSql.create(numericMatch(bindId, "score", operator), "");
             case "previous_fingerprint":

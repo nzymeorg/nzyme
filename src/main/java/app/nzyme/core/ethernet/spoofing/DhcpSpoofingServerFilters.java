@@ -13,6 +13,8 @@ public class DhcpSpoofingServerFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "mac", operator), "");
+            case "tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "mac", operator), "");
             case "address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "address", operator), "");
             case "trusted":

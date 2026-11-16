@@ -4,6 +4,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import WithPermission from "../../misc/WithPermission";
 import usePageTitle from "../../../util/UsePageTitle";
 import NetworkContextTable from "./NetworkContextTable";
+import NetworkContextSegmentsHint from "./NetworkContextSegmentsHint";
 
 export default function NetworksContextPage() {
 
@@ -45,6 +46,8 @@ export default function NetworksContextPage() {
             <div className="card">
               <div className="card-body">
                 <h3>All Networks with Context</h3>
+
+                <NetworkContextSegmentsHint />
 
                 <div className="row mb-3">
                   <div className="col-xl-12 col-xxl-8">

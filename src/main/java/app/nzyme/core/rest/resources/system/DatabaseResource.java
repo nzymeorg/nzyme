@@ -11,6 +11,7 @@ import app.nzyme.core.database.maintenance.db.MaintenanceLogEntry;
 import app.nzyme.core.database.usage.DatabaseUsage;
 import app.nzyme.core.dot11.Dot11RegistryKeys;
 import app.nzyme.core.ethernet.EthernetRegistryKeys;
+import app.nzyme.core.ethernet.segmentation.SegmentationRegistryKeys;
 import app.nzyme.core.rest.UserAuthenticatedResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.requests.SetDatabaseCategoryRetentionTimeRequest;
@@ -323,6 +324,8 @@ public class DatabaseResource extends UserAuthenticatedResource {
             case ASSET_COMMUNICATION -> key = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.key();
             case ASSET_STATISTICS -> key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
             case ASSET_IDENTITY -> key = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.key();
+            case SEGMENTATION_FLOWS -> key = SegmentationRegistryKeys.FLOW_RETENTION_TIME_DAYS.key();
+            case SEGMENTATION_FINDINGS -> key = SegmentationRegistryKeys.FINDING_RETENTION_TIME_DAYS.key();
         }
 
         nzyme.getDatabaseCoreRegistry()

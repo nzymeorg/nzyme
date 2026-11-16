@@ -17,12 +17,16 @@ public class IcmpRedirectFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, "sender_address", operator), "");
             case "sender_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "sender_mac", operator), "");
+            case "sender_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "sender_mac", operator), "");
             case "gateway_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "gateway_address", operator), "");
             case "target_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "target_address", operator), "");
             case "target_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "target_mac", operator), "");
+            case "target_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "target_mac", operator), "");
             case "packet_count":
                 return GeneratedSql.create(numericMatch(bindId, "packet_count", operator), "");
             default:

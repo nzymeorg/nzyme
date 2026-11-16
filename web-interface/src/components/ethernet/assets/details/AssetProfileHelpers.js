@@ -251,8 +251,10 @@ export function sortRows(rows, column, direction, accessors) {
   return [...rows].sort((a, b) => {
     const va = accessor(a);
     const vb = accessor(b);
-    if (va === null || va === undefined) return (vb === null || vb === undefined) ? 0 : 1;
-    if (vb === null || vb === undefined) return -1;
+    const emptyA = va === null || va === undefined || va === "";
+    const emptyB = vb === null || vb === undefined || vb === "";
+    if (emptyA) return emptyB ? 0 : 1;
+    if (emptyB) return -1;
     if (typeof va === "number" && typeof vb === "number") return sign * (va - vb);
     return sign * String(va).localeCompare(String(vb), undefined, {numeric: true, sensitivity: "base"});
   });

@@ -3,6 +3,7 @@ import {useLocation} from "react-router-dom";
 import Filters from "./Filters";
 import AppliedFilterList from "./AppliedFilterList";
 import {queryParametersToFilters} from "./FilterQueryParameters";
+import {filtersApplied} from "../../../util/Tools";
 
 const MODE = {
   REPLACE: "replace",
@@ -17,6 +18,7 @@ export default function FilterValueIcon(props) {
 
   const fields = props.fields;
   const setFilters = props.setFilters;
+  const embeddedFilters = props.filters;
 
   const location = useLocation();
   const inputId = useId();
@@ -44,6 +46,10 @@ export default function FilterValueIcon(props) {
   }
 
   const currentFilters = () => {
+    if (embeddedFilters !== undefined) {
+      return filtersApplied(embeddedFilters) ? embeddedFilters : null;
+    }
+
     const params = new URLSearchParams(location.search);
 
     // Absent while a monitor is applied, so the dialog then offers replacing only.

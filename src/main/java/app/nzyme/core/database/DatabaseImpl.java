@@ -784,6 +784,28 @@ public class DatabaseImpl implements Database {
                         true
                 ));
             }
+            case SEGMENTATION_FLOWS -> {
+                tables.add(new DataTableInformation(
+                        "segmentation_flows",
+                        "SELECT COUNT(*) FROM segmentation_flows WHERE <scope>",
+                        "DELETE FROM segmentation_flows WHERE <scope> AND bucket < :since",
+                        true
+                ));
+                tables.add(new DataTableInformation(
+                        "segmentation_crossings",
+                        "SELECT COUNT(*) FROM segmentation_crossings WHERE <scope>",
+                        "DELETE FROM segmentation_crossings WHERE <scope> AND bucket < :since",
+                        true
+                ));
+            }
+            case SEGMENTATION_FINDINGS -> {
+                tables.add(new DataTableInformation(
+                        "segmentation_findings",
+                        "SELECT COUNT(*) FROM segmentation_findings WHERE <scope>",
+                        "DELETE FROM segmentation_findings WHERE <scope> AND last_seen < :since",
+                        true
+                ));
+            }
             case TIMELINE_EVENTS_DOT11 -> {
                 tables.add(new DataTableInformation(
                         "dot11_timeline_events",

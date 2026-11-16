@@ -39,6 +39,12 @@ function NodeTimers(props) {
           <TimerRow title="DNS Spoofing Detection: Run per Tenant" timer={timers.spoofing_dns_detection_run} />
           {timers.dns_tunnel_detection_run ?
             <TimerRow title="DNS Tunnel Detection: Run per Tenant" timer={timers.dns_tunnel_detection_run} /> : null}
+          {timers.segmentation_run ?
+            <TimerRow title="Segmentation: Run per Tenant" timer={timers.segmentation_run} /> : null}
+          {timers.segmentation_window ?
+            <TimerRow title="Segmentation: Evaluation Window" timer={timers.segmentation_window} /> : null}
+          {timers.segmentation_restamp ?
+            <TimerRow title="Segmentation: Applying Segment Changes" timer={timers.segmentation_restamp} /> : null}
           {timers.identity_duplicate_mac_detection_run ?
             <TimerRow title="Duplicate MAC Address Detection: Run per Tenant" timer={timers.identity_duplicate_mac_detection_run} /> : null}
           {timers.identity_change_detection_run ?

@@ -8,8 +8,10 @@ function ContextNotes(props) {
 
   const notes = props.notes;
 
+  const emptyText = props.emptyText ? props.emptyText : "This context has no notes attached to it.";
+
   if (!notes || !notes.trim()) {
-    return <div className="alert alert-info mb-0">This context has no notes attached to it.</div>
+    return <div className="alert alert-info mb-0">{emptyText}</div>
   }
 
   return <div className="rendered-markdown"

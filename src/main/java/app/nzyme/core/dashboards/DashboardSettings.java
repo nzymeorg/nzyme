@@ -106,7 +106,8 @@ public record DashboardSettings(String name,
 
     public static boolean showsAlerts(DashboardWidget widget) {
         return switch (widget.widgetType()) {
-            case STATUS, ALERTS, LOCATIONS -> true;
+            // What segmentation policies report is as sensitive as alerts.
+            case STATUS, ALERTS, LOCATIONS, SEGMENTATION -> true;
             case METRIC -> DashboardMetric.valueOf(widget.option("metric")).showsAlerts();
             case TAPS, CLOCK, TEXT, TOPOLOGY -> false;
         };

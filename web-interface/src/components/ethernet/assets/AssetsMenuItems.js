@@ -13,6 +13,7 @@ export const ASSETS_MENU_ITEMS = [
     {name: "MAC Address Changes", href: ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINKS},
     {name: "Exclusions", href: ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.INDEX},
   ]},
+  {name: "Tags", href: ApiRoutes.ETHERNET.ASSETS.TAGS.INDEX},
   {name: "Settings", href: ApiRoutes.ETHERNET.ASSETS.SETTINGS, with_permission: "ethernet_assets_manage"},
 ]
 

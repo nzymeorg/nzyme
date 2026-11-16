@@ -27,6 +27,7 @@ import AssetAlertsCard from "./details/AssetAlertsCard";
 import AssetFindingsCard from "./details/AssetFindingsCard";
 import AssetPivotsDrawer from "./details/AssetPivotsDrawer";
 import AssetIdentityNoticesCard from "./details/AssetIdentityNoticesCard";
+import AssetTagsCard from "./tags/AssetTagsCard";
 import {UserContext} from "../../../App";
 import {userHasPermission} from "../../../util/Tools";
 
@@ -259,6 +260,21 @@ export default function AssetDetailsPage() {
                   <dt>Source Protocols</dt>
                   <dd><AssetSourceProtocols asset={asset} /></dd>
                 </dl>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <AssetTagsCard asset={asset}
+                               organizationId={organizationId}
+                               tenantId={tenantId}
+                               revision={revision}
+                               onRefresh={refresh}
+                               canEdit={canManage} />
               </div>
             </div>
           </div>

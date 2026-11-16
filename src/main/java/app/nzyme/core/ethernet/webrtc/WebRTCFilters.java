@@ -31,10 +31,14 @@ public class WebRTCFilters implements SqlFilterProvider {
                 return GeneratedSql.create("", numericMatch(bindId, "(EXTRACT(EPOCH FROM (MAX(w.last_activity) - MIN(w.first_seen))) * 1000)::bigint", operator));
             case "source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "s.source_mac", operator), "");
+            case "source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "s.source_mac", operator), "");
             case "source_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "s.source_address", operator), "");
             case "destination_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "s.destination_mac", operator), "");
+            case "destination_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "s.destination_mac", operator), "");
             case "destination_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "s.destination_address", operator), "");
             default:

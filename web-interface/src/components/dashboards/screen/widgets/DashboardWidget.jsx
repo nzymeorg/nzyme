@@ -9,6 +9,7 @@ import ClockWidget, {clockOffset, clockTitle} from "./ClockWidget";
 import LocationsWidget from "./LocationsWidget";
 import TextWidget from "./TextWidget";
 import TopologyWidget from "./TopologyWidget";
+import SegmentationWidget from "./SegmentationWidget";
 
 const AGGREGATIONS = {LATEST: "Now", SUM: "Total", AVERAGE: "Avg", PEAK: "Peak", DISTINCT: "Distinct"};
 
@@ -47,6 +48,10 @@ const meta = (widget, data, now) => {
       return [metricUnit(data), AGGREGATIONS[data.aggregation]].filter((part) => part).join(" ");
     case "LOCATIONS":
       return numeral(data.total).format("0,0") + (data.total === 1 ? " location" : " locations");
+    case "SEGMENTATION": {
+      const policies = data.holding + data.crossed + data.attempted + data.not_observable;
+      return numeral(policies).format("0,0") + (policies === 1 ? " active policy" : " active policies");
+    }
     default:
       return null;
   }
@@ -85,6 +90,8 @@ const body = (widget, data, now, clockFormat, windowLabel, setLiveMeta) => {
       return <MetricWidget data={data} windowLabel={windowLabel} />
     case "LOCATIONS":
       return <LocationsWidget data={data} now={now} clockFormat={clockFormat} />
+    case "SEGMENTATION":
+      return <SegmentationWidget data={data} />
     default:
       return <div className="dashboard-widget-note">Not available</div>
   }

@@ -1,4 +1,5 @@
 import React from "react";
+import useAssetTagOptions, {isAssetTagOperator} from "./useAssetTagOptions";
 
 export default function AppliedFilterList(props) {
 
@@ -6,6 +7,24 @@ export default function AppliedFilterList(props) {
   const onFilterRemoved = props.onFilterRemoved;
   const hideHeadline = props.hideHeadline;
   const appliedMonitor = props.appliedMonitor;
+
+  const hasTagFilter = !!filters && Object.keys(filters).some((group) => {
+    return filters[group].some((filter) => isAssetTagOperator(filter.operator));
+  });
+  const tagOptions = useAssetTagOptions(hasTagFilter);
+
+  const valueOf = (filter) => {
+    if (!isAssetTagOperator(filter.operator)) {
+      return filter.value;
+    }
+
+    if (!tagOptions) {
+      return "...";
+    }
+
+    const tag = tagOptions.find((option) => option.value === filter.value);
+    return tag ? tag.name : "Deleted tag";
+  }
 
   if (!filters || Object.keys(filters).length === 0) {
     return (
@@ -36,7 +55,7 @@ export default function AppliedFilterList(props) {
                       <span className="applied-filter-chip">
                         <span className="applied-filter-name">{filter.name}</span>
                         <span title={filter.operator} className="applied-filter-operator">{filter.sign}</span>
-                        <span className="applied-filter-value">{filter.value}</span>
+                        <span className="applied-filter-value">{valueOf(filter)}</span>
                         {onFilterRemoved ? (
                           <a className="applied-filter-remove" onClick={function(e) { onFilterRemoved(e, filter); }}>
                             <i className="fa-solid fa-xmark" />

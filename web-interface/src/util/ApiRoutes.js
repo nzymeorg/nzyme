@@ -167,6 +167,26 @@ const ApiRoutes = {
     TOPOLOGY: {
       INDEX: '/ethernet/topology'
     },
+    SEGMENTATION: {
+      INDEX: '/ethernet/segmentation',
+      SEGMENTS: {
+        INDEX: '/ethernet/segmentation/segments',
+        CREATE: '/ethernet/segmentation/segments/create',
+        DETAILS: uuid => `/ethernet/segmentation/segments/show/${uuid}`,
+        EDIT: uuid => `/ethernet/segmentation/segments/edit/${uuid}`
+      },
+      POLICIES: {
+        INDEX: '/ethernet/segmentation/policies',
+        CREATE: '/ethernet/segmentation/policies/create',
+        DETAILS: uuid => `/ethernet/segmentation/policies/show/${uuid}`,
+        EDIT: uuid => `/ethernet/segmentation/policies/edit/${uuid}`
+      },
+      FINDINGS: {
+        INDEX: '/ethernet/segmentation/findings',
+        DETAILS: uuid => `/ethernet/segmentation/findings/show/${uuid}`
+      },
+      SETTINGS: '/ethernet/segmentation/settings'
+    },
     L4: {
       OVERVIEW: '/ethernet/l4',
       SESSIONS: '/ethernet/l4/sessions',
@@ -208,6 +228,11 @@ const ApiRoutes = {
           DETAILS: uuid => `/ethernet/assets/identity/exclusions/show/${uuid}`,
           EDIT: uuid => `/ethernet/assets/identity/exclusions/show/${uuid}/edit`
         }
+      },
+      TAGS: {
+        INDEX: '/ethernet/assets/tags',
+        CREATE: '/ethernet/assets/tags/create',
+        EDIT: uuid => `/ethernet/assets/tags/edit/${uuid}`
       },
       SETTINGS: '/ethernet/assets/settings'
     },

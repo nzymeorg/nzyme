@@ -129,6 +129,7 @@ public class NzymeHttpServer {
         resourceConfig.property("jersey.config.server.wadl.disableWadl", "true");
         resourceConfig.register(new PreMFAAuthenticationFilter(nzyme));
         resourceConfig.register(new RESTAuthenticationFilter(nzyme));
+        resourceConfig.register(new AssetTagFilterGuard(nzyme));
         resourceConfig.register(new TapAuthenticationFilter(nzyme));
         resourceConfig.register(new DisplayAuthenticationFilter(nzyme));
         resourceConfig.register(new PrometheusBasicAuthFilter(nzyme));
@@ -202,6 +203,8 @@ public class NzymeHttpServer {
         resourceConfig.register(SpoofingExclusionsResource.class);
         resourceConfig.register(DnsTunnelsResource.class);
         resourceConfig.register(DnsTunnelExclusionsResource.class);
+        resourceConfig.register(SegmentationResource.class);
+        resourceConfig.register(AssetTagsResource.class);
         resourceConfig.register(IcmpResource.class);
         resourceConfig.register(L4Resource.class);
         resourceConfig.register(TopologyResource.class);

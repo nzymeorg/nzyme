@@ -71,6 +71,25 @@ import {
 import {ALLOWED_ICMP_TYPE_VALUES, ICMP_TYPE_SELECT_OPTIONS} from "./validators/IcmpTypeValidator";
 import {ALLOWED_TRACEROUTE_PROTOCOL_VALUES, TRACEROUTE_PROTOCOL_SELECT_OPTIONS} from "./validators/TracerouteProtocolValidator";
 import {ALLOWED_ASSET_CHANGE_TYPE_VALUES, ASSET_CHANGE_TYPE_SELECT_OPTIONS} from "./validators/AssetChangeTypeValidator";
+import {ALLOWED_SEGMENT_KIND_VALUES, SEGMENT_KIND_SELECT_OPTIONS} from "./validators/SegmentKindValidator";
+import useAssetTagOptions from "./useAssetTagOptions";
+import {isValidUUID} from "../../../util/Tools";
+import {
+  ALLOWED_SEGMENTATION_POLICY_STATUS_VALUES,
+  SEGMENTATION_POLICY_STATUS_SELECT_OPTIONS
+} from "./validators/SegmentationPolicyStatusValidator";
+import {
+  ALLOWED_SEGMENTATION_FINDING_CLASS_VALUES,
+  SEGMENTATION_FINDING_CLASS_SELECT_OPTIONS
+} from "./validators/SegmentationFindingClassValidator";
+import {
+  ALLOWED_SEGMENTATION_OUTCOME_VALUES,
+  SEGMENTATION_OUTCOME_SELECT_OPTIONS
+} from "./validators/SegmentationOutcomeValidator";
+import {
+  ALLOWED_SEGMENTATION_VERDICT_VALUES,
+  SEGMENTATION_VERDICT_SELECT_OPTIONS
+} from "./validators/SegmentationVerdictValidator";
 
 export const FILTER_TYPE = {
   STRING: {
@@ -274,6 +293,47 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_TRACEROUTE_PROTOCOL_VALUES, value)
     ],
     placeholder: "6"
+  },
+  SEGMENT_KIND: {
+    name: "segment_kind",
+    validators: [
+      (value) => validateEnum(ALLOWED_SEGMENT_KIND_VALUES, value)
+    ],
+    placeholder: "INTERNAL"
+  },
+  ASSET_TAG: {
+    name: "asset_tag",
+    validators: [isValidUUID],
+    placeholder: null
+  },
+  SEGMENTATION_POLICY_STATUS: {
+    name: "segmentation_policy_status",
+    validators: [
+      (value) => validateEnum(ALLOWED_SEGMENTATION_POLICY_STATUS_VALUES, value)
+    ],
+    placeholder: "ACTIVE"
+  },
+  SEGMENTATION_FINDING_CLASS: {
+    name: "segmentation_finding_class",
+    validators: [
+      (value) => validateEnum(ALLOWED_SEGMENTATION_FINDING_CLASS_VALUES, value)
+    ],
+    placeholder: "CROSSED"
+  },
+  SEGMENTATION_OUTCOME: {
+    name: "segmentation_outcome",
+    validators: [
+      (value) => validateEnum(ALLOWED_SEGMENTATION_OUTCOME_VALUES, value)
+    ],
+    placeholder: "CONNECTED"
+  },
+  // Only evaluated in the browser, on the observed traffic of a policy. The node does not know it.
+  SEGMENTATION_VERDICT: {
+    name: "segmentation_verdict",
+    validators: [
+      (value) => validateEnum(ALLOWED_SEGMENTATION_VERDICT_VALUES, value)
+    ],
+    placeholder: "VIOLATION"
   }
 }
 
@@ -859,6 +919,116 @@ export const OPERATORS = {
     validators: [],
     options: TLS_ALERT_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
+  },
+  ASSET_TAG_EQUALS: {
+    name: "asset_tag_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: [],
+    dynamic_options: "asset_tags",
+    field_type: FIELD_TYPE.SELECT
+  },
+  ASSET_TAG_NOT_EQUALS: {
+    name: "asset_tag_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: [],
+    dynamic_options: "asset_tags",
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENT_KIND_EQUALS: {
+    name: "segment_kind_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENT_KIND_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENT_KIND_NOT_EQUALS: {
+    name: "segment_kind_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENT_KIND_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_POLICY_STATUS_EQUALS: {
+    name: "segmentation_policy_status_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_POLICY_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_POLICY_STATUS_NOT_EQUALS: {
+    name: "segmentation_policy_status_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_POLICY_STATUS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_FINDING_CLASS_EQUALS: {
+    name: "segmentation_finding_class_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_FINDING_CLASS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_FINDING_CLASS_NOT_EQUALS: {
+    name: "segmentation_finding_class_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_FINDING_CLASS_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_OUTCOME_EQUALS: {
+    name: "segmentation_outcome_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_OUTCOME_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_OUTCOME_NOT_EQUALS: {
+    name: "segmentation_outcome_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_OUTCOME_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_VERDICT_EQUALS: {
+    name: "segmentation_verdict_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_VERDICT_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  SEGMENTATION_VERDICT_NOT_EQUALS: {
+    name: "segmentation_verdict_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: SEGMENTATION_VERDICT_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
   }
 }
 
@@ -876,6 +1046,10 @@ export default function Filters(props) {
   const setFilters = props.setFilters;
 
   const previousFiltersRef = useRef(null);
+
+  const assetTagOptions = useAssetTagOptions(
+    !!fields && Object.keys(fields).some((field) => fields[field].type === FILTER_TYPE.ASSET_TAG)
+  );
 
   const hideAppliedFilters = props.hideAppliedFilters === undefined || props.hideAppliedFilters === null ? false : props.hideAppliedFilters;
   const preSelectedField = props.preSelectedField;
@@ -1161,6 +1335,42 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.PROTOCOL_EQUALS,
             OPERATORS.PROTOCOL_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.ASSET_TAG:
+          setAllowedOperators([
+            OPERATORS.ASSET_TAG_EQUALS,
+            OPERATORS.ASSET_TAG_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SEGMENT_KIND:
+          setAllowedOperators([
+            OPERATORS.SEGMENT_KIND_EQUALS,
+            OPERATORS.SEGMENT_KIND_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SEGMENTATION_POLICY_STATUS:
+          setAllowedOperators([
+            OPERATORS.SEGMENTATION_POLICY_STATUS_EQUALS,
+            OPERATORS.SEGMENTATION_POLICY_STATUS_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SEGMENTATION_FINDING_CLASS:
+          setAllowedOperators([
+            OPERATORS.SEGMENTATION_FINDING_CLASS_EQUALS,
+            OPERATORS.SEGMENTATION_FINDING_CLASS_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SEGMENTATION_OUTCOME:
+          setAllowedOperators([
+            OPERATORS.SEGMENTATION_OUTCOME_EQUALS,
+            OPERATORS.SEGMENTATION_OUTCOME_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.SEGMENTATION_VERDICT:
+          setAllowedOperators([
+            OPERATORS.SEGMENTATION_VERDICT_EQUALS,
+            OPERATORS.SEGMENTATION_VERDICT_NOT_EQUALS
           ])
           break;
       }
@@ -1456,6 +1666,8 @@ export default function Filters(props) {
 
           <FilterValueInput filterValue={filterValue}
                             operator={selectedOperator}
+                            options={selectedOperator.dynamic_options === "asset_tags"
+                              ? (assetTagOptions ? assetTagOptions : []) : undefined}
                             filterType={selectedFilter.type}
                             onChange={onFilterValueChanged}
                             disabled={!selectionMade || (selectionMade && selectedOperator.no_value)} />

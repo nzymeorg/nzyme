@@ -402,6 +402,12 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SPOOFING_DNS_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.DNS_TUNNEL_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.DNS_TUNNEL_DETECTION_RUN_TIMER));
+            writeTimer(MetricExternalName.SEGMENTATION_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.SEGMENTATION_RUN_TIMER));
+            writeTimer(MetricExternalName.SEGMENTATION_WINDOW_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.SEGMENTATION_CHUNK_TIMER));
+            writeTimer(MetricExternalName.SEGMENTATION_RESTAMP_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.SEGMENTATION_RESTAMP_TIMER));
             writeTimer(MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.IDENTITY_CHANGE_DETECTION_RUN_TIMER.database_label,

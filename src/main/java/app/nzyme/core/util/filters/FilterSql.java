@@ -270,6 +270,24 @@ public class FilterSql {
         }
     }
 
+    // The condition does not know the tenant of the list: that the tag is one the user has access to is checked by
+    // AssetTagFilterGuard. The tag is compared as text, so that a value that is no UUID matches nothing.
+    public static String assetTagMatch(String bindId, String macFieldName, FilterOperator operator) {
+        String tagged = "SELECT tag_asset.mac FROM assets AS tag_asset " +
+                "JOIN assets_tag_assignments AS tag_assignment ON tag_assignment.asset_id = tag_asset.id " +
+                "JOIN assets_tags AS tag_definition ON tag_definition.id = tag_assignment.tag_id " +
+                "WHERE tag_definition.uuid::text = lower(:" + bindId + ")";
+
+        switch (operator) {
+            case EQUALS:
+                return macFieldName + " IN (" + tagged + ")";
+            case NOT_EQUALS:
+                return "(" + macFieldName + " IS NULL OR " + macFieldName + " NOT IN (" + tagged + "))";
+            default:
+                throw new RuntimeException("Invalid operator [" + operator + "] for the tag of [" + macFieldName + "].");
+        }
+    }
+
     public static String macAddressMatch(String bindId, String fieldName, FilterOperator operator) {
         switch (operator) {
             case EQUALS:

@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.responses.ethernet.assets;
 
+import app.nzyme.core.rest.responses.context.MacAddressTagResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
@@ -33,6 +34,9 @@ public abstract class AssetSummaryResponse {
     @JsonProperty("hostnames")
     public abstract List<String> hostnames();
 
+    @JsonProperty("tags")
+    public abstract List<MacAddressTagResponse> tags();
+
     @JsonProperty("ip_addresses")
     public abstract List<String> ipAddresses();
 
@@ -58,7 +62,7 @@ public abstract class AssetSummaryResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static AssetSummaryResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, List<String> hostnames, List<String> ipAddresses, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, DateTime firstSeen, DateTime lastSeen) {
+    public static AssetSummaryResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, List<String> hostnames, List<MacAddressTagResponse> tags, List<String> ipAddresses, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .uuid(uuid)
                 .mac(mac)
@@ -66,6 +70,7 @@ public abstract class AssetSummaryResponse {
                 .isActive(isActive)
                 .name(name)
                 .hostnames(hostnames)
+                .tags(tags)
                 .ipAddresses(ipAddresses)
                 .dhcpFingerprintInitial(dhcpFingerprintInitial)
                 .dhcpFingerprintRenew(dhcpFingerprintRenew)
@@ -93,6 +98,8 @@ public abstract class AssetSummaryResponse {
         public abstract Builder name(String name);
 
         public abstract Builder hostnames(List<String> hostnames);
+
+        public abstract Builder tags(List<MacAddressTagResponse> tags);
 
         public abstract Builder ipAddresses(List<String> ipAddresses);
 

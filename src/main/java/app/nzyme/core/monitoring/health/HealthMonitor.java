@@ -60,6 +60,7 @@ public class HealthMonitor {
                 .add(new MessageBusMessageStuckIndicator(nzyme.getMessageBus()))
                 .add(new ConnectIndicator(nzyme))
                 .add(new AssetIdentityBacklogIndicator(nzyme.getAssetsManager().identity()))
+                .add(new SegmentationLagIndicator(nzyme.getEthernet().segmentation()))
                 .add(new DatabaseConfigurationIndicator(nzyme.getDatabaseMaintenance()))
                 .add(new DatabaseVacuumIndicator(nzyme.getDatabaseMaintenance()))
                 .add(new DatabaseBloatIndicator(nzyme.getDatabaseMaintenance()))

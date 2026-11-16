@@ -14,7 +14,8 @@ public enum TableClass {
             List.of("l4_sessions", "tls_sessions", "nat_traversal_discoveries", "nat_stun_negotiation_flows",
                     "vpn_tunnels", "ssh_sessions", "socks_tunnels", "rtsp_streams", "dhcp_transactions",
                     "webrtc_conversations", "tcp_probes", "assets_attributes", "assets_communication",
-                    "assets_activity", "beacon_checkins", "tasks_queue", "recon_probe_history")
+                    "assets_activity", "beacon_checkins", "tasks_queue", "recon_probe_history", "segmentation_flows",
+                    "segmentation_crossings")
     ),
 
     APPEND(
@@ -45,7 +46,8 @@ public enum TableClass {
                     "context_mac_addresses_transparent", "auth_users", "dot11_known_networks", "monitors",
                     "beacons", "beacon_sources", "beacon_exclusions", "recon_scan_targets", "recon_scans",
                     "detection_alerts", "detection_alert_attributes", "detection_alert_timeline", "certificates",
-                    "spoofing_dhcp_detection_state", "dashboard_displays")
+                    "spoofing_dhcp_detection_state", "dashboard_displays", "segmentation_findings",
+                    "segmentation_engine_state")
     );
 
     private final String key;

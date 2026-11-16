@@ -19,10 +19,14 @@ public class RTSPFilters implements SqlFilterProvider  {
                 return GeneratedSql.create(stringMatch(bindId, "stream.l4_type", operator), "");
             case "stream_source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "stream.source_mac", operator), "");
+            case "stream_source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "stream.source_mac", operator), "");
             case "stream_source_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "stream.source_address", operator), "");
             case "stream_destination_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "stream.destination_mac", operator), "");
+            case "stream_destination_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "stream.destination_mac", operator), "");
             case "stream_destination_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "stream.destination_address", operator), "");
             case "bytes_rx_count":

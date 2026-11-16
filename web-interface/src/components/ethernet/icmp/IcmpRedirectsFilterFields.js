@@ -4,8 +4,10 @@ export const ICMP_REDIRECTS_FILTER_FIELDS = {
   uuid: { title: "ID", type: FILTER_TYPE.UUID },
   sender_address: { title: "Sender Address", type: FILTER_TYPE.IP_ADDRESS },
   sender_mac: { title: "Sender MAC", type: FILTER_TYPE.MAC_ADDRESS },
+  sender_tag: { title: "Sender Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   gateway_address: { title: "Advertised Gateway", type: FILTER_TYPE.IP_ADDRESS },
   target_address: { title: "Told Host", type: FILTER_TYPE.IP_ADDRESS },
   target_mac: { title: "Told Host MAC", type: FILTER_TYPE.MAC_ADDRESS },
+  target_tag: { title: "Told Host Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC }
 }

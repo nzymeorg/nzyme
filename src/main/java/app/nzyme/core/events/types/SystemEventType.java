@@ -262,6 +262,13 @@ public enum SystemEventType {
             "The state of the \"Asset Identity Backlog\" system health indicator has changed from a previously different state."
     ),
 
+    HEALTH_INDICATOR_SEGMENTATION_LAG_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Segmentation Lag\" Health Indicator was toggled",
+            "The state of the \"Segmentation Lag\" system health indicator has changed from a previously different state."
+    ),
+
     HEALTH_INDICATOR_DB_CONFIGURATION_TOGGLED(
             SystemEventCategory.HEALTH_INDICATOR,
             SystemEventScope.SYSTEM,

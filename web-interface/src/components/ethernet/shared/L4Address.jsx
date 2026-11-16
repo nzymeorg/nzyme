@@ -3,11 +3,13 @@ import IPAddressLink from "./IPAddressLink";
 import Flag from "../../misc/Flag";
 import ContextOverlayVisibilityWrapper from "../../shared/context/ContextOverlayVisibilityWrapper";
 import L4AddressContextOverlay from "../l4/ip/L4AddressContextOverlay";
+import {L4AddressSegmentLabel} from "./L4AddressSegment";
 
 export default function L4Address({address,
                                     hidePort = false,
                                     hideFlag = false,
                                     withAssetName = false,
+                                    hideSegment = false,
                                     filterElement = undefined,
                                     suffixElement = undefined,
                                     linkTo = undefined}) {
@@ -73,7 +75,8 @@ export default function L4Address({address,
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
         {flag()}{' '}
         <IPAddressLink ip={address.address} port={hidePort || !address.port ? null : address.port} to={linkTo} />{' '}
-        {contextElement()}{assetNameElement()}{' '}
+        {contextElement()}{assetNameElement()}
+        {hideSegment ? null : <L4AddressSegmentLabel context={address.context} />}{' '}
         {filterElement ? filterElement : null}{' '}
         {suffixElement ? suffixElement : null}
 

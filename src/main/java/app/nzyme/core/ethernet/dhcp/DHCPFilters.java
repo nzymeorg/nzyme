@@ -14,8 +14,12 @@ public class DHCPFilters implements SqlFilterProvider {
                 return GeneratedSql.create(stringMatch(bindId, "transaction_type", operator), "");
             case "client_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "client_mac", operator), "");
+            case "client_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "client_mac", operator), "");
             case "server_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "server_mac", operator), "");
+            case "server_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "server_mac", operator), "");
             case "requested_ip":
                 return GeneratedSql.create(ipAddressMatch(bindId, "requested_ip_address", operator), "");
             case "fingerprint":

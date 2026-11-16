@@ -13,6 +13,8 @@ public class DuplicateMacFindingFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "mac", operator), "");
+            case "tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "mac", operator), "");
             case "stack_count":
                 return GeneratedSql.create(numericMatch(bindId, "stack_count", operator), "");
             case "session_count":

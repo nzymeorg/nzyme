@@ -328,6 +328,7 @@ public class SystemCollector {
             case "node_file_permissions" -> "A node has files with unsafe permissions.";
             case "connect" -> "Connect is enabled but the cluster cannot reach it. Data from Connect is not updated.";
             case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
+            case "segmentation_lag" -> "Segmentation is behind on evaluating recorded sessions.";
             case "db_configuration" -> "PostgreSQL server settings are below the Nzyme requirements.";
             case "db_vacuum" -> "A large table has too many dead rows. Vacuum is not keeping up.";
             case "db_bloat" -> "A bloated index was not rebuilt in the last maintenance window.";
@@ -385,6 +386,7 @@ public class SystemCollector {
             case "node_file_permissions" -> "Node File Permissions";
             case "connect" -> "Connect";
             case "asset_identity_backlog" -> "Asset Identity Backlog";
+            case "segmentation_lag" -> "Segmentation Lag";
             case "db_configuration" -> "DB Configuration";
             case "db_vacuum" -> "DB Vacuum";
             case "db_bloat" -> "DB Bloat";

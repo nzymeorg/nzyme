@@ -8,5 +8,7 @@ export const DNS_FILTER_FIELDS = {
   server_address: { title: "Server Address", type: FILTER_TYPE.IP_ADDRESS },
   server_port: { title: "Server Port", type: FILTER_TYPE.PORT_NUMBER },
   client_mac: { title: "Client MAC Address", type: FILTER_TYPE.STRING },
+  client_tag: { title: "Client Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   server_mac: { title: "Server MAC Address", type: FILTER_TYPE.STRING },
+  server_tag: { title: "Server Asset Tag", type: FILTER_TYPE.ASSET_TAG },
 }

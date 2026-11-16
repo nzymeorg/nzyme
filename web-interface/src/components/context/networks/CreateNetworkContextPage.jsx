@@ -5,6 +5,7 @@ import {toast} from "react-toastify";
 import {Link, Navigate, useLocation} from "react-router-dom";
 import usePageTitle from "../../../util/UsePageTitle";
 import NetworkContextForm from "./NetworkContextForm";
+import NetworkContextSegmentsHint from "./NetworkContextSegmentsHint";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -83,6 +84,8 @@ export default function CreateNetworkContextPage() {
             <div className="card">
               <div className="card-body">
                 <h3>Create Network Context</h3>
+
+                <NetworkContextSegmentsHint />
 
                 <NetworkContextForm submitText={"Add Context"}
                                     onSubmit={onSubmit}

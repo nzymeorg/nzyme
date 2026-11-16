@@ -9,6 +9,8 @@ export default function FilterValueInput(props) {
   const filterType = props.filterType;
   const disabled = props.disabled;
 
+  const options = props.options ? props.options : operator.options;
+
   const fieldTypeAsInputType = () => {
     switch (operator.field_type) {
       case FIELD_TYPE.ANY_TEXT:
@@ -47,7 +49,7 @@ export default function FilterValueInput(props) {
                 value={String(filterValue)}
                 onChange={onChange}>
           <option>Please Choose</option>
-          {operator.options.map((o, i) => {
+          {options.map((o, i) => {
             return <option key={i} value={String(o.value)}>{o.name}</option>
           })}
         </select>

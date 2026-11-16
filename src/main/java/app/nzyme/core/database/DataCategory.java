@@ -16,7 +16,9 @@ public enum DataCategory {
     ASSET_ATTRIBUTES(Subsystem.ETHERNET),
     ASSET_COMMUNICATION(Subsystem.ETHERNET),
     ASSET_STATISTICS(Subsystem.ETHERNET),
-    ASSET_IDENTITY(Subsystem.ETHERNET);
+    ASSET_IDENTITY(Subsystem.ETHERNET),
+    SEGMENTATION_FLOWS(Subsystem.ETHERNET),
+    SEGMENTATION_FINDINGS(Subsystem.ETHERNET);
 
     private final Subsystem subsystem;
 

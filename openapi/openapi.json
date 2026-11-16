@@ -108,6 +108,9 @@
     "description" : "Who is really behind a MAC address. Three detections run over the identity attributes of assets: duplicate MAC findings, where several directly attached TCP stacks used one address at the same time; identity change findings, where an established asset started presenting a different stack, hostname or behaviour and the old one stopped; and links between assets that are probably one device that moved to a new MAC address. Every detection has its own thresholds and alert switch, and exclusions by MAC address or vendor prefix.",
     "name" : "Asset Identity"
   }, {
+    "description" : "Labels on assets, like db-servers. An asset can have any number of tags. Tags group assets independent of where they are on the network and can be used as source or destination in segmentation policies.",
+    "name" : "Asset Tags"
+  }, {
     "description" : "An asset is a device Nzyme detected in the monitored Ethernet traffic, identified by its MAC address. Nzyme builds this inventory passively and uses it to enrich MAC addresses with the hostnames and IP addresses of the asset, its DHCP fingerprints and when it was first and last seen.",
     "name" : "Assets"
   }, {
@@ -173,6 +176,9 @@
       "url" : "https://go.nzyme.org/ethernet-ssh"
     },
     "name" : "SSH"
+  }, {
+    "description" : "Shows how the segments of a network talk to each other and checks that they only do so as intended. A segment is a named part of the network, defined by address ranges. An external network is the same for addresses outside of the network and can also be defined by autonomous system. A policy is a scope and a list of what is allowed inside of it: any connection in scope that is not allowed is a finding, separately for connections the target answered and for attempts that were rejected or got no reply. Everything is built on the node from the TCP and UDP sessions recorded by all taps of the tenant, which are rolled up into flows once and never read again.",
+    "name" : "Segmentation"
   }, {
     "description" : "SOCKS4, SOCKS4A and SOCKS5 tunnels that Nzyme taps observed on the network, including the tunnel endpoints, the authentication status and the tunneled destination. Each tunnel is tracked over its lifetime and keyed by its underlying TCP session.",
     "externalDocs" : {
@@ -11974,6 +11980,853 @@
         "tags" : [ "Assets" ]
       }
     },
+    "/api/ethernet/assets/tags" : {
+      "get" : {
+        "description" : "Sorted by name by default. Results are paginated.",
+        "operationId" : "findAssetTags",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, DESCRIPTION, ASSET_COUNT, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size, 250 at most. Defaults to 25.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagsListResponse"
+                }
+              }
+            },
+            "description" : "Tags found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the asset tags of a tenant",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/asset/{asset_id}" : {
+      "get" : {
+        "operationId" : "findAssetTagsOfAsset",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagsListResponse"
+                }
+              }
+            },
+            "description" : "Tags found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the tags of an asset",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}" : {
+      "post" : {
+        "operationId" : "createAssetTag",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssetTagRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagResponse"
+                }
+              }
+            },
+            "description" : "Tag created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or description. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Create an asset tag",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every tag of the tenant that matches the filters, not only the ones of one page, and removes it from all assets. A tag that a segmentation policy refers to is left alone and returned as skipped. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteFilteredAssetTags",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every tag is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching asset tags",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/many/delete" : {
+      "put" : {
+        "description" : "Deletes every tag in the list that belongs to the tenant and removes it from all assets. A tag that a segmentation policy refers to is left alone and returned as skipped. Unknown UUIDs are ignored. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "deleteAssetTags",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the tags to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple asset tags",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}" : {
+      "delete" : {
+        "description" : "Removes the tag from all assets. A tag that segmentation policies refer to cannot be deleted.",
+        "operationId" : "deleteAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag deleted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Policies refer to the tag. The response names them."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete an asset tag",
+        "tags" : [ "Asset Tags" ]
+      },
+      "put" : {
+        "operationId" : "updateAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssetTagRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid name or description. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Rename or describe an asset tag",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/assets/all/remove" : {
+      "put" : {
+        "description" : "Takes the tag off every asset that carries it, not only the ones of one page. The tag itself stays. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "unassignAssetTagFromAllAssets",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied. Nothing is ever skipped."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Take a tag off all of its assets",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/assets/many/remove" : {
+      "put" : {
+        "description" : "Takes the tag off every asset in the list that carries it. Assets that do not carry it and unknown UUIDs are ignored. At most 250 UUIDs per call. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "unassignAssetTagFromAssets",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the assets to take the tag off.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied. Nothing is ever skipped."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Take a tag off multiple assets",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/assets/{asset_id}" : {
+      "delete" : {
+        "operationId" : "unassignAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag removed from the asset."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, asset, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Take a tag off an asset",
+        "tags" : [ "Asset Tags" ]
+      },
+      "put" : {
+        "operationId" : "assignAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag assigned. Also returned if the asset carried the tag already."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, asset, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Put a tag on an asset",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/show/{uuid}" : {
+      "get" : {
+        "operationId" : "findAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagResponse"
+                }
+              }
+            },
+            "description" : "Tag found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get an asset tag",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/show/{uuid}/assets" : {
+      "get" : {
+        "description" : "The assets that were seen last come first. Results are paginated.",
+        "operationId" : "findAssetsOfAssetTag",
+        "parameters" : [ {
+          "description" : "Tag UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page size, 250 at most. Defaults to 25.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagAssetsListResponse"
+                }
+              }
+            },
+            "description" : "Assets found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tag, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the assets that carry a tag",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
+    "/api/ethernet/assets/tags/suggestions" : {
+      "get" : {
+        "description" : "Suggests tags by the ports assets serve according to their profile, for example db-servers for assets that accept connections on 5432/tcp. Assets that carry the suggested tag already are left out. Only the served ports with the most sessions are read. The response carries that limit and says if there were more.",
+        "operationId" : "findAssetTagSuggestions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssetTagSuggestionsListResponse"
+                }
+              }
+            },
+            "description" : "Suggestions found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List tags that assets could get",
+        "tags" : [ "Asset Tags" ]
+      }
+    },
     "/api/ethernet/beacons" : {
       "get" : {
         "description" : "Returns the beacons of the tenant that were active at any point inside the time range, most recently seen first by default. Each beacon carries its destination, name, classification, number of calling devices, the median check-in interval in seconds and its jitter. The response also includes the number of beacons per classification inside the time range, independent of the filters. Results are paginated.",
@@ -21573,6 +22426,2219 @@
         },
         "summary" : "Get an RTSP stream",
         "tags" : [ "RTSP" ]
+      }
+    },
+    "/api/ethernet/segmentation/findings" : {
+      "get" : {
+        "description" : "Returns the findings that were active at any point inside the time range, most recently seen first by default. A finding is everything one source did against one policy, separately for answered connections (CROSSED) and for rejected or unanswered ones (ATTEMPTED). Results are paginated.",
+        "operationId" : "findSegmentationFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only findings of the policy with this UUID.",
+          "in" : "query",
+          "name" : "policy",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN, POLICY_NAME, FINDING_CLASS, SOURCE, SESSION_COUNT or TARGET_COUNT. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FindingsListResponse"
+                }
+              }
+            },
+            "description" : "Findings found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List segmentation findings of a tenant",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/findings/show/{uuid}" : {
+      "get" : {
+        "operationId" : "findSegmentationFinding",
+        "parameters" : [ {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FindingResponse"
+                }
+              }
+            },
+            "description" : "Finding found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a segmentation finding",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/findings/show/{uuid}/targets" : {
+      "get" : {
+        "description" : "Returns what the source of a finding reached, sent to or tried to reach against the policy, most recently seen first by default. A finding keeps its most recent targets, and the list is of those. Results are paginated.",
+        "operationId" : "findSegmentationFindingTargets",
+        "parameters" : [ {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: LAST_SEEN, FIRST_SEEN, ADDRESS, PORT, OUTCOME or SESSIONS. Defaults to LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FindingTargetsListResponse"
+                }
+              }
+            },
+            "description" : "Targets found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the targets of a segmentation finding",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/matrix" : {
+      "get" : {
+        "description" : "Returns one cell per pair of groups that talked in the time range, with the sessions per outcome, the busiest services, how much of the crossing policies have in scope and the number of findings in it. A group is a segment, an external network, everything internal that is in no segment, or everything external that is in no external network. Where several taps recorded the same crossing, the tap that saw the most of it counts.",
+        "operationId" : "getSegmentationMatrix",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MatrixResponse"
+                }
+              }
+            },
+            "description" : "Matrix found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the crossings between segments",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/matrix/flows" : {
+      "get" : {
+        "description" : "Returns the flows behind one cell of the matrix, added up over the time range: one entry per source, destination, service and outcome, busiest first by default. Internal sides are single addresses. External sides are networks, because external addresses are not stored one by one. Results are paginated.",
+        "operationId" : "findSegmentationFlows",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Group ID of the source side, as returned by the matrix.",
+          "in" : "query",
+          "name" : "source_group",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "Group ID of the destination side, as returned by the matrix.",
+          "in" : "query",
+          "name" : "destination_group",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: SESSIONS, LAST_SEEN, FIRST_SEEN, SOURCE, DESTINATION, PORT or OUTCOME. Defaults to SESSIONS.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FlowsListResponse"
+                }
+              }
+            },
+            "description" : "Flows found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the flows between two groups of the matrix",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns whether segmentation is enabled, how long after a session was recorded it is evaluated, how far back the first run reads, and how long flows and findings are kept. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "findSegmentationConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentationConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the segmentation configuration of a tenant",
+        "tags" : [ "Segmentation" ]
+      },
+      "put" : {
+        "description" : "Updates one or more segmentation settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "updateSegmentationConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains an unknown key, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the segmentation configuration of a tenant",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/findings/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every finding of the tenant that was active at any point inside the time range and matches the filters, not only the ones of one page. A finding comes back as a new one if its source does the same again. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteFilteredSegmentationFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every entry is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector, the one the list was loaded with.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only findings of the policy with this UUID.",
+          "in" : "query",
+          "name" : "policy",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters or missing time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Dismiss all matching findings",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/findings/many/delete" : {
+      "put" : {
+        "description" : "Deletes every finding in the list that belongs to the tenant. A finding comes back as a new one if its source does the same again. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteSegmentationFindings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the findings to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Dismiss multiple findings",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/findings/show/{uuid}" : {
+      "delete" : {
+        "description" : "Deletes the finding. It comes back if the source does the same again. To accept what a finding reported for good, add an allowed crossing to its policy.",
+        "operationId" : "deleteSegmentationFinding",
+        "parameters" : [ {
+          "description" : "Finding UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Finding, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Dismiss a segmentation finding",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies" : {
+      "post" : {
+        "description" : "A policy is a scope and a list of allowed crossings, each made of sources, destinations and services. An empty list of sources, destinations or services means any. The scope must name a source or a destination. A new policy is evaluated against sessions recorded from now on.",
+        "operationId" : "createSegmentationPolicy",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentationPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description" : "Policy created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid definition. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Create a segmentation policy",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/filtered/alerts/{alert}/{enabled}" : {
+      "put" : {
+        "description" : "Sets one of the two alert options of every policy of the tenant that matches the filters, not only the ones of one page. The filters can refer to the findings of a time range, which is why the time range of the list is passed along. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setFilteredSegmentationPoliciesAlert",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Which alerts: connected for connections that were answered or sent to a broadcast or multicast address, attempted for ones that were rejected or got no reply.",
+          "in" : "path",
+          "name" : "alert",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every entry is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector, the one the list was loaded with.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown alert or value, invalid filters or missing time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Turn an alert option of all matching policies on or off",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every policy of the tenant that matches the filters, with its findings, not only the ones of one page. The filters can refer to the findings of a time range, which is why the time range of the list is passed along. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteFilteredSegmentationPolicies",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every entry is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector, the one the list was loaded with.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters or missing time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching policies",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/filtered/status/{status}" : {
+      "put" : {
+        "description" : "Sets the status of every policy of the tenant that matches the filters, not only the ones of one page. The filters can refer to the findings of a time range, which is why the time range of the list is passed along. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setFilteredSegmentationPoliciesStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "ACTIVE, AUDIT or PAUSED.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every entry is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector, the one the list was loaded with.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown status, invalid filters or missing time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Activate, pause or set all matching policies to audit",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/many/alerts/{alert}/{enabled}" : {
+      "put" : {
+        "description" : "Sets one of the two alert options of every policy in the list that belongs to the tenant. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setSegmentationPoliciesAlert",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Which alerts: connected for connections that were answered or sent to a broadcast or multicast address, attempted for ones that were rejected or got no reply.",
+          "in" : "path",
+          "name" : "alert",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "true or false.",
+          "in" : "path",
+          "name" : "enabled",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the policies to change.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown alert or value, missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Turn an alert option of multiple policies on or off",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/many/delete" : {
+      "put" : {
+        "description" : "Deletes every policy in the list that belongs to the tenant, with its findings. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteSegmentationPolicies",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the policies to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple policies",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/many/status/{status}" : {
+      "put" : {
+        "description" : "Sets the status of every policy in the list that belongs to the tenant. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setSegmentationPoliciesStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "ACTIVE, AUDIT or PAUSED.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the policies to change.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown status, missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Activate, pause or set multiple policies to audit",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/preview" : {
+      "post" : {
+        "description" : "Evaluates a scope and allowed crossings against the flows of the time range without saving anything. Returns what was observed inside the scope, grouped by segment or network on each side and by service, and what the allowed crossings make of each group. Used to fill in a new policy from what the network does, and to see what a policy would have reported before it is turned on. The selectors of each row can be used as they are in an allowed crossing.",
+        "operationId" : "previewSegmentationPolicy",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentationPolicyPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyPreviewResponse"
+                }
+              }
+            },
+            "description" : "Preview computed."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid definition. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Show what a policy definition does to recorded traffic",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/show/{uuid}" : {
+      "delete" : {
+        "description" : "Deletes the policy and its findings.",
+        "operationId" : "deleteSegmentationPolicy",
+        "parameters" : [ {
+          "description" : "Policy UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a segmentation policy",
+        "tags" : [ "Segmentation" ]
+      },
+      "put" : {
+        "description" : "If the scope or the allowed crossings change, existing findings of the policy are judged again and what is no finding anymore is removed.",
+        "operationId" : "updateSegmentationPolicy",
+        "parameters" : [ {
+          "description" : "Policy UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentationPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid definition. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Update a segmentation policy",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies/show/{uuid}/allowed" : {
+      "post" : {
+        "description" : "Adds one allowed crossing to the policy, for example to accept what a finding reported. Existing findings of the policy are judged again afterwards.",
+        "operationId" : "allowSegmentationPolicyCrossing",
+        "parameters" : [ {
+          "description" : "Policy UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentationPolicyAllowRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Crossing added."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid crossing. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Add an allowed crossing to a policy",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments" : {
+      "post" : {
+        "description" : "Stored flows are matched against the new definition in the background.",
+        "operationId" : "createSegment",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentResponse"
+                }
+              }
+            },
+            "description" : "Segment created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid definition. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Create a segment or external network",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/filtered/delete" : {
+      "put" : {
+        "description" : "Deletes every segment or external network of the tenant that matches the filters, not only the ones of one page. One that a policy refers to is left alone and returned as skipped. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteFilteredSegments",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Without it, every entry is selected.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all matching segments",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/import/context" : {
+      "post" : {
+        "description" : "Creates a segment or external network for every network context entry of the tenant whose network is not part of a segment yet. Name, description and notes are taken over. Returns the names of the segments that were created.",
+        "operationId" : "importSegmentsFromNetworkContext",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentsImportedResponse"
+                }
+              }
+            },
+            "description" : "Import done. The list is empty if there was nothing to import."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Create segments from network context",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/many/delete" : {
+      "put" : {
+        "description" : "Deletes every segment or external network in the list that belongs to the tenant. One that a policy refers to is left alone and returned as skipped. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deleteSegments",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the segments to delete.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete multiple segments",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/show/{uuid}" : {
+      "delete" : {
+        "description" : "A segment that policies refer to cannot be deleted.",
+        "operationId" : "deleteSegment",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment deleted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Policies refer to the segment. The response names them."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete a segment or external network",
+        "tags" : [ "Segmentation" ]
+      },
+      "put" : {
+        "description" : "The kind of a segment cannot be changed. If the networks or taps change, stored flows are matched against the new definition in the background.",
+        "operationId" : "updateSegment",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid definition. The response carries the reason."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Update a segment or external network",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/policies" : {
+      "get" : {
+        "description" : "Every policy comes with its state. HOLDING: taps see traffic in scope and all of it was allowed. CROSSED: a connection that is not allowed was answered. ATTEMPTED: one was tried and not answered. NOT_OBSERVABLE: no tap recorded both sides of the scope, so the absence of findings says nothing. AUDIT and PAUSED follow the status of the policy. Sorted by name by default. Results are paginated.",
+        "operationId" : "findSegmentationPolicies",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. The state of a policy and its findings are judged by the findings and traffic since the start of the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, STATUS, CROSSED_FINDINGS, ATTEMPTED_FINDINGS, LAST_FINDING, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PoliciesListResponse"
+                }
+              }
+            },
+            "description" : "Policies found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the segmentation policies of a tenant",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/policies/show/{uuid}" : {
+      "get" : {
+        "operationId" : "findSegmentationPolicy",
+        "parameters" : [ {
+          "description" : "Policy UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. The state of the policy is judged by the findings and traffic since the start of the range.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyResponse"
+                }
+              }
+            },
+            "description" : "Policy found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Policy, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a segmentation policy",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/segments" : {
+      "get" : {
+        "description" : "Sorted by name by default. Results are paginated.",
+        "operationId" : "findSegments",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: NAME, KIND, DESCRIPTION, CREATED_AT or UPDATED_AT. Defaults to NAME.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentsListResponse"
+                }
+              }
+            },
+            "description" : "Segments found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the segments and external networks of a tenant",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/segments/show/{uuid}" : {
+      "get" : {
+        "operationId" : "findSegment",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentResponse"
+                }
+              }
+            },
+            "description" : "Segment found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a segment or external network",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/segments/suggestions" : {
+      "get" : {
+        "description" : "Returns network context entries that are no segment yet, the networks trusted DHCP servers hand out addresses for, and the networks of addresses that were seen talking and are in no segment.",
+        "operationId" : "findSegmentSuggestions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentSuggestionsListResponse"
+                }
+              }
+            },
+            "description" : "Suggestions found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List networks that could become segments",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/selectors" : {
+      "get" : {
+        "description" : "Returns the segments, external networks and asset tags of the tenant and the protocols the taps detect.",
+        "operationId" : "findSegmentationSelectorOptions",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SelectorOptionsResponse"
+                }
+              }
+            },
+            "description" : "Options found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List what a policy can refer to",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/status" : {
+      "get" : {
+        "description" : "Returns how far the engine has evaluated recorded sessions and what its last run did.",
+        "operationId" : "getSegmentationStatus",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentationStatusResponse"
+                }
+              }
+            },
+            "description" : "Status found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the state of the segmentation engine of a tenant",
+        "tags" : [ "Segmentation" ]
       }
     },
     "/api/ethernet/socks/tunnels" : {
@@ -38792,9 +41858,167 @@
           "oui" : {
             "type" : "string"
           },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MacAddressTagResponse"
+            }
+          },
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "AssetTagAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "addresses" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "mac" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetTagAssetsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "assets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTagAssetResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "How many assets carry the tag in total, on all pages."
+          }
+        }
+      },
+      "AssetTagRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Description of up to 64 characters.",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of up to 24 characters: letters, digits, dashes, underscores and dots.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "AssetTagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "asset_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "policies" : {
+            "type" : "array",
+            "description" : "Names of the segmentation policies that refer to the tag.",
+            "items" : {
+              "type" : "string",
+              "description" : "Names of the segmentation policies that refer to the tag."
+            }
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AssetTagSuggestionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "asset" : {
+            "$ref" : "#/components/schemas/AssetTagAssetResponse"
+          },
+          "ports" : {
+            "type" : "array",
+            "description" : "The ports the asset serves that led to the suggestion.",
+            "items" : {
+              "type" : "string",
+              "description" : "The ports the asset serves that led to the suggestion."
+            }
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tag" : {
+            "type" : "string",
+            "description" : "Name of the suggested tag."
+          },
+          "tag_uuid" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "UUID of the tag of that name, if it exists already. Applying the suggestion then only puts the tag on the asset."
+          }
+        }
+      },
+      "AssetTagSuggestionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Suggestions are worked out from the ports that assets serve, the ones with the most sessions first. This is how many served ports are read at most."
+          },
+          "suggestions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTagSuggestionResponse"
+            }
+          },
+          "truncated" : {
+            "type" : "boolean",
+            "description" : "True if there were more served ports than the limit. Suggestions for the ones with fewer sessions are missing then."
+          }
+        }
+      },
+      "AssetTagsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTagResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "How many tags there are in total, on all pages."
           }
         }
       },
@@ -40274,6 +43498,40 @@
           },
           "name" : {
             "type" : "string"
+          }
+        }
+      },
+      "BulkActionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "affected" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of entries the action was applied to."
+          },
+          "skipped" : {
+            "type" : "array",
+            "description" : "The entries of the selection the action was not applied to: segments and asset tags that a policy refers to.",
+            "items" : {
+              "$ref" : "#/components/schemas/BulkActionSkippedResponse"
+            }
+          }
+        }
+      },
+      "BulkActionSkippedResponse" : {
+        "type" : "object",
+        "description" : "The entries of the selection the action was not applied to: segments and asset tags that a policy refers to.",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Why the action was not applied to the entry, as a sentence for the user."
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -44229,6 +47487,13 @@
           },
           "serves_dot11_monitored_network" : {
             "$ref" : "#/components/schemas/Dot11MonitoredNetworkContextResponse"
+          },
+          "tags" : {
+            "type" : "array",
+            "description" : "Tags of the asset that has this MAC address, ordered by name. Empty if there is no such asset or it has no tags.",
+            "items" : {
+              "$ref" : "#/components/schemas/MacAddressTagResponse"
+            }
           }
         }
       },
@@ -44397,6 +47662,174 @@
           }
         }
       },
+      "FindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "audit" : {
+            "type" : "boolean",
+            "description" : "The policy was in audit when the finding was last seen. Such a finding raised no alert."
+          },
+          "finding_class" : {
+            "type" : "string",
+            "description" : "CROSSED if connections were answered, ATTEMPTED if they were rejected or got no reply."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "policy_name" : {
+            "type" : "string"
+          },
+          "policy_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "session_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "source_addresses" : {
+            "type" : "array",
+            "description" : "A sample of the addresses of a folded external source.",
+            "items" : {
+              "type" : "string",
+              "description" : "A sample of the addresses of a folded external source."
+            }
+          },
+          "source_addresses_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many addresses of a folded external source are kept."
+          },
+          "source_asn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_country_code" : {
+            "type" : "string"
+          },
+          "source_internal" : {
+            "type" : "boolean"
+          },
+          "source_key" : {
+            "type" : "string"
+          },
+          "source_label" : {
+            "type" : "string"
+          },
+          "source_segment_name" : {
+            "type" : "string"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          },
+          "target_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "targets" : {
+            "type" : "array",
+            "description" : "The most recent targets.",
+            "items" : {
+              "$ref" : "#/components/schemas/FindingTargetResponse"
+            }
+          },
+          "targets_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many targets are kept per finding, the most recent ones."
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "FindingTargetResponse" : {
+        "type" : "object",
+        "description" : "The most recent targets.",
+        "properties" : {
+          "address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "address_text" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "internal" : {
+            "type" : "boolean"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
+            "type" : "string"
+          },
+          "segment_name" : {
+            "type" : "string"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "FindingTargetsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "targets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FindingTargetResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of all targets the finding keeps that pass the filters, of which this is one page."
+          }
+        }
+      },
+      "FindingsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FindingResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "FingerprintImportDataResponse" : {
         "type" : "object",
         "properties" : {
@@ -44429,6 +47862,117 @@
           "width_pixels" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "FlowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "continued" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "destination" : {
+            "$ref" : "#/components/schemas/FlowSideResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "outcome" : {
+            "type" : "string",
+            "description" : "CONNECTED, REJECTED or NO_REPLY, or SENT for what went to a broadcast or multicast address."
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
+            "type" : "string"
+          },
+          "sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/FlowSideResponse"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "FlowSideResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "asn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "broadcast" : {
+            "type" : "boolean",
+            "description" : "If the side is a broadcast or multicast address. Such a side is neither internal nor external and in no segment."
+          },
+          "country_code" : {
+            "type" : "string"
+          },
+          "internal" : {
+            "type" : "boolean"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "segment_name" : {
+            "type" : "string"
+          },
+          "segment_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tags" : {
+            "type" : "array",
+            "description" : "Names of the tags of the asset behind the address.",
+            "items" : {
+              "type" : "string",
+              "description" : "Names of the tags of the asset behind the address."
+            }
+          }
+        }
+      },
+      "FlowsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "destinations_folded_above" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Unanswered connections of one source to more than this many destinations within one evaluation window are stored as one flow per destination segment, without an address."
+          },
+          "flows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FlowResponse"
+            }
+          },
+          "ports_folded_above" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Unanswered connections of one source to more than this many ports of one destination within one evaluation window are stored as one flow with port -1."
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of all entries that pass the filters, of which this is one page."
           }
         }
       },
@@ -45466,6 +49010,12 @@
             "items" : {
               "$ref" : "#/components/schemas/L4AddressNetworkContextResponse"
             }
+          },
+          "segment" : {
+            "$ref" : "#/components/schemas/L4AddressSegmentResponse"
+          },
+          "segment_by_tap" : {
+            "$ref" : "#/components/schemas/L4AddressSegmentsByTapResponse"
           }
         }
       },
@@ -45534,6 +49084,47 @@
           "port" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "L4AddressSegmentResponse" : {
+        "type" : "object",
+        "description" : "The segments the address is in for at least one tap, by name.",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "has_notes" : {
+            "type" : "boolean",
+            "description" : "If the segment has notes. The notes come with the segment, not with every address."
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "INTERNAL for a segment of the own network, EXTERNAL for an external network."
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "L4AddressSegmentsByTapResponse" : {
+        "type" : "object",
+        "description" : "Only set if segments are limited to taps and the taps of the tenant do not agree on the segment of the address. The address is shown without knowing which tap recorded it, so no single segment can be named.",
+        "properties" : {
+          "segments" : {
+            "type" : "array",
+            "description" : "The segments the address is in for at least one tap, by name.",
+            "items" : {
+              "$ref" : "#/components/schemas/L4AddressSegmentResponse"
+            }
+          },
+          "unassigned" : {
+            "type" : "boolean",
+            "description" : "For at least one tap, the address is in no segment."
           }
         }
       },
@@ -45927,6 +49518,21 @@
           }
         }
       },
+      "MacAddressTagResponse" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "MacAddressTransparentHostnameResponse" : {
         "type" : "object",
         "properties" : {
@@ -45974,6 +49580,220 @@
           },
           "node_name" : {
             "type" : "string"
+          }
+        }
+      },
+      "MatrixCellResponse" : {
+        "type" : "object",
+        "properties" : {
+          "attempted_findings" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "connected" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions the destination answered."
+          },
+          "continued" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Of all sessions, the ones that were opened before the hour they are counted in."
+          },
+          "coverage" : {
+            "type" : "string",
+            "description" : "How much of the crossing policies have in scope: NONE, PARTIAL or FULL."
+          },
+          "crossed_findings" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "destination_group" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "no_reply" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that got nothing back."
+          },
+          "policy_uuids" : {
+            "type" : "array",
+            "description" : "The policies that have at least part of the crossing in scope.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The policies that have at least part of the crossing in scope."
+            }
+          },
+          "rejected" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that got a reset or an ICMP destination unreachable back."
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that were sent to a broadcast or multicast address, where nothing is expected back."
+          },
+          "service_count" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of all services."
+          },
+          "services" : {
+            "type" : "array",
+            "description" : "The services with the most sessions.",
+            "items" : {
+              "$ref" : "#/components/schemas/MatrixServiceResponse"
+            }
+          },
+          "source_group" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        }
+      },
+      "MatrixGroupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "asns" : {
+            "type" : "array",
+            "description" : "The autonomous systems of an external network. Empty for everything else.",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "The autonomous systems of an external network. Empty for everything else."
+            }
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "ID of the group as cells refer to it. 0 is everything internal that is in no segment, -1 is everything external that is in no external network, -2 is all broadcast and multicast addresses."
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "networks" : {
+            "type" : "array",
+            "description" : "The networks of a segment or external network, in CIDR notation. Empty for the groups that are no segment.",
+            "items" : {
+              "type" : "string",
+              "description" : "The networks of a segment or external network, in CIDR notation. Empty for the groups that are no segment."
+            }
+          },
+          "segment_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "description" : "The taps that recorded traffic of the group in the time range.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The taps that recorded traffic of the group in the time range."
+            }
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "INTERNAL, EXTERNAL, UNASSIGNED, INTERNET or BROADCAST."
+          }
+        }
+      },
+      "MatrixResponse" : {
+        "type" : "object",
+        "properties" : {
+          "cells" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MatrixCellResponse"
+            }
+          },
+          "findings_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Findings are counted per cell from at most this many findings, the most recent ones."
+          },
+          "findings_limited" : {
+            "type" : "boolean",
+            "description" : "The time range has more findings than findings_limit, so finding counts of cells can be too low."
+          },
+          "groups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MatrixGroupResponse"
+            }
+          },
+          "policies" : {
+            "type" : "array",
+            "description" : "The policies that cells refer to as having them in scope.",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyReferenceResponse"
+            }
+          },
+          "restamp_pending" : {
+            "type" : "boolean",
+            "description" : "Segments were changed and the stored flows are not matched against them yet."
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentationTapResponse"
+            }
+          }
+        }
+      },
+      "MatrixServiceResponse" : {
+        "type" : "object",
+        "description" : "The services with the most sessions.",
+        "properties" : {
+          "connected" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "no_reply" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Destination port. -1 if the entry stands for many ports of a sweep."
+          },
+          "protocol" : {
+            "type" : "string",
+            "description" : "The protocols the taps detected, joined by a slash. Empty if none."
+          },
+          "rejected" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that were sent to a broadcast or multicast address, where nothing is expected back."
           }
         }
       },
@@ -47434,6 +51254,260 @@
         },
         "required" : [ "x", "y" ]
       },
+      "PoliciesListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "policies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of all entries that pass the filters, of which this is one page."
+          }
+        }
+      },
+      "PolicyPreviewResponse" : {
+        "type" : "object",
+        "properties" : {
+          "allowed_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "attempted_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "crossed_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "flow_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many flows are read, the busiest ones. Truncated if there were more."
+          },
+          "indeterminate_sessions" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions of flows that cannot be judged from stored data, like an external address selector against flows that are stored per network."
+          },
+          "row_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many rows are returned, the busiest ones. Truncated if there were more."
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyPreviewRowResponse"
+            }
+          },
+          "truncated" : {
+            "type" : "boolean"
+          },
+          "unused_allowed" : {
+            "type" : "array",
+            "description" : "Positions, starting at 0, of the allowed crossings that no flow of the time range made use of. Empty if the result is truncated.",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32",
+              "description" : "Positions, starting at 0, of the allowed crossings that no flow of the time range made use of. Empty if the result is truncated."
+            }
+          }
+        }
+      },
+      "PolicyPreviewRowResponse" : {
+        "type" : "object",
+        "properties" : {
+          "connected" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "destination" : {
+            "$ref" : "#/components/schemas/PolicyPreviewSideResponse"
+          },
+          "destination_hosts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "destination_sample" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "l4_type" : {
+            "type" : "string"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "no_reply" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
+            "type" : "string"
+          },
+          "rejected" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sent" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that were sent to a broadcast or multicast address, where nothing is expected back."
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/PolicyPreviewSideResponse"
+          },
+          "source_hosts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "source_sample" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "verdict" : {
+            "type" : "string",
+            "description" : "ALLOWED, VIOLATION or INDETERMINATE."
+          }
+        }
+      },
+      "PolicyPreviewSideResponse" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "selector" : {
+            "$ref" : "#/components/schemas/Selector"
+          }
+        }
+      },
+      "PolicyReferenceResponse" : {
+        "type" : "object",
+        "description" : "The policies that refer to the segment.",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "PolicyResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alert_on_attempted" : {
+            "type" : "boolean"
+          },
+          "alert_on_connected" : {
+            "type" : "boolean"
+          },
+          "allowed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyRule"
+            }
+          },
+          "attempted_findings" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "crossed_findings" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "findings_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "A policy keeps at most this many findings."
+          },
+          "findings_limit_reached" : {
+            "type" : "boolean",
+            "description" : "The policy has findings_limit findings. Sources that have no finding yet are not recorded until findings are dismissed or age out."
+          },
+          "last_attempted" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_crossed" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "$ref" : "#/components/schemas/PolicyRule"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "HOLDING, CROSSED, ATTEMPTED, NOT_OBSERVABLE, AUDIT or PAUSED."
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "ACTIVE, AUDIT or PAUSED. A policy in audit is evaluated and records findings, but never alerts."
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "PolicyRule" : {
+        "type" : "object",
+        "properties" : {
+          "destinations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Selector"
+            }
+          },
+          "services" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Service"
+            }
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Selector"
+            }
+          }
+        }
+      },
       "PortalIntegrityReportDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -48646,6 +52720,444 @@
             "type" : "string"
           },
           "pmf_mode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SegmentMemberRequest" : {
+        "type" : "object",
+        "properties" : {
+          "asn" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Autonomous system number, for members of type ASN.",
+            "writeOnly" : true
+          },
+          "network" : {
+            "type" : "string",
+            "description" : "Network in CIDR notation or a single address, for members of type CIDR.",
+            "writeOnly" : true
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "CIDR or ASN.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "SegmentMemberResponse" : {
+        "type" : "object",
+        "properties" : {
+          "asn" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Autonomous system number. Set for members of type ASN."
+          },
+          "network" : {
+            "type" : "string",
+            "description" : "Network in CIDR notation. Set for members of type CIDR."
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "CIDR for a network, ASN for an autonomous system."
+          }
+        }
+      },
+      "SegmentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "Description of up to 32 characters.",
+            "writeOnly" : true
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "INTERNAL or EXTERNAL. Only used when creating.",
+            "writeOnly" : true
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentMemberRequest"
+            },
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name of up to 12 characters.",
+            "writeOnly" : true
+          },
+          "notes" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "description" : "Limits the segment to what these taps record. Leave out to apply it to all taps.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "Limits the segment to what these taps record. Leave out to apply it to all taps."
+            },
+            "writeOnly" : true
+          }
+        }
+      },
+      "SegmentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "inaccessible_taps" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of taps the segment is limited to that the calling user has no access to."
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "INTERNAL for a part of the own network, EXTERNAL for a named network outside of it."
+          },
+          "members" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentMemberResponse"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "type" : "string"
+          },
+          "policies" : {
+            "type" : "array",
+            "description" : "The policies that refer to the segment.",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyReferenceResponse"
+            }
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "description" : "The taps the segment is limited to, without those the calling user has no access to. Not set if it applies to what any tap records.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The taps the segment is limited to, without those the calling user has no access to. Not set if it applies to what any tap records."
+            }
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "SegmentSuggestionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "dhcp_server" : {
+            "type" : "string",
+            "description" : "Address of the trusted DHCP server that hands out addresses for the network. Only set for suggestions of the source DHCP."
+          },
+          "hosts" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of addresses of the network that were seen. Only set for observed networks."
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "network" : {
+            "type" : "string",
+            "description" : "Network in CIDR notation."
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Where the suggestion comes from: NETWORK_CONTEXT, DHCP or OBSERVED."
+          }
+        }
+      },
+      "SegmentSuggestionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "limit_per_source" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "At most this many suggestions are returned per source: network context, DHCP and observed traffic."
+          },
+          "limited" : {
+            "type" : "boolean",
+            "description" : "At least one source had more to suggest than limit_per_source."
+          },
+          "suggestions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentSuggestionResponse"
+            }
+          }
+        }
+      },
+      "SegmentationConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "finding_retention_time_days" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "flow_retention_time_days" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "initial_backfill_hours" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "settle_seconds" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          }
+        }
+      },
+      "SegmentationPolicyAllowRequest" : {
+        "type" : "object",
+        "properties" : {
+          "rule" : {
+            "$ref" : "#/components/schemas/PolicyRule"
+          }
+        }
+      },
+      "SegmentationPolicyPreviewRequest" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyRule"
+            },
+            "writeOnly" : true
+          },
+          "scope" : {
+            "$ref" : "#/components/schemas/PolicyRule"
+          }
+        }
+      },
+      "SegmentationPolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "alert_on_attempted" : {
+            "type" : "boolean",
+            "description" : "Alert when a connection the policy does not allow was rejected or got no reply.",
+            "writeOnly" : true
+          },
+          "alert_on_connected" : {
+            "type" : "boolean",
+            "description" : "Alert when a connection the policy does not allow was answered, or was sent to a broadcast or multicast address.",
+            "writeOnly" : true
+          },
+          "allowed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PolicyRule"
+            },
+            "writeOnly" : true
+          },
+          "description" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "name" : {
+            "type" : "string",
+            "writeOnly" : true
+          },
+          "scope" : {
+            "$ref" : "#/components/schemas/PolicyRule"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "ACTIVE, AUDIT or PAUSED.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "SegmentationStatusResponse" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "flows_per_evaluation_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lag_seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_run_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_run_duration_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_run_findings" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_run_flows" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_run_sessions" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "limit_reached_at" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When an evaluation last hit its limits and left out the rest: flows_per_evaluation_limit distinct flows, or sources_per_policy_per_evaluation_limit sources without a finding per policy."
+          },
+          "policy_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "restamp_pending" : {
+            "type" : "boolean"
+          },
+          "segment_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "settle_seconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sources_per_policy_per_evaluation_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "watermark" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Sessions the node recorded before this time are evaluated."
+          }
+        }
+      },
+      "SegmentationTapResponse" : {
+        "type" : "object",
+        "properties" : {
+          "location_name" : {
+            "type" : "string"
+          },
+          "location_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "SegmentsImportedResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created" : {
+            "type" : "array",
+            "description" : "Names of the segments that were created.",
+            "items" : {
+              "type" : "string",
+              "description" : "Names of the segments that were created."
+            }
+          }
+        }
+      },
+      "SegmentsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "segments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of all entries that pass the filters, of which this is one page."
+          }
+        }
+      },
+      "Selector" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "ANY", "INTERNAL", "EXTERNAL", "UNASSIGNED", "BROADCAST", "SEGMENT", "TAG", "ASSET", "ADDRESS", "ASN", "COUNTRY" ]
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SelectorOptionsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "protocols" : {
+            "type" : "array",
+            "description" : "The protocols the taps detect.",
+            "items" : {
+              "type" : "string",
+              "description" : "The protocols the taps detect."
+            }
+          },
+          "segments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentResponse"
+            }
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AssetTagResponse"
+            }
+          }
+        }
+      },
+      "Service" : {
+        "type" : "object",
+        "properties" : {
+          "l4_type" : {
+            "type" : "string"
+          },
+          "port_from" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "port_to" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "protocol" : {
             "type" : "string"
           }
         }

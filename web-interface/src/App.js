@@ -276,6 +276,21 @@ import NetworkContextDetailsPage from "./components/context/networks/NetworkCont
 import EditNetworkContextPage from "./components/context/networks/EditNetworkContextPage";
 import L4SessionsPage from "./components/ethernet/l4/L4SessionsPage";
 import TopologyPage from "./components/ethernet/topology/TopologyPage";
+import SegmentationOverviewPage from "./components/ethernet/segmentation/overview/SegmentationOverviewPage";
+import SegmentsPage from "./components/ethernet/segmentation/segments/SegmentsPage";
+import CreateSegmentPage from "./components/ethernet/segmentation/segments/CreateSegmentPage";
+import SegmentDetailsPage from "./components/ethernet/segmentation/segments/SegmentDetailsPage";
+import EditSegmentPage from "./components/ethernet/segmentation/segments/EditSegmentPage";
+import SegmentationPoliciesPage from "./components/ethernet/segmentation/policies/SegmentationPoliciesPage";
+import CreateSegmentationPolicyPage from "./components/ethernet/segmentation/policies/CreateSegmentationPolicyPage";
+import SegmentationPolicyDetailsPage from "./components/ethernet/segmentation/policies/SegmentationPolicyDetailsPage";
+import EditSegmentationPolicyPage from "./components/ethernet/segmentation/policies/EditSegmentationPolicyPage";
+import SegmentationFindingsPage from "./components/ethernet/segmentation/findings/SegmentationFindingsPage";
+import SegmentationFindingDetailsPage from "./components/ethernet/segmentation/findings/SegmentationFindingDetailsPage";
+import SegmentationSettingsPage from "./components/ethernet/segmentation/settings/SegmentationSettingsPage";
+import AssetTagsPage from "./components/ethernet/assets/tags/AssetTagsPage";
+import CreateAssetTagPage from "./components/ethernet/assets/tags/CreateAssetTagPage";
+import EditAssetTagPage from "./components/ethernet/assets/tags/EditAssetTagPage";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -684,6 +699,20 @@ function App() {
                                 { /* Ethernet/Topology. */}
                                 <Route path={ApiRoutes.ETHERNET.TOPOLOGY.INDEX} element={<TopologyPage />}/>
 
+                                { /* Ethernet/Segmentation. */}
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.INDEX} element={<SegmentationOverviewPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.SEGMENTS.INDEX} element={<SegmentsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.SEGMENTS.CREATE} element={<CreateSegmentPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.SEGMENTS.DETAILS(':uuid')} element={<SegmentDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.SEGMENTS.EDIT(':uuid')} element={<EditSegmentPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.INDEX} element={<SegmentationPoliciesPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.CREATE} element={<CreateSegmentationPolicyPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.DETAILS(':uuid')} element={<SegmentationPolicyDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.EDIT(':uuid')} element={<EditSegmentationPolicyPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.FINDINGS.INDEX} element={<SegmentationFindingsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.FINDINGS.DETAILS(':uuid')} element={<SegmentationFindingDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.SEGMENTATION.SETTINGS} element={<SegmentationSettingsPage />}/>
+
                                 { /* Ethernet/Assets. */}
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.INDEX} element={<EthernetAssetsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DETAILS(`:uuid`)} element={<AssetDetailsPage />} />
@@ -704,6 +733,9 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.CREATE} element={<CreateAssetIdentityExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.DETAILS(':uuid')} element={<AssetIdentityExclusionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.EDIT(':uuid')} element={<EditAssetIdentityExclusionPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.TAGS.INDEX} element={<AssetTagsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.TAGS.CREATE} element={<CreateAssetTagPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.TAGS.EDIT(':uuid')} element={<EditAssetTagPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.SETTINGS} element={<EthernetAssetsSettingsPage />}/>
 
                                 { /* Ethernet/DNS. */}

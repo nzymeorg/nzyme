@@ -17,10 +17,14 @@ public class TLSSessionFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, "tls.source_address", operator), "");
             case "client_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "tls.source_mac", operator), "");
+            case "client_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "tls.source_mac", operator), "");
             case "server_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "tls.destination_address", operator), "");
             case "server_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "tls.destination_mac", operator), "");
+            case "server_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "tls.destination_mac", operator), "");
             case "server_port":
                 return GeneratedSql.create(numericMatch(bindId, "tls.destination_port", operator), "");
             case "server_name":

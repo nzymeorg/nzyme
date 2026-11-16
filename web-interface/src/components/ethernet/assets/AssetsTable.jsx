@@ -5,6 +5,7 @@ import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import moment from "moment";
 import AssetHostnames from "./AssetHostnames";
 import AssetIpAddresses from "./AssetIpAddresses";
+import AssetTags from "./AssetTags";
 import Paginator from "../../misc/Paginator";
 import {truncate} from "../../../util/Tools";
 import ApiRoutes from "../../../util/ApiRoutes";
@@ -56,6 +57,7 @@ export default function AssetsTable(props) {
             <th>Name</th>
             <th>Hostname</th>
             <th>IP Address</th>
+            <th>Tags</th>
             <th>First Seen {columnSorting("first_seen")}</th>
             <th>Last Seen {columnSorting("last_seen")}</th>
           </tr>
@@ -100,6 +102,15 @@ export default function AssetsTable(props) {
                                                          field="ip_address"
                                                          value={a.ip_addresses[0]} />
                                         : null } />
+                  </td>
+                  <td>
+                    <AssetTags tags={a.tags}
+                               filterElement={a.tags && a.tags.length > 0 ?
+                                 <FilterValueIcon setFilters={setFilters}
+                                                  fields={ASSET_FILTER_FIELDS}
+                                                  field="tag"
+                                                  value={a.tags[0].uuid} />
+                                 : null } />
                   </td>
                   <td title={moment(a.first_seen).format()}>{moment(a.first_seen).fromNow()}</td>
                   <td title={moment(a.last_seen).format()}>{moment(a.last_seen).fromNow()}</td>

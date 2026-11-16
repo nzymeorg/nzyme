@@ -2,6 +2,7 @@ package app.nzyme.core.assets;
 
 import app.nzyme.core.assets.identity.AssetIdentity;
 import app.nzyme.core.assets.profile.AssetProfiles;
+import app.nzyme.core.assets.tags.AssetTags;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.assets.db.AssetHostnameEntry;
@@ -90,11 +91,13 @@ public class AssetManager {
 
     private final AssetProfiles profiles;
     private final AssetIdentity identity;
+    private final AssetTags tags;
 
     public AssetManager(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.profiles = new AssetProfiles(nzyme);
         this.identity = new AssetIdentity(nzyme);
+        this.tags = new AssetTags(nzyme);
     }
 
     public AssetProfiles profiles() {
@@ -103,6 +106,10 @@ public class AssetManager {
 
     public AssetIdentity identity() {
         return identity;
+    }
+
+    public AssetTags tags() {
+        return tags;
     }
 
     public long countActiveAssets(UUID organizationId, UUID tenantId) {

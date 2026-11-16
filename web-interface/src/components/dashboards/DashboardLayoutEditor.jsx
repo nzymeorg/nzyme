@@ -16,7 +16,7 @@ import {EXTERNAL_LEVELS, INTERNAL_LEVELS} from "../ethernet/topology/TopologyDat
 const newId = () => "w-" + Math.random().toString(36).substring(2, 10);
 
 export default function DashboardLayoutEditor({widgets, setWidgets, windowMinutes, metrics, alertsAllowed,
-                                                subsystems, topologyAllowed}) {
+                                                subsystems, topologyAllowed, segmentationAllowed}) {
 
   const canvas = useRef(null);
   const drag = useRef(null);
@@ -30,6 +30,10 @@ export default function DashboardLayoutEditor({widgets, setWidgets, windowMinute
   const typeAllowed = (type) => {
     if (type === "STATUS" || type === "ALERTS" || type === "LOCATIONS") {
       return alertsAllowed;
+    }
+
+    if (type === "SEGMENTATION") {
+      return segmentationAllowed;
     }
 
     if (type === "TOPOLOGY") {

@@ -23,6 +23,7 @@ import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.assets.db.AssetEntry;
+import app.nzyme.core.assets.tags.AssetTags;
 import app.nzyme.core.assets.db.AssetHostnameEntry;
 import app.nzyme.core.assets.db.AssetIpAddressEntry;
 import app.nzyme.core.context.db.MacAddressContextEntry;
@@ -35,6 +36,7 @@ import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortRes
 import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortsResponse;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
+import app.nzyme.core.rest.responses.context.MacAddressTagResponse;
 import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressContextResponse;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
@@ -128,9 +130,14 @@ public class AssetsResource extends TapDataHandlingResource {
 
         long total = nzyme.getAssetsManager().countAssets(timeRange, filters, organizationId, tenantId);
 
+        List<AssetEntry> page = nzyme.getAssetsManager()
+                .findAllAssets(organizationId, tenantId, timeRange, filters, limit, offset, orderColumn, orderDirection);
+
+        Map<Long, List<AssetTags.TagReference>> tags = nzyme.getAssetsManager().tags()
+                .findTagsOfAssets(page.stream().map(AssetEntry::id).toList());
+
         List<AssetSummaryResponse> assets = Lists.newArrayList();
-        for (AssetEntry asset : nzyme.getAssetsManager()
-                .findAllAssets(organizationId, tenantId, timeRange, filters, limit, offset, orderColumn, orderDirection)) {
+        for (AssetEntry asset : page) {
 
             Optional<MacAddressContextEntry> context = nzyme.getContextService().findMacAddressContext(
                     asset.mac(), organizationId, tenantId
@@ -149,6 +156,9 @@ public class AssetsResource extends TapDataHandlingResource {
                     asset.isActive(),
                     context.map(MacAddressContextEntry::name).orElse(null),
                     asset.hostnames(),
+                    tags.getOrDefault(asset.id(), Collections.emptyList()).stream()
+                            .map(tag -> MacAddressTagResponse.create(tag.uuid(), tag.name(), tag.description()))
+                            .toList(),
                     asset.ipAddresses(),
                     asset.dhcpFingerprintInitial(),
                     asset.dhcpFingerprintRenew(),

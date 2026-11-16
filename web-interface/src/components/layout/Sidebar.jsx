@@ -52,6 +52,11 @@ function Sidebar(props) {
                 title="Topology"
                 icon={<i className="sidebar-icon fa-solid fa-diagram-project"/>}/>
             <NavigationLink
+                href={ApiRoutes.ETHERNET.SEGMENTATION.INDEX}
+                pathMatch="/ethernet/segmentation"
+                title="Segmentation"
+                icon={<i className="sidebar-icon fa-solid fa-road-barrier"/>}/>
+            <NavigationLink
                 href={ApiRoutes.ETHERNET.ASSETS.INDEX}
                 title="Assets"
                 icon={<i className="sidebar-icon fa-solid fa-list"/>}/>

@@ -48,6 +48,10 @@ function HealthConsole(props) {
             <Indicator indicator={indicators.db_transactions} name="DB Transactions" />
           </div>
 
+          <div className="hc-row">
+            <Indicator indicator={indicators.segmentation_lag} name="Segmentation Lag" />
+          </div>
+
           <div style={{clear: "both"}} />
         </div>
   )

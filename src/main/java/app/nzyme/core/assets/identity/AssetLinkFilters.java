@@ -13,8 +13,12 @@ public class AssetLinkFilters implements SqlFilterProvider {
         switch (fieldName) {
             case "predecessor_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "predecessor_mac", operator), "");
+            case "predecessor_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "predecessor_mac", operator), "");
             case "successor_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "successor_mac", operator), "");
+            case "successor_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "successor_mac", operator), "");
             case "kind":
                 return GeneratedSql.create(stringMatch(bindId, "kind", operator), "");
             case "status":

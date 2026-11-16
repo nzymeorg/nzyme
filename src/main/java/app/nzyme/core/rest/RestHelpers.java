@@ -9,6 +9,8 @@ import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
+import app.nzyme.core.ethernet.segmentation.MembershipResolver;
+import app.nzyme.core.ethernet.segmentation.Segment;
 import app.nzyme.core.rest.misc.CategorizedTransparentContextData;
 import app.nzyme.core.rest.responses.context.MacAddressTransparentHostnameResponse;
 import app.nzyme.core.rest.responses.context.MacAddressTransparentIpAddressResponse;
@@ -123,8 +125,44 @@ public class RestHelpers {
                 data.port(),
                 geo,
                 attributes,
-                L4AddressContextResponse.create(networkContext)
+                addressContext(nzyme, networkContext, data.address(),
+                        data.geo() == null || data.geo().asnNumber() == null ? null : data.geo().asnNumber().longValue(),
+                        organizationId, tenantId)
         );
+    }
+
+    private static L4AddressContextResponse addressContext(NzymeNode nzyme,
+                                                           List<L4AddressNetworkContextResponse> networkContext,
+                                                           String address,
+                                                           @Nullable Long asn,
+                                                           UUID organizationId,
+                                                           UUID tenantId) {
+        MembershipResolver.AnyTap resolved;
+        try {
+            resolved = nzyme.getEthernet().segmentation().segmentOfAddress(organizationId, tenantId,
+                    InetAddress.ofLiteral(address), asn);
+        } catch (Exception e) {
+            LOG.debug("Could not look up segment of address [{}].", address, e);
+            return L4AddressContextResponse.create(networkContext);
+        }
+
+        if (resolved.dependsOnTap()) {
+            List<L4AddressSegmentResponse> candidates = Lists.newArrayList();
+            for (Segment candidate : resolved.candidates()) {
+                candidates.add(segmentResponse(candidate));
+            }
+
+            return L4AddressContextResponse.create(networkContext, null,
+                    L4AddressSegmentsByTapResponse.create(candidates, resolved.unassignedPossible()));
+        }
+
+        return L4AddressContextResponse.create(networkContext,
+                resolved.segment() == null ? null : segmentResponse(resolved.segment()), null);
+    }
+
+    private static L4AddressSegmentResponse segmentResponse(Segment segment) {
+        return L4AddressSegmentResponse.create(segment.uuid(), segment.name(), segment.kind().name(), segment.description(),
+                segment.notes() != null && !segment.notes().isBlank());
     }
 
     public static String tcpSessionStateToGeneric(TcpSessionState state) {
@@ -224,7 +262,7 @@ public class RestHelpers {
                 macResponse,
                 address,
                 null,
-                L4AddressContextResponse.create(networkContext)
+                addressContext(nzyme, networkContext, address, null, organizationId, tenantId)
         );
     }
 

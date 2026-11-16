@@ -17,6 +17,8 @@ public class NATTraversalDiscoveryFilters implements SqlFilterProvider {
                 return GeneratedSql.create(stringMatch(bindId, "session_key", operator), "");
             case "source_mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "source_mac", operator), "");
+            case "source_tag":
+                return GeneratedSql.create(assetTagMatch(bindId, "source_mac", operator), "");
             case "source_address":
                 return GeneratedSql.create(ipAddressMatch(bindId, "source_address", operator), "");
             case "destination_address":
