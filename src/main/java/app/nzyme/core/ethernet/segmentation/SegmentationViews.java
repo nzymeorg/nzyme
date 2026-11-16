@@ -477,6 +477,26 @@ public class SegmentationViews {
                 filters, orderColumn, orderDirection, limit, offset, resolver);
     }
 
+    public Flows.AddressPage addressesOf(UUID organizationId,
+                                         UUID tenantId,
+                                         TimeRange timeRange,
+                                         List<UUID> taps,
+                                         long group,
+                                         Filters filters,
+                                         Flows.AddressOrderColumn orderColumn,
+                                         OrderDirection orderDirection,
+                                         int limit,
+                                         int offset) {
+        Map<String, Object> sourceBindings = Maps.newHashMap();
+        Map<String, Object> destinationBindings = Maps.newHashMap();
+
+        return segmentation.flows().addresses(organizationId, tenantId, timeRange, taps,
+                new Flows.Prefilter("AND " + groupCondition("source", group, sourceBindings) + " ", sourceBindings),
+                new Flows.Prefilter("AND " + groupCondition("destination", group, destinationBindings) + " ",
+                        destinationBindings),
+                filters, orderColumn, orderDirection, limit, offset);
+    }
+
     private static String groupCondition(String side, long group, Map<String, Object> bindings) {
         if (group == Flow.GROUP_UNASSIGNED) {
             return "(" + side + "_internal AND " + side + "_segment_id IS NULL)";

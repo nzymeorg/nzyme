@@ -12,8 +12,9 @@ import SegmentationService from "../../../../services/ethernet/SegmentationServi
 import TapsService from "../../../../services/TapsService";
 import {UserContext} from "../../../../App";
 import {apiErrorMessage, userHasPermission} from "../../../../util/Tools";
-import {deleteSegmentQuestion, SEGMENT_KINDS, segmentTapNames} from "../SegmentationFormat";
+import {deleteSegmentQuestion, EXCLUSION_DESCRIPTION, SEGMENT_KINDS, segmentTapNames} from "../SegmentationFormat";
 import ContextNotes from "../../../context/ContextNotes";
+import SegmentExclusions from "./SegmentExclusions";
 
 const segmentationService = new SegmentationService();
 const tapsService = new TapsService();
@@ -215,6 +216,22 @@ export default function SegmentDetailsPage() {
           </div>
         </div>
       </div>
+
+      {external ? null :
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Excluded Destinations" />
+
+                <p className="text-muted">{EXCLUSION_DESCRIPTION}</p>
+
+                <SegmentExclusions segment={segment} organizationId={organizationId} tenantId={tenantId}
+                                   canEdit={canEdit} />
+              </div>
+            </div>
+          </div>
+        </div>}
     </React.Fragment>
   )
 

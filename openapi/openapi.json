@@ -22725,6 +22725,107 @@
         "tags" : [ "Segmentation" ]
       }
     },
+    "/api/ethernet/segmentation/matrix/addresses" : {
+      "get" : {
+        "description" : "Returns the addresses of a segment, or the internal addresses that are in no segment, that taps recorded traffic of in the time range, with the sessions they opened and the sessions that went to them. Where several taps recorded an address, the tap that saw the most of it counts. A session that stays open counts once for every hour it is open, like in the matrix. An address that only was one of many unanswered destinations of a sweep is not stored and missing. Addresses of external networks are not stored one by one and cannot be listed. Results are paginated.",
+        "operationId" : "findSegmentationGroupAddresses",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Group ID as returned by the matrix: the ID of a segment, or 0 for the internal addresses that are in no segment.",
+          "in" : "query",
+          "name" : "group",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column: ADDRESS, SESSIONS_FROM, SESSIONS_TO, ANSWERED, FIRST_SEEN or LAST_SEEN. Defaults to SESSIONS_TO.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MatrixAddressesListResponse"
+                }
+              }
+            },
+            "description" : "Addresses found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The group is no segment and not the group of internal addresses that are in no segment, invalid filters, or unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the addresses of a group of the matrix",
+        "tags" : [ "Segmentation" ]
+      }
+    },
     "/api/ethernet/segmentation/matrix/flows" : {
       "get" : {
         "description" : "Returns the flows behind one cell of the matrix, added up over the time range: one entry per source, destination, service and outcome, busiest first by default. Internal sides are single addresses. External sides are networks, because external addresses are not stored one by one. Results are paginated.",
@@ -24224,6 +24325,158 @@
         "tags" : [ "Segmentation" ]
       }
     },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/show/{uuid}/exclusions" : {
+      "post" : {
+        "description" : "From then on, connection attempts from the segment to the destination that are rejected or get no reply are not recorded. Flows of such attempts that are stored already are deleted. Findings they caused stay. Only segments can have excluded destinations, external networks cannot. Requires the ethernet_monitoring_manage feature permission and access to every tap that records the segment.",
+        "operationId" : "createSegmentExclusion",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SegmentExclusionRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentExclusionResponse"
+                }
+              }
+            },
+            "description" : "Destination excluded."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Invalid destination or note. The response carries the reason."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The caller has no access to a tap that records the segment."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Exclude a destination for a segment",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/show/{uuid}/exclusions/show/{exclusion_uuid}" : {
+      "delete" : {
+        "description" : "Attempts to the destination are recorded again from then on. What was not recorded while it was excluded is not restored. Requires the ethernet_monitoring_manage feature permission and access to every tap that records the segment.",
+        "operationId" : "deleteSegmentExclusion",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Exclusion UUID.",
+          "in" : "path",
+          "name" : "exclusion_uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion deleted."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The caller has no access to a tap that records the segment."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Exclusion, segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Stop excluding a destination for a segment",
+        "tags" : [ "Segmentation" ]
+      }
+    },
     "/api/ethernet/segmentation/policies" : {
       "get" : {
         "description" : "Every policy comes with its state. HOLDING: taps see traffic in scope and all of it was allowed. CROSSED: a connection that is not allowed was answered. ATTEMPTED: one was tried and not answered. NOT_OBSERVABLE: no tap recorded both sides of the scope, so the absence of findings says nothing. AUDIT and PAUSED follow the status of the policy. Sorted by name by default. Results are paginated.",
@@ -24509,6 +24762,58 @@
           }
         },
         "summary" : "Get a segment or external network",
+        "tags" : [ "Segmentation" ]
+      }
+    },
+    "/api/ethernet/segmentation/segments/show/{uuid}/exclusions" : {
+      "get" : {
+        "description" : "Connection attempts from the segment to an excluded destination that are rejected or get no reply are not recorded: they show in no crossing and no flow and cause no finding. Connections the destination answers are recorded as usual.",
+        "operationId" : "findSegmentExclusions",
+        "parameters" : [ {
+          "description" : "Segment UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SegmentExclusionsListResponse"
+                }
+              }
+            },
+            "description" : "Excluded destinations found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Segment, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the excluded destinations of a segment",
         "tags" : [ "Segmentation" ]
       }
     },
@@ -47920,6 +48225,14 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "asn_domain" : {
+            "type" : "string",
+            "description" : "Domain of the organization that runs the autonomous system."
+          },
+          "asn_name" : {
+            "type" : "string",
+            "description" : "Name of the organization that runs the autonomous system. Not set for flows that were stored before it was recorded."
+          },
           "broadcast" : {
             "type" : "boolean",
             "description" : "If the side is a broadcast or multicast address. Such a side is neither internal nor external and in no segment."
@@ -49580,6 +49893,75 @@
           },
           "node_name" : {
             "type" : "string"
+          }
+        }
+      },
+      "MatrixAddressResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "address_text" : {
+            "type" : "string"
+          },
+          "answered" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that went to the address and that it answered."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sessions_from" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions the address opened."
+          },
+          "sessions_to" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Sessions that went to the address."
+          },
+          "tap_uuids" : {
+            "type" : "array",
+            "description" : "The taps that recorded traffic of the address in the time range.",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The taps that recorded traffic of the address in the time range."
+            }
+          }
+        }
+      },
+      "MatrixAddressesListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "addresses" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MatrixAddressResponse"
+            }
+          },
+          "destinations_folded_above" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Unanswered connections of one source to more than this many destinations within one evaluation window are stored as one flow per destination segment, without an address."
+          },
+          "folded_sessions" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Unanswered sessions that went to addresses of the group that are not stored and therefore not listed."
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of all addresses that pass the filters, of which this is one page."
           }
         }
       },
@@ -52724,6 +53106,70 @@
           }
         }
       },
+      "SegmentExclusionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "destination" : {
+            "type" : "string",
+            "description" : "Internal address, or network in CIDR notation that is no larger than a /24 or, for IPv6, a /64.",
+            "writeOnly" : true
+          },
+          "note" : {
+            "type" : "string",
+            "description" : "Why the destination is excluded. Required, 500 characters at most.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "SegmentExclusionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "destination" : {
+            "type" : "string",
+            "description" : "The excluded destination in CIDR notation. A single address has a /32 or, for IPv6, a /128 prefix."
+          },
+          "last_matched_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "match_count" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of sessions that were not recorded because of the exclusion. Where several taps recorded an attempt, the tap that saw the most counts. Not set, like the time of the last match, for a caller without access to every tap that records the segment."
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "SegmentExclusionsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "all_taps_accessible" : {
+            "type" : "boolean",
+            "description" : "If the caller has access to every tap that records the segment. Without it, exclusions cannot be created or deleted and their matches are not returned."
+          },
+          "exclusions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SegmentExclusionResponse"
+            }
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many excluded destinations a segment can have."
+          }
+        }
+      },
       "SegmentMemberRequest" : {
         "type" : "object",
         "properties" : {
@@ -52874,7 +53320,7 @@
           "hosts" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Number of addresses of the network that were seen. Only set for observed networks."
+            "description" : "Number of addresses of the network that are in no segment and opened a session or answered one in the last 7 days, as recorded by the taps the caller has access to. Not set for external networks, whose addresses are not stored one by one, and for a caller without access to a tap."
           },
           "kind" : {
             "type" : "string"

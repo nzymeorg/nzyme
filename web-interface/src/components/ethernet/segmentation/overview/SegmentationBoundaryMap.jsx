@@ -333,7 +333,9 @@ export default function SegmentationBoundaryMap({model, groups, cells, selection
                 </pattern>
                 <HatchPattern id={HATCH} colors={colors} />
               </defs>
-              <rect width={layout.width} height={mapHeight} fill={colors.background} onMouseEnter={() => setHovered(null)} />
+              {/* A drag that pans the map ends without a click, so it keeps the selection. */}
+              <rect width={layout.width} height={mapHeight} fill={colors.background} onMouseEnter={() => setHovered(null)}
+                    onClick={() => select(null)} />
               <rect width={layout.width} height={mapHeight} fill="url(#segmentation-map-grid)" pointerEvents="none" />
 
               <g transform={transform.toString()}>

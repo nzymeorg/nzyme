@@ -724,6 +724,10 @@ div.context-overlay {
     border-color: #33333d;
 }
 
+span.context-overlay-hint {
+    border-bottom-color: #7b93db;
+}
+
 div.context-overlay h6 {
     color: #e8e8ed;
     border-bottom-color: #33333d;

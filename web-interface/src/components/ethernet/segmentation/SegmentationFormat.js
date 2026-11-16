@@ -45,6 +45,14 @@ export const POLICY_STATUSES = {
 export const RESTAMP_NOTICE = "Applying segment changes to stored flows. Traffic can still show under previous " +
   "segments.";
 
+export const EXCLUSION_NOTE_MAX_LENGTH = 500;
+
+// A single address is stored as a network that only holds it.
+export const exclusionDestination = (exclusion) => exclusion.destination.replace(/\/(32|128)$/, "");
+
+export const EXCLUSION_DESCRIPTION = "Connection attempts from the segment to an excluded destination that are " +
+  "rejected or get no reply are not recorded. Connections that the destination answers are recorded as usual.";
+
 export const tapName = (taps, uuid, unknown = "Deleted tap") => {
   const tap = taps ? taps.find((t) => t.uuid === uuid) : null;
   return tap ? tap.name : unknown;

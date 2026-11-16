@@ -88,6 +88,21 @@ export default class SegmentationService {
       (response) => successCallback(response.data), errorCallback);
   }
 
+  findSegmentExclusions(uuid, organizationId, tenantId, setExclusions) {
+    RESTClient.get(`/ethernet/segmentation/segments/show/${uuid}/exclusions`, tenant(organizationId, tenantId),
+      (response) => setExclusions(response.data));
+  }
+
+  createSegmentExclusion(uuid, organizationId, tenantId, destination, note, successCallback, errorCallback) {
+    RESTClient.post(`${scoped(organizationId, tenantId)}/segments/show/${uuid}/exclusions`,
+      {destination: destination, note: note}, (response) => successCallback(response.data), errorCallback);
+  }
+
+  deleteSegmentExclusion(uuid, exclusionUuid, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.delete(`${scoped(organizationId, tenantId)}/segments/show/${uuid}/exclusions/show/${exclusionUuid}`,
+      successCallback, errorCallback);
+  }
+
   getMatrix(organizationId, tenantId, timeRange, setMatrix) {
     RESTClient.get("/ethernet/segmentation/matrix", {...tenant(organizationId, tenantId), time_range: timeRange},
       (response) => setMatrix(response.data));
@@ -100,6 +115,14 @@ export default class SegmentationService {
       destination_group: destinationGroup, filters: filters, order_column: orderColumn,
       order_direction: orderDirection, limit: limit, offset: offset
     }, (response) => setFlows(response.data));
+  }
+
+  findGroupAddresses(organizationId, tenantId, timeRange, group, filters, orderColumn, orderDirection, limit, offset,
+                     setAddresses) {
+    RESTClient.get("/ethernet/segmentation/matrix/addresses", {
+      ...tenant(organizationId, tenantId), time_range: timeRange, group: group, filters: filters,
+      order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset
+    }, (response) => setAddresses(response.data));
   }
 
   findSelectorOptions(organizationId, tenantId, setOptions) {

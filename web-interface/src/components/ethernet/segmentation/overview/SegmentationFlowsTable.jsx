@@ -6,6 +6,7 @@ import Paginator from "../../../misc/Paginator";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
 import L4Address from "../../shared/L4Address";
+import AutonomousSystem from "../../shared/AutonomousSystem";
 import PivotLink from "../../../shared/PivotLink";
 import {filtersApplied} from "../../../../util/Tools";
 import AssetTags from "../../assets/AssetTags";
@@ -47,22 +48,44 @@ function FlowSide({side, filterIcon, foldedNote}) {
   const network = side.asn !== null && side.asn !== undefined ? "AS" + side.asn : null;
   const name = side.segment_name ? side.segment_name : (network ? network : (side.country_code ? side.country_code : "Internet"));
 
-  return (
-      <span>
+  const label = (
+      <React.Fragment>
         {side.country_code ? <React.Fragment><Flag code={side.country_code} />{' '}</React.Fragment> : null}
-        {name}
+        {network ? <span className="context-overlay-hint">{name}</span> : name}
         {side.segment_name && (network || side.country_code)
             ? <span className="text-muted"> ({[network, side.country_code].filter((x) => x).join(", ")})</span>
             : (network && side.country_code ? <span className="text-muted"> ({side.country_code})</span> : null)}
-        {network ? filterIcon("asn", side.asn) : filterIcon("country_code", side.country_code)}
+      </React.Fragment>
+  );
+
+  if (network) {
+    return (
+        <React.Fragment>
+          <AutonomousSystem number={side.asn} name={side.asn_name} domain={side.asn_domain}
+                            countryCode={side.country_code} network={side.segment_name}
+                            filterElement={filterIcon("asn", side.asn)}>
+            {label}
+          </AutonomousSystem>
+          {tags}
+        </React.Fragment>
+    );
+  }
+
+  return (
+      <span>
+        {label}
+        {filterIcon("country_code", side.country_code)}
         {tags}
       </span>
   );
 }
 
+const excludable = (flow) => Boolean(flow.source.internal && flow.source.segment_uuid && flow.destination.internal
+    && flow.destination.address) && (flow.outcome === "NO_REPLY" || flow.outcome === "REJECTED");
+
 export default function SegmentationFlowsTable({flows, page, setPage, perPage, orderColumn, setOrderColumn,
                                                  orderDirection, setOrderDirection, filterFields, filters, setFilters,
-                                                 colors, timeRange}) {
+                                                 colors, timeRange, onExclude = null}) {
 
   const sessions = (flow) => {
     const link = flowSessionsLink(flow, timeRange);
@@ -146,7 +169,15 @@ export default function SegmentationFlowsTable({flows, page, setPage, perPage, o
                 </td>
                 <td title={moment(flow.first_seen).format()}>{moment(flow.first_seen).fromNow()}</td>
                 <td title={moment(flow.last_seen).format()}>{moment(flow.last_seen).fromNow()}</td>
-                <td className="text-end">{sessions(flow)}</td>
+                <td className="text-end text-nowrap">
+                  {onExclude && excludable(flow) ?
+                      <a href="#" className="me-3"
+                         title={"Stop recording unanswered attempts from " + flow.source.segment_name + " to this destination"}
+                         onClick={(e) => { e.preventDefault(); onExclude(flow); }}>
+                        Exclude
+                      </a> : null}
+                  {sessions(flow)}
+                </td>
               </tr>
           ))}
           </tbody>

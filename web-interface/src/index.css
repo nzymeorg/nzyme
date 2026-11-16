@@ -956,6 +956,29 @@ div.context-overlay {
     z-index: 1030; /* Above the sticky navbar (Bootstrap .sticky-top is 1020). */
 }
 
+/* As high as its content, above what it belongs to. */
+span.context-overlay-anchor {
+    position: relative;
+}
+
+div.context-overlay.context-overlay-fit {
+    position: absolute;
+    top: auto;
+    bottom: calc(100% + 6px);
+    height: auto;
+    margin: 0;
+    white-space: normal;
+}
+
+div.context-overlay.context-overlay-fit dl {
+    margin-bottom: 0;
+}
+
+span.context-overlay-hint {
+    border-bottom: 1px dashed #1d30d7;
+    cursor: help;
+}
+
 div.context-overlay .context-overlay-content {
     flex: 1 1 auto;
     min-height: 0;

@@ -116,18 +116,22 @@ public class SegmentationFiltersTest {
         fields(new FindingTargetFilters(), Map.of("address", FilterOperator.EQUALS, "l4_type", FilterOperator.EQUALS,
                 "port", FilterOperator.EQUALS_NUMERIC, "protocol", FilterOperator.EQUALS,
                 "outcome", FilterOperator.NOT_EQUALS, "sessions", FilterOperator.GREATER_THAN));
+        fields(new GroupAddressFilters(), Map.of("address", FilterOperator.IN_CIDR,
+                "sessions_from", FilterOperator.GREATER_THAN, "sessions_to", FilterOperator.EQUALS_NUMERIC,
+                "answered", FilterOperator.SMALLER_THAN));
     }
 
     @Test
     public void testUnknownFieldsAndOperatorsAreRejected() {
         for (SqlFilterProvider filters : new SqlFilterProvider[]{new SegmentFilters(), new PolicyFilters(),
-                new FindingFilters(), new FindingTargetFilters(), new FlowFilters()}) {
+                new FindingFilters(), new FindingTargetFilters(), new FlowFilters(), new GroupAddressFilters()}) {
             assertThrows(RuntimeException.class, () -> filters.buildSql("b", "no_such_field", FilterOperator.EQUALS));
         }
 
         assertThrows(RuntimeException.class, () -> new SegmentFilters().buildSql("b", "network", FilterOperator.CONTAINS));
         assertThrows(RuntimeException.class, () -> new FindingFilters().buildSql("b", "target_port", FilterOperator.REGEX_MATCH));
         assertThrows(RuntimeException.class, () -> new FlowFilters().buildSql("b", "sessions", FilterOperator.EQUALS));
+        assertThrows(RuntimeException.class, () -> new GroupAddressFilters().buildSql("b", "answered", FilterOperator.EQUALS));
     }
 
     private static void fields(SqlFilterProvider filters, Map<String, FilterOperator> fields) {

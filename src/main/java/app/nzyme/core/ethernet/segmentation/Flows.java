@@ -2,7 +2,9 @@ package app.nzyme.core.ethernet.segmentation;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.ethernet.CIDR;
 import app.nzyme.core.ethernet.segmentation.filters.FlowFilters;
+import app.nzyme.core.ethernet.segmentation.filters.GroupAddressFilters;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
@@ -33,6 +35,8 @@ public class Flows {
 
     public static final String BROADCAST_PREFIX = "bc:";
     public static final String BROADCAST_KEYS = BROADCAST_PREFIX + "%";
+
+    private static final String UNANSWERED = "'" + Outcome.REJECTED + "', '" + Outcome.NO_REPLY + "'";
 
     public record Crossing(long sourceGroup,
                            long destinationGroup,
@@ -70,6 +74,37 @@ public class Flows {
     }
 
     public record Page(long total, List<Flow> flows) { }
+
+    public enum AddressOrderColumn {
+
+        ADDRESS("address"),
+        SESSIONS_FROM("sessions_from"),
+        SESSIONS_TO("sessions_to"),
+        ANSWERED("answered"),
+        FIRST_SEEN("first_seen"),
+        LAST_SEEN("last_seen");
+
+        private final String columnName;
+
+        AddressOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+    }
+
+    public record GroupAddress(String address,
+                               long sessionsFrom,
+                               long sessionsTo,
+                               long answered,
+                               DateTime firstSeen,
+                               DateTime lastSeen,
+                               List<UUID> taps) { }
+
+    // foldedSessions went to addresses of the group that a sweep was folded over and that are not stored.
+    public record AddressPage(long total, List<GroupAddress> addresses, long foldedSessions) { }
 
     private static final String FLOW_IDENTITY = "source_key, destination_key, l4_type, destination_port, protocol, outcome";
 
@@ -116,11 +151,13 @@ public class Flows {
             "tap_uuid, source_key, source_address, source_internal, source_segment_id, source_asn, " +
             "source_country_code, destination_key, destination_address, destination_internal, " +
             "destination_segment_id, destination_asn, destination_country_code, l4_type, destination_port, " +
-            "protocol, outcome, sessions, continued, first_seen, last_seen) VALUES(:organization_id, :tenant_id, " +
+            "protocol, outcome, sessions, continued, first_seen, last_seen, source_asn_name, source_asn_domain, " +
+            "destination_asn_name, destination_asn_domain) VALUES(:organization_id, :tenant_id, " +
             ":bucket, :tap_uuid, :source_key, :source_address::inet, :source_internal, :source_segment_id, " +
             ":source_asn, :source_country_code, :destination_key, :destination_address::inet, " +
             ":destination_internal, :destination_segment_id, :destination_asn, :destination_country_code, " +
-            ":l4_type, :destination_port, :protocol, :outcome, :sessions, :continued, :first_seen, :last_seen) " +
+            ":l4_type, :destination_port, :protocol, :outcome, :sessions, :continued, :first_seen, :last_seen, " +
+            ":source_asn_name, :source_asn_domain, :destination_asn_name, :destination_asn_domain) " +
             "ON CONFLICT (organization_id, tenant_id, bucket, tap_uuid, source_key, destination_key, l4_type, " +
             "destination_port, protocol, outcome) DO UPDATE SET " +
             "sessions = segmentation_flows.sessions + EXCLUDED.sessions, " +
@@ -129,6 +166,12 @@ public class Flows {
             "source_segment_id = EXCLUDED.source_segment_id, " +
             "destination_internal = EXCLUDED.destination_internal, " +
             "destination_segment_id = EXCLUDED.destination_segment_id, " +
+            "source_asn_name = COALESCE(EXCLUDED.source_asn_name, segmentation_flows.source_asn_name), " +
+            "source_asn_domain = COALESCE(EXCLUDED.source_asn_domain, segmentation_flows.source_asn_domain), " +
+            "destination_asn_name = COALESCE(EXCLUDED.destination_asn_name, " +
+            "segmentation_flows.destination_asn_name), " +
+            "destination_asn_domain = COALESCE(EXCLUDED.destination_asn_domain, " +
+            "segmentation_flows.destination_asn_domain), " +
             "first_seen = LEAST(segmentation_flows.first_seen, EXCLUDED.first_seen), " +
             "last_seen = GREATEST(segmentation_flows.last_seen, EXCLUDED.last_seen)";
 
@@ -172,12 +215,16 @@ public class Flows {
                     .bind("source_segment_id", flow.source().segment() == null ? null : flow.source().segment().id())
                     .bind("source_asn", flow.source().asn())
                     .bind("source_country_code", flow.source().countryCode())
+                    .bind("source_asn_name", flow.source().asnName())
+                    .bind("source_asn_domain", flow.source().asnDomain())
                     .bind("destination_key", flow.destinationKey())
                     .bind("destination_address", address(flow.destination()))
                     .bind("destination_internal", flow.destination().internal())
                     .bind("destination_segment_id", flow.destination().segment() == null ? null : flow.destination().segment().id())
                     .bind("destination_asn", flow.destination().asn())
                     .bind("destination_country_code", flow.destination().countryCode())
+                    .bind("destination_asn_name", flow.destination().asnName())
+                    .bind("destination_asn_domain", flow.destination().asnDomain())
                     .bind("l4_type", flow.l4Type())
                     .bind("destination_port", flow.port())
                     .bind("protocol", flow.protocol())
@@ -209,6 +256,93 @@ public class Flows {
                     .add();
         }
         crossingBatch.execute();
+    }
+
+    public void rebuildCrossings(Handle handle, UUID organizationId, UUID tenantId) {
+        handle.createUpdate("DELETE FROM segmentation_crossings WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .execute();
+
+        handle.createUpdate("INSERT INTO segmentation_crossings(organization_id, tenant_id, bucket, " +
+                        "tap_uuid, source_group, destination_group, l4_type, destination_port, protocol, " +
+                        "outcome, sessions, continued, first_seen, last_seen) " +
+                        "SELECT organization_id, tenant_id, bucket, tap_uuid, " +
+                        "CASE WHEN source_segment_id IS NOT NULL THEN source_segment_id " +
+                        "WHEN source_internal THEN 0 ELSE -1 END, " +
+                        "CASE WHEN destination_key LIKE '" + BROADCAST_KEYS + "' THEN " +
+                        Flow.GROUP_BROADCAST + " " +
+                        "WHEN destination_segment_id IS NOT NULL THEN destination_segment_id " +
+                        "WHEN destination_internal THEN 0 ELSE -1 END, " +
+                        "l4_type, destination_port, protocol, outcome, SUM(sessions), SUM(continued), " +
+                        "MIN(first_seen), MAX(last_seen) FROM segmentation_flows " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                        "GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .execute();
+    }
+
+    private static final String UNANSWERED_TO = "organization_id = :organization_id AND tenant_id = :tenant_id " +
+            "AND source_segment_id = :segment_id AND destination_internal " +
+            "AND destination_address <<= :destination::cidr AND outcome IN (" + UNANSWERED + ")";
+
+    // The crossings that the flows that are removed are part of.
+    private static final String CROSSINGS_OF_UNANSWERED = "SELECT DISTINCT bucket, tap_uuid, " +
+            "COALESCE(destination_segment_id, " + Flow.GROUP_UNASSIGNED + ") AS destination_group, l4_type, " +
+            "destination_port, protocol, outcome FROM segmentation_flows WHERE " + UNANSWERED_TO;
+
+    // Only the flows. The crossings have to be rebuilt by the caller.
+    public long deleteUnanswered(Handle handle, UUID organizationId, UUID tenantId, long sourceSegmentId, CIDR destination) {
+        return handle.createUpdate("DELETE FROM segmentation_flows WHERE " + UNANSWERED_TO)
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("segment_id", sourceSegmentId)
+                .bind("destination", destination.toString())
+                .execute();
+    }
+
+    // Removes what is stored of what a segment tried to reach at a destination without an answer. Only the crossings
+    // those flows are part of are built again, from the flows that stay: a segment can have started most of what is
+    // stored, and this runs in a request. Folded destinations have no address and stay.
+    public long removeUnanswered(Handle handle, UUID organizationId, UUID tenantId, long sourceSegmentId, CIDR destination) {
+        handle.createUpdate("DELETE FROM segmentation_crossings AS c USING (" + CROSSINGS_OF_UNANSWERED + ") AS d " +
+                        "WHERE c.organization_id = :organization_id AND c.tenant_id = :tenant_id " +
+                        "AND c.source_group = :segment_id AND c.bucket = d.bucket AND c.tap_uuid = d.tap_uuid " +
+                        "AND c.destination_group = d.destination_group AND c.l4_type = d.l4_type " +
+                        "AND c.destination_port = d.destination_port AND c.protocol = d.protocol " +
+                        "AND c.outcome = d.outcome")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("segment_id", sourceSegmentId)
+                .bind("destination", destination.toString())
+                .execute();
+
+        handle.createUpdate("INSERT INTO segmentation_crossings(organization_id, tenant_id, bucket, tap_uuid, " +
+                        "source_group, destination_group, l4_type, destination_port, protocol, outcome, sessions, " +
+                        "continued, first_seen, last_seen) " +
+                        "SELECT :organization_id, :tenant_id, f.bucket, f.tap_uuid, :segment_id, " +
+                        "d.destination_group, f.l4_type, f.destination_port, f.protocol, f.outcome, " +
+                        "SUM(f.sessions), SUM(f.continued), MIN(f.first_seen), MAX(f.last_seen) " +
+                        "FROM segmentation_flows AS f JOIN (" + CROSSINGS_OF_UNANSWERED + ") AS d " +
+                        "ON f.bucket = d.bucket AND f.tap_uuid = d.tap_uuid " +
+                        "AND COALESCE(f.destination_segment_id, " + Flow.GROUP_UNASSIGNED + ") = d.destination_group " +
+                        "AND f.l4_type = d.l4_type AND f.destination_port = d.destination_port " +
+                        "AND f.protocol = d.protocol AND f.outcome = d.outcome " +
+                        "WHERE f.organization_id = :organization_id AND f.tenant_id = :tenant_id " +
+                        "AND f.source_segment_id = :segment_id AND f.destination_internal " +
+                        "AND f.destination_key NOT LIKE '" + BROADCAST_KEYS + "' " +
+                        "AND (f.destination_address IS NULL OR NOT f.destination_address <<= :destination::cidr) " +
+                        "GROUP BY f.bucket, f.tap_uuid, d.destination_group, f.l4_type, f.destination_port, " +
+                        "f.protocol, f.outcome")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("segment_id", sourceSegmentId)
+                .bind("destination", destination.toString())
+                .execute();
+
+        return deleteUnanswered(handle, organizationId, tenantId, sourceSegmentId, destination);
     }
 
     private static Flow add(Flow a, Flow b) {
@@ -297,7 +431,11 @@ public class Flows {
                                 "bool_or(destination_internal) AS destination_internal, " +
                                 "MAX(destination_segment_id) AS destination_segment_id, " +
                                 "MAX(destination_asn) AS destination_asn, " +
-                                "MAX(destination_country_code) AS destination_country_code, l4_type, " +
+                                "MAX(destination_country_code) AS destination_country_code, " +
+                                "MAX(source_asn_name) AS source_asn_name, " +
+                                "MAX(source_asn_domain) AS source_asn_domain, " +
+                                "MAX(destination_asn_name) AS destination_asn_name, " +
+                                "MAX(destination_asn_domain) AS destination_asn_domain, l4_type, " +
                                 "destination_port, protocol, outcome, SUM(sessions) AS sessions, " +
                                 "SUM(continued) AS continued, MIN(first_seen) AS first_seen, " +
                                 "MAX(last_seen) AS last_seen FROM segmentation_flows " +
@@ -344,7 +482,10 @@ public class Flows {
                 "MAX(source_asn) AS source_asn, MAX(source_country_code) AS source_country_code, " +
                 "bool_or(destination_internal) AS destination_internal, " +
                 "MAX(destination_segment_id) AS destination_segment_id, MAX(destination_asn) AS destination_asn, " +
-                "MAX(destination_country_code) AS destination_country_code, SUM(sessions) AS sessions, " +
+                "MAX(destination_country_code) AS destination_country_code, " +
+                "MAX(source_asn_name) AS source_asn_name, MAX(source_asn_domain) AS source_asn_domain, " +
+                "MAX(destination_asn_name) AS destination_asn_name, " +
+                "MAX(destination_asn_domain) AS destination_asn_domain, SUM(sessions) AS sessions, " +
                 "SUM(continued) AS continued, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
                 "FROM segmentation_flows WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                 "AND tap_uuid IN (<taps>) " +
@@ -356,6 +497,7 @@ public class Flows {
                 "source_address AS source_inet, source_internal, source_segment_id, source_asn, " +
                 "source_country_code, destination_key, destination_address AS destination_inet, " +
                 "destination_internal, destination_segment_id, destination_asn, destination_country_code, " +
+                "source_asn_name, source_asn_domain, destination_asn_name, destination_asn_domain, " +
                 "l4_type, destination_port, protocol, outcome, sessions, continued, " +
                 "MIN(first_seen) OVER flow AS first_seen, MAX(last_seen) OVER flow AS last_seen FROM per_tap " +
                 "WINDOW flow AS (PARTITION BY " + FLOW_IDENTITY + ") " +
@@ -406,6 +548,109 @@ public class Flows {
         });
     }
 
+    // The prefilters say which side belongs to the group. Per direction, the tap that saw the most of an address
+    // counts where several taps recorded it.
+    public AddressPage addresses(UUID organizationId,
+                                 UUID tenantId,
+                                 TimeRange timeRange,
+                                 List<UUID> taps,
+                                 Prefilter source,
+                                 Prefilter destination,
+                                 Filters filters,
+                                 AddressOrderColumn orderColumn,
+                                 OrderDirection orderDirection,
+                                 int limit,
+                                 int offset) {
+        if (taps.isEmpty()) {
+            return new AddressPage(0, Collections.emptyList(), 0);
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new GroupAddressFilters());
+
+        String scope = "FROM segmentation_flows WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                "AND tap_uuid IN (<taps>) " +
+                "AND bucket >= date_trunc('hour', :tr_from::timestamptz, 'UTC') AND bucket <= :tr_to ";
+
+        // The destinations without an address are what was folded. One row comes back even if no address is found,
+        // so that the total and the folded sessions never need a query of their own.
+        String sql = "WITH sources AS (SELECT tap_uuid, source_address AS address, " +
+                "SUM(sessions + continued) AS sessions_from, MIN(first_seen) AS first_seen, " +
+                "MAX(last_seen) AS last_seen " + scope + source.sql() +
+                "AND source_address IS NOT NULL GROUP BY tap_uuid, source_address), " +
+                "destinations AS (SELECT tap_uuid, destination_address AS address, " +
+                "SUM(sessions + continued) AS sessions_to, " +
+                "COALESCE(SUM(sessions + continued) FILTER (WHERE outcome = 'CONNECTED'), 0) AS answered, " +
+                "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " + scope + destination.sql() +
+                "GROUP BY tap_uuid, destination_address), " +
+                "per_tap AS (SELECT tap_uuid, address, SUM(sessions_from) AS sessions_from, " +
+                "SUM(sessions_to) AS sessions_to, SUM(answered) AS answered, MIN(first_seen) AS first_seen, " +
+                "MAX(last_seen) AS last_seen FROM (" +
+                "SELECT tap_uuid, address, sessions_from, 0 AS sessions_to, 0 AS answered, first_seen, last_seen " +
+                "FROM sources UNION ALL " +
+                "SELECT tap_uuid, address, 0, sessions_to, answered, first_seen, last_seen " +
+                "FROM destinations WHERE address IS NOT NULL) AS sides GROUP BY tap_uuid, address), " +
+                "merged AS (SELECT address, MAX(sessions_from) AS sessions_from, MAX(sessions_to) AS sessions_to, " +
+                "MAX(answered) AS answered, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen, " +
+                "string_agg(tap_uuid::text, ',' ORDER BY tap_uuid) AS taps FROM per_tap GROUP BY address), " +
+                "matching AS (SELECT * FROM merged WHERE TRUE " + filterFragment.whereSql() + "), " +
+                "page AS (SELECT *, ROW_NUMBER() OVER (ORDER BY <order_column> <order_direction> NULLS LAST, " +
+                "address ASC) AS position FROM matching ORDER BY position LIMIT :limit OFFSET :offset) " +
+                "SELECT p.*, host(p.address) AS host, t.total, f.folded " +
+                "FROM (SELECT COUNT(*) AS total FROM matching) AS t " +
+                "CROSS JOIN (SELECT COALESCE(MAX(sessions_to), 0) AS folded FROM destinations " +
+                "WHERE address IS NULL) AS f " +
+                "LEFT JOIN page AS p ON TRUE ORDER BY p.position";
+
+        return nzyme.getDatabase().withHandle(handle -> {
+            long[] total = new long[]{0};
+            long[] folded = new long[]{0};
+            List<GroupAddress> addresses = Lists.newArrayList();
+
+            handle.createQuery(sql)
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .bind("tr_from", timeRange.from())
+                    .bind("tr_to", timeRange.to())
+                    .bindList("taps", taps)
+                    .bindMap(source.bindings())
+                    .bindMap(destination.bindings())
+                    .bindMap(filterFragment.bindings())
+                    .bind("limit", limit)
+                    .bind("offset", offset)
+                    .define("order_column", orderColumn.getColumnName())
+                    .define("order_direction", orderDirection)
+                    .map((rs, ctx) -> {
+                        total[0] = rs.getLong("total");
+                        folded[0] = rs.getLong("folded");
+
+                        String address = rs.getString("host");
+                        if (address == null) {
+                            return false;
+                        }
+
+                        List<UUID> recordedBy = Lists.newArrayList();
+                        for (String tap : rs.getString("taps").split(",")) {
+                            recordedBy.add(UUID.fromString(tap));
+                        }
+
+                        addresses.add(new GroupAddress(
+                                address,
+                                rs.getLong("sessions_from"),
+                                rs.getLong("sessions_to"),
+                                rs.getLong("answered"),
+                                new DateTime(rs.getTimestamp("first_seen")),
+                                new DateTime(rs.getTimestamp("last_seen")),
+                                recordedBy
+                        ));
+
+                        return true;
+                    })
+                    .list();
+
+            return new AddressPage(total[0], addresses, folded[0]);
+        });
+    }
+
     private static Flow map(ResultSet rs, MembershipResolver resolver, TimeRange timeRange) throws SQLException {
         UUID tap = UUID.fromString(rs.getString("tap_uuid"));
 
@@ -447,7 +692,8 @@ public class Flows {
         long segmentValue = rs.getLong(side + "_segment_id");
         Long segmentId = rs.wasNull() ? null : segmentValue;
 
-        return resolver.stored(internal, segmentId, asn, countryCode);
+        return resolver.stored(internal, segmentId, asn, countryCode)
+                .withAsnDetails(rs.getString(side + "_asn_name"), rs.getString(side + "_asn_domain"));
     }
 
 }

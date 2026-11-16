@@ -28,6 +28,9 @@ export const isExternal = (group) => group.type === "EXTERNAL" || group.type ===
 
 export const isBroadcast = (group) => group.type === "BROADCAST";
 
+// The groups whose addresses are stored one by one.
+export const hasAddresses = (group) => group.type === "INTERNAL" || group.type === "UNASSIGNED";
+
 export const compareNames = (a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: "base"});
 
 export const locationsOf = (taps) => {
@@ -129,6 +132,7 @@ export function buildOverviewModel(matrix) {
     cells: cells,
     cellsById: new Map(cells.map((cell) => [cell.id, cell])),
     most: most,
+    tapsOf: tapsOf,
     segments: groups.filter((group) => group.id > 0).length
   };
 }
