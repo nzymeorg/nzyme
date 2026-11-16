@@ -44,6 +44,9 @@ public class Segments {
 
     private static final int BULK_DELETE_CHUNK = 5000;
 
+    // The size of the networks that are suggested from observed addresses. x is the address.
+    private static final String OBSERVED_PREFIX = "CASE WHEN family(x) = 4 THEN 24 ELSE 64 END";
+
     public enum SuggestionSource {
         NETWORK_CONTEXT,
         DHCP,
@@ -283,6 +286,9 @@ public class Segments {
 
     public void delete(Segment segment) {
         nzyme.getDatabase().useTransaction(handle -> {
+            // Before the segment, like the engine: it holds this row while it updates the exclusions of segments.
+            segmentation.state(handle, segment.organizationId(), segment.tenantId(), true);
+
             handle.createUpdate("DELETE FROM segmentation_segments WHERE id = :id")
                     .bind("id", segment.id())
                     .execute();
@@ -303,6 +309,8 @@ public class Segments {
                 segmentation.policies().findAll(organizationId, tenantId));
 
         BulkResult result = nzyme.getDatabase().inTransaction(handle -> {
+            segmentation.state(handle, organizationId, tenantId, true);
+
             List<Target> targets;
             if (selection.isChecked()) {
                 targets = handle.createQuery("SELECT s.id, s.uuid, s.name FROM segmentation_segments AS s " +
@@ -418,9 +426,18 @@ public class Segments {
                 return;
             }
 
+            // What was found so far is only known by its definition. Addresses of external networks are not stored
+            // one by one, so there is nothing to count for them.
+            String suggested = suggestions.stream()
+                    .filter(suggestion -> suggestion.kind() == SegmentKind.INTERNAL)
+                    .map(Suggestion::network)
+                    .collect(Collectors.joining(","));
+
+            Map<String, Long> hostsOfSuggested = Maps.newHashMap();
+            List<Suggestion> observed = Lists.newArrayList();
+
             // Destinations only count if they answered, so that a scan of unused addresses suggests nothing.
-            handle.createQuery("SELECT network(set_masklen(a, CASE WHEN family(a) = 4 THEN 24 ELSE 64 END))::text " +
-                            "AS network, COUNT(DISTINCT a) AS hosts FROM (" +
+            handle.createQuery("WITH addresses AS MATERIALIZED (" +
                             "SELECT source_address AS a FROM segmentation_flows " +
                             "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                             "AND tap_uuid IN (<taps>) " +
@@ -430,27 +447,57 @@ public class Segments {
                             "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                             "AND tap_uuid IN (<taps>) " +
                             "AND bucket >= :since AND destination_internal AND destination_segment_id IS NULL " +
-                            "AND destination_address IS NOT NULL AND outcome = 'CONNECTED') AS addresses " +
-                            "GROUP BY 1 ORDER BY hosts DESC LIMIT :limit")
+                            "AND destination_address IS NOT NULL AND outcome = 'CONNECTED'), " +
+                            "keyed AS MATERIALIZED (SELECT a, network(set_masklen(a, " + OBSERVED_PREFIX.replace("x", "a") +
+                            ")) AS observed FROM addresses), " +
+                            "observed AS MATERIALIZED (SELECT observed, COUNT(*) AS hosts FROM keyed GROUP BY observed), " +
+                            "suggested AS (SELECT n, network(n::inet) AS net " +
+                            "FROM unnest(string_to_array(:suggested, ',')) AS n) " +
+                            // Never every address against every suggested network: network data decides how many
+                            // addresses there are. Large networks add up observed ones, small ones look into theirs.
+                            "SELECT TRUE AS suggested, s.n AS network, SUM(o.hosts) AS hosts FROM suggested AS s " +
+                            "JOIN observed AS o ON o.observed <<= s.net " +
+                            "WHERE masklen(s.net) <= " + OBSERVED_PREFIX.replace("x", "s.net") + " GROUP BY s.n " +
+                            "UNION ALL SELECT TRUE, s.n, COUNT(*) FROM suggested AS s " +
+                            "JOIN keyed AS k ON k.observed = network(set_masklen(s.net, " +
+                            OBSERVED_PREFIX.replace("x", "s.net") + ")) AND k.a <<= s.net " +
+                            "WHERE masklen(s.net) > " + OBSERVED_PREFIX.replace("x", "s.net") + " GROUP BY s.n " +
+                            "UNION ALL (SELECT FALSE, observed::text, hosts FROM observed " +
+                            "ORDER BY hosts DESC LIMIT :limit) " +
+                            "ORDER BY suggested DESC, hosts DESC")
                     .bind("organization_id", organizationId)
                     .bind("tenant_id", tenantId)
                     .bind("since", DateTime.now().minusDays(SUGGESTION_LOOKBACK_DAYS))
+                    .bind("suggested", suggested)
                     .bind("limit", SUGGESTION_LIMIT + 1)
                     .bindList("taps", taps)
                     .map((rs, ctx) -> {
-                        if (rs.getRow() > SUGGESTION_LIMIT) {
+                        if (rs.getBoolean("suggested")) {
+                            hostsOfSuggested.put(rs.getString("network"), rs.getLong("hosts"));
+                            return true;
+                        }
+
+                        if (observed.size() >= SUGGESTION_LIMIT) {
                             limited[0] = true;
                             return true;
                         }
 
-                        CIDR network = CIDR.parse(rs.getString("network"));
-                        if (taken.add(network.toString())) {
-                            suggestions.add(new Suggestion(SuggestionSource.OBSERVED, SegmentKind.INTERNAL,
-                                    network.toString(), null, null, rs.getLong("hosts"), null));
-                        }
+                        observed.add(new Suggestion(SuggestionSource.OBSERVED, SegmentKind.INTERNAL,
+                                CIDR.parse(rs.getString("network")).toString(), null, null, rs.getLong("hosts"), null));
                         return true;
                     })
                     .list();
+
+            suggestions.replaceAll(suggestion -> suggestion.kind() != SegmentKind.INTERNAL ? suggestion
+                    : new Suggestion(suggestion.source(), suggestion.kind(), suggestion.network(), suggestion.name(),
+                    suggestion.description(), hostsOfSuggested.getOrDefault(suggestion.network(), 0L),
+                    suggestion.dhcpServer()));
+
+            for (Suggestion suggestion : observed) {
+                if (taken.add(suggestion.network())) {
+                    suggestions.add(suggestion);
+                }
+            }
         });
 
         return new Suggestions(suggestions, limited[0]);

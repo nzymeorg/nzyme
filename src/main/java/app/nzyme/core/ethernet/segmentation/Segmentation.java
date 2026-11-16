@@ -26,6 +26,7 @@ public class Segmentation {
     private final NzymeNode nzyme;
 
     private final Segments segments;
+    private final Exclusions exclusions;
     private final Policies policies;
     private final Findings findings;
     private final Flows flows;
@@ -44,6 +45,7 @@ public class Segmentation {
     public Segmentation(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.segments = new Segments(nzyme, this);
+        this.exclusions = new Exclusions(nzyme, this);
         this.policies = new Policies(nzyme, this);
         this.findings = new Findings(nzyme, this);
         this.flows = new Flows(nzyme);
@@ -52,6 +54,10 @@ public class Segmentation {
 
     public Segments segments() {
         return segments;
+    }
+
+    public Exclusions exclusions() {
+        return exclusions;
     }
 
     public Policies policies() {

@@ -9,6 +9,8 @@ import app.nzyme.core.ethernet.segmentation.BulkResult;
 import app.nzyme.core.ethernet.segmentation.BulkSelection;
 import app.nzyme.core.ethernet.segmentation.Endpoint;
 import app.nzyme.core.ethernet.segmentation.EngineState;
+import app.nzyme.core.ethernet.segmentation.Exclusion;
+import app.nzyme.core.ethernet.segmentation.Exclusions;
 import app.nzyme.core.ethernet.segmentation.Finding;
 import app.nzyme.core.ethernet.segmentation.FindingClass;
 import app.nzyme.core.ethernet.segmentation.Findings;
@@ -30,6 +32,7 @@ import app.nzyme.core.ethernet.segmentation.Segments;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
+import app.nzyme.core.rest.requests.SegmentExclusionRequest;
 import app.nzyme.core.rest.requests.SegmentMemberRequest;
 import app.nzyme.core.rest.requests.SegmentRequest;
 import app.nzyme.core.rest.requests.SegmentationPolicyAllowRequest;
@@ -112,6 +115,13 @@ public class SegmentationResource extends TapDataHandlingResource {
 
     private static Response badRequest(String message) {
         return Response.status(Response.Status.BAD_REQUEST).entity(ErrorResponse.create(message)).build();
+    }
+
+    // An exclusion decides what is recorded of every tap of the segment, and creating one deletes flows of them.
+    private static Response exclusionsForbidden() {
+        return Response.status(Response.Status.FORBIDDEN)
+                .entity(ErrorResponse.create("Requires access to all taps that record the segment."))
+                .build();
     }
 
     private static Response notFound() {
@@ -575,6 +585,133 @@ public class SegmentationResource extends TapDataHandlingResource {
     }
 
     @GET
+    @Path("/segments/show/{uuid}/exclusions")
+    @Operation(operationId = "findSegmentExclusions", summary = "List the excluded destinations of a segment",
+            description = "Connection attempts from the segment to an excluded destination that are rejected or get "
+                    + "no reply are not recorded: they show in no crossing and no flow and cause no finding. "
+                    + "Connections the destination answers are recorded as usual.")
+    @ApiResponse(responseCode = "200", description = "Excluded destinations found.",
+            content = @Content(schema = @Schema(implementation = SegmentExclusionsListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Segment, organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response findSegmentExclusions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Segment UUID.") @PathParam("uuid") UUID uuid,
+                                          @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return notFound();
+        }
+
+        Optional<Segment> segment = segmentation().segments().find(uuid, organizationId, tenantId);
+        if (segment.isEmpty()) {
+            return notFound();
+        }
+
+        boolean allTaps = tapAccess(sc, organizationId, tenantId).coversAllTapsOf(segment.get());
+
+        List<SegmentExclusionResponse> exclusions = Lists.newArrayList();
+        for (Exclusion exclusion : segmentation().exclusions().findAllOfSegment(segment.get())) {
+            exclusions.add(exclusionResponse(exclusion, allTaps));
+        }
+
+        return Response.ok(SegmentExclusionsListResponse.create(exclusions, Exclusions.MAX_PER_SEGMENT, allTaps)).build();
+    }
+
+    @POST
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/segments/show/{uuid}/exclusions")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Operation(operationId = "createSegmentExclusion", summary = "Exclude a destination for a segment",
+            description = "From then on, connection attempts from the segment to the destination that are rejected "
+                    + "or get no reply are not recorded. Flows of such attempts that are stored already are "
+                    + "deleted. Findings they caused stay. Only segments can have excluded destinations, external "
+                    + "networks cannot. Requires the ethernet_monitoring_manage feature permission and access to "
+                    + "every tap that records the segment.")
+    @ApiResponse(responseCode = "201", description = "Destination excluded.",
+            content = @Content(schema = @Schema(implementation = SegmentExclusionResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid destination or note. The response carries the reason.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The caller has no access to a tap that records the segment.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Segment, organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response createSegmentExclusion(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Segment UUID.") @PathParam("uuid") UUID uuid,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                           SegmentExclusionRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return notFound();
+        }
+
+        Optional<Segment> segment = segmentation().segments().find(uuid, organizationId, tenantId);
+        if (segment.isEmpty()) {
+            return notFound();
+        }
+
+        if (!tapAccess(sc, organizationId, tenantId).coversAllTapsOf(segment.get())) {
+            return exclusionsForbidden();
+        }
+
+        if (req == null || req.destination() == null || req.destination().isBlank()) {
+            return badRequest("A destination is required.");
+        }
+
+        CIDR destination;
+        try {
+            destination = CIDR.parse(req.destination().trim());
+        } catch (Exception e) {
+            return badRequest("The destination is not an address and not a network in CIDR notation, like "
+                    + "10.1.0.0/24.");
+        }
+
+        try {
+            Exclusion exclusion = segmentation().exclusions().create(segment.get(), destination, req.note());
+
+            return Response.status(Response.Status.CREATED).entity(exclusionResponse(exclusion, true)).build();
+        } catch (IllegalArgumentException e) {
+            return badRequest(message(e, "Invalid excluded destination."));
+        }
+    }
+
+    @DELETE
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/segments/show/{uuid}/exclusions/show/{exclusion_uuid}")
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
+    @Operation(operationId = "deleteSegmentExclusion", summary = "Stop excluding a destination for a segment",
+            description = "Attempts to the destination are recorded again from then on. What was not recorded "
+                    + "while it was excluded is not restored. Requires the ethernet_monitoring_manage feature "
+                    + "permission and access to every tap that records the segment.")
+    @ApiResponse(responseCode = "200", description = "Exclusion deleted.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The caller has no access to a tap that records the segment.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Exclusion, segment, organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response deleteSegmentExclusion(@Parameter(hidden = true) @Context SecurityContext sc,
+                                           @Parameter(description = "Segment UUID.") @PathParam("uuid") UUID uuid,
+                                           @Parameter(description = "Exclusion UUID.") @PathParam("exclusion_uuid") UUID exclusionUuid,
+                                           @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                           @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return notFound();
+        }
+
+        Optional<Segment> segment = segmentation().segments().find(uuid, organizationId, tenantId);
+        if (segment.isEmpty()) {
+            return notFound();
+        }
+
+        Optional<Exclusion> exclusion = segmentation().exclusions().find(segment.get(), exclusionUuid);
+        if (exclusion.isEmpty()) {
+            return notFound();
+        }
+
+        if (!tapAccess(sc, organizationId, tenantId).coversAllTapsOf(segment.get())) {
+            return exclusionsForbidden();
+        }
+
+        segmentation().exclusions().delete(segment.get(), exclusion.get());
+
+        return Response.ok().build();
+    }
+
+    @GET
     @Path("/matrix")
     @Operation(operationId = "getSegmentationMatrix", summary = "Get the crossings between segments",
             description = "Returns one cell per pair of groups that talked in the time range, with the sessions "
@@ -708,6 +845,68 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         return Response.ok(FlowsListResponse.create(page.total(), flows, SegmentationEngine.MAX_PORTS_PER_PAIR,
+                SegmentationEngine.MAX_ATTEMPT_ROWS_PER_SOURCE)).build();
+    }
+
+    @GET
+    @Path("/matrix/addresses")
+    @Operation(operationId = "findSegmentationGroupAddresses", summary = "List the addresses of a group of the matrix",
+            description = "Returns the addresses of a segment, or the internal addresses that are in no segment, "
+                    + "that taps recorded traffic of in the time range, with the sessions they opened and the "
+                    + "sessions that went to them. Where several taps recorded an address, the tap that saw the "
+                    + "most of it counts. A session that stays open counts once for every hour it is open, like in "
+                    + "the matrix. An address that only was one of many unanswered destinations of a sweep "
+                    + "is not stored and missing. Addresses of external networks are not stored one by one and "
+                    + "cannot be listed. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Addresses found.",
+            content = @Content(schema = @Schema(implementation = MatrixAddressesListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The group is no segment and not the group of internal addresses that are in no segment, invalid filters, or unknown sorting column or direction.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response groupAddresses(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                   @Parameter(description = "Group ID as returned by the matrix: the ID of a segment, or 0 for the internal addresses that are in no segment.") @QueryParam("group") long group,
+                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") String timeRangeParameter,
+                                   @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") @Nullable String filtersParameter,
+                                   @Parameter(description = "Sorting column: ADDRESS, SESSIONS_FROM, SESSIONS_TO, ANSWERED, FIRST_SEEN or LAST_SEEN. Defaults to SESSIONS_TO.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                   @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                   @Parameter(description = "Page size. 25 if not set, 250 at most.") @QueryParam("limit") int limit,
+                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return notFound();
+        }
+
+        if (group != Flow.GROUP_UNASSIGNED) {
+            // Not from the resolver, which a node caches: the segment may just have been created on another node.
+            Segment segment = segmentation().segments().findAll(organizationId, tenantId).stream()
+                    .filter(s -> s.id() == group)
+                    .findFirst()
+                    .orElse(null);
+            if (segment == null || segment.kind() != SegmentKind.INTERNAL) {
+                return badRequest("Addresses are only stored for segments and for internal addresses that are in "
+                        + "no segment.");
+            }
+        }
+
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Flows.AddressOrderColumn orderColumn = orderColumn(Flows.AddressOrderColumn.class, orderColumnParam,
+                Flows.AddressOrderColumn.SESSIONS_TO);
+        OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.DESC);
+
+        Flows.AddressPage page = segmentation().views().addressesOf(organizationId, tenantId, timeRange,
+                tapAccess(sc, organizationId, tenantId).accessibleUuids(), group, filters, orderColumn,
+                orderDirection, pageSize(limit), Math.max(offset, 0));
+
+        Addresses resolved = new Addresses(organizationId, tenantId);
+        List<MatrixAddressResponse> addresses = Lists.newArrayList();
+        for (Flows.GroupAddress address : page.addresses()) {
+            addresses.add(MatrixAddressResponse.create(resolved.of(address.address(), L4Type.TCP.name()),
+                    address.address(), address.sessionsFrom(), address.sessionsTo(), address.answered(), address.taps(),
+                    address.firstSeen(), address.lastSeen()));
+        }
+
+        return Response.ok(MatrixAddressesListResponse.create(page.total(), addresses, page.foldedSessions(),
                 SegmentationEngine.MAX_ATTEMPT_ROWS_PER_SOURCE)).build();
     }
 
@@ -1427,6 +1626,13 @@ public class SegmentationResource extends TapDataHandlingResource {
 
     }
 
+    // The matches are counted over every tap that records the segment and are only for who has access to all of them.
+    private static SegmentExclusionResponse exclusionResponse(Exclusion exclusion, boolean withMatches) {
+        return SegmentExclusionResponse.create(exclusion.uuid(), exclusion.destination().toString(), exclusion.note(),
+                withMatches ? exclusion.matchCount() : null, withMatches ? exclusion.lastMatchedAt() : null,
+                exclusion.createdAt());
+    }
+
     private static FlowSideResponse side(Endpoint endpoint, String key, String l4Type, Addresses addresses) {
         return FlowSideResponse.create(
                 key,
@@ -1436,6 +1642,8 @@ public class SegmentationResource extends TapDataHandlingResource {
                 endpoint.segment() == null ? null : endpoint.segment().uuid(),
                 endpoint.segment() == null ? null : endpoint.segment().name(),
                 endpoint.asn(),
+                endpoint.asnName(),
+                endpoint.asnDomain(),
                 endpoint.countryCode(),
                 addresses.tags(endpoint)
         );
@@ -1584,6 +1792,16 @@ public class SegmentationResource extends TapDataHandlingResource {
             }
 
             return uuids;
+        }
+
+        boolean coversAllTapsOf(Segment segment) {
+            for (UUID tap : ofTenant) {
+                if (segment.coversTap(tap) && hides(tap)) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         // A tap of the tenant that the caller has no access to. A deleted tap is not hidden.

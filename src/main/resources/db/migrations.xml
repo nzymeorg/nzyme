@@ -13212,4 +13212,54 @@
         </createTable>
     </changeSet>
 
+    <changeSet id="add_segmentation_flows_asn_details" author="lennartkoopmann">
+        <addColumn tableName="segmentation_flows">
+            <column name="source_asn_name" type="text" />
+            <column name="source_asn_domain" type="text" />
+            <column name="destination_asn_name" type="text" />
+            <column name="destination_asn_domain" type="text" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_segmentation_exclusions" author="lennartkoopmann">
+        <createTable tableName="segmentation_exclusions">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="segment_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination" type="cidr">
+                <constraints nullable="false" />
+            </column>
+            <column name="note" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="match_count" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_matched_at" type="timestamp with time zone" />
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addForeignKeyConstraint constraintName="link_segmentation_exclusions2segments"
+                                 baseTableName="segmentation_exclusions"
+                                 baseColumnNames="segment_id"
+                                 referencedTableName="segmentation_segments"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+        <createIndex tableName="segmentation_exclusions" indexName="segmentation_exclusions_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+        <createIndex tableName="segmentation_exclusions" indexName="segmentation_exclusions_segment_id_destination_key" unique="true">
+            <column name="segment_id" />
+            <column name="destination" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

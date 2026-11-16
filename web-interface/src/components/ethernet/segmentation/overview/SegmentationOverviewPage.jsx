@@ -1,5 +1,6 @@
 import React, {useCallback, useContext, useEffect, useMemo, useRef, useState} from "react";
 import {Link} from "react-router-dom";
+import {toast} from "react-toastify";
 import Store from "../../../../util/Store";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
@@ -22,13 +23,17 @@ import SegmentationMatrix from "./SegmentationMatrix";
 import SegmentationBoundaryMap from "./SegmentationBoundaryMap";
 import SegmentationSelectionPanel from "./SegmentationSelectionPanel";
 import SegmentationFlowsTable from "./SegmentationFlowsTable";
+import ExcludeDestinationDialog from "./ExcludeDestinationDialog";
 import {SEGMENTATION_FLOWS_FILTER_FIELDS} from "./SegmentationFlowsFilterFields";
+import SegmentationAddressesTable from "./SegmentationAddressesTable";
+import {SEGMENTATION_ADDRESSES_FILTER_FIELDS} from "./SegmentationAddressesFilterFields";
 import SegmentationLegend from "./SegmentationLegend";
 import {
   buildOverviewModel,
   cellId,
   crossingTitle,
   filterOverview,
+  hasAddresses,
   SHOW_OPTIONS
 } from "./SegmentationOverviewData";
 import {overviewColors} from "./SegmentationOverviewTheme";
@@ -37,6 +42,7 @@ const segmentationService = new SegmentationService();
 
 const VIEW_HEIGHT = 580;
 const FLOWS_PER_PAGE = 25;
+const ADDRESSES_PER_PAGE = 25;
 
 // On the whole screen, the view takes the height that the controls above it and the legend below it leave.
 const FULLSCREEN_CHROME = 170;
@@ -112,6 +118,12 @@ export default function SegmentationOverviewPage() {
   const [flowsOrderColumn, setFlowsOrderColumn] = useState("sessions");
   const [flowsOrderDirection, setFlowsOrderDirection] = useState("DESC");
   const [flowsPage, setFlowsPage] = useState(1);
+  const [excluding, setExcluding] = useState(null);
+
+  const [addressesFilters, setAddressesFilters] = useState({});
+  const [addressesOrderColumn, setAddressesOrderColumn] = useState("sessions_to");
+  const [addressesOrderDirection, setAddressesOrderDirection] = useState("DESC");
+  const [addressesPage, setAddressesPage] = useState(1);
 
   const view = valueIn(VIEWS, urlOptions.view, DEFAULT_VIEW);
   const show = valueIn(SHOW_OPTIONS, urlOptions.show, "all");
@@ -153,6 +165,18 @@ export default function SegmentationOverviewPage() {
           selectedCell.destination.id, flowsFilters, flowsOrderColumn, flowsOrderDirection, FLOWS_PER_PAGE,
           (flowsPage-1)*FLOWS_PER_PAGE, setData));
 
+  const selectedGroup = selected && selected.kind === "group" ? model.groupsById.get(selected.id) : null;
+  const addressesGroup = selectedGroup && hasAddresses(selectedGroup) ? selectedGroup : null;
+
+  const addressesKey = addressesGroup
+      ? JSON.stringify([requestKey, addressesGroup.id, addressesFilters, addressesOrderColumn, addressesOrderDirection,
+        addressesPage])
+      : null;
+  const addresses = useTopologyRequest(addressesKey, addressesKey !== null,
+      (setData) => segmentationService.findGroupAddresses(organizationId, tenantId, timeRange, addressesGroup.id,
+          addressesFilters, addressesOrderColumn, addressesOrderDirection, ADDRESSES_PER_PAGE,
+          (addressesPage-1)*ADDRESSES_PER_PAGE, setData));
+
   const select = (newSelection) => {
     const same = selection && newSelection && selection.kind === "cell" && newSelection.kind === "cell"
         && selection.source === newSelection.source && selection.destination === newSelection.destination;
@@ -162,12 +186,26 @@ export default function SegmentationOverviewPage() {
       setFlowsPage(1);
     }
 
+    const sameGroup = selection && newSelection && selection.kind === "group" && newSelection.kind === "group"
+        && selection.id === newSelection.id;
+
+    if (!sameGroup) {
+      setAddressesFilters({});
+      setAddressesPage(1);
+    }
+
     setSelection(newSelection);
   }
 
   const applyTimeRange = (newTimeRange) => {
     setFlowsPage(1);
+    setAddressesPage(1);
     setTimeRange(newTimeRange);
+  }
+
+  const applyAddressesFilters = (newFilters) => {
+    setAddressesPage(1);
+    setAddressesFilters(newFilters ? newFilters : {});
   }
 
   const applyFlowsFilters = (newFilters) => {
@@ -359,7 +397,57 @@ export default function SegmentationOverviewPage() {
                                             filters={flowsFilters}
                                             setFilters={applyFlowsFilters}
                                             colors={colors}
-                                            timeRange={timeRange} />
+                                            timeRange={timeRange}
+                                            onExclude={canManage ? setExcluding : null} />
+                  </div>
+                </div>
+              </div>
+            </div> : null}
+
+        {excluding ?
+            <ExcludeDestinationDialog organizationId={organizationId}
+                                      tenantId={tenantId}
+                                      flow={excluding}
+                                      onClose={() => setExcluding(null)}
+                                      onComplete={() => {
+                                        setExcluding(null);
+                                        toast.success("Destination excluded.");
+                                        refresh();
+                                      }} /> : null}
+
+        {addressesGroup ?
+            <div className="row mt-3">
+              <div className="col-md-12">
+                <div className="card">
+                  <div className="card-body">
+                    <CardTitleWithControls title={"Addresses: " + addressesGroup.name}
+                                           fixedAppliedTimeRange={timeRange} />
+
+                    <p className="text-muted">
+                      Addresses of the selected group that taps recorded traffic of in the time range.
+                    </p>
+
+                    <div className="mb-4">
+                      <Filters filters={addressesFilters}
+                               setFilters={applyAddressesFilters}
+                               fields={SEGMENTATION_ADDRESSES_FILTER_FIELDS}
+                               embedded={true}
+                               onMonitorsReady={() => {}} />
+                    </div>
+
+                    <SegmentationAddressesTable addresses={addresses}
+                                                tapsOf={model.tapsOf}
+                                                page={addressesPage}
+                                                setPage={setAddressesPage}
+                                                perPage={ADDRESSES_PER_PAGE}
+                                                orderColumn={addressesOrderColumn}
+                                                setOrderColumn={(c) => { setAddressesPage(1); setAddressesOrderColumn(c); }}
+                                                orderDirection={addressesOrderDirection}
+                                                setOrderDirection={(d) => { setAddressesPage(1); setAddressesOrderDirection(d); }}
+                                                filterFields={SEGMENTATION_ADDRESSES_FILTER_FIELDS}
+                                                filters={addressesFilters}
+                                                setFilters={applyAddressesFilters}
+                                                timeRange={timeRange} />
                   </div>
                 </div>
               </div>

@@ -70,6 +70,9 @@ export const flowSessionsLink = (flow, timeRange) => {
   return sessionsLink(null, {...source, ...destination, ...serviceFilters(flow.l4_type, flow.port)}, timeRange, null);
 }
 
+export const addressSessionsLink = (address, side, timeRange) => sessionsLink(null, addressFilters(side, address),
+    timeRange, null);
+
 // What is left and right of the time a finding names, so that sessions that started just before it are found.
 const TARGET_WINDOW_MARGIN_MS = 5 * 60 * 1000;
 

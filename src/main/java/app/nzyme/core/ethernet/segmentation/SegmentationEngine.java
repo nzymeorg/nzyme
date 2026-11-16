@@ -40,6 +40,9 @@ public class SegmentationEngine {
     private static final Logger LOG = LogManager.getLogger(SegmentationEngine.class);
 
     private static final int CHUNK_MINUTES = 5;
+
+    // Stored with every flow that has an external side.
+    private static final int ASN_DETAIL_MAX_LENGTH = 255;
     private static final int RUN_BUDGET_SECONDS = 40;
 
     public static final int MAX_GROUPS_PER_CHUNK = 1_000_000;
@@ -84,6 +87,10 @@ public class SegmentationEngine {
             "CASE WHEN reversed THEN source_address_is_site_local ELSE destination_address_is_site_local END AS dst_local, " +
             "CASE WHEN reversed THEN destination_address_geo_asn_number ELSE source_address_geo_asn_number END AS src_asn, " +
             "CASE WHEN reversed THEN source_address_geo_asn_number ELSE destination_address_geo_asn_number END AS dst_asn, " +
+            "CASE WHEN reversed THEN destination_address_geo_asn_name ELSE source_address_geo_asn_name END AS src_asn_name, " +
+            "CASE WHEN reversed THEN source_address_geo_asn_name ELSE destination_address_geo_asn_name END AS dst_asn_name, " +
+            "CASE WHEN reversed THEN destination_address_geo_asn_domain ELSE source_address_geo_asn_domain END AS src_asn_domain, " +
+            "CASE WHEN reversed THEN source_address_geo_asn_domain ELSE destination_address_geo_asn_domain END AS dst_asn_domain, " +
             "CASE WHEN reversed THEN destination_address_geo_country_code ELSE source_address_geo_country_code END AS src_cc, " +
             "CASE WHEN reversed THEN source_address_geo_country_code ELSE destination_address_geo_country_code END AS dst_cc, " +
             "CASE WHEN reversed THEN source_port ELSE destination_port END AS port, " +
@@ -98,7 +105,11 @@ public class SegmentationEngine {
     private static final String GROUPED_COLUMNS = "tap_uuid, l4_type, host(src) AS src, host(dst) AS dst, " +
             "COALESCE(src_local, false) AS src_local, COALESCE(dst_local, false) AS dst_local, src_asn, src_cc, " +
             "dst_asn, dst_cc, port, tags::text AS tags, outcome, broadcast, COUNT(*) AS sessions, " +
-            "MAX(most_recent_segment_time) AS last_seen";
+            "MAX(most_recent_segment_time) AS last_seen, " +
+            "LEFT(MAX(src_asn_name), " + ASN_DETAIL_MAX_LENGTH + ") AS src_asn_name, " +
+            "LEFT(MAX(src_asn_domain), " + ASN_DETAIL_MAX_LENGTH + ") AS src_asn_domain, " +
+            "LEFT(MAX(dst_asn_name), " + ASN_DETAIL_MAX_LENGTH + ") AS dst_asn_name, " +
+            "LEFT(MAX(dst_asn_domain), " + ASN_DETAIL_MAX_LENGTH + ") AS dst_asn_domain";
 
     private final NzymeNode nzyme;
     private final Segmentation segmentation;
@@ -143,8 +154,12 @@ public class SegmentationEngine {
                          boolean sourceLocal,
                          boolean destinationLocal,
                          @Nullable Long sourceAsn,
+                         @Nullable String sourceAsnName,
+                         @Nullable String sourceAsnDomain,
                          @Nullable String sourceCountryCode,
                          @Nullable Long destinationAsn,
+                         @Nullable String destinationAsnName,
+                         @Nullable String destinationAsnDomain,
                          @Nullable String destinationCountryCode,
                          int port,
                          @Nullable String tags,
@@ -173,11 +188,19 @@ public class SegmentationEngine {
         final MembershipResolver resolver;
         final List<PolicyMatcher> matchers;
         final String policiesVersion;
+        final Map<Long, List<Exclusion>> exclusions;
+        final String exclusionsVersion;
 
-        Definitions(MembershipResolver resolver, List<PolicyMatcher> matchers, String policiesVersion) {
+        Definitions(MembershipResolver resolver,
+                    List<PolicyMatcher> matchers,
+                    String policiesVersion,
+                    Map<Long, List<Exclusion>> exclusions,
+                    String exclusionsVersion) {
             this.resolver = resolver;
             this.matchers = matchers;
             this.policiesVersion = policiesVersion;
+            this.exclusions = exclusions;
+            this.exclusionsVersion = exclusionsVersion;
         }
     }
 
@@ -198,6 +221,10 @@ public class SegmentationEngine {
 
         DateTime started = DateTime.now();
         DateTime deadline = started.plusSeconds(RUN_BUDGET_SECONDS);
+
+        // Fixed for the run. Following the clock, every chunk would find a few more milliseconds to read and the
+        // run would never end before its budget.
+        DateTime until = started.minusSeconds(config.settleSeconds());
         long sessions = 0;
         long flows = 0;
         long findings = 0;
@@ -212,7 +239,7 @@ public class SegmentationEngine {
                 Result result;
                 try (Timer.Context ignoredChunk = chunkTimer.time()) {
                     result = nzyme.getDatabase().inTransaction(handle ->
-                            processChunk(handle, organizationId, tenantId, taps, config, definitions));
+                            processChunk(handle, organizationId, tenantId, taps, config, until, definitions));
                 }
 
                 raise(result.alerts(), organizationId, tenantId);
@@ -271,8 +298,9 @@ public class SegmentationEngine {
     }
 
     private Definitions definitions(Handle handle, UUID organizationId, UUID tenantId) {
-        // Read before the policies, so that a change in between is noticed and not missed.
+        // Read before the policies and exclusions, so that a change in between is noticed and not missed.
         String policiesVersion = policiesVersion(handle, organizationId, tenantId);
+        String exclusionsVersion = Exclusions.version(handle, organizationId, tenantId);
         List<Policy> policies = segmentation.policies().findAll(handle, organizationId, tenantId);
         MembershipResolver resolver = segmentation.buildResolver(handle, organizationId, tenantId, policies, null);
 
@@ -289,7 +317,8 @@ public class SegmentationEngine {
             }
         }
 
-        return new Definitions(resolver, matchers, policiesVersion);
+        return new Definitions(resolver, matchers, policiesVersion,
+                segmentation.exclusions().findAllPerSegment(handle, organizationId, tenantId), exclusionsVersion);
     }
 
     private static String policiesVersion(Handle handle, UUID organizationId, UUID tenantId) {
@@ -314,6 +343,7 @@ public class SegmentationEngine {
                                 UUID tenantId,
                                 List<UUID> taps,
                                 SegmentationConfiguration config,
+                                DateTime until,
                                 Definitions definitions) {
         if (!lock(handle, organizationId, tenantId)) {
             return Result.none();
@@ -321,14 +351,14 @@ public class SegmentationEngine {
 
         EngineState state = segmentation.state(handle, organizationId, tenantId, true);
 
-        // Segments or policies changed since this run loaded them, here or on another node. The run ends, and the next
-        // one applies the change before it reads on.
+        // Segments, policies or exclusions changed since this run loaded them, here or on another node. The run ends,
+        // and the next one applies the change before it reads on.
         if (state.restampPending()
-                || !definitions.policiesVersion.equals(policiesVersion(handle, organizationId, tenantId))) {
+                || !definitions.policiesVersion.equals(policiesVersion(handle, organizationId, tenantId))
+                || !definitions.exclusionsVersion.equals(Exclusions.version(handle, organizationId, tenantId))) {
             return Result.none();
         }
 
-        DateTime until = DateTime.now().minusSeconds(config.settleSeconds());
         DateTime from = state.watermark() == null ? until.minusHours(config.initialBackfillHours()) : state.watermark();
         if (!from.isBefore(until)) {
             if (state.watermark() == null) {
@@ -400,6 +430,12 @@ public class SegmentationEngine {
         }
 
         EngineState state = segmentation.state(handle, organizationId, tenantId, true);
+
+        // The next run carries over with the exclusions as they are now.
+        if (!definitions.exclusionsVersion.equals(Exclusions.version(handle, organizationId, tenantId))) {
+            return Result.none();
+        }
+
         DateTime bucket = Flows.bucketOf(DateTime.now()).minusHours(1);
 
         Result result = Result.none();
@@ -450,8 +486,12 @@ public class SegmentationEngine {
                 rs.getBoolean("src_local"),
                 rs.getBoolean("dst_local"),
                 sourceAsnOrNull,
+                rs.getString("src_asn_name"),
+                rs.getString("src_asn_domain"),
                 rs.getString("src_cc"),
                 destinationAsnOrNull,
+                rs.getString("dst_asn_name"),
+                rs.getString("dst_asn_domain"),
                 rs.getString("dst_cc"),
                 rs.getInt("port"),
                 rs.getString("tags"),
@@ -497,6 +537,7 @@ public class SegmentationEngine {
         Map<String, InetAddress> addresses = Maps.newHashMap();
         List<Flow> flows = Lists.newArrayListWithCapacity(groups.size());
         ViolationCollector violations = new ViolationCollector();
+        Map<Long, Map<UUID, Long>> excluded = Maps.newHashMap();
         long sessions = 0;
 
         for (Group group : groups) {
@@ -514,11 +555,13 @@ public class SegmentationEngine {
             }
 
             Endpoint source = definitions.resolver.resolve(group.tap(), sourceAddress, group.sourceLocal(),
-                    group.sourceAsn(), group.sourceCountryCode());
+                    group.sourceAsn(), group.sourceCountryCode())
+                    .withAsnDetails(group.sourceAsnName(), group.sourceAsnDomain());
             Endpoint destination = group.broadcast()
                     ? Endpoint.broadcast(destinationAddress)
                     : definitions.resolver.resolve(group.tap(), destinationAddress, group.destinationLocal(),
-                            group.destinationAsn(), group.destinationCountryCode());
+                            group.destinationAsn(), group.destinationCountryCode())
+                    .withAsnDetails(group.destinationAsnName(), group.destinationAsnDomain());
 
             if (!source.internal() && !destination.internal()) {
                 continue;
@@ -528,6 +571,15 @@ public class SegmentationEngine {
             if (outcome == Outcome.NO_REPLY && unreachable.contains(
                     unreachableKey(group.source(), group.destination(), group.l4Type(), group.port()))) {
                 outcome = Outcome.REJECTED;
+            }
+
+            if (outcome.findingClass() == FindingClass.ATTEMPTED) {
+                Exclusion exclusion = Exclusions.excluding(definitions.exclusions, source, destination);
+                if (exclusion != null) {
+                    excluded.computeIfAbsent(exclusion.id(), k -> Maps.newHashMap())
+                            .merge(group.tap(), group.sessions(), Long::sum);
+                    continue;
+                }
             }
 
             String protocol = AssetProfileBatch.protocolOf(DnsTunnelJson.parseStrings(group.tags()));
@@ -560,6 +612,11 @@ public class SegmentationEngine {
 
         List<Flow> folded = fold(flows);
         segmentation.flows().write(handle, organizationId, tenantId, folded);
+
+        // Like in the crossings, the tap that saw the most counts where several taps recorded an attempt.
+        Map<Long, Long> matches = Maps.newHashMap();
+        excluded.forEach((exclusion, perTap) -> matches.put(exclusion, Collections.max(perTap.values())));
+        segmentation.exclusions().recordMatches(handle, matches);
 
         List<Findings.Violation> found = violations.violations(MAX_FINDINGS_PER_POLICY_PER_CHUNK);
         if (violations.dropped() > 0) {
@@ -947,29 +1004,15 @@ public class SegmentationEngine {
                 restampNetworks(handle, organizationId, tenantId, resolver, "source");
                 restampNetworks(handle, organizationId, tenantId, resolver, "destination");
 
-                handle.createUpdate("DELETE FROM segmentation_crossings WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id")
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .execute();
+                // Flows that now belong to a segment may be attempts that the segment excludes.
+                segmentation.exclusions().findAllPerSegment(handle, organizationId, tenantId).forEach((segment, exclusions) -> {
+                    for (Exclusion exclusion : exclusions) {
+                        segmentation.flows().deleteUnanswered(handle, organizationId, tenantId, segment,
+                                exclusion.destination());
+                    }
+                });
 
-                handle.createUpdate("INSERT INTO segmentation_crossings(organization_id, tenant_id, bucket, " +
-                                "tap_uuid, source_group, destination_group, l4_type, destination_port, protocol, " +
-                                "outcome, sessions, continued, first_seen, last_seen) " +
-                                "SELECT organization_id, tenant_id, bucket, tap_uuid, " +
-                                "CASE WHEN source_segment_id IS NOT NULL THEN source_segment_id " +
-                                "WHEN source_internal THEN 0 ELSE -1 END, " +
-                                "CASE WHEN destination_key LIKE '" + Flows.BROADCAST_KEYS + "' THEN " +
-                                Flow.GROUP_BROADCAST + " " +
-                                "WHEN destination_segment_id IS NOT NULL THEN destination_segment_id " +
-                                "WHEN destination_internal THEN 0 ELSE -1 END, " +
-                                "l4_type, destination_port, protocol, outcome, SUM(sessions), SUM(continued), " +
-                                "MIN(first_seen), MAX(last_seen) FROM segmentation_flows " +
-                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                "GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10")
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .execute();
+                segmentation.flows().rebuildCrossings(handle, organizationId, tenantId);
 
                 handle.createUpdate("UPDATE segmentation_engine_state SET restamp_completed_at = NOW(), " +
                                 "updated_at = NOW() WHERE organization_id = :organization_id AND tenant_id = :tenant_id")

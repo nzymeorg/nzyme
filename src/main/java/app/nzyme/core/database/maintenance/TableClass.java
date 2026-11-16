@@ -47,7 +47,7 @@ public enum TableClass {
                     "beacons", "beacon_sources", "beacon_exclusions", "recon_scan_targets", "recon_scans",
                     "detection_alerts", "detection_alert_attributes", "detection_alert_timeline", "certificates",
                     "spoofing_dhcp_detection_state", "dashboard_displays", "segmentation_findings",
-                    "segmentation_engine_state")
+                    "segmentation_engine_state", "segmentation_exclusions")
     );
 
     private final String key;

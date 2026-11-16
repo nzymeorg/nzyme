@@ -38,6 +38,16 @@ public abstract class FlowSideResponse {
     @JsonProperty("asn")
     public abstract Long asn();
 
+    @Schema(description = "Name of the organization that runs the autonomous system. Not set for flows that were stored before it was recorded.")
+    @Nullable
+    @JsonProperty("asn_name")
+    public abstract String asnName();
+
+    @Schema(description = "Domain of the organization that runs the autonomous system.")
+    @Nullable
+    @JsonProperty("asn_domain")
+    public abstract String asnDomain();
+
     @Nullable
     @JsonProperty("country_code")
     public abstract String countryCode();
@@ -53,6 +63,8 @@ public abstract class FlowSideResponse {
                                           UUID segmentUuid,
                                           String segmentName,
                                           Long asn,
+                                          String asnName,
+                                          String asnDomain,
                                           String countryCode,
                                           List<String> tags) {
         return builder()
@@ -63,6 +75,8 @@ public abstract class FlowSideResponse {
                 .segmentUuid(segmentUuid)
                 .segmentName(segmentName)
                 .asn(asn)
+                .asnName(asnName)
+                .asnDomain(asnDomain)
                 .countryCode(countryCode)
                 .tags(tags)
                 .build();
@@ -81,6 +95,8 @@ public abstract class FlowSideResponse {
         public abstract Builder segmentUuid(UUID segmentUuid);
         public abstract Builder segmentName(String segmentName);
         public abstract Builder asn(Long asn);
+        public abstract Builder asnName(String asnName);
+        public abstract Builder asnDomain(String asnDomain);
         public abstract Builder countryCode(String countryCode);
         public abstract Builder tags(List<String> tags);
 

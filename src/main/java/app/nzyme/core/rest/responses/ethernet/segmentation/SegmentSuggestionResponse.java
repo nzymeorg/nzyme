@@ -27,7 +27,9 @@ public abstract class SegmentSuggestionResponse {
     @JsonProperty("description")
     public abstract String description();
 
-    @Schema(description = "Number of addresses of the network that were seen. Only set for observed networks.")
+    @Schema(description = "Number of addresses of the network that are in no segment and opened a session or answered one in the "
+            + "last 7 days, as recorded by the taps the caller has access to. Not set for external networks, "
+            + "whose addresses are not stored one by one, and for a caller without access to a tap.")
     @Nullable
     @JsonProperty("hosts")
     public abstract Long hosts();
