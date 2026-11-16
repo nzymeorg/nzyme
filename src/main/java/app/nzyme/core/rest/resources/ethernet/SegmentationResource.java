@@ -346,9 +346,8 @@ public class SegmentationResource extends TapDataHandlingResource {
     @GET
     @Path("/segments/suggestions")
     @Operation(operationId = "findSegmentSuggestions", summary = "List networks that could become segments",
-            description = "Returns network context entries that are no segment yet, the networks trusted DHCP servers "
-                    + "hand out addresses for, and the networks of addresses that were seen talking and are in no "
-                    + "segment.")
+            description = "Returns the networks trusted DHCP servers hand out addresses for and the networks of "
+                    + "addresses that were seen talking and are in no segment.")
     @ApiResponse(responseCode = "200", description = "Suggestions found.",
             content = @Content(schema = @Schema(implementation = SegmentSuggestionsListResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -364,12 +363,12 @@ public class SegmentationResource extends TapDataHandlingResource {
 
         List<SegmentSuggestionResponse> suggestions = Lists.newArrayList();
         for (Segments.Suggestion s : found.suggestions()) {
-            suggestions.add(SegmentSuggestionResponse.create(s.source().name(), s.kind().name(), s.network(),
-                    s.name(), s.description(), s.hosts(), s.dhcpServer()));
+            suggestions.add(SegmentSuggestionResponse.create(s.source().name(), s.network(), s.hosts(),
+                    s.dhcpServer()));
         }
 
         return Response.ok(SegmentSuggestionsListResponse.create(suggestions, Segments.SUGGESTION_LIMIT,
-                found.limited())).build();
+                found.limited(), Segments.SUGGESTION_LOOKBACK_DAYS)).build();
     }
 
     @GET
@@ -435,27 +434,6 @@ public class SegmentationResource extends TapDataHandlingResource {
         } catch (IllegalArgumentException e) {
             return badRequest(message(e, "The kind must be INTERNAL or EXTERNAL."));
         }
-    }
-
-    @POST
-    @Path("/organization/{organization_id}/tenant/{tenant_id}/segments/import/context")
-    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
-    @Operation(operationId = "importSegmentsFromNetworkContext", summary = "Create segments from network context",
-            description = "Creates a segment or external network for every network context entry of the tenant "
-                    + "whose network is not part of a segment yet. Name, description and notes are taken over. "
-                    + "Returns the names of the segments that were created.")
-    @ApiResponse(responseCode = "200", description = "Import done. The list is empty if there was nothing to import.",
-            content = @Content(schema = @Schema(implementation = SegmentsImportedResponse.class)))
-    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
-    public Response importNetworkContext(@Parameter(hidden = true) @Context SecurityContext sc,
-                                         @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
-                                         @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
-            return notFound();
-        }
-
-        return Response.ok(SegmentsImportedResponse.create(
-                segmentation().segments().importNetworkContext(organizationId, tenantId))).build();
     }
 
     @PUT

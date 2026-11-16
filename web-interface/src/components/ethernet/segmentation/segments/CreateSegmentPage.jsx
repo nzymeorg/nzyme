@@ -10,18 +10,10 @@ import SegmentForm from "./SegmentForm";
 const segmentationService = new SegmentationService();
 
 const prefillFromQuery = (query) => {
-  const values = {kind: query.get("kind") === "EXTERNAL" ? "EXTERNAL" : "INTERNAL"};
+  const values = {kind: "INTERNAL"};
 
   if (query.get("network")) {
     values.members = [{type: "CIDR", value: query.get("network")}];
-  }
-
-  if (query.get("name")) {
-    values.name = query.get("name").substring(0, 12);
-  }
-
-  if (query.get("description")) {
-    values.description = query.get("description").substring(0, 32);
   }
 
   return values;

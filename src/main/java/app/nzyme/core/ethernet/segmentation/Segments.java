@@ -1,7 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntry;
-import app.nzyme.core.context.db.NetworkContextEntry;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelJson;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
@@ -39,7 +38,7 @@ public class Segments {
     public static final int DESCRIPTION_MAX_LENGTH = 32;
     public static final int MAX_MEMBERS = 256;
 
-    private static final int SUGGESTION_LOOKBACK_DAYS = 7;
+    public static final int SUGGESTION_LOOKBACK_DAYS = 7;
     public static final int SUGGESTION_LIMIT = 50;
 
     private static final int BULK_DELETE_CHUNK = 5000;
@@ -48,16 +47,12 @@ public class Segments {
     private static final String OBSERVED_PREFIX = "CASE WHEN family(x) = 4 THEN 24 ELSE 64 END";
 
     public enum SuggestionSource {
-        NETWORK_CONTEXT,
         DHCP,
         OBSERVED
     }
 
     public record Suggestion(SuggestionSource source,
-                             SegmentKind kind,
                              String network,
-                             @Nullable String name,
-                             @Nullable String description,
                              @Nullable Long hosts,
                              @Nullable String dhcpServer) { }
 
@@ -380,28 +375,6 @@ public class Segments {
         boolean[] limited = new boolean[]{false};
 
         nzyme.getDatabase().useHandle(handle -> {
-            List<NetworkContextEntry> contexts = nzyme.getContextService()
-                    .findAllNetworkContext(organizationId, tenantId, "%", SUGGESTION_LIMIT + 1, 0);
-            if (contexts.size() > SUGGESTION_LIMIT) {
-                limited[0] = true;
-                contexts = contexts.subList(0, SUGGESTION_LIMIT);
-            }
-
-            for (NetworkContextEntry context : contexts) {
-                CIDR network = context.network();
-                if (taken.add(network.toString())) {
-                    suggestions.add(new Suggestion(
-                            SuggestionSource.NETWORK_CONTEXT,
-                            network.address().isSiteLocalAddress() ? SegmentKind.INTERNAL : SegmentKind.EXTERNAL,
-                            network.toString(),
-                            context.name(),
-                            context.description(),
-                            null,
-                            null
-                    ));
-                }
-            }
-
             // Only servers that the DHCP spoofing detection trusts. The subnet mask a server hands out decides
             // which network is suggested, and that must not be up to a rogue server.
             List<DhcpSpoofingServerEntry> servers = nzyme.getEthernet().spoofing()
@@ -417,8 +390,7 @@ public class Segments {
             servers.stream().limit(SUGGESTION_LIMIT).forEach(server -> {
                 CIDR network = networkOf(server.address(), server.latest().subnetMask());
                 if (network != null && taken.add(network.toString())) {
-                    suggestions.add(new Suggestion(SuggestionSource.DHCP, SegmentKind.INTERNAL,
-                            network.toString(), null, null, null, server.address()));
+                    suggestions.add(new Suggestion(SuggestionSource.DHCP, network.toString(), null, server.address()));
                 }
             });
 
@@ -426,10 +398,7 @@ public class Segments {
                 return;
             }
 
-            // What was found so far is only known by its definition. Addresses of external networks are not stored
-            // one by one, so there is nothing to count for them.
             String suggested = suggestions.stream()
-                    .filter(suggestion -> suggestion.kind() == SegmentKind.INTERNAL)
                     .map(Suggestion::network)
                     .collect(Collectors.joining(","));
 
@@ -482,16 +451,14 @@ public class Segments {
                             return true;
                         }
 
-                        observed.add(new Suggestion(SuggestionSource.OBSERVED, SegmentKind.INTERNAL,
-                                CIDR.parse(rs.getString("network")).toString(), null, null, rs.getLong("hosts"), null));
+                        observed.add(new Suggestion(SuggestionSource.OBSERVED,
+                                CIDR.parse(rs.getString("network")).toString(), rs.getLong("hosts"), null));
                         return true;
                     })
                     .list();
 
-            suggestions.replaceAll(suggestion -> suggestion.kind() != SegmentKind.INTERNAL ? suggestion
-                    : new Suggestion(suggestion.source(), suggestion.kind(), suggestion.network(), suggestion.name(),
-                    suggestion.description(), hostsOfSuggested.getOrDefault(suggestion.network(), 0L),
-                    suggestion.dhcpServer()));
+            suggestions.replaceAll(suggestion -> new Suggestion(suggestion.source(), suggestion.network(),
+                    hostsOfSuggested.getOrDefault(suggestion.network(), 0L), suggestion.dhcpServer()));
 
             for (Suggestion suggestion : observed) {
                 if (taken.add(suggestion.network())) {
@@ -501,70 +468,6 @@ public class Segments {
         });
 
         return new Suggestions(suggestions, limited[0]);
-    }
-
-    public List<String> importNetworkContext(UUID organizationId, UUID tenantId) {
-        List<NetworkContextEntry> networks = nzyme.getContextService()
-                .findAllNetworkContext(organizationId, tenantId, "%", Integer.MAX_VALUE, 0);
-
-        Set<String> names = Sets.newHashSet();
-        Set<CIDR> taken = Sets.newHashSet();
-        for (Segment segment : findAll(organizationId, tenantId)) {
-            names.add(segment.name().toLowerCase());
-            for (Segment.Member member : segment.members()) {
-                if (member.network() != null) {
-                    taken.add(member.network());
-                }
-            }
-        }
-
-        List<String> created = Lists.newArrayList();
-        for (NetworkContextEntry network : networks) {
-            if (network.network().prefix() == 0 || !taken.add(network.network())) {
-                continue;
-            }
-
-            String name = uniqueName(Strings.isNullOrEmpty(network.name())
-                    ? defaultName(network.network()) : network.name().trim(), names);
-
-            create(
-                    organizationId,
-                    tenantId,
-                    network.network().address().isSiteLocalAddress() ? SegmentKind.INTERNAL : SegmentKind.EXTERNAL,
-                    name,
-                    network.description(),
-                    network.notes(),
-                    null,
-                    Lists.newArrayList(Segment.Member.ofNetwork(network.network()))
-            );
-
-            created.add(name);
-        }
-
-        return created;
-    }
-
-    static String defaultName(CIDR network) {
-        String name = InetAddresses.toAddrString(network.address());
-        while (name.endsWith(".0")) {
-            name = name.substring(0, name.length() - 2);
-        }
-
-        return name;
-    }
-
-    static String uniqueName(String wanted, Set<String> taken) {
-        String name = wanted.length() > NAME_MAX_LENGTH ? wanted.substring(0, NAME_MAX_LENGTH) : wanted;
-
-        int n = 2;
-        while (!taken.add(name.toLowerCase())) {
-            String suffix = "-" + n++;
-            String base = wanted.length() > NAME_MAX_LENGTH - suffix.length()
-                    ? wanted.substring(0, NAME_MAX_LENGTH - suffix.length()) : wanted;
-            name = base + suffix;
-        }
-
-        return name;
     }
 
     @Nullable

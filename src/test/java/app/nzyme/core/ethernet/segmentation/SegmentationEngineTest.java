@@ -226,25 +226,6 @@ public class SegmentationEngineTest {
     }
 
     @Test
-    public void importedNamesAreCutToTheLimitAndKeptUnique() {
-        java.util.Set<String> taken = com.google.common.collect.Sets.newHashSet("servers");
-
-        assertEquals(Segments.uniqueName("Guest", taken), "Guest");
-        assertEquals(Segments.uniqueName("Servers", taken), "Servers-2");
-        assertEquals(Segments.uniqueName("servers", taken), "servers-3");
-        assertEquals(Segments.uniqueName("192.168.100.25", taken), "192.168.100.");
-        assertEquals(Segments.uniqueName("192.168.100.25", taken), "192.168.10-2");
-        assertTrue(Segments.uniqueName("A name that is far too long", taken).length() <= Segments.NAME_MAX_LENGTH);
-    }
-
-    @Test
-    public void networksWithoutNameAreNamedByTheirPrefix() {
-        assertEquals(Segments.defaultName(CIDR.parse("10.1.0.0/16")), "10.1");
-        assertEquals(Segments.defaultName(CIDR.parse("192.168.100.0/24")), "192.168.100");
-        assertEquals(Segments.defaultName(CIDR.parse("192.168.0.128/25")), "192.168.0.128");
-    }
-
-    @Test
     public void networkOfDhcpServerAndSubnetMask() {
         assertEquals(Segments.networkOf("192.168.8.1", "255.255.255.0"), CIDR.parse("192.168.8.0/24"));
         assertEquals(Segments.networkOf("10.20.30.40", "255.255.252.0"), CIDR.parse("10.20.28.0/22"));

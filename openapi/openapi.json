@@ -24091,51 +24091,6 @@
         "tags" : [ "Segmentation" ]
       }
     },
-    "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/import/context" : {
-      "post" : {
-        "description" : "Creates a segment or external network for every network context entry of the tenant whose network is not part of a segment yet. Name, description and notes are taken over. Returns the names of the segments that were created.",
-        "operationId" : "importSegmentsFromNetworkContext",
-        "parameters" : [ {
-          "description" : "Organization UUID.",
-          "in" : "path",
-          "name" : "organization_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "description" : "Tenant UUID.",
-          "in" : "path",
-          "name" : "tenant_id",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/SegmentsImportedResponse"
-                }
-              }
-            },
-            "description" : "Import done. The list is empty if there was nothing to import."
-          },
-          "404" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "Organization or tenant not found, or not accessible by the calling user."
-          }
-        },
-        "summary" : "Create segments from network context",
-        "tags" : [ "Segmentation" ]
-      }
-    },
     "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/segments/many/delete" : {
       "put" : {
         "description" : "Deletes every segment or external network in the list that belongs to the tenant. One that a policy refers to is left alone and returned as skipped. Unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the ethernet_monitoring_manage feature permission.",
@@ -24819,7 +24774,7 @@
     },
     "/api/ethernet/segmentation/segments/suggestions" : {
       "get" : {
-        "description" : "Returns network context entries that are no segment yet, the networks trusted DHCP servers hand out addresses for, and the networks of addresses that were seen talking and are in no segment.",
+        "description" : "Returns the networks trusted DHCP servers hand out addresses for and the networks of addresses that were seen talking and are in no segment.",
         "operationId" : "findSegmentSuggestions",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -53310,9 +53265,6 @@
       "SegmentSuggestionResponse" : {
         "type" : "object",
         "properties" : {
-          "description" : {
-            "type" : "string"
-          },
           "dhcp_server" : {
             "type" : "string",
             "description" : "Address of the trusted DHCP server that hands out addresses for the network. Only set for suggestions of the source DHCP."
@@ -53320,13 +53272,7 @@
           "hosts" : {
             "type" : "integer",
             "format" : "int64",
-            "description" : "Number of addresses of the network that are in no segment and opened a session or answered one in the last 7 days, as recorded by the taps the caller has access to. Not set for external networks, whose addresses are not stored one by one, and for a caller without access to a tap."
-          },
-          "kind" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
+            "description" : "Number of addresses of the network that are in no segment and opened a session or answered one in the days the suggestions look back, as recorded by the taps the caller has access to. Not set for a caller without access to a tap."
           },
           "network" : {
             "type" : "string",
@@ -53334,7 +53280,7 @@
           },
           "source" : {
             "type" : "string",
-            "description" : "Where the suggestion comes from: NETWORK_CONTEXT, DHCP or OBSERVED."
+            "description" : "Where the suggestion comes from: DHCP or OBSERVED."
           }
         }
       },
@@ -53344,11 +53290,16 @@
           "limit_per_source" : {
             "type" : "integer",
             "format" : "int32",
-            "description" : "At most this many suggestions are returned per source: network context, DHCP and observed traffic."
+            "description" : "At most this many suggestions are returned per source: DHCP and observed traffic."
           },
           "limited" : {
             "type" : "boolean",
             "description" : "At least one source had more to suggest than limit_per_source."
+          },
+          "lookback_days" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many days of recorded traffic the observed networks and the host counts are from."
           },
           "suggestions" : {
             "type" : "array",
@@ -53520,19 +53471,6 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
-          }
-        }
-      },
-      "SegmentsImportedResponse" : {
-        "type" : "object",
-        "properties" : {
-          "created" : {
-            "type" : "array",
-            "description" : "Names of the segments that were created.",
-            "items" : {
-              "type" : "string",
-              "description" : "Names of the segments that were created."
-            }
           }
         }
       },

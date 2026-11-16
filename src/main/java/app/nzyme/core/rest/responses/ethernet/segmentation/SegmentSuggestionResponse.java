@@ -8,28 +8,17 @@ import jakarta.annotation.Nullable;
 @AutoValue
 public abstract class SegmentSuggestionResponse {
 
-    @Schema(description = "Where the suggestion comes from: NETWORK_CONTEXT, DHCP or OBSERVED.")
+    @Schema(description = "Where the suggestion comes from: DHCP or OBSERVED.")
     @JsonProperty("source")
     public abstract String source();
-
-    @JsonProperty("kind")
-    public abstract String kind();
 
     @Schema(description = "Network in CIDR notation.")
     @JsonProperty("network")
     public abstract String network();
 
-    @Nullable
-    @JsonProperty("name")
-    public abstract String name();
-
-    @Nullable
-    @JsonProperty("description")
-    public abstract String description();
-
     @Schema(description = "Number of addresses of the network that are in no segment and opened a session or answered one in the "
-            + "last 7 days, as recorded by the taps the caller has access to. Not set for external networks, "
-            + "whose addresses are not stored one by one, and for a caller without access to a tap.")
+            + "days the suggestions look back, as recorded by the taps the caller has access to. Not set for a caller without access "
+            + "to a tap.")
     @Nullable
     @JsonProperty("hosts")
     public abstract Long hosts();
@@ -41,18 +30,12 @@ public abstract class SegmentSuggestionResponse {
     public abstract String dhcpServer();
 
     public static SegmentSuggestionResponse create(String source,
-                                                   String kind,
                                                    String network,
-                                                   String name,
-                                                   String description,
                                                    Long hosts,
                                                    String dhcpServer) {
         return builder()
                 .source(source)
-                .kind(kind)
                 .network(network)
-                .name(name)
-                .description(description)
                 .hosts(hosts)
                 .dhcpServer(dhcpServer)
                 .build();
@@ -65,10 +48,7 @@ public abstract class SegmentSuggestionResponse {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder source(String source);
-        public abstract Builder kind(String kind);
         public abstract Builder network(String network);
-        public abstract Builder name(String name);
-        public abstract Builder description(String description);
         public abstract Builder hosts(Long hosts);
         public abstract Builder dhcpServer(String dhcpServer);
 
