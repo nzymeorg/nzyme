@@ -70,6 +70,9 @@ export const flowSessionsLink = (flow, timeRange) => {
   return sessionsLink(null, {...source, ...destination, ...serviceFilters(flow.l4_type, flow.port)}, timeRange, null);
 }
 
+export const networkSessionsLink = (network, timeRange) => sessionsLink(null,
+    {address: [filter("address", "in_cidr", network)]}, timeRange, null);
+
 export const addressSessionsLink = (address, side, timeRange) => sessionsLink(null, addressFilters(side, address),
     timeRange, null);
 

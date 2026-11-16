@@ -52,7 +52,7 @@ export default class SegmentationService {
   findSegmentSuggestions(organizationId, tenantId, setSuggestions) {
     RESTClient.get("/ethernet/segmentation/segments/suggestions", tenant(organizationId, tenantId),
       (response) => setSuggestions(response.data.suggestions,
-        response.data.limited ? response.data.limit_per_source : null));
+        response.data.limited ? response.data.limit_per_source : null, response.data.lookback_days));
   }
 
   findSegment(uuid, organizationId, tenantId, setSegment, onError = undefined) {
@@ -67,11 +67,6 @@ export default class SegmentationService {
 
   updateSegment(uuid, organizationId, tenantId, segment, successCallback, errorCallback) {
     RESTClient.put(`${scoped(organizationId, tenantId)}/segments/show/${uuid}`, segment, successCallback, errorCallback);
-  }
-
-  importNetworkContext(organizationId, tenantId, successCallback, errorCallback) {
-    RESTClient.post(`${scoped(organizationId, tenantId)}/segments/import/context`, {},
-      (response) => successCallback(response.data.created), errorCallback);
   }
 
   deleteSegment(uuid, organizationId, tenantId, successCallback, errorCallback) {

@@ -11,8 +11,8 @@ public abstract class SegmentSuggestionsListResponse {
     @JsonProperty("suggestions")
     public abstract List<SegmentSuggestionResponse> suggestions();
 
-    @Schema(description = "At most this many suggestions are returned per source: network context, DHCP and "
-            + "observed traffic.")
+    @Schema(description = "At most this many suggestions are returned per source: DHCP and observed "
+            + "traffic.")
     @JsonProperty("limit_per_source")
     public abstract int limitPerSource();
 
@@ -20,13 +20,19 @@ public abstract class SegmentSuggestionsListResponse {
     @JsonProperty("limited")
     public abstract boolean limited();
 
+    @Schema(description = "How many days of recorded traffic the observed networks and the host counts are from.")
+    @JsonProperty("lookback_days")
+    public abstract int lookbackDays();
+
     public static SegmentSuggestionsListResponse create(List<SegmentSuggestionResponse> suggestions,
                                                         int limitPerSource,
-                                                        boolean limited) {
+                                                        boolean limited,
+                                                        int lookbackDays) {
         return builder()
                 .suggestions(suggestions)
                 .limitPerSource(limitPerSource)
                 .limited(limited)
+                .lookbackDays(lookbackDays)
                 .build();
     }
 
@@ -39,6 +45,7 @@ public abstract class SegmentSuggestionsListResponse {
         public abstract Builder suggestions(List<SegmentSuggestionResponse> suggestions);
         public abstract Builder limitPerSource(int limitPerSource);
         public abstract Builder limited(boolean limited);
+        public abstract Builder lookbackDays(int lookbackDays);
 
         public abstract SegmentSuggestionsListResponse build();
     }

@@ -6,8 +6,10 @@ import Paginator from "../../../misc/Paginator";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import Filters from "../../../shared/filtering/Filters";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
+import PivotLink from "../../../shared/PivotLink";
+import {Relative} from "../../../shared/timerange/TimeRange";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {SEGMENT_KINDS} from "../SegmentationFormat";
+import {networkSessionsLink} from "../SegmentationPivots";
 import useSegmentationClientTable from "../useSegmentationClientTable";
 import {
   SEGMENT_SUGGESTIONS_FILTER_FIELDS,
@@ -17,21 +19,12 @@ import {
 
 const createLink = (suggestion) => {
   const params = new URLSearchParams();
-  params.set("kind", suggestion.kind);
   params.set("network", suggestion.network);
-
-  if (suggestion.name) {
-    params.set("name", suggestion.name);
-  }
-
-  if (suggestion.description) {
-    params.set("description", suggestion.description);
-  }
 
   return ApiRoutes.ETHERNET.SEGMENTATION.SEGMENTS.CREATE + "?" + params.toString();
 }
 
-export default function SegmentSuggestionsTable({suggestions, canEdit, limitPerSource = null}) {
+export default function SegmentSuggestionsTable({suggestions, canEdit, limitPerSource = null, lookbackDays = null}) {
 
   const table = useSegmentationClientTable(
     suggestions ? suggestions : [], SEGMENT_SUGGESTIONS_FILTER_FIELDS, SEGMENT_SUGGESTIONS_SORT_COLUMNS, null
@@ -52,6 +45,8 @@ export default function SegmentSuggestionsTable({suggestions, canEdit, limitPerS
                           orderDirection={table.orderDirection}
                           setOrderDirection={table.setOrderDirection} />
   }
+
+  const sessionsRange = lookbackDays ? Relative(lookbackDays * 24 * 60, "Last " + lookbackDays + " Days") : null;
 
   const filterIcon = (field, value) => {
     return <FilterValueIcon setFilters={table.setFilters}
@@ -81,18 +76,13 @@ export default function SegmentSuggestionsTable({suggestions, canEdit, limitPerS
           <tr>
             <th>Source {columnSorting("source")}</th>
             <th>Network {columnSorting("network")}</th>
-            <th>Type {columnSorting("kind")}</th>
-            <th>Suggested Name {columnSorting("name")}</th>
-            <th>Suggested Description {columnSorting("description")}</th>
             <th title="Number of addresses of the network that were seen">Hosts Seen {columnSorting("hosts")}</th>
-            {canEdit ? <th>&nbsp;</th> : null}
+            <th>&nbsp;</th>
           </tr>
           </thead>
           <tbody>
           {table.rows.map((s) => {
             const source = SUGGESTION_SOURCES[s.source];
-            const kind = SEGMENT_KINDS[s.kind];
-            const external = s.kind === "EXTERNAL";
 
             return (
               <tr key={s.source + "-" + s.network}>
@@ -102,17 +92,16 @@ export default function SegmentSuggestionsTable({suggestions, canEdit, limitPerS
                   {filterIcon("source", source ? source.title : s.source)}
                 </td>
                 <td><span className="machine-data">{s.network}</span></td>
-                <td>{kind ? kind.title : s.kind} {filterIcon("kind", s.kind)}</td>
-                <td>{s.name ? s.name : <span className="text-muted">None</span>}</td>
-                <td>{s.description ? s.description : <span className="text-muted">None</span>}</td>
                 <td>
                   {s.hosts === null || s.hosts === undefined ?
                     <span className="text-muted">n/a</span> : numeral(s.hosts).format("0,0")}
                 </td>
-                {canEdit ?
-                  <td className="text-end text-nowrap">
-                    <Link to={createLink(s)}>Create {external ? "External Network" : "Segment"}</Link>
-                  </td> : null}
+                <td className="text-end text-nowrap">
+                  {canEdit ? <Link to={createLink(s)} className="me-3">Create Segment</Link> : null}
+                  {sessionsRange ?
+                    <PivotLink to={networkSessionsLink(s.network, sessionsRange)} title="Sessions of this network"
+                               icon={true} /> : null}
+                </td>
               </tr>
             )
           })}

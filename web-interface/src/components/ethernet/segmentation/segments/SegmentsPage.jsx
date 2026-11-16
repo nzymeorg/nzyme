@@ -41,11 +41,11 @@ export default function SegmentsPage() {
   const [page, setPage] = useState(1);
   const [suggestions, setSuggestions] = useState(null);
   const [suggestionLimit, setSuggestionLimit] = useState(null);
+  const [suggestionLookbackDays, setSuggestionLookbackDays] = useState(null);
   const [status, setStatus] = useState(null);
   const [taps, setTaps] = useState(null);
   const [deleteError, setDeleteError] = useState(null);
   const [skipped, setSkipped] = useState(null);
-  const [importing, setImporting] = useState(false);
   const [revision, setRevision] = useState(new Date());
 
   const perPage = 25;
@@ -80,9 +80,10 @@ export default function SegmentsPage() {
 
   useEffect(() => {
     setSuggestions(null);
-    segmentationService.findSegmentSuggestions(organizationId, tenantId, (found, limitPerSource) => {
+    segmentationService.findSegmentSuggestions(organizationId, tenantId, (found, limitPerSource, lookbackDays) => {
       setSuggestions(found);
       setSuggestionLimit(limitPerSource);
+      setSuggestionLookbackDays(lookbackDays);
     });
     segmentationService.getStatus(organizationId, tenantId, setStatus);
   }, [organizationId, tenantId, revision]);
@@ -117,32 +118,6 @@ export default function SegmentsPage() {
     });
   }
 
-  const onImport = (e) => {
-    e.preventDefault();
-
-    if (!confirm("Create a segment or external network for every network that has context and is none yet? Name, " +
-        "description and notes are taken over.")) {
-      return;
-    }
-
-    setImporting(true);
-    segmentationService.importNetworkContext(organizationId, tenantId, (created) => {
-      setImporting(false);
-
-      if (!created || created.length === 0) {
-        toast.info("Nothing to import.");
-      } else {
-        toast.success(created.length === 1 ? "Created 1 segment from network context: " + created[0] + "."
-          : "Created " + created.length + " segments from network context.");
-      }
-
-      setRevision(new Date());
-    }, (error) => {
-      setImporting(false);
-      toast.error(apiErrorMessage(error, "Could not import network context."));
-    });
-  }
-
   const bulk = canEdit ? {
     organizationId: organizationId,
     tenantId: tenantId,
@@ -157,8 +132,6 @@ export default function SegmentsPage() {
       setRevision(new Date());
     }
   } : null;
-
-  const contextSuggestions = suggestions ? suggestions.filter((s) => s.source === "NETWORK_CONTEXT").length : 0;
 
   return (
     <React.Fragment>
@@ -267,19 +240,11 @@ export default function SegmentsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Networks that are no segment yet, from network context, trusted DHCP servers and observed traffic.
+                Networks that are no segment yet, from trusted DHCP servers and observed traffic.
               </p>
 
-              {canEdit && contextSuggestions > 0 ?
-                <p>
-                  <button className="btn btn-sm btn-primary" onClick={onImport} disabled={importing}
-                          title="Creates a segment or external network for every network that has context and is none yet">
-                    {importing ? <span><i className="fa-solid fa-circle-notch fa-spin"></i> Importing ...</span>
-                      : "Import all from network context"}
-                  </button>
-                </p> : null}
-
-              <SegmentSuggestionsTable suggestions={suggestions} limitPerSource={suggestionLimit} canEdit={canEdit} />
+              <SegmentSuggestionsTable suggestions={suggestions} limitPerSource={suggestionLimit}
+                                       lookbackDays={suggestionLookbackDays} canEdit={canEdit} />
             </div>
           </div>
         </div>
