@@ -219,7 +219,6 @@ public class DNS {
                 handle.createQuery("SELECT * FROM dns_log " +
                                 "WHERE dns_type = 'query' AND timestamp >= :tr_from AND timestamp <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() +
-                                "GROUP BY id HAVING 1=1 " + filterFragment.havingSql() +
                                 "ORDER BY timestamp DESC " +
                                 "LIMIT :limit OFFSET :offset")
                         .bindList("taps", taps)
