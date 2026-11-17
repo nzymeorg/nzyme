@@ -2,10 +2,13 @@ package app.nzyme.core.rest;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.db.AssetEntry;
+import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.context.ContextService;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.context.db.MacAddressTransparentContextEntry;
 import app.nzyme.core.context.db.NetworkContextEntry;
+import app.nzyme.core.ethernet.CIDR;
+import app.nzyme.core.ethernet.l4.db.L4AddressAttributes;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.tcp.TcpSessionState;
@@ -21,6 +24,7 @@ import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Optional;
@@ -91,31 +95,27 @@ public class RestHelpers {
             ));
         }
 
-        Optional<MacAddressContextEntry> context = nzyme.getContextService()
-                .findMacAddressContext(data.mac(), organizationId, tenantId);
-
-        // Get asset info if we have it.
-        UUID assetId;
-        Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(data.mac(), organizationId, tenantId);
-        if (asset.isPresent() && data.attributes() != null && data.attributes().isSiteLocal()) {
-            assetId = asset.get().uuid();
-        } else {
-            assetId = null;
-        }
+        L4AddressMacRoleResponse macRole = macRole(nzyme, data.mac(), InetAddress.ofLiteral(data.address()),
+                organizationId, tenantId);
 
         EthernetMacAddressResponse macResponse;
-        if (data.mac() != null) {
-            macResponse = EthernetMacAddressResponse.create(
-                    data.mac(),
-                    nzyme.getOuiService().lookup(data.mac()).orElse(null),
-                    assetId,
-                    asset.map(AssetEntry::isActive).orElse(null),
-                    macContextEntryToResponse(context)
-            );
-        } else {
-            // Try to pull asset from IP address when we don't have a MAC.
-
+        if (data.mac() == null) {
             macResponse = null;
+        } else if (macRole.withoutAsset()) {
+            macResponse = recordedMacResponse(nzyme, data.mac(), macRole);
+        } else {
+            Optional<MacAddressContextEntry> context = nzyme.getContextService()
+                    .findMacAddressContext(data.mac(), organizationId, tenantId);
+            Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(data.mac(), organizationId, tenantId);
+
+            macResponse = EthernetMacAddressResponse.builder()
+                    .address(data.mac())
+                    .oui(nzyme.getOuiService().lookup(data.mac()).orElse(null))
+                    .assetId(macIsDevice(macRole, data.attributes()) ? asset.map(AssetEntry::uuid).orElse(null) : null)
+                    .assetIsActive(asset.map(AssetEntry::isActive).orElse(null))
+                    .context(macContextEntryToResponse(context))
+                    .role(macRole)
+                    .build();
         }
 
         return L4AddressResponse.create(
@@ -129,6 +129,70 @@ public class RestHelpers {
                         data.geo() == null || data.geo().asnNumber() == null ? null : data.geo().asnNumber().longValue(),
                         organizationId, tenantId)
         );
+    }
+
+    // What the MAC address that traffic of an address was recorded with is to the address. Only private IPv4
+    // addresses are claimed by ARP and recorded for assets, so only there it is known if it is the device that has
+    // the address. If it did not claim the address, it usually is a router that forwarded the traffic. The MAC
+    // address of a public address usually is the gateway.
+    public static L4AddressMacRoleResponse macRole(NzymeNode nzyme,
+                                                   @Nullable String mac,
+                                                   InetAddress address,
+                                                   UUID organizationId,
+                                                   UUID tenantId) {
+        if (!AssetProfileBatch.isUsableMac(mac)) {
+            return L4AddressMacRoleResponse.UNKNOWN;
+        }
+
+        if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
+            return nzyme.getAssetsManager().claimedIpAddress(mac, address, organizationId, tenantId)
+                    ? L4AddressMacRoleResponse.DEVICE : L4AddressMacRoleResponse.UNCLAIMED;
+        }
+
+        return isPublic(address) ? L4AddressMacRoleResponse.PUBLIC : L4AddressMacRoleResponse.UNKNOWN;
+    }
+
+    private static final List<CIDR> SPECIAL_IPV4 = List.of(
+            CIDR.parse("0.0.0.0/8"), CIDR.parse("100.64.0.0/10"), CIDR.parse("192.0.0.0/24"),
+            CIDR.parse("192.0.2.0/24"), CIDR.parse("198.18.0.0/15"), CIDR.parse("198.51.100.0/24"),
+            CIDR.parse("203.0.113.0/24"), CIDR.parse("240.0.0.0/4")
+    );
+
+    private static final CIDR GLOBAL_IPV6 = CIDR.parse("2000::/3");
+    private static final CIDR DOCUMENTATION_IPV6 = CIDR.parse("2001:db8::/32");
+
+    private static boolean isPublic(InetAddress address) {
+        if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
+                || address.isSiteLocalAddress() || address.isMulticastAddress()) {
+            return false;
+        }
+
+        if (address instanceof Inet4Address) {
+            return SPECIAL_IPV4.stream().noneMatch(range -> range.contains(address));
+        }
+
+        return GLOBAL_IPV6.contains(address) && !DOCUMENTATION_IPV6.contains(address);
+    }
+
+    public static boolean macWithoutAsset(@Nullable L4AddressResponse address) {
+        return address != null && address.mac() != null && address.mac().role() != null
+                && address.mac().role().withoutAsset();
+    }
+
+    // Where the role is not known, the site-local attribute decides.
+    private static boolean macIsDevice(L4AddressMacRoleResponse macRole, @Nullable L4AddressAttributes attributes) {
+        return macRole == L4AddressMacRoleResponse.DEVICE
+                || (macRole == L4AddressMacRoleResponse.UNKNOWN && attributes != null && attributes.isSiteLocal());
+    }
+
+    public static EthernetMacAddressResponse recordedMacResponse(NzymeNode nzyme,
+                                                                String mac,
+                                                                L4AddressMacRoleResponse role) {
+        return EthernetMacAddressResponse.builder()
+                .address(mac)
+                .oui(nzyme.getOuiService().lookup(mac).orElse(null))
+                .role(role)
+                .build();
     }
 
     private static L4AddressContextResponse addressContext(NzymeNode nzyme,

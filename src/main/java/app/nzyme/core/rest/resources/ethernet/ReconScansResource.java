@@ -620,7 +620,7 @@ public class ReconScansResource extends TapDataHandlingResource {
                 scan.sourceAddress(),
                 addresses().addressResponse(scan.sourceAddress(), null, scan.sourceMac(), l4Type, organizationId, tenantId),
                 scan.sourceMac(),
-                addresses().macResponse(scan.sourceMac(), organizationId, tenantId),
+                addresses().macResponse(scan.sourceMac(), scan.sourceAddress(), organizationId, tenantId),
                 ReconDetector.sourceDescription(scan),
                 scan.targetAddress(),
                 addresses().addressResponse(scan.targetAddress(), null, null, l4Type, organizationId, tenantId),

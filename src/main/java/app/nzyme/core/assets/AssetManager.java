@@ -273,11 +273,39 @@ public class AssetManager {
         );
     }
 
+    // The TCP and UDP sources record the source MAC of a packet. A router is the source MAC of everything it
+    // forwards and is recorded with every address behind it, so an asset only counts as the device that has an
+    // address if it claimed the address by ARP.
+    public static final String IP_ADDRESS_CLAIM_SOURCE = "Arp";
+
+    // For a row of assets_ip_addresses: if the asset of the row claimed the address of the row.
+    public static String ipAddressClaimed(String alias) {
+        return "EXISTS (SELECT 1 FROM assets_ip_addresses AS claim WHERE claim.asset_id = " + alias + ".asset_id " +
+                "AND claim.address = " + alias + ".address AND claim.source = '" + IP_ADDRESS_CLAIM_SOURCE + "') ";
+    }
+
+    public boolean claimedIpAddress(String mac, InetAddress ip, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT EXISTS (SELECT 1 FROM assets_ip_addresses AS i " +
+                                "JOIN assets AS a ON a.id = i.asset_id WHERE a.mac = :mac " +
+                                "AND a.organization_id = :organization_id AND a.tenant_id = :tenant_id " +
+                                "AND i.address = :ip AND i.source = :source)")
+                        .bind("mac", mac)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("ip", ip)
+                        .bind("source", IP_ADDRESS_CLAIM_SOURCE)
+                        .mapTo(Boolean.class)
+                        .one()
+        );
+    }
+
     public long countAssetsOfIpAddress(InetAddress ip, UUID organizationId, DateTime ipActivityCutoff, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(DISTINCT a.id) FROM assets AS a " +
                                 "INNER JOIN assets_ip_addresses AS i ON i.asset_id = a.id " +
                                 "WHERE i.address = :ip AND i.last_seen > :ip_activity_cutoff " +
+                                "AND " + ipAddressClaimed("i") +
                                 "AND a.organization_id = :organization_id AND a.tenant_id = :tenant_id")
                         .bind("ip", ip)
                         .bind("ip_activity_cutoff", ipActivityCutoff)
@@ -296,8 +324,9 @@ public class AssetManager {
                                                   int offset) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT " + ASSET_COLUMNS + ASSET_JOINS +
-                                "WHERE a.id IN (SELECT asset_id FROM assets_ip_addresses WHERE address = :ip " +
-                                "  AND last_seen > :ip_activity_cutoff) " +
+                                "WHERE a.id IN (SELECT used.asset_id FROM assets_ip_addresses AS used " +
+                                "WHERE used.address = :ip AND used.last_seen > :ip_activity_cutoff " +
+                                "AND " + ipAddressClaimed("used") + ") " +
                                 "AND a.organization_id = :organization_id " +
                                 "AND a.tenant_id = :tenant_id " +
                                 "GROUP BY a.id ORDER BY a.last_seen DESC LIMIT :limit OFFSET :offset")

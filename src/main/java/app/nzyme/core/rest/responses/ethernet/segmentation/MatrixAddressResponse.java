@@ -12,7 +12,9 @@ import org.joda.time.DateTime;
 @AutoValue
 public abstract class MatrixAddressResponse {
 
-    @Schema(description = "The address with what is known about it. Not set if that could not be looked up.")
+    @Schema(description = "The address with what is known about it. Its MAC address is the one of the asset "
+            + "that used the address in the time range. It is not set if no asset or more than one asset did. "
+            + "Not set if the address could not be looked up.")
     @Nullable
     @JsonProperty("address")
     public abstract L4AddressResponse address();

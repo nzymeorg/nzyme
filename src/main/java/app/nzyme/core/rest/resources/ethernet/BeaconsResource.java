@@ -523,6 +523,7 @@ public class BeaconsResource extends TapDataHandlingResource {
             tapNames.put(tap.uuid(), tap.name());
         }
 
+        ReconAddressResponses macs = new ReconAddressResponses(nzyme);
         Map<Long, L4AddressResponse> sourceAddresses = Maps.newHashMap();
 
         long total = beacons.countCheckins(beacon.get().id(), sourceId, filters, timeRange);
@@ -544,7 +545,7 @@ public class BeaconsResource extends TapDataHandlingResource {
                     source.sourceMac(),
                     checkin.destinationAddress(),
                     checkin.destinationMac(),
-                    macResponse(checkin.destinationMac(), organizationId, tenantId),
+                    macs.macResponse(checkin.destinationMac(), checkin.destinationAddress(), organizationId, tenantId),
                     sourceAddress,
                     addressResponse(checkin.destinationAddress(), beacon.get().destinationPort(), checkin.destinationMac(),
                             beacon.get().type(), organizationId, tenantId),
@@ -1033,8 +1034,12 @@ public class BeaconsResource extends TapDataHandlingResource {
         String oui = null;
         UUID assetUuid = null;
         String assetName = null;
+        L4AddressResponse address = addressResponse(source.sourceAddress(), null, source.sourceMac(), null,
+                organizationId, tenantId);
         if (source.sourceMac() != null) {
             oui = nzyme.getOuiService().lookup(source.sourceMac()).orElse(null);
+        }
+        if (source.sourceMac() != null && !RestHelpers.macWithoutAsset(address)) {
             assetUuid = nzyme.getAssetsManager().findAssetByMac(source.sourceMac(), organizationId, tenantId)
                     .map(AssetEntry::uuid).orElse(null);
             assetName = nzyme.getContextService().findMacAddressContext(source.sourceMac(), organizationId, tenantId)
@@ -1044,7 +1049,7 @@ public class BeaconsResource extends TapDataHandlingResource {
         return BeaconSourceResponse.create(
                 source.uuid(),
                 source.sourceAddress(),
-                addressResponse(source.sourceAddress(), null, source.sourceMac(), null, organizationId, tenantId),
+                address,
                 source.sourceMac(),
                 oui,
                 assetUuid,

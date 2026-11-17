@@ -22727,7 +22727,7 @@
     },
     "/api/ethernet/segmentation/matrix/addresses" : {
       "get" : {
-        "description" : "Returns the addresses of a segment, or the internal addresses that are in no segment, that taps recorded traffic of in the time range, with the sessions they opened and the sessions that went to them. Where several taps recorded an address, the tap that saw the most of it counts. A session that stays open counts once for every hour it is open, like in the matrix. An address that only was one of many unanswered destinations of a sweep is not stored and missing. Addresses of external networks are not stored one by one and cannot be listed. Results are paginated.",
+        "description" : "Returns the addresses of a segment, or the internal addresses that are in no segment, that taps recorded traffic of in the time range, with the sessions they opened and the sessions that went to them, and with the MAC address of the asset that used the address in the time range. Where several taps recorded an address, the tap that saw the most of it counts. A session that stays open counts once for every hour it is open, like in the matrix. An address that only was one of many unanswered destinations of a sweep is not stored and missing. Addresses of external networks are not stored one by one and cannot be listed. Results are paginated.",
         "operationId" : "findSegmentationGroupAddresses",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -22828,7 +22828,7 @@
     },
     "/api/ethernet/segmentation/matrix/flows" : {
       "get" : {
-        "description" : "Returns the flows behind one cell of the matrix, added up over the time range: one entry per source, destination, service and outcome, busiest first by default. Internal sides are single addresses. External sides are networks, because external addresses are not stored one by one. Results are paginated.",
+        "description" : "Returns the flows behind one cell of the matrix, added up over the time range: one entry per source, destination, service and outcome, busiest first by default. Internal sides are single addresses, with the MAC address of the asset that used the address in the time range. External sides are networks, because external addresses are not stored one by one. Results are paginated.",
         "operationId" : "findSegmentationFlows",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -47801,6 +47801,11 @@
           },
           "oui" : {
             "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "description" : "What the MAC address is to the IP address it is returned with. DEVICE: its asset claimed the private IPv4 address by ARP, it is the device that has the address. UNCLAIMED: it did not claim the private IPv4 address, usually because it is a router that forwarded the traffic. PUBLIC: the address is a public one, which usually is behind the gateway. UNKNOWN for every other address. For UNCLAIMED and PUBLIC, the MAC address comes without asset and context. Not set where the MAC address is returned on its own.",
+            "enum" : [ "DEVICE", "UNCLAIMED", "PUBLIC", "UNKNOWN" ]
           }
         }
       },

@@ -398,6 +398,8 @@ export default function SegmentationOverviewPage() {
                                             setFilters={applyFlowsFilters}
                                             colors={colors}
                                             timeRange={timeRange}
+                                            sourceMacs={hasAddresses(selectedCell.source)}
+                                            destinationMacs={hasAddresses(selectedCell.destination)}
                                             onExclude={canManage ? setExcluding : null} />
                   </div>
                 </div>

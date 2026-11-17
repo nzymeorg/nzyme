@@ -1030,7 +1030,7 @@ public class AssetsResource extends TapDataHandlingResource {
             }
 
             AssetPeerAssetResponse peerAsset = null;
-            if (e.peerMac() != null) {
+            if (e.peerMac() != null && !RestHelpers.macWithoutAsset(peerAddress)) {
                 Optional<AssetEntry> peer = nzyme.getAssetsManager().findAssetByMac(e.peerMac(), organizationId, tenantId);
                 if (peer.isPresent()) {
                     peerAsset = AssetPeerAssetResponse.create(

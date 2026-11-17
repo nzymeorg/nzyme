@@ -13,6 +13,7 @@ import AssetTags from "../../assets/AssetTags";
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
 import {flowServiceLabel, FOLDED_PORT, OUTCOMES} from "../SegmentationFormat";
 import {flowSessionsLink} from "../SegmentationPivots";
+import SegmentationAddressMac from "../SegmentationAddressMac";
 import {LONG_LIVED_DESCRIPTION, outcomeColor, outcomeTitle} from "./SegmentationOverviewTheme";
 
 const flowKey = (flow) => [flow.source.key, flow.destination.key, flow.l4_type, flow.port, flow.protocol, flow.outcome,
@@ -26,7 +27,7 @@ function FlowSide({side, filterIcon, foldedNote}) {
   if (side.address) {
     return (
         <React.Fragment>
-          <L4Address address={side.address} hidePort={true} withAssetName hideSegment
+          <L4Address address={side.address} hidePort={true} hideSegment
                      filterElement={filterIcon("address", side.address.address)} />
           {tags}
         </React.Fragment>
@@ -85,7 +86,8 @@ const excludable = (flow) => Boolean(flow.source.internal && flow.source.segment
 
 export default function SegmentationFlowsTable({flows, page, setPage, perPage, orderColumn, setOrderColumn,
                                                  orderDirection, setOrderDirection, filterFields, filters, setFilters,
-                                                 colors, timeRange, onExclude = null}) {
+                                                 colors, timeRange, sourceMacs = false, destinationMacs = false,
+                                                 onExclude = null}) {
 
   const sessions = (flow) => {
     const link = flowSessionsLink(flow, timeRange);
@@ -129,7 +131,9 @@ export default function SegmentationFlowsTable({flows, page, setPage, perPage, o
           <thead>
           <tr>
             <th>Source {columnSorting("source")}</th>
+            {sourceMacs ? <th>Source MAC</th> : null}
             <th>Destination {columnSorting("destination")}</th>
+            {destinationMacs ? <th>Destination MAC</th> : null}
             <th>Service {columnSorting("port")}</th>
             <th>Outcome {columnSorting("outcome")}</th>
             <th>Sessions {columnSorting("sessions")}</th>
@@ -142,11 +146,19 @@ export default function SegmentationFlowsTable({flows, page, setPage, perPage, o
           {flows.flows.map((flow) => (
               <tr key={flowKey(flow)}>
                 <td><FlowSide side={flow.source} filterIcon={(part, value) => filterIcon("source_" + part, value)} /></td>
+                {sourceMacs ? <td><SegmentationAddressMac address={flow.source.address} /></td> : null}
                 <td>
                   <FlowSide side={flow.destination}
                             foldedNote={destinationsFolded}
                             filterIcon={(part, value) => filterIcon("destination_" + part, value)} />
                 </td>
+                {destinationMacs
+                    ? <td>
+                        {flow.destination.address
+                            ? <SegmentationAddressMac address={flow.destination.address} />
+                            : <span className="text-muted" title={destinationsFolded}>n/a</span>}
+                      </td>
+                    : null}
                 <td title={flow.port === FOLDED_PORT ? portsFolded : undefined}>
                   <span className="machine-data">{flowServiceLabel(flow)}</span>
                   {/* A flow that stands for many ports names none to filter by. */}

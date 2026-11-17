@@ -21,7 +21,9 @@ public abstract class FlowSideResponse {
     @JsonProperty("broadcast")
     public abstract boolean broadcast();
 
-    @Schema(description = "Not set for external sides, which are stored per network, and for the folded destinations of a sweep.")
+    @Schema(description = "Not set for external sides, which are stored per network, and for the folded destinations of a sweep. "
+            + "The MAC address of an internal address is the one of the asset that used the address in the time "
+            + "range. It is not set if no asset or more than one asset did.")
     @Nullable
     @JsonProperty("address")
     public abstract L4AddressResponse address();

@@ -29,6 +29,7 @@ import app.nzyme.core.ethernet.segmentation.SegmentationEngine;
 import app.nzyme.core.ethernet.segmentation.SegmentationRegistryKeys;
 import app.nzyme.core.ethernet.segmentation.SegmentationViews;
 import app.nzyme.core.ethernet.segmentation.Segments;
+import app.nzyme.core.ethernet.topology.Topology;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
@@ -72,6 +73,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.joda.time.DateTime;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -781,8 +783,9 @@ public class SegmentationResource extends TapDataHandlingResource {
     @Operation(operationId = "findSegmentationFlows", summary = "List the flows between two groups of the matrix",
             description = "Returns the flows behind one cell of the matrix, added up over the time range: one "
                     + "entry per source, destination, service and outcome, busiest first by default. Internal "
-                    + "sides are single addresses. External sides are networks, because external addresses are "
-                    + "not stored one by one. Results are paginated.")
+                    + "sides are single addresses, with the MAC address of the asset that used the address in "
+                    + "the time range. External sides are networks, because external addresses are not stored one "
+                    + "by one. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Flows found.",
             content = @Content(schema = @Schema(implementation = FlowsListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Invalid filters, or unknown sorting column or direction.", content = @Content)
@@ -811,7 +814,18 @@ public class SegmentationResource extends TapDataHandlingResource {
                 tapAccess(sc, organizationId, tenantId).accessibleUuids(), sourceGroup, destinationGroup, filters,
                 orderColumn, orderDirection, pageSize(limit), Math.max(offset, 0));
 
+        Set<String> internal = Sets.newHashSet();
+        for (Flow flow : page.flows()) {
+            for (Endpoint endpoint : List.of(flow.source(), flow.destination())) {
+                if (endpoint.internal() && endpoint.hasAddress()) {
+                    internal.add(InetAddresses.toAddrString(endpoint.address()));
+                }
+            }
+        }
+
         Addresses addresses = new Addresses(organizationId, tenantId);
+        addresses.findAssets(internal, timeRange);
+
         List<FlowResponse> flows = Lists.newArrayList();
         for (Flow flow : page.flows()) {
             flows.add(FlowResponse.create(
@@ -831,7 +845,8 @@ public class SegmentationResource extends TapDataHandlingResource {
     @Operation(operationId = "findSegmentationGroupAddresses", summary = "List the addresses of a group of the matrix",
             description = "Returns the addresses of a segment, or the internal addresses that are in no segment, "
                     + "that taps recorded traffic of in the time range, with the sessions they opened and the "
-                    + "sessions that went to them. Where several taps recorded an address, the tap that saw the "
+                    + "sessions that went to them, and with the MAC address of the asset that used the address in "
+                    + "the time range. Where several taps recorded an address, the tap that saw the "
                     + "most of it counts. A session that stays open counts once for every hour it is open, like in "
                     + "the matrix. An address that only was one of many unanswered destinations of a sweep "
                     + "is not stored and missing. Addresses of external networks are not stored one by one and "
@@ -877,6 +892,8 @@ public class SegmentationResource extends TapDataHandlingResource {
                 orderDirection, pageSize(limit), Math.max(offset, 0));
 
         Addresses resolved = new Addresses(organizationId, tenantId);
+        resolved.findAssets(page.addresses().stream().map(Flows.GroupAddress::address).toList(), timeRange);
+
         List<MatrixAddressResponse> addresses = Lists.newArrayList();
         for (Flows.GroupAddress address : page.addresses()) {
             addresses.add(MatrixAddressResponse.create(resolved.of(address.address(), L4Type.TCP.name()),
@@ -1568,6 +1585,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         private final ReconAddressResponses builder = new ReconAddressResponses(nzyme);
         private final Map<String, Optional<L4AddressResponse>> cache = Maps.newHashMap();
         private final Map<UUID, String> tagNames = Maps.newHashMap();
+        private Map<String, Topology.AddressAsset> assets = Collections.emptyMap();
 
         Addresses(UUID organizationId, UUID tenantId) {
             this.organizationId = organizationId;
@@ -1578,15 +1596,25 @@ public class SegmentationResource extends TapDataHandlingResource {
             }
         }
 
+        // Flows store no MAC address. Has to be called before of() for an address to come with one.
+        void findAssets(Collection<String> addresses, TimeRange timeRange) {
+            assets = nzyme.getEthernet().topology().findAssetsOfAddresses(organizationId, tenantId, timeRange, addresses);
+        }
+
         @Nullable
         L4AddressResponse of(@Nullable String address, String l4Type) {
             if (address == null) {
                 return null;
             }
 
-            return cache.computeIfAbsent(address, a -> Optional.ofNullable(builder.addressResponse(
-                    a, null, null, "UDP".equals(l4Type) ? L4Type.UDP : L4Type.TCP, organizationId, tenantId
-            ))).orElse(null);
+            return cache.computeIfAbsent(address, a -> {
+                Topology.AddressAsset asset = assets.get(a);
+
+                return Optional.ofNullable(builder.addressResponse(
+                        a, null, asset == null ? null : asset.mac(), "UDP".equals(l4Type) ? L4Type.UDP : L4Type.TCP,
+                        organizationId, tenantId
+                ));
+            }).orElse(null);
         }
 
         List<String> tags(Endpoint endpoint) {
