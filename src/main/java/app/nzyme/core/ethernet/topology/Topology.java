@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.topology;
 
+import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.ethernet.topology.TopologyNodeSelector.Side;
@@ -700,6 +701,7 @@ public class Topology {
     }
 
     // Assets are known per tenant, not per tap. An address that more than one asset used in the range gets none.
+    // Only an asset that claimed the address counts, see AssetManager.IP_ADDRESS_CLAIM_SOURCE.
     public Map<String, AddressAsset> findAssetsOfAddresses(UUID organizationId, UUID tenantId, TimeRange timeRange,
                                                            Collection<String> addresses) {
         if (addresses.isEmpty()) {
@@ -711,16 +713,19 @@ public class Topology {
                 handle.createQuery("SELECT host(used.address) AS address, a.uuid, a.mac, " +
                                 "(SELECT h.hostname FROM assets_hostnames AS h WHERE h.asset_id = a.id " +
                                 "ORDER BY h.last_seen DESC LIMIT 1) AS hostname FROM (" +
-                                "SELECT i.address, MIN(i.asset_id) AS asset_id " +
+                                "SELECT users.address, MIN(users.asset_id) AS asset_id FROM (" +
+                                "SELECT i.address, i.asset_id " +
                                 "FROM assets_ip_addresses AS i JOIN assets AS o ON o.id = i.asset_id " +
                                 "WHERE o.organization_id = :organization_id AND o.tenant_id = :tenant_id " +
                                 "AND i.address = ANY(string_to_array(:addresses, ',')::inet[]) " +
-                                "AND i.first_seen <= :tr_to AND i.last_seen >= :tr_from " +
-                                "GROUP BY i.address HAVING COUNT(DISTINCT i.asset_id) = 1" +
+                                "GROUP BY i.address, i.asset_id HAVING bool_or(i.source = :claim_source) " +
+                                "AND bool_or(i.first_seen <= :tr_to AND i.last_seen >= :tr_from)" +
+                                ") AS users GROUP BY users.address HAVING COUNT(*) = 1" +
                                 ") AS used JOIN assets AS a ON a.id = used.asset_id")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("addresses", String.join(",", addresses))
+                        .bind("claim_source", AssetManager.IP_ADDRESS_CLAIM_SOURCE)
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .map((rs, ctx) -> new AddressAsset(rs.getString("address"),

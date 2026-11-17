@@ -11,7 +11,9 @@ import app.nzyme.core.ethernet.l4.db.L4AddressData;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
+import app.nzyme.core.rest.responses.ethernet.L4AddressMacRoleResponse;
 import app.nzyme.core.rest.responses.ethernet.L4AddressResponse;
+import com.google.common.net.InetAddresses;
 import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,21 +35,48 @@ public class ReconAddressResponses {
 
     @Nullable
     public EthernetMacAddressResponse macResponse(@Nullable String mac, UUID organizationId, UUID tenantId) {
+        return macWithRole(mac, null, organizationId, tenantId);
+    }
+
+    // Only for the MAC address that traffic of the address was recorded with.
+    @Nullable
+    public EthernetMacAddressResponse macResponse(@Nullable String mac,
+                                                  @Nullable String address,
+                                                  UUID organizationId,
+                                                  UUID tenantId) {
+        if (mac == null || address == null || !InetAddresses.isInetAddress(address)) {
+            return macResponse(mac, organizationId, tenantId);
+        }
+
+        return macWithRole(mac, RestHelpers.macRole(nzyme, mac, InetAddresses.forString(address), organizationId,
+                tenantId), organizationId, tenantId);
+    }
+
+    @Nullable
+    private EthernetMacAddressResponse macWithRole(@Nullable String mac,
+                                                   @Nullable L4AddressMacRoleResponse role,
+                                                   UUID organizationId,
+                                                   UUID tenantId) {
         if (mac == null) {
             return null;
+        }
+
+        if (role != null && role.withoutAsset()) {
+            return RestHelpers.recordedMacResponse(nzyme, mac, role);
         }
 
         Optional<AssetEntry> asset = nzyme.getAssetsManager().findAssetByMac(mac, organizationId, tenantId);
         Optional<MacAddressContextEntry> context = nzyme.getContextService()
                 .findMacAddressContext(mac, organizationId, tenantId);
 
-        return EthernetMacAddressResponse.create(
-                mac,
-                nzyme.getOuiService().lookup(mac).orElse(null),
-                asset.map(AssetEntry::uuid).orElse(null),
-                asset.map(AssetEntry::isActive).orElse(null),
-                RestHelpers.macContextEntryToResponse(context)
-        );
+        return EthernetMacAddressResponse.builder()
+                .address(mac)
+                .oui(nzyme.getOuiService().lookup(mac).orElse(null))
+                .assetId(asset.map(AssetEntry::uuid).orElse(null))
+                .assetIsActive(asset.map(AssetEntry::isActive).orElse(null))
+                .context(RestHelpers.macContextEntryToResponse(context))
+                .role(role)
+                .build();
     }
 
     @Nullable

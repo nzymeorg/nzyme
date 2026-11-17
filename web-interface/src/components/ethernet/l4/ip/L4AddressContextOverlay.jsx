@@ -5,6 +5,7 @@ import ContextService from "../../../../services/ContextService";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import ContextOverlayLoading from "../../../shared/context/ContextOverlayLoading";
 import {hasSegmentContext, L4AddressSegmentDetails, segmentHasNotes} from "../../shared/L4AddressSegment";
+import {macIsDevice} from "../../shared/L4AddressMacRole";
 
 const countries = require("i18n-iso-countries");
 countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
@@ -237,7 +238,7 @@ export default function L4AddressContextOverlay({address}) {
             <h6>
               <i className="fa-solid fa-map-location-dot"/> {address.address}{' '}
               <span className="context-name context-name-asset">
-                {address.attributes && address.attributes.is_site_local
+                {macIsDevice(address)
                   && address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
               </span>
             </h6>

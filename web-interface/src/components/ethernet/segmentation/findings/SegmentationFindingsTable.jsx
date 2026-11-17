@@ -71,9 +71,10 @@ export function FindingSegment({name, internal, outcome = null}) {
   return <span className="text-muted">{internal ? "Unassigned" : "Internet"}</span>
 }
 
-export function FindingTargetAddress({target, filterElement = undefined}) {
+export function FindingTargetAddress({target, filterElement = undefined, withAssetName = true}) {
   if (target.address) {
-    return <L4Address address={target.address} hidePort={true} withAssetName hideSegment filterElement={filterElement} />
+    return <L4Address address={target.address} hidePort={true} withAssetName={withAssetName} hideSegment
+                      filterElement={filterElement} />
   }
 
   return (

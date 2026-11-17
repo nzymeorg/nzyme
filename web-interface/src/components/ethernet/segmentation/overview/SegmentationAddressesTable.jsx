@@ -5,6 +5,7 @@ import Paginator from "../../../misc/Paginator";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
 import {FindingTargetAddress} from "../findings/SegmentationFindingsTable";
+import SegmentationAddressMac from "../SegmentationAddressMac";
 import PivotLink from "../../../shared/PivotLink";
 import {filtersApplied} from "../../../../util/Tools";
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
@@ -68,6 +69,7 @@ export default function SegmentationAddressesTable({addresses, tapsOf, page, set
           <thead>
           <tr>
             <th>Address {columnSorting("address")}</th>
+            <th>MAC</th>
             <th title="Sessions the address opened">Sessions From {columnSorting("sessions_from")}</th>
             <th title="Sessions that went to the address">Sessions To {columnSorting("sessions_to")}</th>
             <th title="Sessions to the address that it answered">Answered {columnSorting("answered")}</th>
@@ -80,8 +82,10 @@ export default function SegmentationAddressesTable({addresses, tapsOf, page, set
           {addresses.addresses.map((a) => (
               <tr key={a.address_text}>
                 <td>
-                  <FindingTargetAddress target={a} filterElement={filterIcon("address", a.address_text)} />
+                  <FindingTargetAddress target={a} withAssetName={false}
+                                        filterElement={filterIcon("address", a.address_text)} />
                 </td>
+                <td><SegmentationAddressMac address={a.address} /></td>
                 <td>{sessions(a.sessions_from, a.address_text, "source", "Sessions from this address")}</td>
                 <td>{sessions(a.sessions_to, a.address_text, "destination", "Sessions to this address")}</td>
                 <td className={a.answered === 0 ? "text-muted" : undefined}>{formatCount(a.answered)}</td>

@@ -4,6 +4,7 @@ import Flag from "../../misc/Flag";
 import ContextOverlayVisibilityWrapper from "../../shared/context/ContextOverlayVisibilityWrapper";
 import L4AddressContextOverlay from "../l4/ip/L4AddressContextOverlay";
 import {L4AddressSegmentLabel} from "./L4AddressSegment";
+import {macIsDevice} from "./L4AddressMacRole";
 
 export default function L4Address({address,
                                     hidePort = false,
@@ -34,7 +35,7 @@ export default function L4Address({address,
   }
 
   const assetNameElement = () => {
-    if (withAssetName && address.attributes && address.attributes.is_site_local && address.mac && address.mac.context && address.mac.context.name) {
+    if (withAssetName && macIsDevice(address) && address.mac && address.mac.context && address.mac.context.name) {
       return <span className="context-name hide-narrow context-name-asset" style={{marginLeft: 5}}>{address.mac.context.name}</span>;
     }
 

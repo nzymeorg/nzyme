@@ -364,7 +364,7 @@ public class DnsTunnelsResource extends TapDataHandlingResource {
                 finding.clientAddress(),
                 addresses.addressResponse(finding.clientAddress(), null, finding.clientMac(), L4Type.UDP, organizationId, tenantId),
                 finding.clientMac(),
-                finding.clientMac() == null ? null : addresses.macResponse(finding.clientMac(), organizationId, tenantId),
+                addresses.macResponse(finding.clientMac(), finding.clientAddress(), organizationId, tenantId),
                 finding.domain(),
                 finding.serverAddresses(),
                 finding.indicators(),

@@ -4,6 +4,7 @@ import ContextOverlayVisibilityWrapper from "../ContextOverlayVisibilityWrapper"
 import Dot11MacAddressType from "./Dot11MacAddressType";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import AssetActiveIndicator from "../../../ethernet/assets/AssetActiveIndicator";
+import {MAC_ROLE_NOTES} from "../../../ethernet/shared/L4AddressMacRole";
 
 function MacAddress(props) {
 
@@ -14,6 +15,7 @@ function MacAddress(props) {
   const context = addressWithContext ? addressWithContext.context : null;
   const oui = addressWithContext ? addressWithContext.oui : null;
   const isRandomized = addressWithContext ? addressWithContext.is_randomized : (props.address ? props.address.is_randomized : null);
+  const roleNote = addressWithContext ? MAC_ROLE_NOTES[addressWithContext.role] : null;
 
   const href = props.href;
   const withAssetLink = props.withAssetLink;
@@ -114,7 +116,9 @@ function MacAddress(props) {
 
   return (
       <span onMouseEnter={mouseOver} onMouseLeave={mouseOut}>
-        {hideActiveIndicator ? null : <AssetActiveIndicator active={assetIsActive} hideText={true} />}
+        {roleNote
+            ? <span title={roleNote.note}><i className={"fa-solid " + roleNote.icon + " text-muted"} />{' '}</span>
+            : (hideActiveIndicator ? null : <AssetActiveIndicator active={assetIsActive} hideText={true} />)}
         {typeElement()}{addressElement()} {randomizedIcon()}{contextElement()}{ouiElement()}{assetNameElement()}{filterElement ? filterElement : null}{suffixElement ? suffixElement : null}
 
         {overlay ? <ContextOverlayVisibilityWrapper visible={overlayVisible} overlay={overlay} /> : null }

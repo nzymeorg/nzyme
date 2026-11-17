@@ -140,7 +140,7 @@ public class ReconProbedHostsResource extends TapDataHandlingResource {
                     source.address(),
                     addresses.addressResponse(source.address(), null, source.mac(), L4Type.TCP, organizationId, tenantId),
                     source.mac(),
-                    addresses.macResponse(source.mac(), organizationId, tenantId),
+                    addresses.macResponse(source.mac(), source.address(), organizationId, tenantId),
                     source.scanner(),
                     source.l4Types(),
                     source.portCount(),

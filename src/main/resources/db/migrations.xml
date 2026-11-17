@@ -13262,4 +13262,10 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_assets_ip_addresses_address_index" author="lennartkoopmann">
+        <createIndex tableName="assets_ip_addresses" indexName="assets_ip_addresses_address_idx">
+            <column name="address" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

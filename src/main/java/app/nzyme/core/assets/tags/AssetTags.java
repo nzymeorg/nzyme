@@ -1,5 +1,6 @@
 package app.nzyme.core.assets.tags;
 
+import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
@@ -386,6 +387,7 @@ public class AssetTags {
                                 "LIMIT :limit OFFSET :offset) AS p " +
                                 "LEFT JOIN assets_hostnames AS h ON h.asset_id = p.id " +
                                 "LEFT JOIN assets_ip_addresses AS i ON i.asset_id = p.id " +
+                                "AND " + AssetManager.ipAddressClaimed("i") +
                                 "GROUP BY p.id, p.uuid, p.mac, p.last_seen ORDER BY p.last_seen DESC, p.id ASC")
                         .bind("tag_id", tag.id())
                         .bind("limit", limit)
@@ -400,8 +402,8 @@ public class AssetTags {
         );
     }
 
-    // An address that several assets used belongs to the one that used it last. If that is none of the assets asked
-    // for, the address is left out.
+    // An address that several assets claimed belongs to the one that used it last. If that is none of the assets
+    // asked for, the address is left out.
     public Map<InetAddress, MembershipResolver.TaggedAsset> resolveAddresses(Handle handle,
                                                                              UUID organizationId,
                                                                              UUID tenantId,
@@ -433,6 +435,7 @@ public class AssetTags {
                         "WHERE a.organization_id = :organization_id AND a.tenant_id = :tenant_id " +
                         "AND ip.address IN (SELECT r.address FROM assets_ip_addresses AS r " +
                         "WHERE r.asset_id IN (SELECT id FROM relevant)) " +
+                        "AND " + AssetManager.ipAddressClaimed("ip") +
                         "ORDER BY ip.address, ip.last_seen DESC) " +
                         "SELECT host(o.address) AS address, r.id AS asset_id, r.uuid AS asset_uuid " +
                         "FROM owners AS o JOIN relevant AS r ON r.id = o.asset_id")
