@@ -68,7 +68,7 @@ export default function SegmentationStatusStrip({status, restampPending = false,
                 <div className="alert alert-warning mb-0" title={moment(status.limit_reached_at).format()}>
                   An evaluation {moment(status.limit_reached_at).fromNow()} was limited to{' '}
                   {formatCount(status.flows_per_evaluation_limit)} flows and{' '}
-                  {formatCount(status.sources_per_policy_per_evaluation_limit)} new sources per policy. The rest
+                  {formatCount(status.sources_per_policy_per_evaluation_limit)} sources per policy. The rest
                   was not evaluated.
                 </div>
               </div>
