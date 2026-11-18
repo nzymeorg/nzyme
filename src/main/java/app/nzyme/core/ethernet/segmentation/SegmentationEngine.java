@@ -172,12 +172,7 @@ public class SegmentationEngine {
                          DateTime firstSeen,
                          DateTime lastSeen) { }
 
-    private record Alert(Policy policy,
-                         FindingClass findingClass,
-                         long sources,
-                         long sessions,
-                         Findings.Violation example,
-                         boolean broadcastOnly) { }
+    private record Alert(Policy policy, FindingClass findingClass, Findings.Violation example) { }
 
     private record Result(boolean progressed, long sessions, long flows, long findings, List<Alert> alerts) {
 
@@ -824,18 +819,8 @@ public class SegmentationEngine {
                 continue;
             }
 
-            boolean broadcastOnly = violation.targets().stream().allMatch(t -> t.outcome() == Outcome.SENT);
-
-            String key = violation.policy().id() + "|" + violation.findingClass();
-            Alert existing = alerts.get(key);
-            if (existing == null) {
-                alerts.put(key, new Alert(violation.policy(), violation.findingClass(), 1, violation.sessions(),
-                        violation, broadcastOnly));
-            } else {
-                alerts.put(key, new Alert(existing.policy(), existing.findingClass(), existing.sources() + 1,
-                        existing.sessions() + violation.sessions(), existing.example(),
-                        existing.broadcastOnly() && broadcastOnly));
-            }
+            alerts.putIfAbsent(violation.policy().id() + "|" + violation.findingClass(),
+                    new Alert(violation.policy(), violation.findingClass(), violation));
         }
 
         return Lists.newArrayList(alerts.values());
@@ -877,17 +862,9 @@ public class SegmentationEngine {
                     attributes.put("example_outcome", target.outcome().name());
                 }
 
-                String sources = alert.sources() == 1 ? "One source" : alert.sources() + " sources";
-                String details;
-                if (crossed && alert.broadcastOnly()) {
-                    details = sources + " sent broadcast or multicast traffic across segmentation policy \""
-                            + alert.policy().name() + "\".";
-                } else if (crossed) {
-                    details = sources + " connected across segmentation policy \"" + alert.policy().name() + "\".";
-                } else {
-                    details = sources + " attempted to connect across segmentation policy \""
-                            + alert.policy().name() + "\".";
-                }
+                // An alert keeps the details it was first raised with, so they say nothing that differs between runs.
+                String details = (crossed ? "Connection" : "Connection attempt") + " across segmentation policy \""
+                        + alert.policy().name() + "\".";
 
                 nzyme.getDetectionAlertService().raiseAlert(
                         organizationId,
