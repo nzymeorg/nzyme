@@ -1086,8 +1086,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/ssids/show/{uuid}/configuration/similarssids/simulate")
     @Operation(operationId = "simulateMonitoredNetworkSimilarSsids", summary = "Simulate the similar SSID monitor",
-            description = "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by taps "
-                    + "the calling user can access and returns the similarity of each in percent, together with "
+            description = "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by the taps "
+                    + "of its tenant that the calling user can access and returns the similarity of each in percent, together with "
                     + "whether it would trigger an alert at the given threshold. SSIDs that are themselves monitored "
                     + "networks of the tenant never trigger an alert. "
                     + "Requires the dot11_monitoring_manage feature permission.")
@@ -1111,13 +1111,13 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
 
         List<SSIDSimilarityResponse> similarities = Lists.newArrayList();
         List<String> monitoredSSIDNames = nzyme.getDot11()
-                .findAllMonitoredSSIDs(authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId())
+                .findAllMonitoredSSIDs(ssid.get().organizationId(), ssid.get().tenantId())
                 .stream().map(MonitoredSSID::ssid)
                 .collect(Collectors.toList());
 
         JaroWinkler jaroWinkler = new JaroWinkler();
-        for (String ssidName : nzyme.getDot11()
-                .findAllRecentSSIDNames(nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser), 15)) {
+        for (String ssidName : nzyme.getDot11().findAllRecentSSIDNames(nzyme.getTapManager()
+                .allTapUUIDsAccessibleByUser(authenticatedUser, ssid.get().organizationId(), ssid.get().tenantId()), 15)) {
             double similarity = jaroWinkler.similarity(ssid.get().ssid(), ssidName) * 100.0;
             boolean monitored = monitoredSSIDNames.contains(ssidName);
             boolean alerted = !monitored && similarity > threshold;

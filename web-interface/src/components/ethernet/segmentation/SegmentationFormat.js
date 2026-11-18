@@ -32,18 +32,23 @@ export const POLICY_STATES = {
     title: "Not observable",
     description: "No tap recorded traffic of both sources and destinations in scope."
   },
-  AUDIT: {title: "Audit", description: "Findings are recorded, alerts are never raised."},
   PAUSED: {title: "Paused", description: "The policy is not evaluated."}
 };
 
 export const POLICY_STATUSES = {
-  ACTIVE: {title: "Active", description: "Evaluated. Raises the alerts the policy asks for."},
-  AUDIT: {title: "Audit", description: "Evaluated. Records findings but never alerts."},
+  ACTIVE: {title: "Active", description: "Evaluated. Records findings and raises the alerts that are turned on for it."},
+  AUDIT: {title: "Audit", description: "Evaluated. Records findings but never raises alerts."},
   PAUSED: {title: "Paused", description: "Not evaluated."}
 };
 
 export const RESTAMP_NOTICE = "Applying segment changes to stored flows. Traffic can still show under previous " +
   "segments.";
+
+export const BACKFILL_NOTICE = "Judging stored sessions against new or changed policies. Findings are still being " +
+  "added.";
+
+export const POLICY_BACKFILL_NOTICE = "Stored sessions are being judged against this policy. Findings are still " +
+  "being added and the state can change.";
 
 export const EXCLUSION_NOTE_MAX_LENGTH = 500;
 

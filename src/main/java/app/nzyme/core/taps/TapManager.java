@@ -31,6 +31,7 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class TapManager {
 
@@ -711,6 +712,16 @@ public class TapManager {
                         .mapTo(Tap.class)
                         .list()
         );
+    }
+
+    public List<UUID> allTapUUIDsAccessibleByUser(AuthenticatedUser user, UUID organizationId, UUID tenantId) {
+        Set<UUID> tapsOfTenant = findAllTapsOfTenant(organizationId, tenantId).stream()
+                .map(Tap::uuid)
+                .collect(Collectors.toSet());
+
+        return allTapUUIDsAccessibleByUser(user).stream()
+                .filter(tapsOfTenant::contains)
+                .collect(Collectors.toList());
     }
 
     public List<UUID> allTapUUIDsAccessibleByUser(AuthenticatedUser user) {

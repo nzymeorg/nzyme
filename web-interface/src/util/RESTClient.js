@@ -27,6 +27,12 @@ const RESTClient = {
       headers.Authorization = 'Bearer ' + Store.get('sessionid')
     }
 
+    // For the node, all taps then means all taps of the selected tenant and not of every tenant the user can access.
+    if (Store.get('selected_organization') && Store.get('selected_tenant')) {
+      headers['X-Nzyme-Organization'] = Store.get('selected_organization')
+      headers['X-Nzyme-Tenant'] = Store.get('selected_tenant')
+    }
+
     return headers
   },
 

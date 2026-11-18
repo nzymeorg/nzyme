@@ -44,6 +44,11 @@ public abstract class SegmentationStatusResponse {
     @JsonProperty("restamp_pending")
     public abstract boolean restampPending();
 
+    @Schema(description = "Sessions that were recorded before a policy was created or last forbade more are still "
+            + "being judged against it.")
+    @JsonProperty("backfill_pending")
+    public abstract boolean backfillPending();
+
     @JsonProperty("settle_seconds")
     public abstract int settleSeconds();
 
@@ -74,6 +79,7 @@ public abstract class SegmentationStatusResponse {
                                                     Long lastRunFlows,
                                                     Long lastRunFindings,
                                                     boolean restampPending,
+                                                    boolean backfillPending,
                                                     int settleSeconds,
                                                     long segmentCount,
                                                     long policyCount,
@@ -90,6 +96,7 @@ public abstract class SegmentationStatusResponse {
                 .lastRunFlows(lastRunFlows)
                 .lastRunFindings(lastRunFindings)
                 .restampPending(restampPending)
+                .backfillPending(backfillPending)
                 .settleSeconds(settleSeconds)
                 .segmentCount(segmentCount)
                 .policyCount(policyCount)
@@ -114,6 +121,7 @@ public abstract class SegmentationStatusResponse {
         public abstract Builder lastRunFlows(Long lastRunFlows);
         public abstract Builder lastRunFindings(Long lastRunFindings);
         public abstract Builder restampPending(boolean restampPending);
+        public abstract Builder backfillPending(boolean backfillPending);
         public abstract Builder settleSeconds(int settleSeconds);
         public abstract Builder segmentCount(long segmentCount);
         public abstract Builder policyCount(long policyCount);

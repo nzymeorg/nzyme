@@ -10,7 +10,8 @@ import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant"
 import SectionMenuBar from "../../../shared/SectionMenuBar";
 import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
-import useUrlParams from "../../../shared/useUrlParams";
+import useUrlParams, {valueIn} from "../../../shared/useUrlParams";
+import VizOptionSelect from "../../../shared/viz/VizOptionSelect";
 import {Presets} from "../../../shared/timerange/TimeRange";
 import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
@@ -18,6 +19,7 @@ import SegmentationService from "../../../../services/ethernet/SegmentationServi
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
 import useTopologyRequest from "../../topology/useTopologyRequest";
 import {SEGMENTATION_MENU_ITEMS} from "../SegmentationMenuItems";
+import useBackfillPoll from "../useBackfillPoll";
 import SegmentationStatusStrip from "./SegmentationStatusStrip";
 import SegmentationMatrix from "./SegmentationMatrix";
 import SegmentationBoundaryMap from "./SegmentationBoundaryMap";
@@ -59,8 +61,6 @@ const URL_OPTIONS = {
   external: "1",
   broadcast: "1"
 };
-
-const valueIn = (options, value, fallback) => (options.some(([v]) => String(v) === value) ? value : fallback);
 
 export default function SegmentationOverviewPage() {
 
@@ -140,6 +140,14 @@ export default function SegmentationOverviewPage() {
   const matrix = useTopologyRequest(requestKey, true,
       (setData) => segmentationService.getMatrix(organizationId, tenantId, timeRange, setData));
 
+  useBackfillPoll(tenantKey, Boolean(status && status.backfill_pending), (received) => {
+    segmentationService.getStatus(organizationId, tenantId, (polled) => {
+      if (received() && !polled.backfill_pending) {
+        refresh();
+      }
+    });
+  });
+
   const model = useMemo(() => (matrix ? buildOverviewModel(matrix) : null), [matrix]);
   const shown = useMemo(() => (model ? filterOverview(model, show, withExternal, withBroadcast) : null),
       [model, show, withExternal, withBroadcast]);
@@ -215,16 +223,6 @@ export default function SegmentationOverviewPage() {
 
   const colors = overviewColors(Boolean(Store.get("dark_mode")));
 
-  const optionSelect = (o) => (
-      <div key={o.id} className="d-flex align-items-center me-3 mb-2">
-        <label htmlFor={o.id} className="me-2 small text-muted mb-0">{o.label}</label>
-        <select id={o.id} className="form-select form-select-sm w-auto" value={o.value}
-                onChange={(e) => o.onChange(e.target.value)}>
-          {o.options.map(([v, title]) => <option key={v} value={v}>{title}</option>)}
-        </select>
-      </div>
-  )
-
   const loading = () => (
       <div className="border" style={{height: VIEW_HEIGHT + "px"}}>
         <GenericWidgetLoadingSpinner height={VIEW_HEIGHT - 2} />
@@ -270,10 +268,10 @@ export default function SegmentationOverviewPage() {
     return (
         <div ref={fullscreenRef} className="segmentation-overview-view">
           <div className="d-flex flex-wrap align-items-center">
-            {optionSelect({id: "segmentation-view", label: "View", value: view, onChange: (v) => setUrlOptions({view: v}),
-              options: VIEWS})}
-            {optionSelect({id: "segmentation-show", label: "Show", value: show, onChange: (v) => setUrlOptions({show: v}),
-              options: SHOW_OPTIONS})}
+            <VizOptionSelect option={{id: "segmentation-view", label: "View", value: view,
+              onChange: (v) => setUrlOptions({view: v}), options: VIEWS}} />
+            <VizOptionSelect option={{id: "segmentation-show", label: "Show", value: show,
+              onChange: (v) => setUrlOptions({show: v}), options: SHOW_OPTIONS}} />
             <div className="form-check form-switch mb-2">
               <input className="form-check-input"
                      type="checkbox"

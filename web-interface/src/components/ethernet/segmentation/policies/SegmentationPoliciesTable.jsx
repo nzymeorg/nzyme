@@ -8,7 +8,7 @@ import ColumnSorting from "../../../shared/ColumnSorting";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import useRowSelection from "../../assets/identity/useRowSelection";
-import {POLICY_STATUSES, policyFindingsLink} from "../SegmentationFormat";
+import {POLICY_BACKFILL_NOTICE, POLICY_STATUSES, policyFindingsLink} from "../SegmentationFormat";
 import SegmentationBulkActions from "../SegmentationBulkActions";
 import {
   alertSettingDescription,
@@ -140,7 +140,13 @@ function LoadedPoliciesTable({policies, options, filtered, page, setPage, perPag
                 <Link to={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.DETAILS(policy.uuid)}>{policy.name}</Link>{' '}
                 {filterIcon("name", policy.name)}
               </td>
-              <td><PolicyState state={policy.state} /></td>
+              <td>
+                <PolicyState state={policy.state} />
+                {policy.backfill_pending ?
+                  <React.Fragment>
+                    {' '}<i className="fa-solid fa-circle-notch fa-spin text-muted" title={POLICY_BACKFILL_NOTICE}></i>
+                  </React.Fragment> : null}
+              </td>
               <td title={status ? status.description : undefined}>
                 {status ? status.title : policy.status} {filterIcon("status", policy.status)}
               </td>

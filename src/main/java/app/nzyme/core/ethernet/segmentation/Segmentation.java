@@ -6,7 +6,10 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.RegistryKey;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import jakarta.annotation.Nullable;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.joda.time.DateTime;
 
@@ -18,10 +21,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Segmentation {
+
+    private static final Logger LOG = LogManager.getLogger(Segmentation.class);
+
+    private static final int BACKFILL_SECONDS = 30;
 
     private final NzymeNode nzyme;
 
@@ -31,6 +41,14 @@ public class Segmentation {
     private final Findings findings;
     private final Flows flows;
     private final SegmentationViews views;
+
+    private SegmentationEngine engine;
+
+    private final ExecutorService backfills = Executors.newSingleThreadExecutor(new ThreadFactoryBuilder()
+            .setNameFormat("segmentation-backfill-%d")
+            .setDaemon(true)
+            .build());
+    private final Set<TenantCacheKey> queuedBackfills = ConcurrentHashMap.newKeySet();
 
     private final Cache<TenantCacheKey, MembershipResolver> resolvers = CacheBuilder.newBuilder()
             .maximumSize(500)
@@ -74,6 +92,35 @@ public class Segmentation {
 
     public SegmentationViews views() {
         return views;
+    }
+
+    // Not built with the rest: the engine takes this from a node that is fully set up.
+    public synchronized SegmentationEngine engine() {
+        if (engine == null) {
+            engine = new SegmentationEngine(nzyme);
+        }
+
+        return engine;
+    }
+
+    // A policy that was just changed is not left waiting for the next run of the engine, which takes over what is
+    // not done in time. Off the thread of the request: a window can hold a lot of sessions.
+    public void judgeStoredSessions(UUID organizationId, UUID tenantId) {
+        TenantCacheKey tenant = TenantCacheKey.create(organizationId, tenantId);
+        if (!queuedBackfills.add(tenant)) {
+            return;
+        }
+
+        backfills.submit(() -> {
+            queuedBackfills.remove(tenant);
+
+            try {
+                engine().backfill(organizationId, tenantId, DateTime.now().plusSeconds(BACKFILL_SECONDS));
+            } catch (Exception e) {
+                LOG.error("Could not judge stored sessions of tenant [{}/{}]. The engine continues.",
+                        organizationId, tenantId, e);
+            }
+        });
     }
 
     public SegmentationConfiguration getConfiguration(UUID organizationId, UUID tenantId) {
@@ -217,7 +264,7 @@ public class Segmentation {
     }
 
     @Nullable
-    private static DateTime dateTime(ResultSet rs, String column) throws SQLException {
+    static DateTime dateTime(ResultSet rs, String column) throws SQLException {
         Timestamp timestamp = rs.getTimestamp(column);
         return timestamp == null ? null : new DateTime(timestamp);
     }

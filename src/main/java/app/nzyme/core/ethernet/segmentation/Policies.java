@@ -5,6 +5,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.CIDR;
 import app.nzyme.core.ethernet.segmentation.filters.PolicyFilters;
+import app.nzyme.core.util.TenantCacheKey;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
 import app.nzyme.core.util.filters.Filters;
@@ -15,6 +16,7 @@ import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.SqlStatement;
+import org.jdbi.v3.core.statement.Update;
 import org.joda.time.DateTime;
 
 import java.sql.ResultSet;
@@ -30,6 +32,7 @@ public class Policies {
 
     public static final int NAME_MAX_LENGTH = 64;
     public static final int MAX_ALLOWED = 250;
+    private static final int MAX_REMEMBERED_ALLOWED = 4 * MAX_ALLOWED;
     public static final int MAX_SELECTORS = 50;
     public static final int MAX_SERVICES = 50;
 
@@ -65,6 +68,24 @@ public class Policies {
             "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND last_seen >= :since " +
             "GROUP BY policy_id) AS f ON f.policy_id = p.id " +
             "WHERE p.organization_id = :organization_id AND p.tenant_id = :tenant_id ";
+
+    private static final String NO_BACKFILL = "backfill_requested_at = NULL, backfill_cursor = NULL, " +
+            "backfill_from = NULL, backfill_previous_scope = NULL, backfill_previous_allowed = NULL, " +
+            "backfill_previous_until = NULL";
+
+    // The engine sets the cursor, and only if the policy has no findings: nothing says what they were recorded for.
+    private static final String BACKFILL_WITHOUT_CURSOR = "backfill_requested_at = clock_timestamp(), " +
+            "backfill_cursor = NULL, backfill_from = NULL, backfill_previous_scope = NULL, " +
+            "backfill_previous_allowed = NULL, backfill_previous_until = NULL";
+
+    /*
+     * A policy that is paused keeps what it was evaluated against and up to where, so that the sessions of the pause
+     * can be judged when it is resumed. One that is paused while stored sessions are still judged against it keeps
+     * nothing: what its findings were recorded for can then not be said.
+     */
+    private static final String PAUSING = "(:pausing AND status <> :paused)";
+    private static final String RESUMING = "(NOT :pausing AND status = :paused)";
+    private static final String REMEMBERED = "(backfill_requested_at IS NULL AND CAST(:watermark AS timestamptz) IS NOT NULL)";
 
     private final NzymeNode nzyme;
     private final Segmentation segmentation;
@@ -173,14 +194,33 @@ public class Policies {
         }
 
         Targets targets = targets(selection, organizationId, tenantId, since);
-        int updated = nzyme.getDatabase().withHandle(handle ->
-                targets.bind(handle.createUpdate("UPDATE segmentation_policies SET status = :status, " +
-                                "updated_at = NOW() WHERE id IN (" + targets.sql() + ")"))
-                        .bind("status", status.name())
-                        .execute()
-        );
+        int updated = nzyme.getDatabase().inTransaction(handle -> {
+            DateTime watermark = lockedWatermark(handle, organizationId, tenantId);
+
+            return targets.bind(handle.createUpdate("UPDATE segmentation_policies SET " +
+                            "backfill_requested_at = CASE WHEN :pausing THEN NULL WHEN " + RESUMING +
+                            " THEN clock_timestamp() ELSE backfill_requested_at END, " +
+                            "backfill_cursor = CASE WHEN :pausing THEN NULL WHEN " + RESUMING +
+                            " THEN CASE WHEN backfill_previous_until IS NOT NULL " +
+                            "THEN CAST(:watermark AS timestamptz) END ELSE backfill_cursor END, " +
+                            "backfill_from = CASE WHEN :pausing OR " + RESUMING + " THEN NULL ELSE backfill_from END, " +
+                            "backfill_previous_scope = CASE WHEN " + PAUSING + " THEN CASE WHEN " + REMEMBERED +
+                            " THEN scope END ELSE backfill_previous_scope END, " +
+                            "backfill_previous_allowed = CASE WHEN " + PAUSING + " THEN CASE WHEN " + REMEMBERED +
+                            " THEN allowed END ELSE backfill_previous_allowed END, " +
+                            "backfill_previous_until = CASE WHEN " + PAUSING + " THEN CASE WHEN " + REMEMBERED +
+                            " THEN CAST(:watermark AS timestamptz) END ELSE backfill_previous_until END, " +
+                            "status = :status, updated_at = clock_timestamp() WHERE id IN (" + targets.sql() + ")"))
+                    .bind("status", status.name())
+                    .bind("pausing", status == PolicyStatus.PAUSED)
+                    .bind("paused", PolicyStatus.PAUSED.name())
+                    .bindByType("watermark", watermark, DateTime.class)
+                    .execute();
+        });
 
         segmentation.invalidateResolver(organizationId, tenantId);
+        segmentation.judgeStoredSessions(organizationId, tenantId);
+
         return updated;
     }
 
@@ -199,7 +239,7 @@ public class Policies {
         Targets targets = targets(selection, organizationId, tenantId, since);
         int updated = nzyme.getDatabase().withHandle(handle ->
                 targets.bind(handle.createUpdate("UPDATE segmentation_policies SET " + column + " = :enabled, " +
-                                "updated_at = NOW() WHERE id IN (" + targets.sql() + ")"))
+                                "updated_at = clock_timestamp() WHERE id IN (" + targets.sql() + ")"))
                         .bind("enabled", enabled)
                         .execute()
         );
@@ -227,7 +267,7 @@ public class Policies {
     public static Map<UUID, List<String>> segmentReferences(Collection<Policy> policies) {
         Map<UUID, List<String>> references = Maps.newHashMap();
         for (Policy policy : policies) {
-            for (PolicyRule rule : rules(policy.scope(), policy.allowed())) {
+            for (PolicyRule rule : rules(policy)) {
                 for (PolicyRule.Selector selector : selectors(rule)) {
                     if (selector.type() != PolicyRule.SelectorType.SEGMENT || selector.value() == null) {
                         continue;
@@ -275,26 +315,35 @@ public class Policies {
         validate(organizationId, tenantId, name, scope, allowed);
 
         UUID uuid = UUID.randomUUID();
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("INSERT INTO segmentation_policies(uuid, organization_id, tenant_id, name, " +
-                                "description, status, alert_on_connected, alert_on_attempted, scope, allowed, " +
-                                "created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :name, " +
-                                ":description, :status, :alert_on_connected, :alert_on_attempted, :scope::jsonb, " +
-                                ":allowed::jsonb, NOW(), NOW())")
-                        .bind("uuid", uuid)
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .bind("name", name.trim())
-                        .bind("description", Strings.emptyToNull(Strings.nullToEmpty(description).trim()))
-                        .bind("status", status.name())
-                        .bind("alert_on_connected", alertOnConnected)
-                        .bind("alert_on_attempted", alertOnAttempted)
-                        .bind("scope", DnsTunnelJson.toJson(scope))
-                        .bind("allowed", DnsTunnelJson.toJson(allowed))
-                        .execute()
-        );
+        nzyme.getDatabase().useTransaction(handle -> {
+            // A policy that is not evaluated is not judged against stored sessions either. Neither is one of a
+            // tenant the engine has not started on: its first run evaluates with the policy in place.
+            DateTime watermark = status == PolicyStatus.PAUSED ? null
+                    : lockedWatermark(handle, organizationId, tenantId);
+
+            handle.createUpdate("INSERT INTO segmentation_policies(uuid, organization_id, tenant_id, name, " +
+                            "description, status, alert_on_connected, alert_on_attempted, scope, allowed, " +
+                            "created_at, updated_at, backfill_requested_at, backfill_cursor) VALUES(:uuid, " +
+                            ":organization_id, :tenant_id, :name, :description, :status, :alert_on_connected, " +
+                            ":alert_on_attempted, :scope::jsonb, :allowed::jsonb, clock_timestamp(), " +
+                            "clock_timestamp(), CASE WHEN :backfill THEN clock_timestamp() END, :watermark)")
+                    .bind("uuid", uuid)
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .bind("name", name.trim())
+                    .bind("description", Strings.emptyToNull(Strings.nullToEmpty(description).trim()))
+                    .bind("status", status.name())
+                    .bind("alert_on_connected", alertOnConnected)
+                    .bind("alert_on_attempted", alertOnAttempted)
+                    .bind("scope", DnsTunnelJson.toJson(scope))
+                    .bind("allowed", DnsTunnelJson.toJson(allowed))
+                    .bind("backfill", watermark != null)
+                    .bindByType("watermark", watermark, DateTime.class)
+                    .execute();
+        });
 
         segmentation.invalidateResolver(organizationId, tenantId);
+        segmentation.judgeStoredSessions(organizationId, tenantId);
 
         return find(uuid, organizationId, tenantId).orElseThrow();
     }
@@ -309,21 +358,96 @@ public class Policies {
                          List<PolicyRule> allowed) {
         validate(policy.organizationId(), policy.tenantId(), name, scope, allowed);
 
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("UPDATE segmentation_policies SET name = :name, description = :description, " +
-                                "status = :status, alert_on_connected = :alert_on_connected, " +
-                                "alert_on_attempted = :alert_on_attempted, scope = :scope::jsonb, " +
-                                "allowed = :allowed::jsonb, updated_at = NOW() WHERE id = :id")
-                        .bind("id", policy.id())
-                        .bind("name", name.trim())
-                        .bind("description", Strings.emptyToNull(Strings.nullToEmpty(description).trim()))
-                        .bind("status", status.name())
-                        .bind("alert_on_connected", alertOnConnected)
-                        .bind("alert_on_attempted", alertOnAttempted)
-                        .bind("scope", DnsTunnelJson.toJson(scope))
-                        .bind("allowed", DnsTunnelJson.toJson(allowed))
-                        .execute()
-        );
+        nzyme.getDatabase().useTransaction(handle -> {
+            DateTime watermark = lockedWatermark(handle, policy.organizationId(), policy.tenantId());
+
+            Optional<Policy> stored = handle.createQuery("SELECT * FROM segmentation_policies WHERE id = :id FOR UPDATE")
+                    .bind("id", policy.id())
+                    .map((rs, ctx) -> map(rs))
+                    .findOne();
+            if (stored.isEmpty()) {
+                return;
+            }
+
+            Policy current = stored.get();
+
+            String backfill = "";
+            PolicyRule previousScope = null;
+            List<PolicyRule> previousAllowed = null;
+            boolean cursor = false;
+            if (status == PolicyStatus.PAUSED && current.status() != PolicyStatus.PAUSED) {
+                if (current.backfillRequestedAt() == null && watermark != null) {
+                    previousScope = current.scope();
+                    previousAllowed = remembered(current.allowed(), allowed);
+                    cursor = true;
+                    backfill = ", backfill_previous_scope = :previous_scope::jsonb, " +
+                            "backfill_previous_allowed = :previous_allowed::jsonb, backfill_previous_until = :watermark";
+                } else {
+                    backfill = ", " + NO_BACKFILL;
+                }
+            } else if (status == PolicyStatus.PAUSED) {
+                if (current.backfillPreviousScope() != null) {
+                    previousAllowed = remembered(current.backfillPreviousAllowed(), allowed);
+                    if (previousAllowed.size() > MAX_REMEMBERED_ALLOWED) {
+                        previousAllowed = null;
+                        backfill = ", " + NO_BACKFILL;
+                    } else {
+                        previousScope = current.backfillPreviousScope();
+                        backfill = ", backfill_previous_scope = :previous_scope::jsonb, " +
+                                "backfill_previous_allowed = :previous_allowed::jsonb";
+                    }
+                }
+            } else if (current.status() == PolicyStatus.PAUSED) {
+                if (current.backfillPreviousUntil() != null && watermark != null) {
+                    cursor = true;
+                    backfill = ", backfill_requested_at = clock_timestamp(), backfill_cursor = :watermark, " +
+                            "backfill_from = NULL";
+                } else {
+                    backfill = ", " + BACKFILL_WITHOUT_CURSOR;
+                }
+            } else if (forbidsMore(scope, allowed, current.scope(), current.allowed())) {
+                // The sessions that are not judged yet would have to be judged against two previous definitions.
+                if (current.backfillRequestedAt() != null) {
+                    throw new IllegalArgumentException("Stored sessions are still being judged against this policy. " +
+                            "Until that has ended, the scope cannot be changed and allowed crossings cannot be removed.");
+                }
+
+                if (watermark != null) {
+                    previousScope = current.scope();
+                    previousAllowed = current.allowed();
+                    cursor = true;
+                    backfill = ", backfill_requested_at = clock_timestamp(), backfill_cursor = :watermark, " +
+                            "backfill_from = NULL, backfill_previous_scope = :previous_scope::jsonb, " +
+                            "backfill_previous_allowed = :previous_allowed::jsonb, backfill_previous_until = NULL";
+                }
+            }
+
+            // The time of the write and not of the start of the transaction, which waited for the engine: the
+            // engine tells by the latest time whether it has loaded all changes.
+            Update update = handle.createUpdate("UPDATE segmentation_policies SET name = :name, " +
+                            "description = :description, status = :status, alert_on_connected = :alert_on_connected, " +
+                            "alert_on_attempted = :alert_on_attempted, scope = :scope::jsonb, " +
+                            "allowed = :allowed::jsonb, updated_at = clock_timestamp()" + backfill + " WHERE id = :id")
+                    .bind("id", policy.id())
+                    .bind("name", name.trim())
+                    .bind("description", Strings.emptyToNull(Strings.nullToEmpty(description).trim()))
+                    .bind("status", status.name())
+                    .bind("alert_on_connected", alertOnConnected)
+                    .bind("alert_on_attempted", alertOnAttempted)
+                    .bind("scope", DnsTunnelJson.toJson(scope))
+                    .bind("allowed", DnsTunnelJson.toJson(allowed));
+
+            if (cursor) {
+                update.bind("watermark", watermark);
+            }
+
+            if (previousScope != null) {
+                update.bind("previous_scope", DnsTunnelJson.toJson(previousScope))
+                        .bind("previous_allowed", DnsTunnelJson.toJson(previousAllowed));
+            }
+
+            update.execute();
+        });
 
         segmentation.invalidateResolver(policy.organizationId(), policy.tenantId());
 
@@ -333,7 +457,96 @@ public class Policies {
             segmentation.findings().reconcile(updated);
         }
 
+        segmentation.judgeStoredSessions(policy.organizationId(), policy.tenantId());
+
         return updated;
+    }
+
+    // With the same scope and nothing taken off the allowed crossings, no session can turn into a finding.
+    static boolean forbidsMore(PolicyRule scope,
+                               List<PolicyRule> allowed,
+                               PolicyRule previousScope,
+                               List<PolicyRule> previousAllowed) {
+        return !previousScope.equals(scope) || !allowed.containsAll(previousAllowed);
+    }
+
+    // Findings of a paused policy go when it allows their crossing, and nothing brings them back if it forbids the
+    // crossing again before it is resumed. What it allowed in between is remembered as allowed before, so that the
+    // stored sessions of such a crossing are judged again.
+    private static List<PolicyRule> remembered(List<PolicyRule> before, List<PolicyRule> allowed) {
+        Set<PolicyRule> all = Sets.newLinkedHashSet(before);
+        all.addAll(allowed);
+
+        return Lists.newArrayList(all);
+    }
+
+    // No evaluation of the tenant runs while the lock is held. Everything before the watermark was evaluated against
+    // the policies as they were, everything after it will be evaluated against what this transaction writes.
+    private DateTime lockedWatermark(Handle handle, UUID organizationId, UUID tenantId) {
+        handle.createQuery("SELECT pg_advisory_xact_lock(hashtext(:key))")
+                .bind("key", Segmentation.lockKey(organizationId, tenantId))
+                .mapToMap()
+                .one();
+
+        return segmentation.state(handle, organizationId, tenantId, false).watermark();
+    }
+
+    // The policy that was changed last comes first: it is the one that is being looked at. Locked, a policy cannot
+    // be changed until its backfill is written back. One that is being changed right now is left for later.
+    public List<Policy> findAllWithPendingBackfill(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT * FROM segmentation_policies WHERE organization_id = :organization_id " +
+                        "AND tenant_id = :tenant_id AND backfill_requested_at IS NOT NULL AND status <> :paused " +
+                        "ORDER BY backfill_requested_at DESC, id DESC FOR UPDATE SKIP LOCKED")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("paused", PolicyStatus.PAUSED.name())
+                .map((rs, ctx) -> map(rs))
+                .list();
+    }
+
+    public List<TenantCacheKey> findTenantsWithPendingBackfill() {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT DISTINCT organization_id, tenant_id FROM segmentation_policies " +
+                                "WHERE backfill_requested_at IS NOT NULL AND status <> :paused " +
+                                "ORDER BY organization_id, tenant_id")
+                        .bind("paused", PolicyStatus.PAUSED.name())
+                        .map((rs, ctx) -> TenantCacheKey.create(UUID.fromString(rs.getString("organization_id")),
+                                UUID.fromString(rs.getString("tenant_id"))))
+                        .list()
+        );
+    }
+
+    // The time of the last change stays as it is: the engine takes a new one for a change of the definitions.
+    public void setBackfill(Handle handle, Collection<Policy> policies, DateTime cursor, DateTime from) {
+        handle.createUpdate("UPDATE segmentation_policies SET backfill_cursor = :cursor, backfill_from = :from " +
+                        "WHERE id IN (<ids>)")
+                .bind("cursor", cursor)
+                .bind("from", from)
+                .bindList("ids", ids(policies))
+                .execute();
+    }
+
+    public void completeBackfill(Handle handle, Collection<Policy> policies) {
+        handle.createUpdate("UPDATE segmentation_policies SET " + NO_BACKFILL + " WHERE id IN (<ids>)")
+                .bindList("ids", ids(policies))
+                .execute();
+    }
+
+    public void cancelBackfills(Handle handle, UUID organizationId, UUID tenantId) {
+        handle.createUpdate("UPDATE segmentation_policies SET " + NO_BACKFILL + " WHERE organization_id = " +
+                        ":organization_id AND tenant_id = :tenant_id AND backfill_requested_at IS NOT NULL")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .execute();
+    }
+
+    private static List<Long> ids(Collection<Policy> policies) {
+        List<Long> ids = Lists.newArrayList();
+        for (Policy policy : policies) {
+            ids.add(policy.id());
+        }
+
+        return ids;
     }
 
     public Policy allow(Policy policy, PolicyRule rule) {
@@ -370,9 +583,9 @@ public class Policies {
     public static Set<UUID> referencedAssets(Collection<Policy> policies) {
         Set<UUID> assets = Sets.newHashSet();
         for (Policy policy : policies) {
-            for (PolicyRule rule : rules(policy.scope(), policy.allowed())) {
+            for (PolicyRule rule : rules(policy)) {
                 for (PolicyRule.Selector selector : selectors(rule)) {
-                    if (selector.type() == PolicyRule.SelectorType.ASSET) {
+                    if (selector.type() == PolicyRule.SelectorType.ASSET && selector.value() != null) {
                         assets.add(UUID.fromString(selector.value()));
                     }
                 }
@@ -396,7 +609,7 @@ public class Policies {
     }
 
     public static boolean references(Policy policy, PolicyRule.SelectorType type, String value) {
-        for (PolicyRule rule : rules(policy.scope(), policy.allowed())) {
+        for (PolicyRule rule : rules(policy)) {
             for (PolicyRule.Selector selector : selectors(rule)) {
                 if (selector.type() == type && value.equalsIgnoreCase(selector.value())) {
                     return true;
@@ -405,6 +618,17 @@ public class Policies {
         }
 
         return false;
+    }
+
+    // With the previous definition: stored sessions are judged against it for as long as it is kept, so what it
+    // names has to stay.
+    private static List<PolicyRule> rules(Policy policy) {
+        List<PolicyRule> rules = rules(policy.scope(), policy.allowed());
+        if (policy.backfillPreviousScope() != null) {
+            rules.addAll(rules(policy.backfillPreviousScope(), policy.backfillPreviousAllowed()));
+        }
+
+        return rules;
     }
 
     private static List<PolicyRule> rules(PolicyRule scope, List<PolicyRule> allowed) {
@@ -649,7 +873,14 @@ public class Policies {
                 SegmentationJson.parseRule(rs.getString("scope")),
                 SegmentationJson.parseRules(rs.getString("allowed")),
                 new DateTime(rs.getTimestamp("created_at")),
-                new DateTime(rs.getTimestamp("updated_at"))
+                new DateTime(rs.getTimestamp("updated_at")),
+                Segmentation.dateTime(rs, "backfill_requested_at"),
+                Segmentation.dateTime(rs, "backfill_cursor"),
+                Segmentation.dateTime(rs, "backfill_from"),
+                rs.getString("backfill_previous_scope") == null ? null
+                        : SegmentationJson.parseRule(rs.getString("backfill_previous_scope")),
+                SegmentationJson.parseRules(rs.getString("backfill_previous_allowed")),
+                Segmentation.dateTime(rs, "backfill_previous_until")
         );
     }
 

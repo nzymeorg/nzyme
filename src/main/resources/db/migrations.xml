@@ -13268,4 +13268,21 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_segmentation_policies_backfill" author="lennartkoopmann">
+        <addColumn tableName="segmentation_policies">
+            <column name="backfill_requested_at" type="timestamp with time zone" />
+            <column name="backfill_cursor" type="timestamp with time zone" />
+            <column name="backfill_from" type="timestamp with time zone" />
+        </addColumn>
+        <sql>UPDATE segmentation_policies SET backfill_requested_at = NOW()</sql>
+    </changeSet>
+
+    <changeSet id="add_segmentation_policies_backfill_previous" author="lennartkoopmann">
+        <addColumn tableName="segmentation_policies">
+            <column name="backfill_previous_scope" type="jsonb" />
+            <column name="backfill_previous_allowed" type="jsonb" />
+            <column name="backfill_previous_until" type="timestamp with time zone" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

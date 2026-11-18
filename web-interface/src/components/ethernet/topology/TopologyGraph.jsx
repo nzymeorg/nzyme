@@ -16,7 +16,7 @@ import Store from "../../../util/Store";
 import ZoomHint, {useZoomHint, wheelZoomDelta, wheelZooms} from "../../shared/ZoomHint";
 import {colorsForMode, drawGrid, FONT_FAMILY, tooltipStyle} from "../../shared/viz/VizTheme";
 import {countryName, formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {linkClassColor, nodeFilter, nodeKind, pairIdOf} from "./TopologyData";
+import {linkClassColor, noDataText, nodeFilter, nodeKind, pairIdOf} from "./TopologyData";
 
 const MIN_RADIUS = 4;
 const MAX_RADIUS = 15;
@@ -1238,8 +1238,9 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
 
   if (!hasData) {
     return (
-        <div className="border rounded d-flex align-items-center justify-content-center text-muted" style={{height: height + "px"}}>
-          No connections match the selected filters.
+        <div className="border rounded d-flex align-items-center justify-content-center text-muted text-center p-4"
+             style={{height: height + "px"}}>
+          {noDataText("connections")}
         </div>
     )
   }

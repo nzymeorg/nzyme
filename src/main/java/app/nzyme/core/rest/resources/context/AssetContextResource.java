@@ -168,7 +168,7 @@ public class AssetContextResource extends UserAuthenticatedResource {
 
         Dot11MacAddressMetadata dot11Metadata = nzyme.getDot11().getMacAddressMetadata(
                 mac,
-                nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser)
+                nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser, organizationId, tenantId)
         );
 
         // This is where will hook in for Ethernet types.

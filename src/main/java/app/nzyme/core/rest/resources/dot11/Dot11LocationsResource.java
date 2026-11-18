@@ -148,7 +148,7 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                     .findBSSIDSignalStrengthPerTap(
                             bssidParam,
                             timeRange,
-                            nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser)
+                            allAccessibleTapIds(authenticatedUser, nzyme)
                     );
         }
 
@@ -252,7 +252,7 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                                    @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        List<UUID> accessibleTaps = nzyme.getTapManager().allTapUUIDsAccessibleByUser(authenticatedUser);
+        List<UUID> accessibleTaps = allAccessibleTapIds(authenticatedUser, nzyme);
 
         List<TapBasedSignalStrengthResult> mergedSignalStrengthsByTap = null;
         if (floorUuid == null && locationUuid == null) {

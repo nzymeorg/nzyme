@@ -13,6 +13,7 @@ import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.dot11.db.BSSIDAndSSIDCountHistogramEntry;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.rest.responses.briefing.BriefingHistogramBucketResponse;
+import app.nzyme.core.ethernet.segmentation.PolicyStatus;
 import app.nzyme.core.ethernet.segmentation.SegmentationViews;
 import app.nzyme.core.rest.responses.dashboards.*;
 import app.nzyme.core.taps.CaptureSummary;
@@ -324,12 +325,17 @@ public class DashboardContent {
 
             for (SegmentationViews.PolicyOverview overview : nzyme.getEthernet().segmentation().views()
                     .policies(organizationId, tenantId, from)) {
+                // A policy in audit raises no alerts, and it does not show on a wall either.
+                if (overview.policy().status() == PolicyStatus.AUDIT) {
+                    audit++;
+                    continue;
+                }
+
                 switch (overview.state()) {
                     case HOLDING -> holding++;
                     case CROSSED -> crossed++;
                     case ATTEMPTED -> attempted++;
                     case NOT_OBSERVABLE -> notObservable++;
-                    case AUDIT -> audit++;
                     case PAUSED -> paused++;
                 }
 

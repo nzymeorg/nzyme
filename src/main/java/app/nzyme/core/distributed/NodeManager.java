@@ -408,6 +408,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SEGMENTATION_CHUNK_TIMER));
             writeTimer(MetricExternalName.SEGMENTATION_RESTAMP_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.SEGMENTATION_RESTAMP_TIMER));
+            writeTimer(MetricExternalName.SEGMENTATION_BACKFILL_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.SEGMENTATION_BACKFILL_TIMER));
             writeTimer(MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.IDENTITY_CHANGE_DETECTION_RUN_TIMER.database_label,

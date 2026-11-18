@@ -13,6 +13,7 @@ import {UserContext} from "../../../../App";
 import {filtersApplied, userHasPermission} from "../../../../util/Tools";
 import {SEGMENTATION_MENU_ITEMS} from "../SegmentationMenuItems";
 import {isBehindLastPage} from "../SegmentationBulkActions";
+import useBackfillPoll from "../useBackfillPoll";
 import {SEGMENTATION_POLICIES_FILTER_FIELDS} from "./SegmentationPoliciesFilterFields";
 import SegmentationPoliciesTable from "./SegmentationPoliciesTable";
 
@@ -73,6 +74,17 @@ export default function SegmentationPoliciesPage() {
       }
     );
   }, [organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, page, revision]);
+
+  useBackfillPoll(JSON.stringify([organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, page]),
+    Boolean(policies && policies.policies.some((p) => p.backfill_pending)), (received) => {
+      segmentationService.findAllPolicies(
+        organizationId, tenantId, filters, timeRange, orderColumn, orderDirection, perPage, (page-1)*perPage, (response) => {
+          if (received() && !isBehindLastPage(response.policies, response.total, page)) {
+            setPolicies(response);
+          }
+        }, received
+      );
+    });
 
   useEffect(() => {
     setOptions(null);

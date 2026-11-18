@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -117,6 +118,7 @@ public class SegmentationEngine {
     private final Timer runTimer;
     private final Timer chunkTimer;
     private final Timer restampTimer;
+    private final Timer backfillTimer;
     private final Meter sessionsMeter;
     private final Meter flowsMeter;
     private final Meter findingsMeter;
@@ -131,6 +133,7 @@ public class SegmentationEngine {
         this.runTimer = nzyme.getMetrics().timer(MetricNames.SEGMENTATION_RUN_TIMER);
         this.chunkTimer = nzyme.getMetrics().timer(MetricNames.SEGMENTATION_CHUNK_TIMER);
         this.restampTimer = nzyme.getMetrics().timer(MetricNames.SEGMENTATION_RESTAMP_TIMER);
+        this.backfillTimer = nzyme.getMetrics().timer(MetricNames.SEGMENTATION_BACKFILL_TIMER);
         this.sessionsMeter = nzyme.getMetrics().meter(MetricNames.SEGMENTATION_SESSIONS_METER);
         this.flowsMeter = nzyme.getMetrics().meter(MetricNames.SEGMENTATION_FLOWS_METER);
         this.findingsMeter = nzyme.getMetrics().meter(MetricNames.SEGMENTATION_FINDINGS_METER);
@@ -374,6 +377,23 @@ public class SegmentationEngine {
             to = until;
         }
 
+        List<Group> groups = readGroups(handle, organizationId, tenantId, taps, from, to);
+        Set<String> unreachable = groups.isEmpty() ? Collections.emptySet() : readUnreachables(handle, taps, from, to);
+
+        Result result = evaluate(handle, organizationId, tenantId, groups, unreachable, definitions,
+                definitions.matchers, Collections.emptyMap(), false, false);
+
+        setWatermark(handle, organizationId, tenantId, to);
+
+        return new Result(true, result.sessions(), result.flows(), result.findings(), result.alerts());
+    }
+
+    private List<Group> readGroups(Handle handle,
+                                   UUID organizationId,
+                                   UUID tenantId,
+                                   List<UUID> taps,
+                                   DateTime from,
+                                   DateTime to) {
         List<Group> groups = handle.createQuery("SELECT date_trunc('hour', start_time, 'UTC') AS bucket, " +
                         "MIN(start_time) AS first_seen, " + GROUPED_COLUMNS + " FROM (" + ORIENTED +
                         "tap_uuid IN (<taps>) AND created_at >= :from AND created_at < :to " + EXCLUSIONS +
@@ -392,13 +412,154 @@ public class SegmentationEngine {
             markLimitReached(handle, organizationId, tenantId);
         }
 
-        Set<String> unreachable = groups.isEmpty() ? Collections.emptySet() : readUnreachables(handle, taps, from, to);
+        return groups;
+    }
 
-        Result result = evaluate(handle, organizationId, tenantId, groups, unreachable, definitions, false);
+    // Sessions that were evaluated before a policy was created or forbade more are judged again against it. Ends when
+    // nothing is left, when another evaluation of the tenant is running, when definitions changed or at the deadline.
+    public void backfill(UUID organizationId, UUID tenantId, DateTime deadline) {
+        SegmentationConfiguration config = segmentation.getConfiguration(organizationId, tenantId);
+        List<UUID> taps = Tools.getTapUuids(nzyme, organizationId, tenantId);
+        if (!config.enabled() || taps.isEmpty()) {
+            nzyme.getDatabase().useHandle(handle ->
+                    segmentation.policies().cancelBackfills(handle, organizationId, tenantId));
+            return;
+        }
 
-        setWatermark(handle, organizationId, tenantId, to);
+        Definitions definitions = nzyme.getDatabase().withHandle(handle -> definitions(handle, organizationId, tenantId));
 
-        return new Result(true, result.sessions(), result.flows(), result.findings(), result.alerts());
+        while (DateTime.now().isBefore(deadline)) {
+            boolean progressed;
+            try (Timer.Context ignored = backfillTimer.time()) {
+                progressed = nzyme.getDatabase().inTransaction(handle ->
+                        backfillChunk(handle, organizationId, tenantId, taps, definitions));
+            }
+
+            if (!progressed) {
+                return;
+            }
+        }
+    }
+
+    private boolean backfillChunk(Handle handle,
+                                  UUID organizationId,
+                                  UUID tenantId,
+                                  List<UUID> taps,
+                                  Definitions definitions) {
+        if (!lock(handle, organizationId, tenantId)) {
+            return false;
+        }
+
+        EngineState state = segmentation.state(handle, organizationId, tenantId, true);
+
+        // Before its first run the engine has evaluated nothing that could be judged again.
+        if (state.watermark() == null || state.restampPending()
+                || !definitions.policiesVersion.equals(policiesVersion(handle, organizationId, tenantId))
+                || !definitions.exclusionsVersion.equals(Exclusions.version(handle, organizationId, tenantId))) {
+            return false;
+        }
+
+        List<Policy> pending = segmentation.policies().findAllWithPendingBackfill(handle, organizationId, tenantId);
+        if (pending.isEmpty()) {
+            return false;
+        }
+
+        List<Policy> unplaced = pending.stream()
+                .filter(p -> p.backfillCursor() == null || p.backfillFrom() == null)
+                .collect(Collectors.toList());
+        if (!unplaced.isEmpty()) {
+            // Nothing is judged that has no flows to show for, and nothing is read from before the oldest session.
+            DateTime evaluated = segmentation.flows().earliestBucket(handle, organizationId, tenantId);
+            DateTime stored = oldestSession(handle, taps);
+            DateTime from = evaluated == null || stored == null ? null : (stored.isAfter(evaluated) ? stored : evaluated);
+
+            for (Policy policy : unplaced) {
+                boolean unknown = policy.backfillCursor() == null && segmentation.findings().exist(handle, policy);
+
+                if (from == null || unknown) {
+                    segmentation.policies().completeBackfill(handle, List.of(policy));
+                    continue;
+                }
+
+                // A policy that forbids nothing more than when it was paused has nothing to add from before the pause.
+                DateTime policyFrom = from;
+                if (policy.backfillPreviousScope() != null && policy.backfillPreviousUntil() != null
+                        && policy.backfillPreviousUntil().isAfter(from)
+                        && !Policies.forbidsMore(policy.scope(), policy.allowed(), policy.backfillPreviousScope(),
+                        policy.backfillPreviousAllowed())) {
+                    policyFrom = policy.backfillPreviousUntil();
+                }
+
+                segmentation.policies().setBackfill(handle, List.of(policy),
+                        policy.backfillCursor() == null ? state.watermark() : policy.backfillCursor(), policyFrom);
+            }
+
+            return true;
+        }
+
+        // Policies that were requested together share their windows and are judged in one read.
+        Policy first = pending.get(0);
+        List<Policy> batch = pending.stream()
+                .filter(p -> p.backfillCursor().isEqual(first.backfillCursor()) && p.backfillFrom().isEqual(first.backfillFrom()))
+                .collect(Collectors.toList());
+
+        DateTime to = first.backfillCursor();
+        DateTime from = to.minusMinutes(CHUNK_MINUTES);
+        if (from.isBefore(first.backfillFrom())) {
+            from = first.backfillFrom();
+        }
+
+        // A window never reaches across the time up to which the previous definition of one of its policies applies.
+        for (Policy policy : batch) {
+            DateTime until = policy.backfillPreviousUntil();
+            if (until != null && until.isAfter(from) && until.isBefore(to)) {
+                from = until;
+            }
+        }
+
+        if (from.isBefore(to)) {
+            List<PolicyMatcher> matchers = Lists.newArrayList();
+            Map<Long, PolicyMatcher> previous = Maps.newHashMap();
+            for (Policy policy : batch) {
+                try {
+                    boolean evaluatedBefore = policy.backfillPreviousScope() != null
+                            && (policy.backfillPreviousUntil() == null || !to.isAfter(policy.backfillPreviousUntil()));
+                    PolicyMatcher before = !evaluatedBefore ? null
+                            : new PolicyMatcher(null, policy.backfillPreviousScope(), policy.backfillPreviousAllowed());
+
+                    matchers.add(new PolicyMatcher(policy));
+                    if (before != null) {
+                        previous.put(policy.id(), before);
+                    }
+                } catch (Exception e) {
+                    LOG.error("Could not prepare segmentation policy [{}]. Skipping it.", policy.uuid(), e);
+                }
+            }
+
+            List<Group> groups = readGroups(handle, organizationId, tenantId, taps, from, to);
+            Set<String> unreachable = groups.isEmpty() ? Collections.emptySet() : readUnreachables(handle, taps, from, to);
+            evaluate(handle, organizationId, tenantId, groups, unreachable, definitions, matchers, previous, false, true);
+        }
+
+        if (from.isAfter(first.backfillFrom())) {
+            segmentation.policies().setBackfill(handle, batch, from, first.backfillFrom());
+        } else {
+            segmentation.policies().completeBackfill(handle, batch);
+        }
+
+        return true;
+    }
+
+    // Per tap, so that the first entry of the index answers it.
+    @Nullable
+    private static DateTime oldestSession(Handle handle, List<UUID> taps) {
+        return handle.createQuery("SELECT MIN(oldest) AS oldest FROM unnest(ARRAY[<taps>]::uuid[]) AS t(tap) " +
+                        "CROSS JOIN LATERAL (SELECT MIN(created_at) AS oldest FROM l4_sessions " +
+                        "WHERE tap_uuid = t.tap) AS s")
+                .bindList("taps", taps)
+                .map((rs, ctx) -> Optional.ofNullable(rs.getTimestamp("oldest")).map(DateTime::new))
+                .one()
+                .orElse(null);
     }
 
     private static void markLimitReached(Handle handle, UUID organizationId, UUID tenantId) {
@@ -456,7 +617,8 @@ public class SegmentationEngine {
                 markLimitReached(handle, organizationId, tenantId);
             }
 
-            result = evaluate(handle, organizationId, tenantId, groups, Collections.emptySet(), definitions, true);
+            result = evaluate(handle, organizationId, tenantId, groups, Collections.emptySet(), definitions,
+                    definitions.matchers, Collections.emptyMap(), true, false);
         }
 
         if (state.carryoverBucket() == null || state.carryoverBucket().isBefore(bucket)) {
@@ -523,13 +685,18 @@ public class SegmentationEngine {
         return source + "|" + destination + "|" + l4Type + "|" + port;
     }
 
+    // Sessions that are judged again were written to the rollup and counted for the exclusions when they were
+    // evaluated first, and raise no alerts. What the previous definition of a policy forbade was recorded then.
     private Result evaluate(Handle handle,
                             UUID organizationId,
                             UUID tenantId,
                             List<Group> groups,
                             Set<String> unreachable,
                             Definitions definitions,
-                            boolean continued) {
+                            List<PolicyMatcher> matchers,
+                            Map<Long, PolicyMatcher> previous,
+                            boolean continued,
+                            boolean again) {
         if (groups.isEmpty()) {
             return Result.none();
         }
@@ -585,11 +752,21 @@ public class SegmentationEngine {
             String protocol = AssetProfileBatch.protocolOf(DnsTunnelJson.parseStrings(group.tags()));
             sessions += group.sessions();
 
-            for (PolicyMatcher matcher : definitions.matchers) {
+            for (PolicyMatcher matcher : matchers) {
                 if (matcher.evaluate(source, destination, group.l4Type(), group.port(), protocol)
-                        == PolicyMatcher.Verdict.VIOLATION) {
+                        != PolicyMatcher.Verdict.VIOLATION) {
+                    continue;
+                }
+
+                PolicyMatcher before = previous.get(matcher.policy().id());
+                if (before == null || before.evaluate(source, destination, group.l4Type(), group.port(), protocol)
+                        != PolicyMatcher.Verdict.VIOLATION) {
                     violations.add(matcher.policy(), source, destination, group, outcome, protocol, continued);
                 }
+            }
+
+            if (again) {
+                continue;
             }
 
             flows.add(new Flow(
@@ -611,12 +788,14 @@ public class SegmentationEngine {
         }
 
         List<Flow> folded = fold(flows);
-        segmentation.flows().write(handle, organizationId, tenantId, folded);
+        if (!again) {
+            segmentation.flows().write(handle, organizationId, tenantId, folded);
 
-        // Like in the crossings, the tap that saw the most counts where several taps recorded an attempt.
-        Map<Long, Long> matches = Maps.newHashMap();
-        excluded.forEach((exclusion, perTap) -> matches.put(exclusion, Collections.max(perTap.values())));
-        segmentation.exclusions().recordMatches(handle, matches);
+            // Like in the crossings, the tap that saw the most counts where several taps recorded an attempt.
+            Map<Long, Long> matches = Maps.newHashMap();
+            excluded.forEach((exclusion, perTap) -> matches.put(exclusion, Collections.max(perTap.values())));
+            segmentation.exclusions().recordMatches(handle, matches);
+        }
 
         List<Findings.Violation> found = violations.violations(MAX_FINDINGS_PER_POLICY_PER_CHUNK);
         if (violations.dropped() > 0) {
@@ -626,10 +805,14 @@ public class SegmentationEngine {
         }
 
         int opened = segmentation.findings().record(handle, organizationId, tenantId, found);
+        findingsMeter.mark(opened);
+
+        if (again) {
+            return new Result(true, sessions, 0, opened, Collections.emptyList());
+        }
 
         sessionsMeter.mark(sessions);
         flowsMeter.mark(folded.size());
-        findingsMeter.mark(opened);
 
         return new Result(true, sessions, folded.size(), opened, alerts(found));
     }
