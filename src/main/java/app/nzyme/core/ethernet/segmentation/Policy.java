@@ -18,7 +18,19 @@ public record Policy(long id,
                      PolicyRule scope,
                      List<PolicyRule> allowed,
                      DateTime createdAt,
-                     DateTime updatedAt) {
+                     DateTime updatedAt,
+                     // The cursor moves back from where the engine was to backfillFrom. The previous definition is
+                     // what these sessions were evaluated against, of a paused policy up to backfillPreviousUntil.
+                     @Nullable DateTime backfillRequestedAt,
+                     @Nullable DateTime backfillCursor,
+                     @Nullable DateTime backfillFrom,
+                     @Nullable PolicyRule backfillPreviousScope,
+                     List<PolicyRule> backfillPreviousAllowed,
+                     @Nullable DateTime backfillPreviousUntil) {
+
+    public boolean backfillPending() {
+        return backfillRequestedAt != null && status != PolicyStatus.PAUSED;
+    }
 
     public boolean alertsOn(FindingClass findingClass) {
         if (status != PolicyStatus.ACTIVE) {

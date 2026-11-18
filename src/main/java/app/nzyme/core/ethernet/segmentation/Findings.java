@@ -266,6 +266,13 @@ public class Findings {
         );
     }
 
+    public boolean exist(Handle handle, Policy policy) {
+        return handle.createQuery("SELECT EXISTS(SELECT 1 FROM segmentation_findings WHERE policy_id = :policy_id)")
+                .bind("policy_id", policy.id())
+                .mapTo(Boolean.class)
+                .one();
+    }
+
     public int delete(BulkSelection selection,
                       UUID organizationId,
                       UUID tenantId,

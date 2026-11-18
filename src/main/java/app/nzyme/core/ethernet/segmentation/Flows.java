@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -112,6 +113,17 @@ public class Flows {
 
     public Flows(NzymeNode nzyme) {
         this.nzyme = nzyme;
+    }
+
+    @Nullable
+    public DateTime earliestBucket(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("SELECT MIN(bucket) AS bucket FROM segmentation_flows " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .map((rs, ctx) -> Optional.ofNullable(rs.getTimestamp("bucket")).map(DateTime::new))
+                .one()
+                .orElse(null);
     }
 
     public static DateTime bucketOf(DateTime timestamp) {

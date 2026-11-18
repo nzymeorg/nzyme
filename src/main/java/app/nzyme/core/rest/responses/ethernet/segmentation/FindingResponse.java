@@ -70,6 +70,8 @@ public abstract class FindingResponse {
     @JsonProperty("source_addresses_limit")
     public abstract int sourceAddressesLimit();
 
+    @Schema(description = "All sessions the finding was recorded for. If target_count is above targets_limit, "
+            + "sessions of targets that are no longer listed stay in this count when the policy changes.")
     @JsonProperty("session_count")
     public abstract long sessionCount();
 

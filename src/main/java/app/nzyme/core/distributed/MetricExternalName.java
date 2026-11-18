@@ -33,6 +33,7 @@ public enum MetricExternalName {
     SEGMENTATION_RUN_TIMER("segmentation_run_timer"),
     SEGMENTATION_WINDOW_TIMER("segmentation_window_timer"),
     SEGMENTATION_RESTAMP_TIMER("segmentation_restamp_timer"),
+    SEGMENTATION_BACKFILL_TIMER("segmentation_backfill_timer"),
     IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER("identity_duplicate_mac_detection_run_timer"),
     IDENTITY_CHANGE_DETECTION_RUN_TIMER("identity_change_detection_run_timer"),
     IDENTITY_SUCCESSOR_DETECTION_RUN_TIMER("identity_successor_detection_run_timer"),

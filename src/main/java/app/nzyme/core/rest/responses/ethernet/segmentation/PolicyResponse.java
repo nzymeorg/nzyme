@@ -38,7 +38,7 @@ public abstract class PolicyResponse {
     @JsonProperty("allowed")
     public abstract List<PolicyRule> allowed();
 
-    @Schema(description = "HOLDING, CROSSED, ATTEMPTED, NOT_OBSERVABLE, AUDIT or PAUSED.")
+    @Schema(description = "HOLDING, CROSSED, ATTEMPTED, NOT_OBSERVABLE or PAUSED.")
     @JsonProperty("state")
     public abstract String state();
 
@@ -65,6 +65,11 @@ public abstract class PolicyResponse {
     @JsonProperty("findings_limit_reached")
     public abstract boolean findingsLimitReached();
 
+    @Schema(description = "Sessions that were recorded before the policy was created or last forbade more are "
+            + "still being judged against it. Findings are added and the state can change until this ends.")
+    @JsonProperty("backfill_pending")
+    public abstract boolean backfillPending();
+
     @JsonProperty("created_at")
     public abstract DateTime createdAt();
 
@@ -86,6 +91,7 @@ public abstract class PolicyResponse {
                                         DateTime lastAttempted,
                                         int findingsLimit,
                                         boolean findingsLimitReached,
+                                        boolean backfillPending,
                                         DateTime createdAt,
                                         DateTime updatedAt) {
         return builder()
@@ -104,6 +110,7 @@ public abstract class PolicyResponse {
                 .lastAttempted(lastAttempted)
                 .findingsLimit(findingsLimit)
                 .findingsLimitReached(findingsLimitReached)
+                .backfillPending(backfillPending)
                 .createdAt(createdAt)
                 .updatedAt(updatedAt)
                 .build();
@@ -130,6 +137,7 @@ public abstract class PolicyResponse {
         public abstract Builder lastAttempted(DateTime lastAttempted);
         public abstract Builder findingsLimit(int findingsLimit);
         public abstract Builder findingsLimitReached(boolean findingsLimitReached);
+        public abstract Builder backfillPending(boolean backfillPending);
         public abstract Builder createdAt(DateTime createdAt);
         public abstract Builder updatedAt(DateTime updatedAt);
 

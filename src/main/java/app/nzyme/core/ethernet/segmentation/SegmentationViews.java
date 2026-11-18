@@ -41,7 +41,6 @@ public class SegmentationViews {
         CROSSED,
         ATTEMPTED,
         NOT_OBSERVABLE,
-        AUDIT,
         PAUSED
     }
 
@@ -601,10 +600,6 @@ public class SegmentationViews {
                               boolean stale) {
         if (policy.status() == PolicyStatus.PAUSED) {
             return PolicyState.PAUSED;
-        }
-
-        if (policy.status() == PolicyStatus.AUDIT) {
-            return PolicyState.AUDIT;
         }
 
         if (summary.crossedFindings() > 0) {

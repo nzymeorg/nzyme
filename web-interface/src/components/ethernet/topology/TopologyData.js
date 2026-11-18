@@ -11,6 +11,78 @@ export const SERVICE_LEVELS = [["PROTOCOL", "Protocols"], ["PORT", "Ports"]];
 
 export const LINK_LIMITS = [100, 250, 500, 1000, 5000, 10000];
 
+export const VIEWS = [["graph", "Graph"], ["matrix", "Matrix"], ["flow", "Flow"], ["map", "Map"]];
+
+export const FLOW_LIMIT = 400;
+export const GEO_LIMIT = 500;
+
+export const MIN_BYTES = [[0, "Show all"], [10240, "10 KB"], [102400, "100 KB"], [1048576, "1 MB"], [10485760, "10 MB"], [104857600, "100 MB"]];
+
+export const hiddenLinksText = (minBytes) => (minBytes > 0
+    ? " Connections below " + MIN_BYTES.find(([bytes]) => bytes === minBytes)[1] + " are hidden."
+    : "");
+
+export const ARRANGEMENTS = [["force", "By connections"], ["perimeter", "Internal inside, external around"],
+  ["clusters", "By network and country"]];
+
+const graphDisplayOptions = (idPrefix, arrange, size, labels, hide) => [
+  {id: idPrefix + "-arrange", label: "Arrange", ...arrange, options: ARRANGEMENTS},
+  {id: idPrefix + "-size", label: "Node size", ...size,
+    options: [["bytes", "Traffic"], ["sessions", "Sessions"], ["peers", "Connected nodes"]]},
+  {id: idPrefix + "-labels", label: "Labels", ...labels,
+    options: [["auto", "Busiest nodes"], ["all", "All nodes"], ["hover", "On hover"]]},
+  {id: idPrefix + "-min-bytes", label: "Hide links below", value: hide.value,
+    onChange: (v) => hide.onChange(parseInt(v, 10)), options: MIN_BYTES}
+];
+
+export const PLACES = [["city", "Cities"], ["country", "Countries"]];
+
+// Every option is passed as {value, onChange}. The limit brings its own options.
+export function viewOptions(idPrefix, view, o) {
+  const internal = {id: idPrefix + "-internal", label: "Internal nodes", ...o.internal, options: INTERNAL_LEVELS};
+  const external = {id: idPrefix + "-external", label: "External nodes", ...o.external, options: EXTERNAL_LEVELS};
+  const limit = {id: idPrefix + "-links", label: "Connections", ...o.limit};
+
+  switch (view) {
+    case "graph":
+      return {
+        data: [internal, external, limit],
+        display: graphDisplayOptions(idPrefix, o.arrange, o.size, o.labels, o.hide)
+      };
+    case "matrix":
+      return {
+        data: [internal, external, limit],
+        display: [
+          {id: idPrefix + "-matrix-order", label: "Order", ...o.order,
+            options: [["traffic", "By traffic"], ["name", "By name"]]}
+        ]
+      };
+    case "flow":
+      return {
+        data: [
+          internal,
+          external,
+          {id: idPrefix + "-service", label: "Services", ...o.service, options: SERVICE_LEVELS}
+        ],
+        display: [
+          {id: idPrefix + "-flow-entries", label: "Entries per column", value: o.entries.value,
+            onChange: (v) => o.entries.onChange(parseInt(v, 10)), options: [[8, "8"], [12, "12"], [16, "16"], [24, "24"]]}
+        ]
+      };
+    default:
+      return {
+        data: [{id: idPrefix + "-places", label: "Map points", ...o.places, options: PLACES}],
+        display: []
+      };
+  }
+}
+
+export const coverageNoun = (view) => (n) => (view === "graph" || view === "matrix"
+    ? (n === 1 ? "connection" : "connections") : (n === 1 ? "flow" : "flows"));
+
+export const noDataText = (what) => "No " + what + " match the selected filters. Sessions to multicast, broadcast " +
+    "and loopback addresses are not part of the topology.";
+
 export function nodeLabel(node) {
   switch (node.level) {
     case "HOST":
@@ -195,18 +267,50 @@ export function serviceSessionFilters(service) {
   return tag ? {tags: [{field: "tags", operator: "contains", value: tag}]} : null;
 }
 
-// Extra filters win over page filters on the same field.
-export function sessionsLink(pageFilters, extraFilters, timeRange, timeWindow) {
+const linkFilters = (pageFilters) => {
   const filters = {};
   Object.keys(pageFilters || {}).forEach((field) => {
     filters[field] = pageFilters[field].map((f) => ({field: f.field, operator: f.operator, value: f.value}));
   });
-  Object.assign(filters, extraFilters || {});
+  return filters;
+}
 
+const rangedLink = (route, filters, timeRange) => filteredLink(route, filters)
+    + "&tr_timerange=" + encodeURIComponent(JSON.stringify(serializeTimeRange(timeRange)));
+
+// Extra filters win over page filters on the same field.
+export function sessionsLink(pageFilters, extraFilters, timeRange, timeWindow) {
+  const filters = Object.assign(linkFilters(pageFilters), extraFilters || {});
   const range = timeWindow ? Absolute(new Date(timeWindow.from), new Date(timeWindow.to)) : timeRange;
 
-  return filteredLink(ApiRoutes.ETHERNET.L4.SESSIONS, filters)
-      + "&tr_timerange=" + encodeURIComponent(JSON.stringify(serializeTimeRange(range)));
+  return rangedLink(ApiRoutes.ETHERNET.L4.SESSIONS, filters, range);
+}
+
+export function topologyLink(pageFilters, timeRange, options) {
+  return rangedLink(ApiRoutes.ETHERNET.TOPOLOGY.INDEX, linkFilters(pageFilters), timeRange)
+      + Object.keys(options).map((key) => "&" + key + "=" + encodeURIComponent(options[key])).join("");
+}
+
+export function coverageOf(items, total, totalBytes, what, when = "") {
+  if (total === 0) return null;
+  if (total <= items.length) {
+    return {
+      text: "Showing " + (total === 1 ? "the only " + what(1) : "all " + formatCount(total) + " " + what(total))
+          + when + ".",
+      limited: false
+    };
+  }
+
+  const shown = items.reduce((sum, i) => sum + i.bytes_tx + i.bytes_rx, 0);
+  const share = totalBytes > 0 ? 100 * shown / totalBytes : 100;
+  // Capped, so that a part is never called all of the traffic.
+  const shareText = share >= 99.95 ? "over 99.9" : share.toFixed(1);
+
+  return {
+    text: "Showing " + formatCount(items.length) + " of " + formatCount(total) + " " + what(total) + when
+        + " (" + shareText + "% of traffic).",
+    limited: true
+  };
 }
 
 export function formatWindowTime(ms) {

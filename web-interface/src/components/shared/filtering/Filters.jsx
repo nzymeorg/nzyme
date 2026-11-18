@@ -9,7 +9,7 @@ import {useNavigate} from "react-router-dom";
 import validateIPAddressValid from "./validators/IPAddressValidator";
 import validateMACAddressValid from "./validators/MACAddressValidator";
 import validateNumber from "./validators/NumberValidator";
-import {filtersToQueryParameters, queryParametersToFilters} from "./FilterQueryParameters";
+import {filtersToQueryParameters, queryParametersToFilters, sameFilter} from "./FilterQueryParameters";
 import validateEnum from "./validators/EnumValidator";
 import SaveFilterAsMonitorDialog from "./monitors/SaveFilterAsMonitorDialog";
 import ApplyExistingMonitorDialog from "./monitors/ApplyExistingMonitorDialog";
@@ -1544,8 +1544,6 @@ export default function Filters(props) {
 
     setFilters(newFilters);
   }
-
-  const sameFilter = (a, b) => a.field === b.field && a.operator === b.operator && a.value === b.value;
 
   const quickFilterActive = (quickFilter) => quickFilter.filters.every((wanted) => {
     return (filters[wanted.field] || []).some((existing) => sameFilter(existing, wanted));

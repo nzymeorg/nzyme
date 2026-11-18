@@ -1,7 +1,7 @@
 {
   "openapi" : "3.0.1",
   "info" : {
-    "description" : "This is the REST API of Nzyme. The Nzyme web interface uses the same API, so\neverything you can do in the web interface you can also do from a script, a CLI or any other client.\nThe interactive version of this documentation lives at https://api.docs.nzyme.org.\n\n## Authentication\n\nCreate an API key on your user profile page in the web interface and send it as a bearer token with\nevery request:\n\n```\nAuthorization: Bearer nzk_...\n```\n\nAn API key carries the permissions of the user that created it, including the organization and tenant\nscope, the organization administrator or super administrator level, feature permissions and tap\nscope. Permissions are evaluated on every request, so changes to the user take effect immediately.\nKeys can expire, and a key that has expired or was deleted is rejected with `401`.\n\nEndpoints that manage credentials, such as passwords, multi-factor authentication, API keys and\nsessions, require an interactive session and reject API keys. The web interface session ID is also a\nbearer token, so the same requests work from a browser session.\n\n## Permissions\n\nEach endpoint states the permission it requires. The levels are, from lowest to highest:\n\n* **Any user.** Every authenticated user. Data is still limited to what the user may see.\n* **Organization administrator.** Manages one organization and all of its tenants.\n* **Super administrator.** Manages the whole Nzyme installation.\n\nSome endpoints additionally require a feature permission, for example `alerts_manage`. Organization\nadministrators and super administrators hold all feature permissions implicitly.\n\n## Scoping\n\nMost data endpoints take `organization_id` and `tenant_id` query parameters, because all captured data\nbelongs to a tenant. A request for a tenant the user cannot access returns `404`, not `403`, so that\nthe existence of other tenants is not revealed.\n\nEndpoints that return captured data also take a `taps` parameter: a comma separated list of tap UUIDs,\nor `*` for all taps the user can access. Users can be limited to a subset of the taps of their tenant.\n\n## Time ranges\n\nEndpoints that query captured data take a `time_range` query parameter. It is a URL encoded JSON\nobject with one of three shapes:\n\n```\n{\"type\": \"relative\", \"minutes\": 60}\n{\"type\": \"absolute\", \"from\": \"2026-10-01T00:00:00Z\", \"to\": \"2026-10-02T00:00:00Z\"}\n{\"type\": \"named\", \"name\": \"today\"}\n```\n\nNamed ranges are `today`, `yesterday`, `week_to_date`, `month_to_date` and `all_time`. Timestamps are\nISO 8601. All timestamps in responses are ISO 8601 in UTC.\n\n## Filters\n\nList endpoints that support filtering take a `filters` query parameter. It is a URL encoded JSON\nobject keyed by field name. Each field maps to a list of conditions that must all be true:\n\n```\n{\"ip_address\": [{\"field\": \"ip_address\", \"operator\": \"IN_CIDR\", \"value\": \"10.0.0.0/8\"}]}\n```\n\nOperators are `EQUALS`, `NOT_EQUALS`, `EQUALS_NUMERIC`, `NOT_EQUALS_NUMERIC`, `REGEX_MATCH`,\n`NOT_REGEX_MATCH`, `STARTS_WITH`, `ENDS_WITH`, `CONTAINS`, `NOT_CONTAINS`, `LENGTH_EQUALS`,\n`LENGTH_GREATER_THAN`, `LENGTH_SMALLER_THAN`, `GREATER_THAN`, `SMALLER_THAN`, `IN_CIDR`, `NOT_IN_CIDR`,\n`IS_PRIVATE`, `IS_NOT_PRIVATE`, `IS_EMPTY`, `IS_NOT_EMPTY`, `IS_NULL` and `BOOLEAN`. The fields a given\nendpoint accepts are the columns offered by the filter builder of the web interface for the same page.\n\n## Pagination and sorting\n\nList endpoints take `limit` and `offset` query parameters and return the total count next to the page\nof results, so you can page through everything. Where sorting is supported, `order_column` names a\ncolumn of the result and `order_direction` is `ASC` or `DESC`.\n\n## Errors\n\nNzyme uses HTTP status codes. `401` means the request was not authenticated or the user may not\nperform the action, `404` means the resource does not exist or is outside the scope of the user,\n`400` means the request could not be parsed or failed validation, and `422` means a quota is exhausted\nor a configuration constraint was violated. Error responses carry no body unless the endpoint\ndocuments one. Where a body is documented, it is a JSON object with a single `message` field that\nexplains the problem.\n\n## Versioning\n\nThe spec you are reading matches a specific Nzyme release. Every node also serves the spec of its own\nversion at `/api/docs/openapi.json`, so a client can discover exactly what the node it talks to\nsupports. The API follows the Nzyme release cycle. Breaking changes are called out in the release\nnotes.\n",
+    "description" : "This is the REST API of Nzyme. The Nzyme web interface uses the same API, so\neverything you can do in the web interface you can also do from a script, a CLI or any other client.\nThe interactive version of this documentation lives at https://api.docs.nzyme.org.\n\n## Authentication\n\nCreate an API key on your user profile page in the web interface and send it as a bearer token with\nevery request:\n\n```\nAuthorization: Bearer nzk_...\n```\n\nAn API key carries the permissions of the user that created it, including the organization and tenant\nscope, the organization administrator or super administrator level, feature permissions and tap\nscope. Permissions are evaluated on every request, so changes to the user take effect immediately.\nKeys can expire, and a key that has expired or was deleted is rejected with `401`.\n\nEndpoints that manage credentials, such as passwords, multi-factor authentication, API keys and\nsessions, require an interactive session and reject API keys. The web interface session ID is also a\nbearer token, so the same requests work from a browser session.\n\n## Permissions\n\nEach endpoint states the permission it requires. The levels are, from lowest to highest:\n\n* **Any user.** Every authenticated user. Data is still limited to what the user may see.\n* **Organization administrator.** Manages one organization and all of its tenants.\n* **Super administrator.** Manages the whole Nzyme installation.\n\nSome endpoints additionally require a feature permission, for example `alerts_manage`. Organization\nadministrators and super administrators hold all feature permissions implicitly.\n\n## Scoping\n\nMost data endpoints take `organization_id` and `tenant_id` query parameters, because all captured data\nbelongs to a tenant. A request for a tenant the user cannot access returns `404`, not `403`, so that\nthe existence of other tenants is not revealed.\n\nEndpoints that return captured data also take a `taps` parameter: a comma separated list of tap UUIDs,\nor `*` for all taps the user can access. Users can be limited to a subset of the taps of their tenant.\n\nAdministrators can access the taps of more than one tenant. Pass the `X-Nzyme-Organization` and\n`X-Nzyme-Tenant` request headers with the UUIDs of a tenant to have `*` mean all taps of that tenant.\n\n## Time ranges\n\nEndpoints that query captured data take a `time_range` query parameter. It is a URL encoded JSON\nobject with one of three shapes:\n\n```\n{\"type\": \"relative\", \"minutes\": 60}\n{\"type\": \"absolute\", \"from\": \"2026-10-01T00:00:00Z\", \"to\": \"2026-10-02T00:00:00Z\"}\n{\"type\": \"named\", \"name\": \"today\"}\n```\n\nNamed ranges are `today`, `yesterday`, `week_to_date`, `month_to_date` and `all_time`. Timestamps are\nISO 8601. All timestamps in responses are ISO 8601 in UTC.\n\n## Filters\n\nList endpoints that support filtering take a `filters` query parameter. It is a URL encoded JSON\nobject keyed by field name. Each field maps to a list of conditions that must all be true:\n\n```\n{\"ip_address\": [{\"field\": \"ip_address\", \"operator\": \"IN_CIDR\", \"value\": \"10.0.0.0/8\"}]}\n```\n\nOperators are `EQUALS`, `NOT_EQUALS`, `EQUALS_NUMERIC`, `NOT_EQUALS_NUMERIC`, `REGEX_MATCH`,\n`NOT_REGEX_MATCH`, `STARTS_WITH`, `ENDS_WITH`, `CONTAINS`, `NOT_CONTAINS`, `LENGTH_EQUALS`,\n`LENGTH_GREATER_THAN`, `LENGTH_SMALLER_THAN`, `GREATER_THAN`, `SMALLER_THAN`, `IN_CIDR`, `NOT_IN_CIDR`,\n`IS_PRIVATE`, `IS_NOT_PRIVATE`, `IS_EMPTY`, `IS_NOT_EMPTY`, `IS_NULL` and `BOOLEAN`. The fields a given\nendpoint accepts are the columns offered by the filter builder of the web interface for the same page.\n\n## Pagination and sorting\n\nList endpoints take `limit` and `offset` query parameters and return the total count next to the page\nof results, so you can page through everything. Where sorting is supported, `order_column` names a\ncolumn of the result and `order_direction` is `ASC` or `DESC`.\n\n## Errors\n\nNzyme uses HTTP status codes. `401` means the request was not authenticated or the user may not\nperform the action, `404` means the resource does not exist or is outside the scope of the user,\n`400` means the request could not be parsed or failed validation, and `422` means a quota is exhausted\nor a configuration constraint was violated. Error responses carry no body unless the endpoint\ndocuments one. Where a body is documented, it is a JSON object with a single `message` field that\nexplains the problem.\n\n## Versioning\n\nThe spec you are reading matches a specific Nzyme release. Every node also serves the spec of its own\nversion at `/api/docs/openapi.json`, so a client can discover exactly what the node it talks to\nsupports. The API follows the Nzyme release cycle. Breaking changes are called out in the release\nnotes.\n",
     "license" : {
       "name" : "Server Side Public License (SSPL)",
       "url" : "https://www.mongodb.com/licensing/server-side-public-license"
@@ -177,7 +177,7 @@
     },
     "name" : "SSH"
   }, {
-    "description" : "Shows how the segments of a network talk to each other and checks that they only do so as intended. A segment is a named part of the network, defined by address ranges. An external network is the same for addresses outside of the network and can also be defined by autonomous system. A policy is a scope and a list of what is allowed inside of it: any connection in scope that is not allowed is a finding, separately for connections the target answered and for attempts that were rejected or got no reply. Everything is built on the node from the TCP and UDP sessions recorded by all taps of the tenant, which are rolled up into flows once and never read again.",
+    "description" : "Shows how the segments of a network talk to each other and checks that they only do so as intended. A segment is a named part of the network, defined by address ranges. An external network is the same for addresses outside of the network and can also be defined by autonomous system. A policy is a scope and a list of what is allowed inside of it: any connection in scope that is not allowed is a finding, separately for connections the target answered and for attempts that were rejected or got no reply. Everything is built on the node from the TCP and UDP sessions recorded by all taps of the tenant, which are rolled up into flows once. Stored sessions are only read again to judge them against a policy that was created, resumed or changed to forbid more.",
     "name" : "Segmentation"
   }, {
     "description" : "SOCKS4, SOCKS4A and SOCKS5 tunnels that Nzyme taps observed on the network, including the tunnel endpoints, the authentication status and the tunneled destination. Each tunnel is tracked over its lifetime and keyed by its underlying TCP session.",
@@ -7480,7 +7480,7 @@
     },
     "/api/dot11/monitoring/ssids/show/{uuid}/configuration/similarssids/simulate" : {
       "get" : {
-        "description" : "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by taps the calling user can access and returns the similarity of each in percent, together with whether it would trigger an alert at the given threshold. SSIDs that are themselves monitored networks of the tenant never trigger an alert. Requires the dot11_monitoring_manage feature permission.",
+        "description" : "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by the taps of its tenant that the calling user can access and returns the similarity of each in percent, together with whether it would trigger an alert at the given threshold. SSIDs that are themselves monitored networks of the tenant never trigger an alert. Requires the dot11_monitoring_manage feature permission.",
         "operationId" : "simulateMonitoredNetworkSimilarSsids",
         "parameters" : [ {
           "description" : "Monitored network UUID.",
@@ -23221,7 +23221,7 @@
     },
     "/api/ethernet/segmentation/organization/{organization_id}/tenant/{tenant_id}/policies" : {
       "post" : {
-        "description" : "A policy is a scope and a list of allowed crossings, each made of sources, destinations and services. An empty list of sources, destinations or services means any. The scope must name a source or a destination. A new policy is evaluated against sessions recorded from now on.",
+        "description" : "A policy is a scope and a list of allowed crossings, each made of sources, destinations and services. An empty list of sources, destinations or services means any. The scope must name a source or a destination. A new policy that is not paused is also judged against the sessions that were evaluated before it existed. backfill_pending is set until that has ended. No alerts are raised for these sessions.",
         "operationId" : "createSegmentationPolicy",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -23833,7 +23833,7 @@
         "tags" : [ "Segmentation" ]
       },
       "put" : {
-        "description" : "If the scope or the allowed crossings change, existing findings of the policy are judged again and what is no finding anymore is removed.",
+        "description" : "If the scope or the allowed crossings change, existing findings of the policy are judged again and what is no finding anymore is removed. If the scope changes or an allowed crossing is removed, the sessions that were evaluated before are judged against the policy again, without raising alerts. Such a change is refused while backfill_pending is set.",
         "operationId" : "updateSegmentationPolicy",
         "parameters" : [ {
           "description" : "Policy UUID.",
@@ -24434,7 +24434,7 @@
     },
     "/api/ethernet/segmentation/policies" : {
       "get" : {
-        "description" : "Every policy comes with its state. HOLDING: taps see traffic in scope and all of it was allowed. CROSSED: a connection that is not allowed was answered. ATTEMPTED: one was tried and not answered. NOT_OBSERVABLE: no tap recorded both sides of the scope, so the absence of findings says nothing. AUDIT and PAUSED follow the status of the policy. Sorted by name by default. Results are paginated.",
+        "description" : "Every policy comes with its state. HOLDING: taps see traffic in scope and all of it was allowed. CROSSED: a connection that is not allowed was answered. ATTEMPTED: one was tried and not answered. NOT_OBSERVABLE: no tap recorded both sides of the scope, so the absence of findings says nothing. PAUSED: the policy is not evaluated. A policy in audit has the state its findings give it. While backfill_pending is set, stored sessions are still being judged and the state can change. Sorted by name by default. Results are paginated.",
         "operationId" : "findSegmentationPolicies",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -47955,7 +47955,8 @@
           },
           "session_count" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int64",
+            "description" : "All sessions the finding was recorded for. If target_count is above targets_limit, sessions of targets that are no longer listed stay in this count when the policy changes."
           },
           "source_address" : {
             "$ref" : "#/components/schemas/L4AddressResponse"
@@ -51775,6 +51776,10 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "backfill_pending" : {
+            "type" : "boolean",
+            "description" : "Sessions that were recorded before the policy was created or last forbade more are still being judged against it. Findings are added and the state can change until this ends."
+          },
           "created_at" : {
             "type" : "string",
             "format" : "date-time"
@@ -51811,7 +51816,7 @@
           },
           "state" : {
             "type" : "string",
-            "description" : "HOLDING, CROSSED, ATTEMPTED, NOT_OBSERVABLE, AUDIT or PAUSED."
+            "description" : "HOLDING, CROSSED, ATTEMPTED, NOT_OBSERVABLE or PAUSED."
           },
           "status" : {
             "type" : "string",
@@ -53398,6 +53403,10 @@
       "SegmentationStatusResponse" : {
         "type" : "object",
         "properties" : {
+          "backfill_pending" : {
+            "type" : "boolean",
+            "description" : "Sessions that were recorded before a policy was created or last forbade more are still being judged against it."
+          },
           "enabled" : {
             "type" : "boolean"
           },

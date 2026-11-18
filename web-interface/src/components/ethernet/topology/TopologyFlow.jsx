@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import Store from "../../../util/Store";
 import {colorsForMode, FONT_FAMILY, GRID_SPACING, tooltipStyle} from "../../shared/viz/VizTheme";
 import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {LINK_CLASS_TITLES, linkClassColor, nodeKind} from "./TopologyData";
+import {LINK_CLASS_TITLES, linkClassColor, nodeKind, noDataText} from "./TopologyData";
 
 const TOP = 36;
 const BOTTOM = 14;
@@ -163,9 +163,9 @@ export default function TopologyFlow({model, selection = null, onSelect, height 
 
   if (empty) {
     return (
-        <div ref={containerRef} className="border rounded d-flex align-items-center justify-content-center text-muted"
+        <div ref={containerRef} className="border rounded d-flex align-items-center justify-content-center text-muted text-center p-4"
              style={{height: height + "px"}}>
-          No flows match the selected filters.
+          {noDataText("flows")}
         </div>
     )
   }
@@ -290,7 +290,7 @@ export default function TopologyFlow({model, selection = null, onSelect, height 
                 return (
                     <g key={e.column + ":" + e.key}
                        opacity={dimmed ? 0.3 : 1}
-                       style={{cursor: e.other ? "default" : "pointer"}}
+                       style={{cursor: e.other || !onSelect ? "default" : "pointer"}}
                        onMouseEnter={() => setHovered({type: "entry", column: e.column, key: e.key})}
                        onClick={() => selectEntry(e)}>
                       <rect x={e.x} y={e.y} width={NODE_WIDTH} height={e.h} rx="2"

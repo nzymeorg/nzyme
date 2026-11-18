@@ -14,8 +14,9 @@ import {Presets} from "../../../shared/timerange/TimeRange";
 import SegmentationService from "../../../../services/ethernet/SegmentationService";
 import {UserContext} from "../../../../App";
 import {apiErrorMessage, filtersApplied, userHasPermission} from "../../../../util/Tools";
-import {POLICY_STATES, POLICY_STATUSES} from "../SegmentationFormat";
+import {POLICY_BACKFILL_NOTICE, POLICY_STATES, POLICY_STATUSES} from "../SegmentationFormat";
 import {isBehindLastPage} from "../SegmentationBulkActions";
+import useBackfillPoll from "../useBackfillPoll";
 import {alertSettingDescription, normalizeRule, policyRequest} from "./PolicyDefinition";
 import PolicyRuleText from "./PolicyRuleText";
 import PolicyState from "./PolicyState";
@@ -76,6 +77,23 @@ export default function SegmentationPolicyDetailsPage() {
   useEffect(() => {
     segmentationService.findPolicy(uuid, organizationId, tenantId, timeRange, setPolicy, () => setNotFound(true));
   }, [uuid, organizationId, tenantId, timeRange, revision]);
+
+  useBackfillPoll(JSON.stringify([uuid, organizationId, tenantId, timeRange]),
+    Boolean(policy && policy.backfill_pending), (received) => {
+      segmentationService.findPolicy(uuid, organizationId, tenantId, timeRange, (updated) => {
+        if (!received()) return;
+
+        if (updated.backfill_pending) {
+          setPolicy(updated);
+        } else {
+          setRevision(new Date());
+        }
+      }, (error) => {
+        if (received() && error.response.status === 404) {
+          setNotFound(true);
+        }
+      });
+    });
 
   useEffect(() => {
     segmentationService.findSelectorOptions(organizationId, tenantId, setOptions);
@@ -194,6 +212,15 @@ export default function SegmentationPolicyDetailsPage() {
           <Link to={ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.INDEX} className="btn btn-secondary">Back</Link>
         </div>
       </div>
+
+      {policy.backfill_pending ?
+        <div className="row mt-3">
+          <div className="col-12">
+            <div className="alert alert-info mb-0">
+              <i className="fa-solid fa-circle-notch fa-spin"></i> {POLICY_BACKFILL_NOTICE}
+            </div>
+          </div>
+        </div> : null}
 
       {policy.findings_limit_reached ?
         <div className="row mt-3">

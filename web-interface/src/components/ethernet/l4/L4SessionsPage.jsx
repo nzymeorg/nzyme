@@ -23,6 +23,7 @@ import L4SessionsTimelineSessionsChart from "./L4SessionsTimelineSessionsChart";
 import L4SessionsTimelineBytesChart from "./L4SessionsTimelineBytesChart";
 import L4SessionsDurationHistogram from "./L4SessionsDurationHistogram";
 import L4SessionsSourceFanOutHistogram from "./L4SessionsSourceFanOutHistogram";
+import L4SessionsTopologyCard from "./L4SessionsTopologyCard";
 
 const l4Service = new L4Service();
 
@@ -91,7 +92,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Sessions"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">Placed at the time of last activity.</p>
@@ -108,7 +108,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Traffic"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">Placed at the time of last activity.</p>
@@ -122,12 +121,21 @@ export default function L4SessionsPage() {
           </div>
 
           <div className="row mt-3">
+            <div className="col-md-12">
+              <L4SessionsTopologyCard filters={filters}
+                                      setFilters={setFilters}
+                                      timeRange={timeRange}
+                                      revision={revision}
+                                      onRefresh={() => setRevision(new Date())} />
+            </div>
+          </div>
+
+          <div className="row mt-3">
             <div className="col-md-6">
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="Top Traffic Source Addresses"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <L4SessionsTopTrafficSourceAddressesHistogram filters={filters}
@@ -143,7 +151,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Top Traffic Destination Addresses"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <L4SessionsTopTrafficDestinationAddressesHistogram filters={filters}
@@ -161,7 +168,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Top Destination Ports"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">Sorted by traffic bytes.</p>
@@ -179,7 +185,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Least Common Non-Ephemeral Destination Ports"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">Sorted by session count.</p>
@@ -199,7 +204,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Session Durations"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">The filter icon pre-fills the bucket boundary.</p>
@@ -217,7 +221,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Source Fan-Out"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <p className="help-text">Distinct destination addresses and ports per source address.</p>
@@ -237,7 +240,6 @@ export default function L4SessionsPage() {
                 <div className="card-body">
                   <CardTitleWithControls title="Sessions"
                                          timeRange={timeRange}
-                                         setTimeRange={setTimeRange}
                                          refreshAction={() => setRevision(new Date())} />
 
                   <L4SessionsTable filters={filters}

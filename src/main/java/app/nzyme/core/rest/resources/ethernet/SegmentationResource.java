@@ -92,7 +92,8 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
         + "system. A policy is a scope and a list of what is allowed inside of it: any connection in scope that is "
         + "not allowed is a finding, separately for connections the target answered and for attempts that were "
         + "rejected or got no reply. Everything is built on the node from the TCP and UDP sessions recorded by all "
-        + "taps of the tenant, which are rolled up into flows once and never read again.")
+        + "taps of the tenant, which are rolled up into flows once. Stored sessions are only read again to "
+        + "judge them against a policy that was created, resumed or changed to forbid more.")
 public class SegmentationResource extends TapDataHandlingResource {
 
     private static final String MANAGE_PERMISSION = "ethernet_monitoring_manage";
@@ -146,6 +147,7 @@ public class SegmentationResource extends TapDataHandlingResource {
 
         EngineState state = segmentation().state(organizationId, tenantId);
         SegmentationConfiguration config = segmentation().getConfiguration(organizationId, tenantId);
+        List<Policy> policies = segmentation().policies().findAll(organizationId, tenantId);
 
         Long lag = state.watermark() == null ? null
                 : Math.max(0, (DateTime.now().getMillis() - state.watermark().getMillis()) / 1000);
@@ -160,9 +162,10 @@ public class SegmentationResource extends TapDataHandlingResource {
                 state.lastRunFlows(),
                 state.lastRunFindings(),
                 state.restampPending(),
+                policies.stream().anyMatch(Policy::backfillPending),
                 config.settleSeconds(),
                 segmentation().segments().findAll(organizationId, tenantId).size(),
-                segmentation().policies().findAll(organizationId, tenantId).size(),
+                policies.size(),
                 state.limitReachedAt(),
                 SegmentationEngine.MAX_GROUPS_PER_CHUNK,
                 SegmentationEngine.MAX_FINDINGS_PER_POLICY_PER_CHUNK
@@ -941,7 +944,9 @@ public class SegmentationResource extends TapDataHandlingResource {
             description = "Every policy comes with its state. HOLDING: taps see traffic in scope and all of it "
                     + "was allowed. CROSSED: a connection that is not allowed was answered. ATTEMPTED: one was "
                     + "tried and not answered. NOT_OBSERVABLE: no tap recorded both sides of the scope, so the "
-                    + "absence of findings says nothing. AUDIT and PAUSED follow the status of the policy. "
+                    + "absence of findings says nothing. PAUSED: the policy is not evaluated. A policy in audit "
+                    + "has the state its findings give it. While backfill_pending is set, stored sessions are "
+                    + "still being judged and the state can change. "
                     + "Sorted by name by default. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Policies found.",
             content = @Content(schema = @Schema(implementation = PoliciesListResponse.class)))
@@ -1007,8 +1012,9 @@ public class SegmentationResource extends TapDataHandlingResource {
     @Operation(operationId = "createSegmentationPolicy", summary = "Create a segmentation policy",
             description = "A policy is a scope and a list of allowed crossings, each made of sources, "
                     + "destinations and services. An empty list of sources, destinations or services means any. "
-                    + "The scope must name a source or a destination. A new policy is evaluated against sessions "
-                    + "recorded from now on.")
+                    + "The scope must name a source or a destination. A new policy that is not paused is also "
+                    + "judged against the sessions that were evaluated before it existed. backfill_pending is set "
+                    + "until that has ended. No alerts are raised for these sessions.")
     @ApiResponse(responseCode = "201", description = "Policy created.",
             content = @Content(schema = @Schema(implementation = PolicyResponse.class)))
     @ApiResponse(responseCode = "400", description = "Invalid definition. The response carries the reason.",
@@ -1046,7 +1052,9 @@ public class SegmentationResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { MANAGE_PERMISSION })
     @Operation(operationId = "updateSegmentationPolicy", summary = "Update a segmentation policy",
             description = "If the scope or the allowed crossings change, existing findings of the policy are "
-                    + "judged again and what is no finding anymore is removed.")
+                    + "judged again and what is no finding anymore is removed. If the scope changes or an allowed "
+                    + "crossing is removed, the sessions that were evaluated before are judged against the policy "
+                    + "again, without raising alerts. Such a change is refused while backfill_pending is set.")
     @ApiResponse(responseCode = "200", description = "Policy updated.", content = @Content)
     @ApiResponse(responseCode = "400", description = "Invalid definition. The response carries the reason.",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -1750,6 +1758,7 @@ public class SegmentationResource extends TapDataHandlingResource {
                 overview.summary().lastAttempted(),
                 Findings.MAX_FINDINGS_PER_POLICY,
                 overview.findingsLimitReached(),
+                policy.backfillPending(),
                 policy.createdAt(),
                 policy.updatedAt()
         );

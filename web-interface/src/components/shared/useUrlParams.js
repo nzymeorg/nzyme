@@ -1,6 +1,8 @@
 import {useCallback, useMemo} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 
+export const valueIn = (options, value, fallback) => (options.some(([v]) => String(v) === value) ? value : fallback);
+
 export default function useUrlParams(defaults) {
   const location = useLocation();
   const navigate = useNavigate();

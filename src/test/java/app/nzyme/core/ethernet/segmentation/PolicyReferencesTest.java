@@ -5,6 +5,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static app.nzyme.core.ethernet.segmentation.PolicyRule.SelectorType.*;
@@ -20,7 +21,7 @@ public class PolicyReferencesTest {
 
     private static Policy policy(long id, String name, PolicyRule scope, PolicyRule... allowed) {
         return new Policy(id, new UUID(1, id), UUID.randomUUID(), UUID.randomUUID(), name, null, PolicyStatus.ACTIVE,
-                false, false, scope, List.of(allowed), DateTime.now(), DateTime.now());
+                false, false, scope, List.of(allowed), DateTime.now(), DateTime.now(), null, null, null, null, List.of(), null);
     }
 
     @Test
@@ -48,6 +49,44 @@ public class PolicyReferencesTest {
 
         assertTrue(Policies.segmentReferences(List.of(byAddress)).isEmpty());
         assertTrue(Policies.segmentReferences(List.of()).isEmpty());
+    }
+
+    @Test
+    public void whatThePreviousDefinitionNamesIsHeldAndResolvedForStoredSessions() {
+        UUID now = UUID.randomUUID();
+        UUID before = UUID.randomUUID();
+        UUID tag = UUID.randomUUID();
+        PolicyRule scope = rule(List.of(segmentSelector(GUEST)), List.of(selector(ASSET, now.toString())), none());
+        PolicyRule allowedBefore = rule(List.of(selector(ASSET, before.toString()), segmentSelector(PRINTERS),
+                selector(TAG, tag.toString())), none(), List.of(tcp(22)));
+
+        Policy changed = new Policy(1, new UUID(1, 1), UUID.randomUUID(), UUID.randomUUID(), "Changed", null,
+                PolicyStatus.ACTIVE, false, false, scope, List.of(), DateTime.now(), DateTime.now(), DateTime.now(),
+                DateTime.now(), null, scope, List.of(allowedBefore), null);
+
+        Policy unchanged = policy(2, "Unchanged", scope);
+
+        assertEquals(Policies.referencedAssets(List.of(changed)), Set.of(now, before));
+        assertEquals(Policies.referencedAssets(List.of(unchanged)), Set.of(now));
+
+        assertEquals(Policies.segmentReferences(List.of(changed, unchanged)).get(PRINTERS.uuid()), List.of("Changed"));
+        assertTrue(Policies.references(changed, TAG, tag.toString()));
+        assertFalse(Policies.references(unchanged, TAG, tag.toString()));
+    }
+
+    @Test
+    public void onlyAnotherScopeOrARemovedCrossingForbidsMore() {
+        PolicyRule scope = rule(List.of(segmentSelector(GUEST)), List.of(selector(INTERNAL, null)), none());
+        PolicyRule https = rule(none(), none(), List.of(tcp(443)));
+        PolicyRule printing = rule(none(), List.of(segmentSelector(PRINTERS)), List.of(tcp(631)));
+
+        assertFalse(Policies.forbidsMore(scope, List.of(https), scope, List.of(https)));
+        assertFalse(Policies.forbidsMore(scope, List.of(printing, https), scope, List.of(https)));
+
+        assertTrue(Policies.forbidsMore(scope, List.of(), scope, List.of(https)));
+        assertTrue(Policies.forbidsMore(scope, List.of(printing), scope, List.of(https)));
+        assertTrue(Policies.forbidsMore(rule(List.of(segmentSelector(GUEST)), none(), none()), List.of(https),
+                scope, List.of(https)));
     }
 
     @Test

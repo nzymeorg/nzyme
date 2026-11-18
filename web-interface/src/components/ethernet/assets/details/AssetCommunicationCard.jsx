@@ -16,6 +16,7 @@ import {countryName, externalPeerLabel, filteredLink, formatBytes, formatCount, 
 import {countryCentroid} from "../../../shared/maps/CountryCentroids";
 import Store from "../../../../util/Store";
 import VizDisplayMenu from "../../../shared/viz/VizDisplayMenu";
+import VizOptionSelect from "../../../shared/viz/VizOptionSelect";
 import VizExportMenu from "../../../shared/viz/VizExportMenu";
 import VizSelectionActions from "../../../shared/viz/VizSelectionActions";
 import {EXPORT_SCALE, exportCanvasAsPng, exportCsv, timeRangeText} from "../../../shared/viz/VizExport";
@@ -227,12 +228,7 @@ export default function AssetCommunicationCard({asset, organizationId, tenantId,
   ];
 
   const filterSelect = (id, label, value, setValue, options) => (
-    <div className="d-flex align-items-center me-3 mb-2">
-      <label htmlFor={id} className="me-2 small text-muted mb-0">{label}</label>
-      <select id={id} className="form-select form-select-sm w-auto" value={value} onChange={(e) => setValue(e.target.value)}>
-        {options.map(([v, title]) => <option key={v} value={v}>{title}</option>)}
-      </select>
-    </div>
+    <VizOptionSelect option={{id: id, label: label, value: value, onChange: setValue, options: options}} />
   )
 
   const peers = useMemo(() => {

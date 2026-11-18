@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import Store from "../../../util/Store";
 import {colorsForMode, FONT_FAMILY, GRID_SPACING, tooltipStyle, trafficRampForMode} from "../../shared/viz/VizTheme";
 import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {pairIdOf} from "./TopologyData";
+import {noDataText, pairIdOf} from "./TopologyData";
 
 const LEFT = 204;
 const TOP = 132;
@@ -99,9 +99,9 @@ export default function TopologyMatrix({model, order = "traffic", selection = nu
 
   if (empty) {
     return (
-        <div ref={containerRef} className="border rounded d-flex align-items-center justify-content-center text-muted"
+        <div ref={containerRef} className="border rounded d-flex align-items-center justify-content-center text-muted text-center p-4"
              style={{height: height + "px"}}>
-          No connections match the selected filters.
+          {noDataText("connections")}
         </div>
     )
   }
@@ -211,7 +211,7 @@ export default function TopologyMatrix({model, order = "traffic", selection = nu
               {rows.map((n, i) => {
                 const lit = (hovered && hovered.row === i) || selectedNode === n.id;
                 return (
-                    <g key={"row-" + n.id} style={{cursor: "pointer"}} onClick={() => selectNode(n)}
+                    <g key={"row-" + n.id} style={{cursor: onSelect ? "pointer" : "default"}} onClick={() => selectNode(n)}
                        onMouseEnter={() => setHovered(null)}>
                       <title>{n.label + (n.name || n.detail ? " (" + (n.name || n.detail) + ")" : "")}</title>
                       {glyph(n, LEFT - 9, TOP + i * cell + cell / 2, Math.min(8, cell - 3))}
@@ -227,7 +227,7 @@ export default function TopologyMatrix({model, order = "traffic", selection = nu
                 const lit = (hovered && hovered.column === i) || selectedNode === n.id;
                 const x = LEFT + i * cell + cell / 2;
                 return (
-                    <g key={"column-" + n.id} style={{cursor: "pointer"}} onClick={() => selectNode(n)}
+                    <g key={"column-" + n.id} style={{cursor: onSelect ? "pointer" : "default"}} onClick={() => selectNode(n)}
                        onMouseEnter={() => setHovered(null)}>
                       <title>{n.label + (n.name || n.detail ? " (" + (n.name || n.detail) + ")" : "")}</title>
                       {glyph(n, x, TOP - 9, Math.min(8, cell - 3))}
@@ -250,7 +250,7 @@ export default function TopologyMatrix({model, order = "traffic", selection = nu
                           width={cell - 2} height={cell - 2} rx="2"
                           fill={color}
                           stroke={pairSelected || isHovered ? colors.selection : "none"} strokeWidth="1.5"
-                          style={{cursor: "pointer"}}
+                          style={{cursor: onSelect ? "pointer" : "default"}}
                           onMouseEnter={() => setHovered(c)}
                           onClick={() => selectCell(c)} />
                 );

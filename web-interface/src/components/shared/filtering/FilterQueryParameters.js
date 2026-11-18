@@ -77,6 +77,22 @@ export const filtersToQueryParameters = (f) => {
   return queryParam
 }
 
+export const sameFilter = (a, b) => a.field === b.field && a.operator === b.operator
+    && String(a.value) === String(b.value);
+
+// Null if there is no filter to add or it is already among the filters.
+export const withFilter = (filters, filter, fields) => {
+  if (!filter) return null;
+
+  const current = filters || {};
+  if ((current[filter.field] || []).some((f) => sameFilter(f, filter))) {
+    return null;
+  }
+
+  const added = queryParametersToFilters(JSON.stringify({[filter.field]: [filter]}), fields);
+  return {...current, [filter.field]: (current[filter.field] || []).concat(added[filter.field])};
+}
+
 const translateOperatorSign = (operator) => {
   let result = "";
   Object.keys(OPERATORS).forEach((operatorName) => {

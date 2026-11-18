@@ -1369,6 +1369,10 @@ public class Dot11 {
     public List<TapBasedSignalStrengthResult> findDisconnectedClientSignalStrengthPerTap(String clientMac,
                                                                                          TimeRange timeRange,
                                                                                          List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT c.tap_uuid AS tap_uuid, t.name AS tap_name, " +
                                 "AVG(c.signal_strength_average) AS signal_strength " +
@@ -1389,6 +1393,10 @@ public class Dot11 {
     public List<TapBasedSignalStrengthResult> findBssidClientSignalStrengthPerTap(String clientMac,
                                                                                   TimeRange timeRange,
                                                                                   List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT b.tap_uuid AS tap_uuid, t.name AS tap_name, " +
                                 "AVG(c.signal_strength_average) AS signal_strength " +
@@ -2347,6 +2355,10 @@ public class Dot11 {
     public List<TapBasedSignalStrengthResult> findBSSIDSignalStrengthPerTap(String bssid,
                                                                             TimeRange timeRange,
                                                                             List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT b.tap_uuid AS tap_uuid, t.name AS tap_name, " +
                                 "AVG(b.signal_strength_average) AS signal_strength " +

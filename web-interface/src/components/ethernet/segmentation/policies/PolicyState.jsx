@@ -6,7 +6,6 @@ const STYLES = {
   CROSSED: {className: "text-danger"},
   ATTEMPTED: {className: "text-warning"},
   NOT_OBSERVABLE: {className: "text-muted", icon: "fa-solid fa-eye-slash"},
-  AUDIT: {className: ""},
   PAUSED: {className: "text-muted"}
 };
 

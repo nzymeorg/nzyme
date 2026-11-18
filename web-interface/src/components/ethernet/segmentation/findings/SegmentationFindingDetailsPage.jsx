@@ -270,7 +270,8 @@ export default function SegmentationFindingDetailsPage() {
 
               {f.target_count > f.targets_limit ?
                 <div className="alert alert-warning">
-                  Limited to the {numeral(f.targets_limit).format("0,0")} most recent targets.
+                  Limited to the {numeral(f.targets_limit).format("0,0")} most recent targets. Sessions of targets
+                  that are no longer listed stay in the session count when the policy changes.
                 </div> : null}
 
               <div className="mb-4">

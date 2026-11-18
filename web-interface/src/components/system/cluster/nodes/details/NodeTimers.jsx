@@ -45,6 +45,8 @@ function NodeTimers(props) {
             <TimerRow title="Segmentation: Evaluation Window" timer={timers.segmentation_window} /> : null}
           {timers.segmentation_restamp ?
             <TimerRow title="Segmentation: Applying Segment Changes" timer={timers.segmentation_restamp} /> : null}
+          {timers.segmentation_backfill ?
+            <TimerRow title="Segmentation: Judging Stored Sessions" timer={timers.segmentation_backfill} /> : null}
           {timers.identity_duplicate_mac_detection_run ?
             <TimerRow title="Duplicate MAC Address Detection: Run per Tenant" timer={timers.identity_duplicate_mac_detection_run} /> : null}
           {timers.identity_change_detection_run ?

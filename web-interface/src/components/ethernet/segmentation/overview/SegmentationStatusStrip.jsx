@@ -2,7 +2,7 @@ import React from "react";
 import moment from "moment";
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
 import TopologySummaryStrip from "../../topology/TopologySummaryStrip";
-import {RESTAMP_NOTICE} from "../SegmentationFormat";
+import {BACKFILL_NOTICE, RESTAMP_NOTICE} from "../SegmentationFormat";
 
 // Data is behind by the settle time by design. It is only called late once it is clearly more than that.
 const LATE_FACTOR = 3;
@@ -97,6 +97,15 @@ export default function SegmentationStatusStrip({status, restampPending = false,
               <div className="col-12">
                 <div className="alert alert-info mb-0">
                   <i className="fa-solid fa-circle-notch fa-spin"></i> {RESTAMP_NOTICE}
+                </div>
+              </div>
+            </div> : null}
+
+        {status && status.backfill_pending ?
+            <div className="row mt-3">
+              <div className="col-12">
+                <div className="alert alert-info mb-0">
+                  <i className="fa-solid fa-circle-notch fa-spin"></i> {BACKFILL_NOTICE}
                 </div>
               </div>
             </div> : null}

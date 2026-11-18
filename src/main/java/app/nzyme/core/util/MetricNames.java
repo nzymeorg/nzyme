@@ -145,6 +145,7 @@ public class MetricNames {
     public static final String SEGMENTATION_RUN_TIMER = name(SegmentationEngine.class, "run-timing");
     public static final String SEGMENTATION_CHUNK_TIMER = name(SegmentationEngine.class, "window-timing");
     public static final String SEGMENTATION_RESTAMP_TIMER = name(SegmentationEngine.class, "restamp-timing");
+    public static final String SEGMENTATION_BACKFILL_TIMER = name(SegmentationEngine.class, "backfill-timing");
     public static final String SEGMENTATION_SESSIONS_METER = name(SegmentationEngine.class, "sessions-read");
     public static final String SEGMENTATION_FLOWS_METER = name(SegmentationEngine.class, "flows-written");
     public static final String SEGMENTATION_FINDINGS_METER = name(SegmentationEngine.class, "findings-opened");

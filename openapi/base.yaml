@@ -46,6 +46,9 @@ info:
     Endpoints that return captured data also take a `taps` parameter: a comma separated list of tap UUIDs,
     or `*` for all taps the user can access. Users can be limited to a subset of the taps of their tenant.
 
+    Administrators can access the taps of more than one tenant. Pass the `X-Nzyme-Organization` and
+    `X-Nzyme-Tenant` request headers with the UUIDs of a tenant to have `*` mean all taps of that tenant.
+
     ## Time ranges
 
     Endpoints that query captured data take a `time_range` query parameter. It is a URL encoded JSON
