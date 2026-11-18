@@ -38,6 +38,7 @@ import {
   GEO_LIMIT,
   hiddenLinksText,
   INTERNAL_LEVELS,
+  LINK_LIMITS,
   nodeFilter,
   PLACES,
   SERVICE_LEVELS,
@@ -50,7 +51,7 @@ import {L4_SESSIONS_FILTER_FIELDS} from "./L4SessionFilterFields";
 const topologyService = new TopologyService();
 
 const HEIGHT = 460;
-const CARD_LINK_LIMITS = [25, 50, 100, 250];
+const CARD_LINK_LIMITS = [25, 50].concat(LINK_LIMITS);
 
 const URL_OPTIONS = {
   topology: null,
