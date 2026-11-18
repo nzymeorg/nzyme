@@ -51,17 +51,28 @@ export function filtersText(filters, fields) {
 
 let measuringContext = null;
 
-const fitLine = (text, maxWidth) => {
+export const textWidth = (text, fontSize = CAPTION_FONT_SIZE) => {
   if (measuringContext === null) {
     measuringContext = document.createElement("canvas").getContext("2d");
   }
-  measuringContext.font = CAPTION_FONT_SIZE + "px " + FONT_FAMILY;
+  measuringContext.font = fontSize + "px " + FONT_FAMILY;
 
-  if (measuringContext.measureText(text).width <= maxWidth) return text;
+  return measuringContext.measureText(text).width;
+}
+
+const fitLine = (text, maxWidth) => {
+  if (textWidth(text) <= maxWidth) return text;
 
   let cut = text.length;
-  while (cut > 1 && measuringContext.measureText(text.substring(0, cut) + "…").width > maxWidth) cut--;
+  while (cut > 1 && textWidth(text.substring(0, cut) + "…") > maxWidth) cut--;
   return text.substring(0, cut) + "…";
+}
+
+export const svgElement = (name, attributes, text = null) => {
+  const e = document.createElementNS(SVG_NAMESPACE, name);
+  Object.keys(attributes).forEach((key) => e.setAttribute(key, attributes[key]));
+  if (text !== null) e.textContent = text;
+  return e;
 }
 
 const captionHeight = (lines) => (lines.length === 0 ? 0 : CAPTION_PADDING * 2 + lines.length * CAPTION_LINE_HEIGHT);
@@ -115,20 +126,17 @@ export function svgDocument(svg, lines, colors) {
   copy.setAttribute("height", total);
   copy.setAttribute("viewBox", "0 0 " + width + " " + total);
 
-  const element = (name, attributes, text = null) => {
-    const e = document.createElementNS(SVG_NAMESPACE, name);
-    Object.keys(attributes).forEach((key) => e.setAttribute(key, attributes[key]));
-    if (text !== null) e.textContent = text;
-    return e;
-  }
+  // Inkscape draws the color transparent as black.
+  copy.querySelectorAll('[fill="transparent"]').forEach((e) => e.setAttribute("fill", "none"));
+  copy.querySelectorAll('[stroke="transparent"]').forEach((e) => e.setAttribute("stroke", "none"));
 
-  copy.insertBefore(element("rect", {x: 0, y: 0, width: width, height: total, fill: colors.background}), copy.firstChild);
+  copy.insertBefore(svgElement("rect", {x: 0, y: 0, width: width, height: total, fill: colors.background}), copy.firstChild);
 
   if (lines.length > 0) {
-    copy.appendChild(element("rect", {x: 0, y: height, width: width, height: captionHeight(lines), fill: colors.background}));
-    copy.appendChild(element("rect", {x: 0, y: height, width: width, height: 1, fill: colors.lines}));
+    copy.appendChild(svgElement("rect", {x: 0, y: height, width: width, height: captionHeight(lines), fill: colors.background}));
+    copy.appendChild(svgElement("rect", {x: 0, y: height, width: width, height: 1, fill: colors.lines}));
     lines.forEach((line, i) => {
-      copy.appendChild(element("text", {
+      copy.appendChild(svgElement("text", {
         x: CAPTION_PADDING,
         y: captionLineY(height, i),
         "font-size": CAPTION_FONT_SIZE,

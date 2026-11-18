@@ -50,6 +50,9 @@ export const BACKFILL_NOTICE = "Judging stored sessions against new or changed p
 export const POLICY_BACKFILL_NOTICE = "Stored sessions are being judged against this policy. Findings are still " +
   "being added and the state can change.";
 
+export const findingsLimitNotice = (limit) => "Findings in crossings are limited to the " +
+  numeral(limit).format("0,0") + " most recent findings.";
+
 export const EXCLUSION_NOTE_MAX_LENGTH = 500;
 
 // A single address is stored as a network that only holds it.

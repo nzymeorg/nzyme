@@ -156,7 +156,8 @@ export default function SegmentationMatrix({model, groups, cells, selection = nu
            onMouseMove={onPointerMove}
            onMouseLeave={() => { setHovered(null); setPointer(null); }}>
         {width > 0 ?
-            <div style={{width: contentWidth + "px", fontFamily: FONT_FAMILY}}>
+            // Out of the flow, so a wide matrix scrolls in its box and never holds the card open.
+            <div style={{position: "absolute", top: 0, left: 0, width: contentWidth + "px", fontFamily: FONT_FAMILY}}>
               <div style={{position: "sticky", top: 0, zIndex: 3, display: "flex", height: TOP + "px", ...headerStyle}}
                    onMouseEnter={() => setHovered(null)}>
                 <div style={{position: "sticky", left: 0, zIndex: 4, width: LEFT + "px", height: TOP + "px", ...headerStyle}}>
@@ -166,7 +167,8 @@ export default function SegmentationMatrix({model, groups, cells, selection = nu
                   </svg>
                 </div>
 
-                <svg width={gridSize + RIGHT} height={TOP} style={{display: "block", flex: "none"}}>
+                {/* x and y have no effect on the page. They place the drawing in an export. */}
+                <svg x={LEFT} width={gridSize + RIGHT} height={TOP} style={{display: "block", flex: "none"}}>
                   {groups.map((group, i) => {
                     const lit = (hovered && hovered.column === i) || selectedGroup === i;
                     const x = position(i) + cell / 2;
@@ -188,7 +190,7 @@ export default function SegmentationMatrix({model, groups, cells, selection = nu
               <div style={{display: "flex"}}>
                 <div style={{position: "sticky", left: 0, zIndex: 2, width: LEFT + "px", ...headerStyle}}
                      onMouseEnter={() => setHovered(null)}>
-                  <svg width={LEFT} height={gridSize + BOTTOM} style={{display: "block"}}>
+                  <svg y={TOP} width={LEFT} height={gridSize + BOTTOM} style={{display: "block"}}>
                     {groups.map((group, i) => {
                       const lit = (hovered && hovered.row === i) || selectedGroup === i;
                       const y = position(i) + cell / 2;
@@ -206,7 +208,8 @@ export default function SegmentationMatrix({model, groups, cells, selection = nu
                   </svg>
                 </div>
 
-                <svg width={gridSize + RIGHT} height={gridSize + BOTTOM} style={{display: "block", flex: "none"}}>
+                <svg x={LEFT} y={TOP} width={gridSize + RIGHT} height={gridSize + BOTTOM}
+                     style={{display: "block", flex: "none"}}>
                   <defs>
                     <HatchPattern id={HATCH} colors={colors} />
                   </defs>

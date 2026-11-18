@@ -2,7 +2,7 @@ import React from "react";
 import moment from "moment";
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
 import TopologySummaryStrip from "../../topology/TopologySummaryStrip";
-import {BACKFILL_NOTICE, RESTAMP_NOTICE} from "../SegmentationFormat";
+import {BACKFILL_NOTICE, findingsLimitNotice, RESTAMP_NOTICE} from "../SegmentationFormat";
 
 // Data is behind by the settle time by design. It is only called late once it is clearly more than that.
 const LATE_FACTOR = 3;
@@ -77,9 +77,7 @@ export default function SegmentationStatusStrip({status, restampPending = false,
         {findingsLimit !== null ?
             <div className="row mt-3">
               <div className="col-12">
-                <div className="alert alert-warning mb-0">
-                  Findings in crossings are limited to the {formatCount(findingsLimit)} most recent findings.
-                </div>
+                <div className="alert alert-warning mb-0">{findingsLimitNotice(findingsLimit)}</div>
               </div>
             </div> : null}
 

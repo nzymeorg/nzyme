@@ -12,6 +12,7 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import Filters from "../../../shared/filtering/Filters";
 import useUrlParams, {valueIn} from "../../../shared/useUrlParams";
 import VizOptionSelect from "../../../shared/viz/VizOptionSelect";
+import VizExportMenu from "../../../shared/viz/VizExportMenu";
 import {Presets} from "../../../shared/timerange/TimeRange";
 import {useUrlTimeRange} from "../../../shared/timerange/TimeRangeSelector";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
@@ -19,6 +20,7 @@ import SegmentationService from "../../../../services/ethernet/SegmentationServi
 import {formatCount} from "../../assets/details/AssetProfileHelpers";
 import useTopologyRequest from "../../topology/useTopologyRequest";
 import {SEGMENTATION_MENU_ITEMS} from "../SegmentationMenuItems";
+import {findingsLimitNotice} from "../SegmentationFormat";
 import useBackfillPoll from "../useBackfillPoll";
 import SegmentationStatusStrip from "./SegmentationStatusStrip";
 import SegmentationMatrix from "./SegmentationMatrix";
@@ -39,6 +41,7 @@ import {
   SHOW_OPTIONS
 } from "./SegmentationOverviewData";
 import {overviewColors} from "./SegmentationOverviewTheme";
+import {exportCaptionLines, exportCrossingsCsv, exportOverviewImage, EXPORTS} from "./SegmentationExport";
 
 const segmentationService = new SegmentationService();
 
@@ -76,6 +79,8 @@ export default function SegmentationOverviewPage() {
   const [selection, setSelection] = useState(null);
 
   const fullscreenRef = useRef(null);
+  const drawingRef = useRef(null);
+  const legendRef = useRef(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [viewHeight, setViewHeight] = useState(VIEW_HEIGHT);
   const [viewReset, setViewReset] = useState(0);
@@ -236,6 +241,31 @@ export default function SegmentationOverviewPage() {
         + (total === 1 ? " crossing." : " crossings.");
   }
 
+  const findingsLimit = matrix && matrix.findings_limited ? matrix.findings_limit : null;
+
+  const nothingToExport = () => toast.info("There is nothing to export yet.");
+
+  const exportImage = (format) => {
+    const caption = exportCaptionLines(VIEWS.find(([v]) => v === view)[1], show, withExternal, withBroadcast, timeRange)
+        .concat([shownText()])
+        .concat(findingsLimit !== null ? [findingsLimitNotice(findingsLimit)] : []);
+
+    if (!exportOverviewImage(format, drawingRef.current, legendRef.current, caption, colors, "segmentation-" + view)) {
+      nothingToExport();
+    }
+  }
+
+  const exportData = () => {
+    if (shown.cells.length === 0) {
+      nothingToExport();
+      return;
+    }
+
+    if (findingsLimit !== null) toast.info(findingsLimitNotice(findingsLimit));
+
+    exportCrossingsCsv(shown.cells, "segmentation-crossings");
+  }
+
   const visualization = () => (view === "map"
       ? <SegmentationBoundaryMap model={model} groups={shown.groups} cells={shown.cells} selection={selected}
                                  onSelect={select} filtered={shown.filtered} height={viewHeight} resetKey={viewReset} />
@@ -302,6 +332,11 @@ export default function SegmentationOverviewPage() {
                           onClick={() => setViewReset((count) => count + 1)}>
                     Reset view
                   </button> : null}
+              <div className="d-inline-block ms-2">
+                <VizExportMenu items={EXPORTS.map(([label, format]) => (
+                    {label: label, onClick: () => (format ? exportImage(format) : exportData())}
+                ))} />
+              </div>
               {canFullscreen() ?
                   <button className="btn btn-sm btn-outline-secondary ms-2" type="button" onClick={toggleFullscreen}>
                     <i className={"fa-solid " + (fullscreen ? "fa-compress" : "fa-expand")} />{' '}
@@ -312,9 +347,9 @@ export default function SegmentationOverviewPage() {
 
           <div className="row">
             <div className="col-md-9">
-              {visualization()}
+              <div ref={drawingRef}>{visualization()}</div>
               <div className="text-muted small mt-1">{shownText()}</div>
-              <SegmentationLegend view={view} />
+              <SegmentationLegend view={view} ref={legendRef} />
             </div>
             <div className="col-md-3">
               <div style={{position: "sticky", top: "12px"}}>
@@ -346,7 +381,7 @@ export default function SegmentationOverviewPage() {
 
         <SegmentationStatusStrip status={status}
                                  restampPending={Boolean(matrix && matrix.restamp_pending)}
-                                 findingsLimit={matrix && matrix.findings_limited ? matrix.findings_limit : null} />
+                                 findingsLimit={findingsLimit} />
 
         <div className="row mt-3">
           <div className="col-md-12">
