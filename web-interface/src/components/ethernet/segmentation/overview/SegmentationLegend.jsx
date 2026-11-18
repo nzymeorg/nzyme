@@ -23,7 +23,7 @@ function Item({title = null, children}) {
   )
 }
 
-export default function SegmentationLegend({view}) {
+export default function SegmentationLegend({view, ref = null}) {
 
   const colors = overviewColors(Boolean(Store.get("dark_mode")));
 
@@ -49,7 +49,7 @@ export default function SegmentationLegend({view}) {
   }
 
   return (
-      <div className="d-flex flex-wrap align-items-center small text-muted mt-2">
+      <div ref={ref} className="d-flex flex-wrap align-items-center small text-muted mt-2">
         {/* Zero-sized: only holds what the marks of the legend refer to. */}
         <svg width="0" height="0" style={{position: "absolute"}} aria-hidden="true">
           <defs>

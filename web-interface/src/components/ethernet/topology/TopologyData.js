@@ -354,8 +354,8 @@ export function buildLinkModel(data, timeWindow) {
     if (!link) {
       link = {
         id: id, source: l.source, target: l.target, cls: linkClass(nodes.get(l.source), nodes.get(l.target)),
-        sessions: 0, bytes_tx: 0, bytes_rx: 0, bytes: 0, full_bytes: 0, full_sessions: 0, tcp: false, udp: false,
-        first_seen: l.first_seen, last_seen: l.last_seen, active: false
+        sessions: 0, bytes_tx: 0, bytes_rx: 0, bytes: 0, full_bytes: 0, full_bytes_tx: 0, full_bytes_rx: 0,
+        full_sessions: 0, tcp: false, udp: false, first_seen: l.first_seen, last_seen: l.last_seen, active: false
       };
       links.set(id, link);
     }
@@ -366,6 +366,8 @@ export function buildLinkModel(data, timeWindow) {
     link.bytes_rx += sum.bytes_rx;
     link.bytes += sum.bytes_tx + sum.bytes_rx;
     link.full_bytes += l.bytes_tx + l.bytes_rx;
+    link.full_bytes_tx += l.bytes_tx;
+    link.full_bytes_rx += l.bytes_rx;
     link.full_sessions += l.sessions;
     if (l.sessions_tcp > 0) link.tcp = true;
     if (l.sessions_udp > 0) link.udp = true;
@@ -451,6 +453,12 @@ export function buildLinkModel(data, timeWindow) {
     const forward = p.forward && (p.forward.active || !p.active);
     const backward = p.backward && (p.backward.active || !p.active);
     p.cls = pairClass(a, b, Boolean(forward), Boolean(backward));
+
+    // A pair without traffic in the window keeps the directions of the whole range.
+    const sent = (link) => (link ? (p.active ? link.bytes_tx : link.full_bytes_tx) : 0);
+    const received = (link) => (link ? (p.active ? link.bytes_rx : link.full_bytes_rx) : 0);
+    p.bytes_to_a = received(p.forward) + sent(p.backward);
+    p.bytes_to_b = sent(p.forward) + received(p.backward);
   });
 
   return {

@@ -22,6 +22,8 @@ const MIN_RADIUS = 4;
 const MAX_RADIUS = 15;
 const MIN_LINK_WIDTH = 1;
 const MAX_LINK_WIDTH = 6;
+const ARROW_MIN_SCALE = 0.7;
+const ARROW_MAX_SCALE = 1.25;
 const AUTO_LABELS = 12;
 const MAX_GROUPS_PER_RING = 12;
 const GROUP_LABEL_OFFSET = 22;
@@ -221,19 +223,36 @@ const layoutAnchors = (arrangement, nodes, cx, cy) => {
   return result;
 }
 
-const pairDirectionText = (pair, a, b) => {
+const linkDetailLines = (link) => {
   const lines = [];
-  if (pair.forward && pair.forward.sessions > 0) {
-    lines.push(truncate(a.label, 22) + " to " + truncate(b.label, 22) + ": "
-        + formatCount(pair.forward.sessions) + (pair.forward.sessions === 1 ? " session, " : " sessions, ")
-        + formatBytes(pair.forward.bytes));
+  const opened = (direction, from, to) => {
+    if (direction && direction.sessions > 0) {
+      lines.push(truncate(from.label, 22) + " to " + truncate(to.label, 22) + ": "
+          + formatCount(direction.sessions) + (direction.sessions === 1 ? " session" : " sessions"));
+    }
   }
-  if (pair.backward && pair.backward.sessions > 0) {
-    lines.push(truncate(b.label, 22) + " to " + truncate(a.label, 22) + ": "
-        + formatCount(pair.backward.sessions) + (pair.backward.sessions === 1 ? " session, " : " sessions, ")
-        + formatBytes(pair.backward.bytes));
-  }
+
+  opened(link.forward, link.source, link.target);
+  opened(link.backward, link.target, link.source);
+  lines.push("Data to " + truncate(link.target.label, 22) + ": " + formatBytes(link.bytesToTarget));
+  lines.push("Data to " + truncate(link.source.label, 22) + ": " + formatBytes(link.bytesToSource));
   return lines;
+}
+
+const arrowShares = (link) => {
+  const bytes = link.bytesToTarget + link.bytesToSource;
+  if (bytes > 0) return {target: link.bytesToTarget / bytes, source: link.bytesToSource / bytes};
+
+  const ends = (link.toTarget ? 1 : 0) + (link.toSource ? 1 : 0);
+  return {target: link.toTarget ? 1 / ends : 0, source: link.toSource ? 1 / ends : 0};
+}
+
+const arrowScale = (share) => ARROW_MIN_SCALE + (ARROW_MAX_SCALE - ARROW_MIN_SCALE) * share;
+
+// External nodes are drawn as squares.
+const rimDistance = (node, ux, uy) => {
+  const r = nodeRadius(node);
+  return node.type === "EXTERNAL" ? r / Math.max(Math.abs(ux), Math.abs(uy)) : r;
 }
 
 export default function TopologyGraph({model, scale = null, dataKey, minBytes = 0, arrangement = "force",
@@ -412,9 +431,10 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       if (length < 1) return;
       const ux = dx / length;
       const uy = dy / length;
-      const size = 1 + 2.5 * crowding + w;
+      const full = 1 + 2.5 * crowding + w;
 
-      const arrow = (tipX, tipY, dirX, dirY) => {
+      const arrow = (tipX, tipY, dirX, dirY, share) => {
+        const size = full * arrowScale(share);
         ctx.beginPath();
         ctx.moveTo(tipX, tipY);
         ctx.lineTo(tipX - dirX * size * 1.7 - dirY * size * 0.75, tipY - dirY * size * 1.7 + dirX * size * 0.75);
@@ -424,13 +444,13 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         ctx.fill();
       }
 
-      if (link.toTarget) {
-        const r = nodeRadius(d) + 2;
-        arrow(d.x - ux * r, d.y - uy * r, ux, uy);
+      if (link.arrows.target > 0) {
+        const r = rimDistance(d, ux, uy) + 2;
+        arrow(d.x - ux * r, d.y - uy * r, ux, uy, link.arrows.target);
       }
-      if (link.toSource) {
-        const r = nodeRadius(s) + 2;
-        arrow(s.x + ux * r, s.y + uy * r, -ux, -uy);
+      if (link.arrows.source > 0) {
+        const r = rimDistance(s, ux, uy) + 2;
+        arrow(s.x + ux * r, s.y + uy * r, -ux, -uy, link.arrows.source);
       }
     }
 
@@ -616,11 +636,12 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
     const legend = stageRef.current ? [] : [
       {text: "Internal node", node: "circle", color: c.internal},
       {text: "External node", node: "square", color: c.external},
-      {text: "Outbound", color: c.outbound},
-      {text: "Inbound", color: c.inbound},
-      {text: "Both directions", color: c.both},
+      {text: "Outbound sessions", color: c.outbound},
+      {text: "Inbound sessions", color: c.inbound},
+      {text: "Sessions in both directions", color: c.both},
       {text: "Internal to internal", color: c.internalLink},
-      {text: "UDP dashed, TCP solid", color: c.muted, dashed: true}
+      {text: "UDP dashed, TCP solid", color: c.muted, dashed: true},
+      {text: "Arrows show where data went, larger is more", color: c.muted, arrows: true}
     ];
     legend.forEach((entry, i) => {
       const y = h - 12 - (legend.length - 1 - i) * 16;
@@ -642,6 +663,18 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
         ctx.strokeStyle = entry.color;
         ctx.stroke();
         ctx.setLineDash([]);
+
+        if (entry.arrows) {
+          ctx.fillStyle = entry.color;
+          [[8, 1, 7, 4.5], [36, -1, 4, 2.5]].forEach(([tip, direction, length, half]) => {
+            ctx.beginPath();
+            ctx.moveTo(tip, y);
+            ctx.lineTo(tip + direction * length, y - half);
+            ctx.lineTo(tip + direction * length, y + half);
+            ctx.closePath();
+            ctx.fill();
+          });
+        }
       }
       ctx.fillStyle = c.muted;
       ctx.fillText(entry.text, 40, y);
@@ -821,8 +854,9 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
       sessions: p.sessions, tcp: p.tcp, udp: p.udp, active: p.active,
       toTarget: Boolean(p.forward && (p.forward.active || !p.active)),
       toSource: Boolean(p.backward && (p.backward.active || !p.active)),
-      forward: p.forward, backward: p.backward
+      forward: p.forward, backward: p.backward, bytesToSource: p.bytes_to_a, bytesToTarget: p.bytes_to_b
     }));
+    links.forEach((l) => { l.arrows = arrowShares(l); });
 
     nodes.forEach((n) => { n.degree = 0; });
     links.forEach((l) => {
@@ -1274,7 +1308,7 @@ export default function TopologyGraph({model, scale = null, dataKey, minBytes = 
             {truncate(l.source.label, 26)} and {truncate(l.target.label, 26)}
           </div>
           {l.active
-              ? pairDirectionText(l, l.source, l.target).map((line, i) => <div key={i}>{line}</div>)
+              ? linkDetailLines(l).map((line, i) => <div key={i}>{line}</div>)
               : <div>No traffic in the time window.</div>}
         </React.Fragment>
     );
