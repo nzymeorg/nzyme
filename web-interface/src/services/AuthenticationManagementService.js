@@ -303,14 +303,14 @@ class AuthenticationManagementService {
         })
   }
 
-  createTenantLocation(organizationId, tenantId, name, description, latitude, longitude, successCallback) {
+  createTenantLocation(organizationId, tenantId, name, description, latitude, longitude, successCallback, errorCallback) {
     RESTClient.post("/system/authentication/mgmt/organizations/show/" + organizationId + "/tenants/show/" + tenantId + "/locations",
-        {name: name, description: description, latitude: latitude, longitude: longitude}, successCallback)
+        {name: name, description: description, latitude: latitude, longitude: longitude}, successCallback, errorCallback)
   }
 
-  updateTenantLocation(organizationId, tenantId, locationId, name, description, latitude, longitude, successCallback) {
+  updateTenantLocation(organizationId, tenantId, locationId, name, description, latitude, longitude, successCallback, errorCallback) {
     RESTClient.put("/system/authentication/mgmt/organizations/show/" + organizationId + "/tenants/show/" + tenantId + "/locations/show/" + locationId,
-        {name: name, description: description, latitude: latitude, longitude: longitude}, successCallback)
+        {name: name, description: description, latitude: latitude, longitude: longitude}, successCallback, errorCallback)
   }
 
   deleteTenantLocation(locationId, organizationId, tenantId, successCallback) {

@@ -2,6 +2,7 @@ package app.nzyme.core.environment;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.connect.ConnectRegistryKeys;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.environment.dto.EnvironmentData;
 import app.nzyme.core.environment.dto.LocationEnvironmentAlertDetails;
@@ -220,7 +221,7 @@ public class EnvironmentService {
                                         location.organizationId(),
                                         location.tenantId(),
                                         null,
-                                        null,
+                                        AlertOrigin.location(location.uuid()),
                                         DetectionType.ENVIRONMENTAL_SEVERE_ALERT,
                                         Subsystem.GENERIC,
                                         "Severe environmental/weather monitoring alert received for location \"" + location.name() + "\": " + headline,

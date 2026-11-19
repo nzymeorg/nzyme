@@ -25,6 +25,9 @@ public abstract class CreateMonitorRequest {
     @Nullable
     public abstract List<String> taps();
 
+    @Nullable
+    public abstract UUID locationId();
+
     @Min(0)
     public abstract Integer triggerCondition();
 
@@ -50,6 +53,8 @@ public abstract class CreateMonitorRequest {
                                               @JsonProperty("description") String description,
                                               @Schema(description = "Tap UUIDs the monitor runs against. Omit for all taps the calling user can access.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("taps") List<String> taps,
+                                              @Schema(description = "UUID of the location the alerts of the monitor are raised at. Omit to raise them without a location.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                              @JsonProperty("location_id") UUID locationId,
                                               @Schema(description = "Number of matching results that triggers the monitor. Minimum is 0.", requiredMode = Schema.RequiredMode.REQUIRED)
                                               @JsonProperty("trigger_condition") Integer triggerCondition,
                                               @Schema(description = "How often the monitor runs, in minutes. Minimum is 1.", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -66,6 +71,7 @@ public abstract class CreateMonitorRequest {
                 .name(name)
                 .description(description)
                 .taps(taps)
+                .locationId(locationId)
                 .triggerCondition(triggerCondition)
                 .interval(interval)
                 .lookback(lookback)
@@ -87,6 +93,8 @@ public abstract class CreateMonitorRequest {
         public abstract Builder description(String description);
 
         public abstract Builder taps(@NotEmpty List<String> taps);
+
+        public abstract Builder locationId(UUID locationId);
 
         public abstract Builder triggerCondition(@Min(0) Integer triggerCondition);
 

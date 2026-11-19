@@ -5,6 +5,7 @@ import ApiRoutes from "../../util/ApiRoutes";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import MonitorsService from "../../services/MonitorsService";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
+import LocationLink from "../shared/locations/LocationLink";
 import CardTitleWithControls from "../shared/CardTitleWithControls";
 import MonitorStatusIndicator from "./shared/MonitorStatusIndicator";
 import MonitorType from "./shared/MonitorType";
@@ -159,6 +160,8 @@ export default function MonitorDetailsPage() {
                 <dd><MonitorType type={monitor.type} /></dd>
                 <dt>Description</dt>
                 <dd>{monitor.description ? monitor.description : <span className="text-muted">n/a</span> }</dd>
+                <dt>Location</dt>
+                <dd><LocationLink id={monitor.location_id} name={monitor.location_name} /></dd>
                 <dt>Interval</dt>
                 <dd>{numeral(monitor.interval).format("0,0")} {monitor.interval === 1 ? "Minute" : "Minutes"}</dd>
                 <dt>Trigger Condition</dt>

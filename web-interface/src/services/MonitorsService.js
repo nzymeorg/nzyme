@@ -35,13 +35,14 @@ class MonitorsService {
       })
   }
 
-  createMonitor(monitorType, name, description, taps, trigger_condition, interval, lookback, filters, organizationId, tenantId, successCallback, errorCallback) {
+  createMonitor(monitorType, name, description, taps, locationId, trigger_condition, interval, lookback, filters, organizationId, tenantId, successCallback, errorCallback) {
     const tapsParam = (taps && taps === "*") ? null : taps;
 
     RESTClient.post(`/monitors/type/${monitorType}`,{
       name: name,
       description: description,
       taps: tapsParam,
+      location_id: locationId ? locationId : null,
       trigger_condition: trigger_condition,
       interval: interval,
       lookback: lookback,
@@ -51,10 +52,11 @@ class MonitorsService {
     }, successCallback, errorCallback);
   }
 
-  updateMonitorMetadata(id, name, description, trigger_condition, interval, lookback, successCallback, errorCallback) {
+  updateMonitorMetadata(id, name, description, locationId, trigger_condition, interval, lookback, successCallback, errorCallback) {
     RESTClient.put(`/monitors/show/${id}`,{
       name: name,
       description: description,
+      location_id: locationId ? locationId : null,
       trigger_condition: trigger_condition,
       interval: interval,
       lookback: lookback,

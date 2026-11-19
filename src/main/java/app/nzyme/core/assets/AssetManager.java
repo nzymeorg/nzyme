@@ -8,6 +8,7 @@ import app.nzyme.core.assets.db.AssetEntry;
 import app.nzyme.core.assets.db.AssetHostnameEntry;
 import app.nzyme.core.assets.db.AssetIpAddressEntry;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
@@ -341,6 +342,24 @@ public class AssetManager {
         );
     }
 
+    /*
+     * The taps that recorded activity of a MAC address since the given time, and the taps that last did. The latest
+     * bucket is taken from the rows of the MAC address: MAX(bucket) in a subquery is answered from the index on
+     * the bucket alone, which reads every bucket of all MAC addresses when this one has no recent activity.
+     */
+    public List<UUID> findTapsOfMac(Handle handle, String mac, UUID organizationId, UUID tenantId, DateTime since) {
+        return handle.createQuery("SELECT DISTINCT tap_uuid FROM (SELECT tap_uuid, bucket, " +
+                        "MAX(bucket) OVER () AS latest FROM assets_activity " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id AND mac = :mac) AS a " +
+                        "WHERE bucket = latest OR bucket >= date_trunc('hour', :since::timestamptz)")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("mac", mac)
+                .bind("since", since)
+                .mapTo(UUID.class)
+                .list();
+    }
+
     public void onNewAsset(Subsystem subsystem,
                            UUID assetUuid,
                            String mac,
@@ -356,7 +375,7 @@ public class AssetManager {
                 organizationId,
                 tenantId,
                 null,
-                tapUuid,
+                AlertOrigin.tap(tapUuid),
                 DetectionType.ASSETS_NEW,
                 subsystem,
                 "New asset with MAC address \"" + mac + "\" detected.",

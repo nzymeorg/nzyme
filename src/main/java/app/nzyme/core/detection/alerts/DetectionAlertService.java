@@ -9,6 +9,7 @@ import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertSearchEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertTimelineEntry;
 import app.nzyme.core.events.types.DetectionEvent;
+import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
@@ -18,6 +19,7 @@ import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
 import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
@@ -34,6 +36,10 @@ public class DetectionAlertService {
     private static final Logger LOG = LogManager.getLogger(DetectionAlertService.class);
 
     public static final int ACTIVE_THRESHOLD_MINUTES = 5;
+
+    public static final String NO_LOCATION_NAME = "No Location";
+
+    private static final String NO_LOCATION_CHECKSUM_PART = "no-location";
 
     /*
      * Attribute keys that carry the address or MAC of the device an alert is about, in order of preference. The
@@ -55,6 +61,7 @@ public class DetectionAlertService {
         DETAILS("details"),
         DETECTION_TYPE("detection_type"),
         SUBSYSTEM("subsystem"),
+        LOCATION("location_name"),
         AFFECTED_ADDRESS("affected_address"),
         AFFECTED_MAC("affected_mac"),
         REACTIVATIONS("reactivations"),
@@ -83,6 +90,7 @@ public class DetectionAlertService {
                     "CASE WHEN da.is_resolved THEN 'Resolved' " +
                     "WHEN da.last_seen > NOW() - INTERVAL '" + ACTIVE_THRESHOLD_MINUTES + " minutes' THEN 'Active' " +
                     "ELSE 'Inactive' END AS status, " +
+                    "COALESCE(l.name, '" + NO_LOCATION_NAME + "') AS location_name, " +
                     "(" + affectedAttributeSelect(AFFECTED_ADDRESS_KEYS,
                             "AND (aa.attribute_value ~ '^(\\d{1,3}\\.){3}\\d{1,3}$' " +
                                     "OR aa.attribute_value ~ '^[0-9a-fA-F:]+$') ") +
@@ -91,6 +99,8 @@ public class DetectionAlertService {
                     "(SELECT COUNT(*) FROM detection_alert_timeline AS t WHERE t.detection_alert_id = da.id) - 1 " +
                     "AS reactivations " +
                     "FROM detection_alerts AS da " +
+                    "LEFT JOIN auth_tenants_locations AS l ON l.uuid = da.location_id " +
+                    "AND l.organization_id = da.organization_id AND l.tenant_id = da.tenant_id " +
                     "WHERE da.organization_id = :organization_id AND da.tenant_id = :tenant_id " +
                     "AND da.last_seen >= :tr_from AND da.created_at <= :tr_to ";
 
@@ -145,7 +155,7 @@ public class DetectionAlertService {
     public void raiseAlert(UUID organizationId,
                            UUID tenantId,
                            @Nullable UUID dot11MonitoredNetworkId,
-                           @Nullable UUID tapId,
+                           AlertOrigin origin,
                            DetectionType detectionType,
                            Subsystem subsystem,
                            String details,
@@ -153,6 +163,10 @@ public class DetectionAlertService {
                            Set<String> comparisonAttributeKeys) {
         if (organizationId == null || tenantId == null) {
             throw new RuntimeException("Detection alerts must have organization and tenant UUID set.");
+        }
+
+        if (origin == null) {
+            throw new RuntimeException("Detection alerts must have an origin.");
         }
 
         TreeMap<String, String> comparisonAttributes = Maps.newTreeMap();
@@ -164,16 +178,133 @@ public class DetectionAlertService {
             comparisonAttributes.put(key, value);
         }
 
+        // A failure at one location must not keep the alert from the other locations.
+        RuntimeException failure = null;
+        for (Placement placement : placements(organizationId, tenantId, origin)) {
+            try {
+                raiseAlertAt(placement, organizationId, tenantId, dot11MonitoredNetworkId, detectionType, subsystem,
+                        details, attributes, comparisonAttributes);
+            } catch (RuntimeException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    LOG.error("Could not raise alert of type [{}] at location [{}].",
+                            detectionType.name(), placement.locationId(), e);
+                }
+            }
+        }
+
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private record Placement(@Nullable UUID locationId, String locationName, @Nullable UUID tapId) {
+
+        static Placement withoutLocation(@Nullable UUID tapId) {
+            return new Placement(null, NO_LOCATION_NAME, tapId);
+        }
+
+    }
+
+    // One placement per location, with the first tap of the origin that is at it.
+    private List<Placement> placements(UUID organizationId, UUID tenantId, AlertOrigin origin) {
+        if (origin.taps().isEmpty()) {
+            if (origin.locationId() == null) {
+                return List.of(Placement.withoutLocation(null));
+            }
+
+            // A location that does not exist, or not for this tenant, is no location.
+            Optional<String> name = nzyme.getDatabase().withHandle(handle ->
+                    handle.createQuery("SELECT name FROM auth_tenants_locations WHERE uuid = :uuid " +
+                                    "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                            .bind("uuid", origin.locationId())
+                            .bind("organization_id", organizationId)
+                            .bind("tenant_id", tenantId)
+                            .mapTo(String.class)
+                            .findOne()
+            );
+
+            return List.of(name.map(n -> new Placement(origin.locationId(), n, null))
+                    .orElse(Placement.withoutLocation(null)));
+        }
+
+        Set<UUID> taps = Sets.newHashSet(origin.taps());
+        taps.addAll(origin.knownTaps());
+
+        Map<UUID, Optional<UUID>> locations = Maps.newHashMap();
+        Map<UUID, String> locationNames = Maps.newHashMap();
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createQuery("SELECT t.uuid AS tap, l.uuid AS location, l.name FROM taps AS t " +
+                                "LEFT JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid " +
+                                "AND l.organization_id = t.organization_id AND l.tenant_id = t.tenant_id " +
+                                "WHERE t.organization_id = :organization_id AND t.tenant_id = :tenant_id " +
+                                "AND t.uuid IN (<taps>)")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bindList("taps", taps)
+                        .map((rs, ctx) -> {
+                            Optional<UUID> location = Optional.ofNullable(rs.getString("location")).map(UUID::fromString);
+                            if (location.isPresent()) {
+                                locationNames.put(location.get(), rs.getString("name"));
+                            }
+
+                            return Map.entry(UUID.fromString(rs.getString("tap")), location);
+                        })
+                        .forEach(row -> locations.put(row.getKey(), row.getValue()))
+        );
+
+        Set<Optional<UUID>> known = origin.knownTaps().stream()
+                .map(locations::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Optional<UUID>, Placement> placements = Maps.newLinkedHashMap();
+        for (UUID tap : origin.taps()) {
+            Optional<UUID> location = locations.get(tap);
+            if (location != null && !known.contains(location)) {
+                placements.putIfAbsent(location, location
+                        .map(l -> new Placement(l, locationNames.get(l), tap))
+                        .orElse(Placement.withoutLocation(tap)));
+            }
+        }
+
+        if (placements.isEmpty() && known.isEmpty()) {
+            return List.of(Placement.withoutLocation(null));
+        }
+
+        return Lists.newArrayList(placements.values());
+    }
+
+    private void raiseAlertAt(Placement placement,
+                              UUID organizationId,
+                              UUID tenantId,
+                              @Nullable UUID dot11MonitoredNetworkId,
+                              DetectionType detectionType,
+                              Subsystem subsystem,
+                              String details,
+                              Map<String, String> attributes,
+                              TreeMap<String, String> comparisonAttributes) {
+        UUID tapId = placement.tapId();
+
         String comparisonChecksum = buildChecksum(
                 organizationId,
                 tenantId,
                 dot11MonitoredNetworkId,
+                placement.locationId() == null ? NO_LOCATION_CHECKSUM_PART : placement.locationId().toString(),
                 detectionType,
                 subsystem,
                 comparisonAttributes
         );
 
-        Optional<DetectionAlertEntry> existingAlert = findAlertWithComparisonChecksum(comparisonChecksum);
+        Optional<DetectionAlertEntry> existingAlert = findAlertWithComparisonChecksum(comparisonChecksum)
+                .or(() -> adoptAlertFromBeforeLocations(
+                        buildChecksum(organizationId, tenantId, dot11MonitoredNetworkId, null, detectionType,
+                                subsystem, comparisonAttributes),
+                        comparisonChecksum,
+                        placement
+                ));
+
         if (existingAlert.isPresent()) {
             // This alert has been raised in the past.
             LOG.debug("Alert of type [{}] with checksum [{}] is not new. Updating.",
@@ -223,7 +354,8 @@ public class DetectionAlertService {
 
                 // Create event.
                 nzyme.getEventEngine().processEvent(
-                        DetectionEvent.create(existingAlert.get().uuid(), detectionType, details, DateTime.now()),
+                        DetectionEvent.create(existingAlert.get().uuid(), detectionType, details,
+                                placement.locationId(), placement.locationName(), DateTime.now()),
                         organizationId,
                         tenantId
                 );
@@ -234,24 +366,33 @@ public class DetectionAlertService {
 
         // New alert / not re-triggered.
         UUID alertUUID = UUID.randomUUID();
-        long alertId = nzyme.getDatabase().withHandle(handle ->
+        Optional<Long> inserted = nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("INSERT INTO detection_alerts(uuid, organization_id, tenant_id, " +
-                                "dot11_monitored_network_id, tap_id, detection_type, subsystem, comparison_checksum, " +
-                                "details, created_at, last_seen) VALUES(:uuid, :organization_id, :tenant_id, " +
-                                ":dot11_monitored_network_id, :tap_id, :detection_type, :subsystem, " +
-                                ":comparison_checksum, :details, NOW(), NOW()) RETURNING id")
+                                "dot11_monitored_network_id, tap_id, location_id, detection_type, subsystem, " +
+                                "comparison_checksum, details, created_at, last_seen) VALUES(:uuid, " +
+                                ":organization_id, :tenant_id, :dot11_monitored_network_id, :tap_id, :location_id, " +
+                                ":detection_type, :subsystem, :comparison_checksum, :details, NOW(), NOW()) " +
+                                "ON CONFLICT (comparison_checksum) DO NOTHING RETURNING id")
                         .bind("uuid", alertUUID)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("dot11_monitored_network_id", dot11MonitoredNetworkId)
                         .bind("tap_id", tapId)
+                        .bind("location_id", placement.locationId())
                         .bind("detection_type", detectionType.name())
                         .bind("subsystem", subsystem)
                         .bind("comparison_checksum", comparisonChecksum)
                         .bind("details", details)
                         .mapTo(Long.class)
-                        .one()
+                        .findOne()
         );
+
+        // Another node raised the same alert in the meantime, and wrote its attributes, timeline and event.
+        if (inserted.isEmpty()) {
+            return;
+        }
+
+        long alertId = inserted.get();
 
         for (Map.Entry<String, String> attribute : attributes.entrySet()) {
             nzyme.getDatabase().useHandle(handle ->
@@ -270,7 +411,8 @@ public class DetectionAlertService {
 
         // Create event.
         nzyme.getEventEngine().processEvent(
-                DetectionEvent.create(alertUUID, detectionType, details, DateTime.now()),
+                DetectionEvent.create(alertUUID, detectionType, details, placement.locationId(),
+                        placement.locationName(), DateTime.now()),
                 organizationId,
                 tenantId
         );
@@ -412,18 +554,38 @@ public class DetectionAlertService {
         );
     }
 
-    public List<DetectionAlertEntry> findActiveAlertsOfTaps(UUID organizationId, UUID tenantId, List<UUID> taps, int limit) {
-        if (taps.isEmpty()) {
-            return Collections.emptyList();
-        }
+    private static String atLocation(@Nullable UUID locationId) {
+        return locationId == null ? "AND location_id IS NULL " : "AND location_id = :location_id ";
+    }
 
+    private static Query bindLocation(Query query, @Nullable UUID locationId) {
+        return locationId == null ? query : query.bind("location_id", locationId);
+    }
+
+    public long countActiveAlertsOfLocation(UUID organizationId, UUID tenantId, @Nullable UUID locationId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT* FROM detection_alerts WHERE organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id AND is_resolved = false AND last_seen > :cutoff " +
-                                "AND tap_id IN (<taps>) ORDER BY last_seen DESC LIMIT :limit")
+                bindLocation(handle.createQuery("SELECT COUNT(*) FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff " + atLocation(locationId)), locationId)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
-                        .bindList("taps", taps)
+                        .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<DetectionAlertEntry> findActiveAlertsOfLocation(UUID organizationId,
+                                                                UUID tenantId,
+                                                                @Nullable UUID locationId,
+                                                                int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                bindLocation(handle.createQuery("SELECT * FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff " + atLocation(locationId) +
+                                "ORDER BY last_seen DESC, id DESC LIMIT :limit"), locationId)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
                         .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
                         .bind("limit", limit)
                         .mapTo(DetectionAlertEntry.class)
@@ -431,38 +593,71 @@ public class DetectionAlertService {
         );
     }
 
-    // Alerts without a tap belong to no tap scope. They are only included when the scope covers all taps.
-    private static String scope(List<UUID> taps, boolean includeWithoutTap, @Nullable Subsystem subsystem) {
-        String ofSubsystem = subsystem == null ? "" : "AND subsystem = :subsystem ";
-
-        if (taps.isEmpty()) {
-            return (includeWithoutTap ? "AND tap_id IS NULL " : "AND FALSE ") + ofSubsystem;
+    public String findLocationName(DetectionAlertEntry alert) {
+        if (alert.locationId() == null) {
+            return NO_LOCATION_NAME;
         }
 
-        return (includeWithoutTap ? "AND (tap_id IN (<taps>) OR tap_id IS NULL) " : "AND tap_id IN (<taps>) ")
+        return nzyme.getAuthenticationService()
+                .findTenantLocation(alert.locationId(), alert.organizationId(), alert.tenantId())
+                .map(TenantLocationEntry::name)
+                .orElse(NO_LOCATION_NAME);
+    }
+
+    /*
+     * The alerts a view covers: the alerts that were raised at locations, or the alerts of taps. Alerts without a
+     * tap belong to no tap scope. They are only included when the scope covers all taps.
+     */
+    public record Scope(List<UUID> taps, boolean includeWithoutTap, @Nullable List<UUID> locations) {
+
+        public static Scope ofTaps(List<UUID> taps, boolean includeWithoutTap) {
+            return new Scope(taps, includeWithoutTap, null);
+        }
+
+        public static Scope ofLocations(List<UUID> locations) {
+            return new Scope(List.of(), false, locations);
+        }
+
+    }
+
+    private static String scope(Scope scope, @Nullable Subsystem subsystem) {
+        String ofSubsystem = subsystem == null ? "" : "AND subsystem = :subsystem ";
+
+        if (scope.locations() != null) {
+            return (scope.locations().isEmpty() ? "AND FALSE " : "AND location_id IN (<locations>) ") + ofSubsystem;
+        }
+
+        if (scope.taps().isEmpty()) {
+            return (scope.includeWithoutTap() ? "AND tap_id IS NULL " : "AND FALSE ") + ofSubsystem;
+        }
+
+        return (scope.includeWithoutTap() ? "AND (tap_id IN (<taps>) OR tap_id IS NULL) " : "AND tap_id IN (<taps>) ")
                 + ofSubsystem;
     }
 
-    private static Query bindScope(Query query, List<UUID> taps, @Nullable Subsystem subsystem) {
+    private static Query bindScope(Query query, Scope scope, @Nullable Subsystem subsystem) {
         if (subsystem != null) {
             query.bind("subsystem", subsystem.name());
         }
 
-        return taps.isEmpty() ? query : query.bindList("taps", taps);
+        if (scope.locations() != null) {
+            return scope.locations().isEmpty() ? query : query.bindList("locations", scope.locations());
+        }
+
+        return scope.taps().isEmpty() ? query : query.bindList("taps", scope.taps());
     }
 
     public List<DetectionAlertEntry> findActiveAlertsInScope(UUID organizationId,
                                                              UUID tenantId,
-                                                             List<UUID> taps,
-                                                             boolean includeWithoutTap,
+                                                             Scope scope,
                                                              @Nullable Subsystem subsystem,
                                                              int limit) {
         return nzyme.getDatabase().withHandle(handle ->
                 bindScope(handle.createQuery("SELECT * FROM detection_alerts " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND is_resolved = false AND last_seen > :cutoff " +
-                                scope(taps, includeWithoutTap, subsystem) +
-                                "ORDER BY last_seen DESC, id DESC LIMIT :limit"), taps, subsystem)
+                                scope(scope, subsystem) +
+                                "ORDER BY last_seen DESC, id DESC LIMIT :limit"), scope, subsystem)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
@@ -474,20 +669,37 @@ public class DetectionAlertService {
 
     public long countActiveAlertsInScope(UUID organizationId,
                                          UUID tenantId,
-                                         List<UUID> taps,
-                                         boolean includeWithoutTap,
+                                         Scope scope,
                                          @Nullable Subsystem subsystem) {
         return nzyme.getDatabase().withHandle(handle ->
                 bindScope(handle.createQuery("SELECT COUNT(*) FROM detection_alerts " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND is_resolved = false AND last_seen > :cutoff " +
-                                scope(taps, includeWithoutTap, subsystem)), taps, subsystem)
+                                scope(scope, subsystem)), scope, subsystem)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
                         .mapTo(Long.class)
                         .one()
         );
+    }
+
+    public Map<UUID, Long> countActiveAlertsByLocation(UUID organizationId, UUID tenantId) {
+        Map<UUID, Long> counts = Maps.newHashMap();
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createQuery("SELECT location_id, COUNT(*) AS alert_count FROM detection_alerts " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND is_resolved = false AND last_seen > :cutoff AND location_id IS NOT NULL " +
+                                "GROUP BY location_id")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("cutoff", DateTime.now().minusMinutes(ACTIVE_THRESHOLD_MINUTES))
+                        .map((rs, ctx) -> Map.entry(UUID.fromString(rs.getString("location_id")), rs.getLong("alert_count")))
+                        .forEach(row -> counts.put(row.getKey(), row.getValue()))
+        );
+
+        return counts;
     }
 
     public Map<UUID, Long> countActiveAlertsByTap(UUID organizationId, UUID tenantId, List<UUID> taps) {
@@ -514,8 +726,7 @@ public class DetectionAlertService {
 
     public long countNewAlertsInScope(UUID organizationId,
                                       UUID tenantId,
-                                      List<UUID> taps,
-                                      boolean includeWithoutTap,
+                                      Scope scope,
                                       @Nullable Subsystem subsystem,
                                       DateTime from,
                                       DateTime to) {
@@ -523,7 +734,7 @@ public class DetectionAlertService {
                 bindScope(handle.createQuery("SELECT COUNT(*) FROM detection_alerts " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND created_at >= :from AND created_at < :to " +
-                                scope(taps, includeWithoutTap, subsystem)), taps, subsystem)
+                                scope(scope, subsystem)), scope, subsystem)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("from", from)
@@ -535,8 +746,7 @@ public class DetectionAlertService {
 
     public List<GenericIntegerHistogramEntry> getNewAlertsHistogramInScope(UUID organizationId,
                                                                            UUID tenantId,
-                                                                           List<UUID> taps,
-                                                                           boolean includeWithoutTap,
+                                                                           Scope scope,
                                                                            @Nullable Subsystem subsystem,
                                                                            DateTime from,
                                                                            DateTime to,
@@ -546,8 +756,8 @@ public class DetectionAlertService {
                                 "COUNT(*) AS value FROM detection_alerts " +
                                 "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
                                 "AND created_at >= :from AND created_at < :to " +
-                                scope(taps, includeWithoutTap, subsystem) +
-                                "GROUP BY bucket ORDER BY bucket ASC"), taps, subsystem)
+                                scope(scope, subsystem) +
+                                "GROUP BY bucket ORDER BY bucket ASC"), scope, subsystem)
                         .bind("date_trunc", bucketing.type().getDateTruncName())
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
@@ -656,6 +866,38 @@ public class DetectionAlertService {
         );
     }
 
+    public List<DetectionAlertTimelineEntry> findAlertTimeline(List<Long> alertIds, int limit, int offset) {
+        if (alertIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT * FROM detection_alert_timeline " +
+                                "WHERE detection_alert_id IN (<alert_ids>) " +
+                                "ORDER BY seen_to DESC " +
+                                "LIMIT :limit OFFSET :offset")
+                        .bindList("alert_ids", alertIds)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .mapTo(DetectionAlertTimelineEntry.class)
+                        .list()
+        );
+    }
+
+    public long countAlertTimelineEntries(List<Long> alertIds) {
+        if (alertIds.isEmpty()) {
+            return 0;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM detection_alert_timeline " +
+                                "WHERE detection_alert_id IN (<alert_ids>)")
+                        .bindList("alert_ids", alertIds)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
     public long countAlertTimelineEntries(long alertId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM detection_alert_timeline " +
@@ -676,6 +918,44 @@ public class DetectionAlertService {
         );
     }
 
+    /*
+     * Alerts that were raised before alerts had a location carry a checksum without one. The first time such an
+     * alert is raised again it gets the checksum of where it is raised, instead of a second alert being created
+     * next to it: at the location the migration placed it at, at no location if it stayed without one, and an alert
+     * that never had a tap at whichever location comes first.
+     */
+    private Optional<DetectionAlertEntry> adoptAlertFromBeforeLocations(String checksumWithoutLocation,
+                                                                        String checksum,
+                                                                        Placement placement) {
+        if (placement.locationId() == null) {
+            return nzyme.getDatabase().withHandle(handle ->
+                    handle.createQuery("UPDATE detection_alerts SET comparison_checksum = :checksum, " +
+                                    "tap_id = COALESCE(tap_id, :tap_id) " +
+                                    "WHERE comparison_checksum = :checksum_without_location " +
+                                    "AND location_id IS NULL RETURNING *")
+                            .bind("checksum", checksum)
+                            .bind("checksum_without_location", checksumWithoutLocation)
+                            .bindByType("tap_id", placement.tapId(), UUID.class)
+                            .mapTo(DetectionAlertEntry.class)
+                            .findOne()
+            );
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("UPDATE detection_alerts SET comparison_checksum = :checksum, " +
+                                "location_id = :location_id, tap_id = COALESCE(tap_id, :tap_id) " +
+                                "WHERE comparison_checksum = :checksum_without_location " +
+                                "AND (location_id = :location_id OR (location_id IS NULL AND tap_id IS NULL)) " +
+                                "RETURNING *")
+                        .bind("checksum", checksum)
+                        .bind("checksum_without_location", checksumWithoutLocation)
+                        .bind("location_id", placement.locationId())
+                        .bindByType("tap_id", placement.tapId(), UUID.class)
+                        .mapTo(DetectionAlertEntry.class)
+                        .findOne()
+        );
+    }
+
     private void createAlertTimelineEntry(long alertId) {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("INSERT INTO detection_alert_timeline(detection_alert_id, seen_from, " +
@@ -688,6 +968,7 @@ public class DetectionAlertService {
     private String buildChecksum(@Nullable UUID organizationId,
                                  @Nullable UUID tenantId,
                                  @Nullable UUID dot11MonitoredNetworkId,
+                                 @Nullable String location,
                                  DetectionType detectionType,
                                  Subsystem subsystem,
                                  TreeMap<String, String> checksumAttributes) {
@@ -703,6 +984,10 @@ public class DetectionAlertService {
 
         if (dot11MonitoredNetworkId != null) {
             source.append(dot11MonitoredNetworkId);
+        }
+
+        if (location != null) {
+            source.append(location);
         }
 
         source.append(detectionType.name())
@@ -843,6 +1128,7 @@ public class DetectionAlertService {
 
         DETECTION_TYPE("alerts.detection_type"),
         SUBSYSTEM("alerts.subsystem"),
+        LOCATION("alerts.location_name"),
         AFFECTED_ADDRESS("host(alerts.affected_address)"),
         AFFECTED_MAC("alerts.affected_mac");
 

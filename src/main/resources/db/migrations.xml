@@ -13285,4 +13285,128 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="add_location_to_detection_alerts" author="lennartkoopmann">
+        <addColumn tableName="detection_alerts">
+            <column name="location_id" type="uuid" />
+        </addColumn>
+        <createIndex tableName="detection_alerts" indexName="detection_alerts_location_id_idx">
+            <column name="location_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_detection_alerts2locations"
+                                 baseTableName="detection_alerts"
+                                 baseColumnNames="location_id"
+                                 referencedTableName="auth_tenants_locations"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="SET NULL" />
+        <sql>
+            UPDATE detection_alerts AS da SET location_id = l.uuid
+            FROM taps AS t JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid
+            WHERE t.uuid = da.tap_id
+        </sql>
+        <sql>
+            WITH findings AS (
+                SELECT uuid::text AS ref, tap_uuids FROM spoofing_arp_findings
+                UNION ALL SELECT uuid::text, tap_uuids FROM spoofing_dhcp_findings
+                UNION ALL SELECT uuid::text, tap_uuids FROM spoofing_dns_findings
+                UNION ALL SELECT uuid::text, tap_uuids FROM spoofing_nameres_findings
+                UNION ALL SELECT uuid::text, tap_uuids FROM dns_tunnel_findings
+                UNION ALL SELECT uuid::text, tap_uuids FROM recon_scans
+                UNION ALL SELECT uuid::text, tap_uuids FROM icmp_redirects
+                UNION ALL SELECT uuid::text, tap_uuids FROM icmp_tunnels
+                UNION ALL SELECT uuid::text, tap_uuids FROM icmp_traceroutes
+            ), placed AS (
+                SELECT DISTINCT ON (da.id) da.id, t.uuid AS tap_id, l.uuid AS location_id
+                FROM detection_alerts AS da
+                JOIN detection_alert_attributes AS aa ON aa.detection_alert_id = da.id
+                    AND aa.attribute_key IN ('finding_uuid', 'scan_uuid', 'redirect_uuid', 'tunnel_uuid', 'traceroute_uuid')
+                JOIN findings AS f ON f.ref = aa.attribute_value
+                CROSS JOIN LATERAL jsonb_array_elements_text(f.tap_uuids) AS e(tap)
+                JOIN taps AS t ON t.uuid::text = e.tap AND t.organization_id = da.organization_id
+                    AND t.tenant_id = da.tenant_id
+                JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid
+                WHERE da.tap_id IS NULL
+                ORDER BY da.id, t.uuid
+            )
+            UPDATE detection_alerts AS da SET tap_id = placed.tap_id, location_id = placed.location_id
+            FROM placed WHERE placed.id = da.id
+        </sql>
+        <sql>
+            WITH placed AS (
+                SELECT da.id, t.uuid AS tap_id, l.uuid AS location_id
+                FROM detection_alerts AS da
+                JOIN detection_alert_attributes AS ab ON ab.detection_alert_id = da.id AND ab.attribute_key = 'beacon_uuid'
+                JOIN detection_alert_attributes AS sa ON sa.detection_alert_id = da.id AND sa.attribute_key = 'source_address'
+                JOIN beacons AS b ON b.uuid::text = ab.attribute_value
+                JOIN beacon_sources AS s ON s.beacon_id = b.id AND host(s.source_address) = sa.attribute_value
+                CROSS JOIN LATERAL (SELECT c.tap_uuid FROM beacon_checkins AS c WHERE c.beacon_source_id = s.id
+                    AND c.tap_uuid IS NOT NULL ORDER BY c.timestamp ASC LIMIT 1) AS c
+                JOIN taps AS t ON t.uuid = c.tap_uuid AND t.organization_id = da.organization_id AND t.tenant_id = da.tenant_id
+                JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid
+                WHERE da.tap_id IS NULL
+            )
+            UPDATE detection_alerts AS da SET tap_id = placed.tap_id, location_id = placed.location_id
+            FROM placed WHERE placed.id = da.id
+        </sql>
+        <sql>
+            WITH placed AS (
+                SELECT da.id, t.uuid AS tap_id, l.uuid AS location_id
+                FROM detection_alerts AS da
+                JOIN detection_alert_attributes AS ab ON ab.detection_alert_id = da.id AND ab.attribute_key = 'beacon_uuid'
+                JOIN beacons AS b ON b.uuid::text = ab.attribute_value
+                CROSS JOIN LATERAL (SELECT c.tap_uuid FROM beacon_checkins AS c WHERE c.beacon_id = b.id
+                    AND c.tap_uuid IS NOT NULL ORDER BY c.timestamp DESC LIMIT 1) AS c
+                JOIN taps AS t ON t.uuid = c.tap_uuid AND t.organization_id = da.organization_id AND t.tenant_id = da.tenant_id
+                JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid
+                WHERE da.tap_id IS NULL
+            )
+            UPDATE detection_alerts AS da SET tap_id = placed.tap_id, location_id = placed.location_id
+            FROM placed WHERE placed.id = da.id
+        </sql>
+        <sql>
+            UPDATE detection_alerts AS da SET location_id = l.uuid
+            FROM detection_alert_attributes AS aa, auth_tenants_locations AS l
+            WHERE aa.detection_alert_id = da.id AND aa.attribute_key = 'location_uuid'
+            AND da.detection_type = 'ENVIRONMENTAL_SEVERE_ALERT' AND l.uuid::text = aa.attribute_value
+            AND l.organization_id = da.organization_id AND l.tenant_id = da.tenant_id
+        </sql>
+        <sql>
+            WITH placed AS (
+                SELECT da.id, t.uuid AS tap_id, l.uuid AS location_id
+                FROM detection_alerts AS da
+                JOIN detection_alert_attributes AS aa ON aa.detection_alert_id = da.id AND aa.attribute_key = 'mac'
+                CROSS JOIN LATERAL (SELECT x.tap_uuid FROM (SELECT a.tap_uuid, a.bucket FROM assets_activity AS a
+                    WHERE a.organization_id = da.organization_id AND a.tenant_id = da.tenant_id
+                    AND a.mac = aa.attribute_value OFFSET 0) AS x ORDER BY x.bucket DESC LIMIT 1) AS a
+                JOIN taps AS t ON t.uuid = a.tap_uuid AND t.organization_id = da.organization_id AND t.tenant_id = da.tenant_id
+                JOIN auth_tenants_locations AS l ON l.uuid = t.location_uuid
+                WHERE da.tap_id IS NULL AND da.detection_type IN ('ASSETS_IDENTITY_CHANGED', 'ASSETS_MAC_CHANGED')
+            )
+            UPDATE detection_alerts AS da SET tap_id = placed.tap_id, location_id = placed.location_id
+            FROM placed WHERE placed.id = da.id
+        </sql>
+    </changeSet>
+
+    <changeSet id="add_location_to_monitors" author="lennartkoopmann">
+        <addColumn tableName="monitors">
+            <column name="location_id" type="uuid" />
+        </addColumn>
+        <createIndex tableName="monitors" indexName="monitors_location_id_idx">
+            <column name="location_id" />
+        </createIndex>
+        <addForeignKeyConstraint constraintName="link_monitors2locations"
+                                 baseTableName="monitors"
+                                 baseColumnNames="location_id"
+                                 referencedTableName="auth_tenants_locations"
+                                 referencedColumnNames="uuid"
+                                 onUpdate="NO ACTION"
+                                 onDelete="SET NULL" />
+    </changeSet>
+
+    <changeSet id="add_tap_uuids_to_recon_probe_history" author="lennartkoopmann">
+        <addColumn tableName="recon_probe_history">
+            <column name="tap_uuids" type="uuid[]" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

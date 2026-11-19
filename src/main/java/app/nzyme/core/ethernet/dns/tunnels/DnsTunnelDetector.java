@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.dns.tunnels;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.dns.tunnels.db.DnsTunnelExclusionEntry;
 import app.nzyme.core.ethernet.dns.tunnels.db.DnsTunnelFindingEntry;
@@ -231,9 +232,11 @@ public class DnsTunnelDetector {
                         stats.lastSeen
                 ));
 
-                if (newFinding && config.alertOnNew()) {
-                    tunnels.findFindingById(handle, finding.id())
-                            .ifPresent(refreshed -> raiseNewFindingAlert(refreshed, organizationId, tenantId));
+                if (config.alertOnNew() && (newFinding || AlertOrigin.seenElsewhere(finding.tapUuids(), stats.taps))) {
+                    List<UUID> alertedTaps = newFinding ? List.of() : finding.tapUuids();
+                    tunnels.findFindingById(handle, finding.id()).ifPresent(refreshed -> raiseFindingAlert(
+                            refreshed, alertedTaps, organizationId, tenantId
+                    ));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process DNS tunnel candidate [{}/{}] of tenant [{}/{}]. Skipping.",
@@ -412,7 +415,10 @@ public class DnsTunnelDetector {
         return null;
     }
 
-    private void raiseNewFindingAlert(DnsTunnelFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseFindingAlert(DnsTunnelFindingEntry finding,
+                                   List<UUID> alertedTaps,
+                                   UUID organizationId,
+                                   UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("client_address", finding.clientAddress());
@@ -430,7 +436,7 @@ public class DnsTunnelDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
                 DetectionType.DNS_TUNNEL,
                 Subsystem.ETHERNET,
                 "DNS tunnel from [" + finding.clientAddress() + "] to domain [" + finding.domain() + "] detected. " +

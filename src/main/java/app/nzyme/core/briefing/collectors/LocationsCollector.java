@@ -51,7 +51,7 @@ public class LocationsCollector {
                     .sorted()
                     .toList();
 
-            Long alertCount = ctx.canViewAlerts() ? countActiveAlerts(taps.stream().map(Tap::uuid).toList()) : null;
+            Long alertCount = ctx.canViewAlerts() ? countActiveAlerts(location.uuid()) : null;
 
             locations.add(BriefingLocationResponse.create(
                     location.uuid(), location.name(), taps.size(), taps.size() - offline.size(), offline,
@@ -66,20 +66,23 @@ public class LocationsCollector {
         return locations;
     }
 
-    // Same "active" rule as the Locations page.
-    private long countActiveAlerts(List<UUID> taps) {
-        if (taps.isEmpty()) {
-            return 0;
-        }
+    // Same "active" rule as the Locations page. Alerts of taps the user may not access are left out.
+    private long countActiveAlerts(UUID locationId) {
+        List<UUID> taps = ctx.taps();
+        String ofTaps = taps.isEmpty() ? "AND tap_id IS NULL " : "AND (tap_id IS NULL OR tap_id IN (<taps>)) ";
 
         return ctx.nzyme().getDatabase().withHandle(handle -> {
             Query q = handle.createQuery("SELECT COUNT(*) FROM detection_alerts WHERE organization_id = :organization_id " +
                             "AND tenant_id = :tenant_id AND is_resolved = false AND last_seen > :cutoff " +
-                            "AND tap_id IN (<taps>) " + (subsystem == null ? "" : "AND subsystem = :subsystem"))
+                            "AND location_id = :location_id " + ofTaps +
+                            (subsystem == null ? "" : "AND subsystem = :subsystem"))
                     .bind("organization_id", ctx.organizationId())
                     .bind("tenant_id", ctx.tenantId())
-                    .bind("cutoff", DateTime.now().minusMinutes(DetectionAlertService.ACTIVE_THRESHOLD_MINUTES))
-                    .bindList("taps", taps);
+                    .bind("location_id", locationId)
+                    .bind("cutoff", DateTime.now().minusMinutes(DetectionAlertService.ACTIVE_THRESHOLD_MINUTES));
+            if (!taps.isEmpty()) {
+                q.bindList("taps", taps);
+            }
             if (subsystem != null) {
                 q.bind("subsystem", subsystem.name());
             }

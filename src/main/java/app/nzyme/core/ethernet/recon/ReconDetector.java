@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.recon;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.recon.db.ReconExclusionEntry;
 import app.nzyme.core.ethernet.recon.db.ReconScanEntry;
@@ -326,9 +327,10 @@ public class ReconDetector {
                 );
 
                 boolean alert = candidate.type.isFingerprinting() ? config.alertOnNewFingerprinting() : config.alertOnNewScan();
-                if (newScan && alert) {
+                if (alert && (newScan || AlertOrigin.seenElsewhere(scan.tapUuids(), candidate.tapUuids))) {
+                    List<UUID> alertedTaps = newScan ? List.of() : scan.tapUuids();
                     recon.findScanById(handle, scan.id())
-                            .ifPresent(refreshed -> raiseNewScanAlert(refreshed, organizationId, tenantId));
+                            .ifPresent(refreshed -> raiseScanAlert(refreshed, alertedTaps, organizationId, tenantId));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process recon candidate [{}/{}] of tenant [{}/{}]. Skipping.",
@@ -1279,7 +1281,7 @@ public class ReconDetector {
                                 ((Number) row.get("unanswered_count")).longValue(),
                                 firstSeen,
                                 lastSeen,
-                                Set.of(),
+                                readSlowScanTaps(handle, sourceAddress, sourceMac, memorySince, organizationId, tenantId),
                                 enrichment,
                                 limit -> loadSlowScanTargets(handle, sourceAddress, sourceMac, memorySince, organizationId, tenantId, limit)
                         ));
@@ -1289,6 +1291,29 @@ public class ReconDetector {
                 });
 
         return result;
+    }
+
+    private Set<UUID> readSlowScanTaps(Handle handle,
+                                       String sourceAddress,
+                                       @Nullable String sourceMac,
+                                       DateTime memorySince,
+                                       UUID organizationId,
+                                       UUID tenantId) {
+        return handle.createQuery("SELECT DISTINCT unnest(tap_uuids)::text FROM recon_probe_history " +
+                        "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                        "AND source_address = :source_address::inet " +
+                        "AND source_mac IS NOT DISTINCT FROM :source_mac AND attributed = false " +
+                        "AND last_seen >= :memory_since")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("source_address", sourceAddress)
+                .bind("source_mac", sourceMac)
+                .bind("memory_since", memorySince)
+                .mapTo(String.class)
+                .list()
+                .stream()
+                .map(UUID::fromString)
+                .collect(Collectors.toSet());
     }
 
     private List<Recon.TargetRecord> loadSlowScanTargets(Handle handle,
@@ -1419,7 +1444,7 @@ public class ReconDetector {
                 .list();
     }
 
-    private void raiseNewScanAlert(ReconScanEntry scan, UUID organizationId, UUID tenantId) {
+    private void raiseScanAlert(ReconScanEntry scan, List<UUID> alertedTaps, UUID organizationId, UUID tenantId) {
         Map<String, String> attributes = scanAttributes(scan);
 
         ReconScanType type = ReconScanType.valueOf(scan.type());
@@ -1428,7 +1453,7 @@ public class ReconDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(scan.tapUuids()).excludingLocationsOf(alertedTaps),
                 type.isFingerprinting() ? DetectionType.RECON_FINGERPRINTING_NEW : DetectionType.RECON_SCAN_NEW,
                 Subsystem.ETHERNET,
                 type.getHumanReadable() + " from [" + sourceDescription(scan) + "] against ["

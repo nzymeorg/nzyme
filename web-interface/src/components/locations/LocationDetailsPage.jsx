@@ -19,6 +19,7 @@ import Clock from "./Clock";
 import WithPermission from "../misc/WithPermission";
 import {UserContext} from "../../App";
 import AlertsTableRow from "../alerts/AlertsTableRow";
+import {alertsAtLocationLink} from "../alerts/AlertFilterFields";
 import DisplaysTable from "../dashboards/displays/DisplaysTable";
 import numeral from "numeral";
 import * as L from "leaflet";
@@ -33,6 +34,7 @@ export default function LocationDetailsPage() {
   const user = useContext(UserContext);
 
   const [location, setLocation] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
   const [now, setNow] = useState(new Date());
 
@@ -51,8 +53,18 @@ export default function LocationDetailsPage() {
   }, []);
 
   useEffect(() => {
-    locationsService.findOne(uuid, organizationId, tenantId, setLocation);
+    setLocation(null);
+    setNotFound(false);
+    locationsService.findOne(uuid, organizationId, tenantId, setLocation, () => setNotFound(true));
   }, [uuid, organizationId, tenantId]);
+
+  if (notFound) {
+    return (
+      <div className="alert alert-warning">
+        Location not found. <Link to={ApiRoutes.LOCATIONS.INDEX}>Back to Locations</Link>
+      </div>
+    )
+  }
 
   if (!location) {
     return <LoadingSpinner />;
@@ -239,8 +251,10 @@ export default function LocationDetailsPage() {
               <div className="card-body">
                 <CardTitleWithControls title="Detection Alerts at This Location" slim={true} />
 
-                <p className="text-muted">Last 15 active alerts. Note that not all alerts can be limited to a single location. Always check
-                the alerts overview page for all alerts.</p>
+                <p className="text-muted">
+                  The table shows the 15 most recent active alerts that were raised at this
+                  location. <Link to={alertsAtLocationLink(location.name)}>Show all alerts at this location</Link>
+                </p>
 
                 { (location.alerts && location.alerts.length > 0) ?
                 <table className="table table-sm table-hover table-striped">
@@ -261,6 +275,7 @@ export default function LocationDetailsPage() {
                   {location.alerts.map(function(alert, i){
                     return <AlertsTableRow key={"alert-" + i}
                                            hideControls={true}
+                                           hideLocation={true}
                                            alert={alert} />
                   })}
                   </tbody>

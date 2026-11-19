@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.spoofing;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponseEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponses;
@@ -462,9 +463,10 @@ public class DhcpSpoofingDetector {
         boolean alert = type == DhcpSpoofingFindingType.ROGUE_SERVER
                 ? config.dhcpAlertOnRogueServer() : config.dhcpAlertOnParametersChanged();
 
-        if (newFinding && alert) {
+        if (alert && (newFinding || AlertOrigin.seenElsewhere(finding.tapUuids(), a.taps))) {
+            List<UUID> alertedTaps = newFinding ? List.of() : finding.tapUuids();
             spoofing.findDhcpFindingById(handle, finding.id())
-                    .ifPresent(refreshed -> raiseAlert(refreshed, organizationId, tenantId));
+                    .ifPresent(refreshed -> raiseAlert(refreshed, alertedTaps, organizationId, tenantId));
         }
     }
 
@@ -480,7 +482,10 @@ public class DhcpSpoofingDetector {
         return null;
     }
 
-    private void raiseAlert(DhcpSpoofingFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseAlert(DhcpSpoofingFindingEntry finding,
+                            List<UUID> alertedTaps,
+                            UUID organizationId,
+                            UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("finding_type", finding.type().name());
@@ -517,7 +522,7 @@ public class DhcpSpoofingDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
                 detectionType,
                 Subsystem.ETHERNET,
                 details,

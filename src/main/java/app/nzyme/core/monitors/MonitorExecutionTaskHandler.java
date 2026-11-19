@@ -1,6 +1,7 @@
 package app.nzyme.core.monitors;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.monitors.db.MonitorEntry;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.MetricNames;
@@ -141,7 +142,7 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
                         monitor.organizationId(),
                         monitor.tenantId(),
                         null,
-                        null,
+                        AlertOrigin.location(monitor.locationId()),
                         type.getDetectionType(),
                         type.getSubsystem(),
                         "Monitor \"" + monitor.name() + "\" triggered.",

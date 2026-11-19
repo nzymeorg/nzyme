@@ -34,6 +34,9 @@ function EditLocationPage() {
     authenticationManagementService.updateTenantLocation(organization.id, tenant.id, location.id, name, description, latitude, longitude, () => {
       toast.success('Location updated.');
       setRedirect(true);
+    }, (error) => {
+      toast.error(error.response && error.response.data && error.response.data.message
+        ? error.response.data.message : "Could not update location.");
     })
   }
 

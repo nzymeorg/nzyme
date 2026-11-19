@@ -1,6 +1,7 @@
 package app.nzyme.core.dot11.monitoring.disco;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.db.monitoring.MonitoredSSID;
 import app.nzyme.core.dot11.monitoring.disco.monitormethods.DiscoMonitorFactory;
@@ -80,7 +81,7 @@ public class Dot11DiscoMonitor extends Periodical {
                                 org.uuid(),
                                 tenant.uuid(),
                                 monitoredNetwork.uuid(),
-                                anomaly.getKey().uuid(),
+                                AlertOrigin.tap(tap.uuid()),
                                 DetectionType.DOT11_MONITOR_DISCO_ANOMALIES,
                                 Subsystem.DOT11,
                                 "Detected disconnection activity anomalies for monitored " +

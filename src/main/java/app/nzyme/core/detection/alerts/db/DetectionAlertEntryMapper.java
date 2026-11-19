@@ -16,6 +16,8 @@ public class DetectionAlertEntryMapper implements RowMapper<DetectionAlertEntry>
                 null : UUID.fromString(rs.getString("dot11_monitored_network_id"));
         UUID tapId = rs.getString("tap_id") == null ?
                 null : UUID.fromString(rs.getString("tap_id"));
+        UUID locationId = rs.getString("location_id") == null ?
+                null : UUID.fromString(rs.getString("location_id"));
         UUID organizationId = rs.getString("organization_id") == null ?
                 null : UUID.fromString(rs.getString("organization_id"));
         UUID tenantId = rs.getString("tenant_id") == null ?
@@ -27,6 +29,7 @@ public class DetectionAlertEntryMapper implements RowMapper<DetectionAlertEntry>
                 rs.getBoolean("is_resolved"),
                 dot11MonitoredNetworkId,
                 tapId,
+                locationId,
                 rs.getString("detection_type"),
                 rs.getString("subsystem"),
                 rs.getString("details"),

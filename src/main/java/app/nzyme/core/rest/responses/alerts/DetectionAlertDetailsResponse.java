@@ -24,6 +24,13 @@ public abstract class DetectionAlertDetailsResponse {
     @JsonProperty("tap_id")
     public abstract UUID tapId();
 
+    @Nullable
+    @JsonProperty("location_id")
+    public abstract UUID locationId();
+
+    @JsonProperty("location_name")
+    public abstract String locationName();
+
     @JsonProperty("detection_type")
     public abstract String detectionType();
 
@@ -70,11 +77,13 @@ public abstract class DetectionAlertDetailsResponse {
     @JsonProperty("tenant_id")
     public abstract UUID tenantId();
 
-    public static DetectionAlertDetailsResponse create(UUID id, UUID dot11MonitoredNetworkId, UUID tapId, String detectionType, String subsystem, String details, Map<String, String> attributes, DateTime createdAt, DateTime lastSeen, boolean isActive, boolean isResolved, String status, L4AddressResponse affectedAddress, EthernetMacAddressResponse affectedMac, long reactivationCount, UUID organizationId, UUID tenantId) {
+    public static DetectionAlertDetailsResponse create(UUID id, UUID dot11MonitoredNetworkId, UUID tapId, UUID locationId, String locationName, String detectionType, String subsystem, String details, Map<String, String> attributes, DateTime createdAt, DateTime lastSeen, boolean isActive, boolean isResolved, String status, L4AddressResponse affectedAddress, EthernetMacAddressResponse affectedMac, long reactivationCount, UUID organizationId, UUID tenantId) {
         return builder()
                 .id(id)
                 .dot11MonitoredNetworkId(dot11MonitoredNetworkId)
                 .tapId(tapId)
+                .locationId(locationId)
+                .locationName(locationName)
                 .detectionType(detectionType)
                 .subsystem(subsystem)
                 .details(details)
@@ -103,6 +112,10 @@ public abstract class DetectionAlertDetailsResponse {
         public abstract Builder dot11MonitoredNetworkId(UUID dot11MonitoredNetworkId);
 
         public abstract Builder tapId(UUID tapId);
+
+        public abstract Builder locationId(UUID locationId);
+
+        public abstract Builder locationName(String locationName);
 
         public abstract Builder detectionType(String detectionType);
 

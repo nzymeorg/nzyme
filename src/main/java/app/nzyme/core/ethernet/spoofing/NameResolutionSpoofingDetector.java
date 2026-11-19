@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.spoofing;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.spoofing.db.NameResolutionSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
@@ -305,9 +306,10 @@ public class NameResolutionSpoofingDetector {
                         lastSeen
                 );
 
-                if (newFinding && config.nameresAlertOnNew()) {
-                    spoofing.findNameResolutionFindingById(handle, finding.id())
-                            .ifPresent(refreshed -> raiseNewFindingAlert(refreshed, organizationId, tenantId));
+                if (config.nameresAlertOnNew() && (newFinding || AlertOrigin.seenElsewhere(finding.tapUuids(), taps))) {
+                    List<UUID> alertedTaps = newFinding ? List.of() : finding.tapUuids();
+                    spoofing.findNameResolutionFindingById(handle, finding.id()).ifPresent(refreshed ->
+                            raiseFindingAlert(refreshed, alertedTaps, organizationId, tenantId));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process name resolution responder [{}] of tenant [{}/{}]. Skipping.",
@@ -381,7 +383,10 @@ public class NameResolutionSpoofingDetector {
         return null;
     }
 
-    private void raiseNewFindingAlert(NameResolutionSpoofingFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseFindingAlert(NameResolutionSpoofingFindingEntry finding,
+                                   List<UUID> alertedTaps,
+                                   UUID organizationId,
+                                   UUID tenantId) {
         List<String> protocols = finding.protocols().stream().map(p -> {
             try {
                 return NameResolutionProtocol.valueOf(p).getHumanReadable();
@@ -404,7 +409,7 @@ public class NameResolutionSpoofingDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
                 DetectionType.SPOOFING_NAME_RESOLUTION_POISONING,
                 Subsystem.ETHERNET,
                 "Name resolution poisoning by [" + finding.responderMac() + "] detected. It answered [" +

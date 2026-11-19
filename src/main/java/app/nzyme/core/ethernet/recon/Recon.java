@@ -731,15 +731,19 @@ public class Recon {
 
     public void recordProbeHistory(Handle handle, UUID organizationId, UUID tenantId, DateTime since) {
         handle.createUpdate("INSERT INTO recon_probe_history(organization_id, tenant_id, source_address, " +
-                        "source_mac, l4_type, target_address, target_port, outcome, first_seen, last_seen) " +
+                        "source_mac, l4_type, target_address, target_port, outcome, first_seen, last_seen, " +
+                        "tap_uuids) " +
                         "SELECT :organization_id, :tenant_id, source_address::inet, source_mac, l4_type, " +
-                        "destination_address::inet, destination_port, outcome, first_seen, last_seen " +
+                        "destination_address::inet, destination_port, outcome, first_seen, last_seen, " +
+                        "string_to_array(taps, ',')::uuid[] " +
                         "FROM recon_probes WHERE last_seen >= :since " +
                         "ON CONFLICT (organization_id, tenant_id, source_address, (COALESCE(source_mac, '')), " +
                         "l4_type, target_address, target_port) DO UPDATE SET " +
                         "outcome = GREATEST(recon_probe_history.outcome, EXCLUDED.outcome), " +
                         "first_seen = LEAST(recon_probe_history.first_seen, EXCLUDED.first_seen), " +
-                        "last_seen = GREATEST(recon_probe_history.last_seen, EXCLUDED.last_seen)")
+                        "last_seen = GREATEST(recon_probe_history.last_seen, EXCLUDED.last_seen), " +
+                        "tap_uuids = (SELECT array_agg(DISTINCT t) FROM " +
+                        "unnest(recon_probe_history.tap_uuids || EXCLUDED.tap_uuids) AS t)")
                 .bind("organization_id", organizationId)
                 .bind("tenant_id", tenantId)
                 .bind("since", since)

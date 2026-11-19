@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.spoofing;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.spoofing.db.DnsSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
@@ -390,9 +391,11 @@ public class DnsSpoofingDetector {
                         lastSeen == null ? conflict.lastSeen : lastSeen
                 );
 
-                if (newFinding && config.dnsAlertOnNew()) {
-                    spoofing.findDnsFindingById(handle, finding.id())
-                            .ifPresent(refreshed -> raiseNewFindingAlert(refreshed, organizationId, tenantId));
+                if (config.dnsAlertOnNew() && (newFinding || AlertOrigin.seenElsewhere(finding.tapUuids(), taps))) {
+                    List<UUID> alertedTaps = newFinding ? List.of() : finding.tapUuids();
+                    spoofing.findDnsFindingById(handle, finding.id()).ifPresent(refreshed -> raiseFindingAlert(
+                            refreshed, alertedTaps, organizationId, tenantId
+                    ));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process DNS spoofing conflict [{}/{}] of tenant [{}/{}]. Skipping.",
@@ -480,7 +483,10 @@ public class DnsSpoofingDetector {
         return null;
     }
 
-    private void raiseNewFindingAlert(DnsSpoofingFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseFindingAlert(DnsSpoofingFindingEntry finding,
+                                   List<UUID> alertedTaps,
+                                   UUID organizationId,
+                                   UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("server_address", finding.serverAddress());
@@ -498,7 +504,7 @@ public class DnsSpoofingDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
                 DetectionType.SPOOFING_DNS_NEW,
                 Subsystem.ETHERNET,
                 "DNS spoofing of resolver [" + finding.serverAddress() + "] by [" + finding.spooferMac() + "] " +

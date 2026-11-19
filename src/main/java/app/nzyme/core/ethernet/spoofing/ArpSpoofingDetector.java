@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.spoofing;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.spoofing.db.ArpSpoofingFindingEntry;
 import app.nzyme.core.ethernet.spoofing.db.SpoofingExclusionEntry;
@@ -206,9 +207,11 @@ public class ArpSpoofingDetector {
                         increment.lastSeen == null ? conflict.spooferLastSeen : increment.lastSeen
                 );
 
-                if (newFinding && config.arpAlertOnNew()) {
-                    spoofing.findArpFindingById(handle, finding.id())
-                            .ifPresent(refreshed -> raiseNewFindingAlert(refreshed, organizationId, tenantId));
+                if (config.arpAlertOnNew() && (newFinding || AlertOrigin.seenElsewhere(finding.tapUuids(), increment.taps))) {
+                    List<UUID> alertedTaps = newFinding ? List.of() : finding.tapUuids();
+                    spoofing.findArpFindingById(handle, finding.id()).ifPresent(refreshed -> raiseFindingAlert(
+                            refreshed, alertedTaps, organizationId, tenantId
+                    ));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process ARP conflict [{}/{}] of tenant [{}/{}]. Skipping.",
@@ -326,7 +329,10 @@ public class ArpSpoofingDetector {
         return null;
     }
 
-    private void raiseNewFindingAlert(ArpSpoofingFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseFindingAlert(ArpSpoofingFindingEntry finding,
+                                   List<UUID> alertedTaps,
+                                   UUID organizationId,
+                                   UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("address", finding.address());
@@ -340,7 +346,7 @@ public class ArpSpoofingDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
                 DetectionType.SPOOFING_ARP_NEW,
                 Subsystem.ETHERNET,
                 "ARP poisoning of [" + finding.address() + "] by [" + finding.spooferMac() + "] detected. " +

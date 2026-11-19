@@ -8,6 +8,7 @@ import ApiRoutes from "../../util/ApiRoutes";
 import RenderConditionally from "../misc/RenderConditionally";
 import AlertStatus from "./AlertStatus";
 import AlertSourceLink from "./AlertSourceLink";
+import LocationLink from "../shared/locations/LocationLink";
 import L4Address from "../ethernet/shared/L4Address";
 import EthernetMacAddress from "../shared/context/macs/EthernetMacAddress";
 import FilterValueIcon from "../shared/filtering/FilterValueIcon";
@@ -19,6 +20,7 @@ function AlertsTableRow(props) {
   const onSelect = props.onSelect;
   const isSelected = props.isSelected;
   const hideControls = props.hideControls ? props.hideControls : false;
+  const hideLocation = props.hideLocation ? props.hideLocation : false;
 
   // Optional. Rows rendered outside the alerts page have no filters to add to.
   const setFilters = props.setFilters;
@@ -65,6 +67,9 @@ function AlertsTableRow(props) {
         <td><Link to={ApiRoutes.ALERTS.DETAILS(alert.id)}>{alert.details}</Link></td>
         <td>{alert.detection_type} {filter("type", alert.detection_type)}</td>
         <td><Subsystem subsystem={alert.subsystem} /> {filter("subsystem", alert.subsystem)}</td>
+        <RenderConditionally render={!hideLocation}>
+          <td><LocationLink id={alert.location_id} name={alert.location_name} /> {filter("location", alert.location_name)}</td>
+        </RenderConditionally>
         <td>{affected()}</td>
         <td>
           {alert.reactivation_count === undefined || alert.reactivation_count === null

@@ -35,6 +35,9 @@ public abstract class MonitorEntry implements TenantScopedEntity {
     @JsonProperty("taps")
     @Nullable
     public abstract List<UUID> taps();
+    @JsonProperty("location_id")
+    @Nullable
+    public abstract UUID locationId();
     @JsonProperty("trigger_condition")
     public abstract Integer triggerCondition();
     @JsonProperty("interval")
@@ -71,6 +74,7 @@ public abstract class MonitorEntry implements TenantScopedEntity {
                                       @JsonProperty("name") String name,
                                       @JsonProperty("description") String description,
                                       @JsonProperty("taps") List<UUID> taps,
+                                      @JsonProperty("location_id") UUID locationId,
                                       @JsonProperty("trigger_condition") Integer triggerCondition,
                                       @JsonProperty("interval") Integer interval,
                                       @JsonProperty("lookback") Integer lookback,
@@ -92,6 +96,7 @@ public abstract class MonitorEntry implements TenantScopedEntity {
                 .name(name)
                 .description(description)
                 .taps(taps)
+                .locationId(locationId)
                 .triggerCondition(triggerCondition)
                 .interval(interval)
                 .lookback(lookback)
@@ -129,6 +134,8 @@ public abstract class MonitorEntry implements TenantScopedEntity {
         public abstract Builder description(String description);
 
         public abstract Builder taps(List<UUID> taps);
+
+        public abstract Builder locationId(UUID locationId);
 
         public abstract Builder triggerCondition(Integer triggerCondition);
 

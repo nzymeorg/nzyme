@@ -30,6 +30,13 @@ function CreateLocationPage() {
     authenticationManagementService.createTenantLocation(organization.id, tenant.id, name, description, latitude, longitude, () => {
       toast.success('Location created.');
       setRedirect(true);
+    }, (error) => {
+      if (error.response && error.response.status === 422) {
+        toast.error("Could not create location. Quota exceeded. Please contact your administrator.");
+      } else {
+        toast.error(error.response && error.response.data && error.response.data.message
+          ? error.response.data.message : "Could not create location.");
+      }
     })
   }
 

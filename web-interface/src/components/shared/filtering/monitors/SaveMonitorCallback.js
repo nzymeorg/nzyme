@@ -3,12 +3,13 @@ import MonitorsService from "../../../../services/MonitorsService";
 const monitorsService = new MonitorsService();
 
 const onSaveFiltersAsMonitor = (monitorType, organizationId, tenantId) =>
-  (name, description, taps, triggerCondition, interval, lookback, filters, onSuccess, onFailure) => {
+  (name, description, taps, locationId, triggerCondition, interval, lookback, filters, onSuccess, onFailure) => {
     monitorsService.createMonitor(
       monitorType,
       name,
       description,
       taps,
+      locationId,
       triggerCondition,
       interval,
       lookback,

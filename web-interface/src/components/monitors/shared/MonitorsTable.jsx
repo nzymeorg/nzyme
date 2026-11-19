@@ -8,6 +8,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 import MonitorStatusIndicator from "./MonitorStatusIndicator";
 import monitorTypeToSearchLink from "./MonitorReplay";
 import MonitorType from "./MonitorType";
+import LocationLink from "../../shared/locations/LocationLink";
 import ColumnSorting from "../../shared/ColumnSorting";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
 
@@ -58,6 +59,7 @@ export default function MonitorsTable({monitors, page, setPage, perPage, onApply
           <th>Name {columnSorting("name")}</th>
           {showType ? <th>Type {columnSorting("type")}</th> : null}
           <th>Taps {columnSorting("taps")}</th>
+          <th>Location</th>
           <th>Interval {columnSorting("interval")}</th>
           <th>Created At {columnSorting("created_at")}</th>
           {onApplyMonitor ? <th style={{width: 250}}></th> : <th></th> }
@@ -75,6 +77,7 @@ export default function MonitorsTable({monitors, page, setPage, perPage, onApply
               </td>
               {showType ? <td><MonitorType type={m.type} /> {filterIcon("type", m.type)}</td> : null}
               <td>{m.taps === null ? "All" : m.taps.length}</td>
+              <td><LocationLink id={m.location_id} name={m.location_name} plain={!!onApplyMonitor} /></td>
               <td>{numeral(m.interval).format("0,0")} {m.interval === 1 ? "Minute" : "Minutes"}</td>
               <td title={moment(m.created_at).format()}>{moment(m.created_at).fromNow()}</td>
               {onApplyMonitor ?

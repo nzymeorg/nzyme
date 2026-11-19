@@ -14,6 +14,7 @@ import {onNumberInputKeyDown} from "../../util/Tools";
 import monitorTypeToFilterFields from "./shared/MonitorFilterFields";
 import {toast} from "react-toastify";
 import {monitorTypeToSubsystem} from "./shared/MonitorUserPermission";
+import LocationSelector from "../shared/locations/LocationSelector";
 
 const monitorsService = new MonitorsService();
 const tapsService = new TapsService();
@@ -30,6 +31,7 @@ export default function EditMonitorPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [locationId, setLocationId] = useState("");
   const [triggerCondition, setTriggerCondition] = useState(0);
   const [interval, setInterval] = useState(1);
   const [lookback, setLookback] = useState(1);
@@ -50,7 +52,8 @@ export default function EditMonitorPage() {
       tapsService.findAllTapsHighLevel(organizationId, tenantId, (r) => setAvailableTaps(r.data.taps));
 
       setName(monitor.name);
-      setDescription(monitor.description);
+      setDescription(monitor.description ? monitor.description : "");
+      setLocationId(monitor.location_id ? monitor.location_id : "");
       setTriggerCondition(monitor.trigger_condition);
       setInterval(monitor.interval);
       setLookback(monitor.lookback);
@@ -106,7 +109,7 @@ export default function EditMonitorPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    monitorsService.updateMonitorMetadata(monitor.uuid, name, description, triggerCondition, interval, lookback, () => {
+    monitorsService.updateMonitorMetadata(monitor.uuid, name, description, locationId, triggerCondition, interval, lookback, () => {
       toast.success("Monitor updated.")
       setRedirect(true);
     }, () => {
@@ -173,6 +176,15 @@ export default function EditMonitorPage() {
                           value={description}
                           onChange={e => setDescription(e.target.value)} />
                 <div className="form-text">An optional description that provides more detail.</div>
+              </div>
+
+              <div className="mb-3">
+                <LocationSelector location={locationId}
+                                  onLocationSelected={setLocationId}
+                                  organizationId={monitor.organization_id}
+                                  tenantId={monitor.tenant_id}
+                                  hideWithoutLocations={true}
+                                  helpText="The alerts of this monitor are raised at this location." />
               </div>
 
               <h3 className="mt-4 mb-2">Taps</h3>

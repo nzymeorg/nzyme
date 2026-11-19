@@ -7,6 +7,7 @@ import moment from "moment/moment";
 import Subsystem from "../misc/Subsystem";
 import AlertActiveIndicator from "./AlertActiveIndicator";
 import AlertStatus from "./AlertStatus";
+import LocationLink from "../shared/locations/LocationLink";
 import L4Address from "../ethernet/shared/L4Address";
 import EthernetMacAddress from "../shared/context/macs/EthernetMacAddress";
 import numeral from "numeral";
@@ -133,6 +134,8 @@ function AlertDetailsPage() {
                 <dl className="mb-0">
                   <dt>Status</dt>
                   <dd><AlertStatus alert={alert} /></dd>
+                  <dt>Location</dt>
+                  <dd><LocationLink id={alert.location_id} name={alert.location_name} /></dd>
                   <dt>Affected Device</dt>
                   <dd>
                     {!alert.affected_address && !alert.affected_mac ? <span className="text-muted">n/a</span> : null}

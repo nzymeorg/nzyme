@@ -283,7 +283,6 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new GenericIntegerHistogramEntryMapper())
                 .registerRowMapper(new MonitoredProbeRequestEntryMapper())
                 .registerRowMapper(new MacAddressTransparentContextEntryMapper())
-                .registerRowMapper(new SSIDWithOrganizationAndTenantMapper())
                 .registerRowMapper(new Dot11KnownNetworkMapper())
                 .registerRowMapper(new Dot11KnownClientMapper())
                 .registerRowMapper(new UavEntryMapper())

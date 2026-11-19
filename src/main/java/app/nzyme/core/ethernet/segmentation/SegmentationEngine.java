@@ -2,6 +2,7 @@ package app.nzyme.core.ethernet.segmentation;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.L4ConnectionCleaner;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelJson;
@@ -172,7 +173,7 @@ public class SegmentationEngine {
                          DateTime firstSeen,
                          DateTime lastSeen) { }
 
-    private record Alert(Policy policy, FindingClass findingClass, Findings.Violation example) { }
+    private record Alert(Policy policy, FindingClass findingClass, Findings.Violation example, Set<UUID> taps) { }
 
     private record Result(boolean progressed, long sessions, long flows, long findings, List<Alert> alerts) {
 
@@ -819,8 +820,9 @@ public class SegmentationEngine {
                 continue;
             }
 
-            alerts.putIfAbsent(violation.policy().id() + "|" + violation.findingClass(),
-                    new Alert(violation.policy(), violation.findingClass(), violation));
+            alerts.computeIfAbsent(violation.policy().id() + "|" + violation.findingClass(),
+                    k -> new Alert(violation.policy(), violation.findingClass(), violation, Sets.newLinkedHashSet())
+            ).taps().addAll(violation.taps());
         }
 
         return Lists.newArrayList(alerts.values());
@@ -870,7 +872,7 @@ public class SegmentationEngine {
                         organizationId,
                         tenantId,
                         null,
-                        null,
+                        AlertOrigin.taps(alert.taps()),
                         crossed ? DetectionType.SEGMENTATION_POLICY_CROSSED : DetectionType.SEGMENTATION_POLICY_ATTEMPT,
                         Subsystem.ETHERNET,
                         details,

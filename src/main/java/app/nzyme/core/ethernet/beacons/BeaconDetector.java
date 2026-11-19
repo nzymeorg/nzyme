@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.beacons;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.beacons.db.BeaconEntry;
 import app.nzyme.core.ethernet.beacons.db.BeaconExclusionEntry;
@@ -13,6 +14,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -120,6 +122,8 @@ public class BeaconDetector {
                            long sourceId,
                            IntervalAnalysis.Result analysis,
                            DateTime detailSince) { }
+
+    private record NewAlert(Pending pending, BeaconEntry beacon, BeaconSourceEntry source, boolean newBeacon) { }
 
     public void runForTenant(UUID organizationId, UUID tenantId) {
         BeaconsConfiguration config = beacons.getConfiguration(organizationId, tenantId);
@@ -255,6 +259,11 @@ public class BeaconDetector {
         Set<Long> beaconsWithNewCheckins = new HashSet<>();
         Map<DetailSource, List<Pending>> pending = new EnumMap<>(DetailSource.class);
 
+        // Only the connections of a check-in say which taps saw it, so alerts wait until those are read.
+        List<NewAlert> newAlerts = Lists.newArrayList();
+        Map<Pending, Set<UUID>> tapsOfPending = new IdentityHashMap<>();
+        Map<Long, Set<UUID>> tapsOfBeacon = Maps.newHashMap();
+
         for (Candidate candidate : candidates) {
             try {
                 if (!config.enabledSources().contains(candidate.type)) {
@@ -340,14 +349,14 @@ public class BeaconDetector {
                     detailSince = later(since, source.lastSeen().minus(MAXIMUM_COLLAPSE_WINDOW));
                 }
 
-                pending.computeIfAbsent(candidate.detailSource(), k -> Lists.newArrayList())
-                        .add(new Pending(candidate, beacon.id(), source.id(), analysis, detailSince));
+                Pending p = new Pending(candidate, beacon.id(), source.id(), analysis, detailSince);
+                pending.computeIfAbsent(candidate.detailSource(), k -> Lists.newArrayList()).add(p);
                 touchedBeacons.put(beacon.id(), candidate);
 
                 if (newBeacon && config.alertOnNewBeacon()) {
-                    raiseNewBeaconAlert(beacon, candidate, organizationId, tenantId);
+                    newAlerts.add(new NewAlert(p, beacon, source, true));
                 } else if (newSource && config.alertOnNewSource()) {
-                    raiseNewSourceAlert(beacon, source, organizationId, tenantId);
+                    newAlerts.add(new NewAlert(p, beacon, source, false));
                 }
             } catch (Exception e) {
                 LOG.error("Could not process beacon candidate [{}/{}] of tenant [{}/{}]. Skipping.",
@@ -363,6 +372,10 @@ public class BeaconDetector {
                     Map<Integer, List<Detail>> details = readDetails(handle, entry.getKey(), chunk, taps, until);
                     for (int i = 0; i < chunk.size(); i++) {
                         Pending p = chunk.get(i);
+                        Set<UUID> seenBy = tapsOf(details.getOrDefault(i, List.of()));
+                        tapsOfPending.put(p, seenBy);
+                        tapsOfBeacon.computeIfAbsent(p.beaconId(), k -> Sets.newLinkedHashSet()).addAll(seenBy);
+
                         int newCheckins = recordCheckins(handle, p, details.getOrDefault(i, List.of()));
                         beacons.updateSourceStatistics(handle, p.sourceId(), p.analysis(), newCheckins);
                         if (newCheckins > 0) {
@@ -375,6 +388,20 @@ public class BeaconDetector {
                             entry.getKey(), organizationId, tenantId, e);
                     handle.rollbackToSavepoint(savepoint);
                 }
+            }
+        }
+
+        for (NewAlert alert : newAlerts) {
+            try {
+                AlertOrigin origin = AlertOrigin.taps(tapsOfPending.getOrDefault(alert.pending(), Set.of()));
+                if (alert.newBeacon()) {
+                    raiseNewBeaconAlert(alert.beacon(), alert.pending().candidate(), origin, organizationId, tenantId);
+                } else {
+                    raiseNewSourceAlert(alert.beacon(), alert.source(), origin, organizationId, tenantId);
+                }
+            } catch (Exception e) {
+                LOG.error("Could not raise alert for beacon [{}] of tenant [{}/{}].",
+                        alert.beacon().uuid(), organizationId, tenantId, e);
             }
         }
 
@@ -410,10 +437,11 @@ public class BeaconDetector {
                 continue;
             }
 
+            AlertOrigin origin = AlertOrigin.taps(tapsOfBeacon.getOrDefault(touched.getKey(), Set.of()));
             if (classification == BeaconClassification.SUSPICIOUS && config.alertOnSuspiciousActivity()) {
-                raiseActivityAlert(refreshed.get(), DetectionType.BEACON_ACTIVITY_SUSPICIOUS, organizationId, tenantId);
+                raiseActivityAlert(refreshed.get(), DetectionType.BEACON_ACTIVITY_SUSPICIOUS, origin, organizationId, tenantId);
             } else if (classification == BeaconClassification.MALICIOUS && config.alertOnMaliciousActivity()) {
-                raiseActivityAlert(refreshed.get(), DetectionType.BEACON_ACTIVITY_MALICIOUS, organizationId, tenantId);
+                raiseActivityAlert(refreshed.get(), DetectionType.BEACON_ACTIVITY_MALICIOUS, origin, organizationId, tenantId);
             }
         }
     }
@@ -429,6 +457,17 @@ public class BeaconDetector {
         }
 
         return null;
+    }
+
+    private static Set<UUID> tapsOf(List<Detail> details) {
+        Set<UUID> taps = Sets.newLinkedHashSet();
+        for (Detail detail : details) {
+            if (detail.tapUuid() != null) {
+                taps.add(UUID.fromString(detail.tapUuid()));
+            }
+        }
+
+        return taps;
     }
 
     private int recordCheckins(Handle handle, Pending pending, List<Detail> details) {
@@ -930,7 +969,11 @@ public class BeaconDetector {
         return value == null ? null : ((Number) value).longValue();
     }
 
-    private void raiseNewBeaconAlert(BeaconEntry beacon, Candidate candidate, UUID organizationId, UUID tenantId) {
+    private void raiseNewBeaconAlert(BeaconEntry beacon,
+                                     Candidate candidate,
+                                     AlertOrigin origin,
+                                     UUID organizationId,
+                                     UUID tenantId) {
         Map<String, String> attributes = beaconAttributes(beacon);
         attributes.put("source_address", candidate.sourceAddress);
 
@@ -938,7 +981,7 @@ public class BeaconDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 DetectionType.BEACON_NEW,
                 Subsystem.ETHERNET,
                 "New " + BeaconType.valueOf(beacon.type()).getHumanReadable() + " \"" + beacon.name()
@@ -948,7 +991,11 @@ public class BeaconDetector {
         );
     }
 
-    private void raiseNewSourceAlert(BeaconEntry beacon, BeaconSourceEntry source, UUID organizationId, UUID tenantId) {
+    private void raiseNewSourceAlert(BeaconEntry beacon,
+                                     BeaconSourceEntry source,
+                                     AlertOrigin origin,
+                                     UUID organizationId,
+                                     UUID tenantId) {
         Map<String, String> attributes = beaconAttributes(beacon);
         attributes.put("source_address", source.sourceAddress());
         if (source.sourceMac() != null) {
@@ -959,7 +1006,7 @@ public class BeaconDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 DetectionType.BEACON_NEW_SOURCE,
                 Subsystem.ETHERNET,
                 "New device [" + source.sourceAddress() + "] joined " + BeaconType.valueOf(beacon.type()).getHumanReadable()
@@ -969,12 +1016,16 @@ public class BeaconDetector {
         );
     }
 
-    private void raiseActivityAlert(BeaconEntry beacon, DetectionType type, UUID organizationId, UUID tenantId) {
+    private void raiseActivityAlert(BeaconEntry beacon,
+                                    DetectionType type,
+                                    AlertOrigin origin,
+                                    UUID organizationId,
+                                    UUID tenantId) {
         nzyme.getDetectionAlertService().raiseAlert(
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 type,
                 Subsystem.ETHERNET,
                 "Activity on " + beacon.classification().toLowerCase() + " " + BeaconType.valueOf(beacon.type()).getHumanReadable()

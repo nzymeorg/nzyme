@@ -8,7 +8,7 @@ import static app.nzyme.core.util.filters.FilterSql.*;
 
 /*
  * Filters apply to the "alerts" CTE of DetectionAlertService.searchCte(), which carries the computed status,
- * affected address, affected MAC and re-activation count next to the plain alert columns.
+ * location name, affected address, affected MAC and re-activation count next to the plain alert columns.
  */
 public class DetectionAlertFilters implements SqlFilterProvider {
 
@@ -21,6 +21,8 @@ public class DetectionAlertFilters implements SqlFilterProvider {
                 return GeneratedSql.create(stringMatch(bindId, "alerts.detection_type", operator), "");
             case "subsystem":
                 return GeneratedSql.create(stringMatch(bindId, "alerts.subsystem", operator), "");
+            case "location":
+                return GeneratedSql.create(stringMatch(bindId, "alerts.location_name", operator), "");
             case "details":
                 return GeneratedSql.create(stringMatch(bindId, "alerts.details", operator), "");
             case "affected_address":

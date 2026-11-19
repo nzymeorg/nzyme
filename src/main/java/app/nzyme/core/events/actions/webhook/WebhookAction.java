@@ -100,6 +100,8 @@ public class WebhookAction implements Action {
         payload.put("event_type_subsystem", event.detectionType().getSubsystem().name());
         payload.put("event_type_human_readable", event.detectionType().getTitle());
         payload.put("details", event.details());
+        payload.put("location_id", event.locationId() == null ? null : event.locationId().toString());
+        payload.put("location_name", event.locationName());
 
         return execute(payload);
     }

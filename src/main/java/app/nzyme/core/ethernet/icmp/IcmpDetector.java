@@ -1,6 +1,7 @@
 package app.nzyme.core.ethernet.icmp;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.icmp.db.IcmpExclusionEntry;
 import app.nzyme.core.ethernet.icmp.db.IcmpRedirectEntry;
@@ -168,6 +169,11 @@ public class IcmpDetector {
                             long newPackets = countRedirectPacketsAfter(handle, taps, senderAddress, gatewayAddress,
                                     targetAddress, existing.get().lastSeen(), until);
                             icmp.updateRedirect(handle, existing.get().id(), destinations, newPackets, tapUuids, lastSeen);
+
+                            if (config.alertOnRedirect() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                                raiseRedirectAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
+                                        organizationId, tenantId);
+                            }
                             return;
                         }
 
@@ -176,7 +182,7 @@ public class IcmpDetector {
                                 (String) row.get("target_mac"), destinations, packetCount, tapUuids, firstSeen, lastSeen);
 
                         if (config.alertOnRedirect()) {
-                            raiseRedirectAlert(created, organizationId, tenantId);
+                            raiseRedirectAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
                         }
                     } catch (Exception e) {
                         LOG.error("Could not process ICMP redirect candidate.", e);
@@ -279,6 +285,11 @@ public class IcmpDetector {
                             merged.addAll(routers);
                             icmp.updateTraceroute(handle, existing.get().id(), Lists.newArrayList(merged),
                                     packetCount, reached, tapUuids, lastSeen);
+
+                            if (config.alertOnTraceroute() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                                raiseTracerouteAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
+                                        organizationId, tenantId);
+                            }
                             return;
                         }
 
@@ -287,7 +298,7 @@ public class IcmpDetector {
                                 packetCount, reached, tapUuids, firstSeen, lastSeen);
 
                         if (config.alertOnTraceroute()) {
-                            raiseTracerouteAlert(created, organizationId, tenantId);
+                            raiseTracerouteAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
                         }
                     } catch (Exception e) {
                         LOG.error("Could not process ICMP traceroute candidate.", e);
@@ -316,6 +327,11 @@ public class IcmpDetector {
                 if (existing.isPresent()) {
                     icmp.updateTraceroute(handle, existing.get().id(), existing.get().routers(), ramp.sessionCount(),
                             ramp.destinationAnswered(), ramp.taps(), ramp.lastSeen());
+
+                    if (config.alertOnTraceroute() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), ramp.taps())) {
+                        raiseTracerouteAlert(existing.get(), atNewLocations(ramp.taps(), existing.get().tapUuids()),
+                                organizationId, tenantId);
+                    }
                     continue;
                 }
 
@@ -324,7 +340,7 @@ public class IcmpDetector {
                         ramp.sessionCount(), ramp.destinationAnswered(), ramp.taps(), ramp.firstSeen(), ramp.lastSeen());
 
                 if (config.alertOnTraceroute()) {
-                    raiseTracerouteAlert(created, organizationId, tenantId);
+                    raiseTracerouteAlert(created, AlertOrigin.taps(ramp.taps()), organizationId, tenantId);
                 }
             } catch (Exception e) {
                 LOG.error("Could not process TCP traceroute candidate.", e);
@@ -389,7 +405,11 @@ public class IcmpDetector {
                 .one() > 0;
     }
 
-    private void raiseRedirectAlert(IcmpRedirectEntry redirect, UUID organizationId, UUID tenantId) {
+    private static AlertOrigin atNewLocations(Collection<UUID> taps, Collection<UUID> alertedTaps) {
+        return AlertOrigin.taps(taps).excludingLocationsOf(alertedTaps);
+    }
+
+    private void raiseRedirectAlert(IcmpRedirectEntry redirect, AlertOrigin origin, UUID organizationId, UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("redirect_uuid", redirect.uuid().toString());
         attributes.put("sender_address", redirect.senderAddress());
@@ -404,7 +424,7 @@ public class IcmpDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 DetectionType.ICMP_REDIRECT,
                 Subsystem.ETHERNET,
                 "ICMP redirect from [" + redirect.senderAddress() + "] telling [" + redirect.targetAddress()
@@ -466,6 +486,11 @@ public class IcmpDetector {
 
                         if (existing.isPresent()) {
                             icmp.updateTunnel(handle, existing.get().id(), maxPayload, packetCount, tapUuids, lastSeen);
+
+                            if (config.alertOnTunnel() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                                raiseTunnelAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
+                                        organizationId, tenantId);
+                            }
                             return;
                         }
 
@@ -474,7 +499,7 @@ public class IcmpDetector {
                                 firstSeen, lastSeen);
 
                         if (config.alertOnTunnel()) {
-                            raiseTunnelAlert(created, organizationId, tenantId);
+                            raiseTunnelAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
                         }
                     } catch (Exception e) {
                         LOG.error("Could not process ICMP tunnel candidate.", e);
@@ -482,7 +507,7 @@ public class IcmpDetector {
                 });
     }
 
-    private void raiseTunnelAlert(IcmpTunnelEntry tunnel, UUID organizationId, UUID tenantId) {
+    private void raiseTunnelAlert(IcmpTunnelEntry tunnel, AlertOrigin origin, UUID organizationId, UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("tunnel_uuid", tunnel.uuid().toString());
         attributes.put("source_address", tunnel.sourceAddress());
@@ -496,7 +521,7 @@ public class IcmpDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 DetectionType.ICMP_TUNNEL,
                 Subsystem.ETHERNET,
                 "Possible ICMP tunnel from [" + tunnel.sourceAddress() + "] to [" + tunnel.destinationAddress()
@@ -506,7 +531,7 @@ public class IcmpDetector {
         );
     }
 
-    private void raiseTracerouteAlert(IcmpTracerouteEntry traceroute, UUID organizationId, UUID tenantId) {
+    private void raiseTracerouteAlert(IcmpTracerouteEntry traceroute, AlertOrigin origin, UUID organizationId, UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("traceroute_uuid", traceroute.uuid().toString());
         attributes.put("source_address", traceroute.sourceAddress());
@@ -520,7 +545,7 @@ public class IcmpDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                origin,
                 DetectionType.ICMP_TRACEROUTE,
                 Subsystem.ETHERNET,
                 "Traceroute from [" + traceroute.sourceAddress() + "] to [" + traceroute.destinationAddress()

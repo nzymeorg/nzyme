@@ -329,7 +329,7 @@
   "paths" : {
     "/api/alerts" : {
       "get" : {
-        "description" : "Returns the alerts of a tenant whose lifetime overlaps the time range and that match the filters, together with the number of matching alerts and how many of them are active. Resolved alerts are included. Each alert carries its status (Active, Inactive or Resolved), the address and MAC address of the device it is about when its attributes identify one, and how often it was re-activated after a pause. Filter fields: status, type, subsystem, details, affected_address, affected_mac, attribute (matches the value of any attribute) and reactivations. The page size cannot be larger than 250. Requires the alerts_view feature permission.",
+        "description" : "Returns the alerts of a tenant whose lifetime overlaps the time range and that match the filters, together with the number of matching alerts and how many of them are active. Resolved alerts are included. Each alert carries its status (Active, Inactive or Resolved), the location it was raised at, the address and MAC address of the device it is about when its attributes identify one, and how often it was re-activated after a pause. Something that is observed at several locations is one alert per location. Alerts that could not be placed have no location ID and the location name \"No Location\". Filter fields: status, type, subsystem, location (matches the location name, including \"No Location\"), details, affected_address, affected_mac, attribute (matches the value of any attribute) and reactivations. The page size cannot be larger than 250. Requires the alerts_view feature permission.",
         "operationId" : "findAlerts",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -364,7 +364,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Sorting column. Must be passed together with the sorting direction. One of STATUS, DETAILS, DETECTION_TYPE, SUBSYSTEM, AFFECTED_ADDRESS, AFFECTED_MAC, REACTIVATIONS, CREATED_AT, LAST_SEEN.",
+          "description" : "Sorting column. Must be passed together with the sorting direction. One of STATUS, DETAILS, DETECTION_TYPE, SUBSYSTEM, LOCATION, AFFECTED_ADDRESS, AFFECTED_MAC, REACTIVATIONS, CREATED_AT, LAST_SEEN.",
           "in" : "query",
           "name" : "order_column",
           "schema" : {
@@ -1143,6 +1143,101 @@
           }
         },
         "summary" : "List top affected MAC addresses",
+        "tags" : [ "Alerts" ]
+      }
+    },
+    "/api/alerts/histograms/locations/top" : {
+      "get" : {
+        "description" : "Returns the names of the locations with the most matching alerts in the time range, with the alert count of each. Alerts without a location are counted under \"No Location\". Requires the alerts_view feature permission.",
+        "operationId" : "findTopAlertLocations",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top alert locations",
         "tags" : [ "Alerts" ]
       }
     },
@@ -31500,7 +31595,7 @@
     },
     "/api/locations/organizations/{organization_id}/tenants/{tenant_id}" : {
       "get" : {
-        "description" : "Returns a summary of every location of the tenant with its floors, its taps and the current environmental data. Environmental data is null for locations without latitude and longitude. Up to 15 active detection alerts of the taps at a location are included, and only if the calling user holds the alerts_view feature permission.",
+        "description" : "Returns a summary of every location of the tenant with its floors, its taps and the current environmental data. Environmental data is null for locations without latitude and longitude. Up to 15 active detection alerts that were raised at a location are included, and only if the calling user holds the alerts_view feature permission. Taps and alerts without a location are not part of this list.",
         "externalDocs" : {
           "description" : "Environmental monitoring in the Nzyme documentation",
           "url" : "https://go.nzyme.org/environmental-monitoring"
@@ -31550,9 +31645,54 @@
         "tags" : [ "Locations" ]
       }
     },
+    "/api/locations/organizations/{organization_id}/tenants/{tenant_id}/none" : {
+      "get" : {
+        "description" : "Returns the taps of the tenant that are not placed at a location, reduced to the taps the calling user can access, and the number of active detection alerts that were raised without a location. The alert count is null if the calling user does not hold the alerts_view feature permission. The name is the location name that such alerts carry and that the location filter of the alert search matches.",
+        "operationId" : "findNoLocation",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NoLocationSummaryResponse"
+                }
+              }
+            },
+            "description" : "Summary found."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get taps and alerts without a location",
+        "tags" : [ "Locations" ]
+      }
+    },
     "/api/locations/organizations/{organization_id}/tenants/{tenant_id}/show/{location_id}" : {
       "get" : {
-        "description" : "Returns the floors, the taps, the environmental data and the timezone of the location. The timezone and the environmental data are only set if the location has a latitude and a longitude, and only severe environmental alerts that are currently relevant are included. Up to 15 active detection alerts of the taps at the location are included, and only if the calling user holds the alerts_view feature permission.",
+        "description" : "Returns the floors, the taps, the environmental data and the timezone of the location. The timezone and the environmental data are only set if the location has a latitude and a longitude, and only severe environmental alerts that are currently relevant are included. Up to 15 active detection alerts that were raised at the location are included, and only if the calling user holds the alerts_view feature permission.",
         "externalDocs" : {
           "description" : "Environmental monitoring in the Nzyme documentation",
           "url" : "https://go.nzyme.org/environmental-monitoring"
@@ -31686,7 +31826,7 @@
         "tags" : [ "Monitors" ]
       },
       "put" : {
-        "description" : "Updates the monitor in two independent parts: the meta information is only written when name, description, trigger condition, interval and lookback are all present, and the taps and filters are only written when filters are present. Interval and lookback are in minutes. Requires the manage permission of the subsystem the monitor type belongs to.",
+        "description" : "Updates the monitor in two independent parts: the meta information is only written when name, description, trigger condition, interval and lookback are all present, and the taps and filters are only written when filters are present. The location is part of the meta information and is removed when it is omitted there. Interval and lookback are in minutes. Requires the manage permission of the subsystem the monitor type belongs to.",
         "operationId" : "updateMonitor",
         "parameters" : [ {
           "description" : "Monitor UUID.",
@@ -31720,7 +31860,7 @@
             "content" : {
               "application/json" : { }
             },
-            "description" : "Trigger condition, interval or lookback are out of range."
+            "description" : "Trigger condition, interval or lookback are out of range, or the location does not exist."
           },
           "403" : {
             "content" : {
@@ -31741,7 +31881,7 @@
     },
     "/api/monitors/show/{id}/detections/timeline" : {
       "get" : {
-        "description" : "Returns the timeline of the monitor triggered alert of this monitor, most recent period first. The timeline is empty if the monitor never triggered. Requires the alerts_view feature permission.",
+        "description" : "Returns the timeline of the monitor triggered alerts of this monitor, most recent period first. A monitor has one alert per location it was set to. The timeline is empty if the monitor never triggered. Requires the alerts_view feature permission.",
         "operationId" : "findMonitorAlertTimeline",
         "parameters" : [ {
           "description" : "Monitor UUID.",
@@ -31785,12 +31925,6 @@
               "application/json" : { }
             },
             "description" : "Monitor not found or not accessible by the calling user."
-          },
-          "500" : {
-            "content" : {
-              "application/json" : { }
-            },
-            "description" : "The monitor triggered more than one alert, which should never happen."
           }
         },
         "summary" : "List alert timeline of a monitor",
@@ -31970,7 +32104,7 @@
         "tags" : [ "Monitors" ]
       },
       "post" : {
-        "description" : "Creates an enabled monitor for the organization and tenant in the request body. Interval and lookback are in minutes, and the monitor triggers when the result count is larger than the trigger condition. Omit the tap list to monitor all taps of the tenant. Requires the manage permission of the subsystem the monitor type belongs to, for example dot11_monitoring_manage or bluetooth_monitoring_manage.",
+        "description" : "Creates an enabled monitor for the organization and tenant in the request body. Interval and lookback are in minutes, and the monitor triggers when the result count is larger than the trigger condition. Omit the tap list to monitor all taps of the tenant. The alerts of the monitor are raised at the location in the request body, or without a location if it is omitted. Requires the manage permission of the subsystem the monitor type belongs to, for example dot11_monitoring_manage or bluetooth_monitoring_manage.",
         "operationId" : "createMonitor",
         "parameters" : [ {
           "description" : "Type of monitor to create.",
@@ -31999,6 +32133,12 @@
               "application/json" : { }
             },
             "description" : "Monitor created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The location does not exist."
           },
           "403" : {
             "content" : {
@@ -33758,6 +33898,16 @@
             },
             "description" : "Location created."
           },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Another location of the tenant has this name, or the name is \"No Location\", which is reserved for alerts and taps without a location."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -33942,6 +34092,16 @@
               "application/json" : { }
             },
             "description" : "Location updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Another location of the tenant has the new name, or the new name is \"No Location\", which is reserved for alerts and taps without a location."
           },
           "401" : {
             "content" : {
@@ -44429,6 +44589,12 @@
             "description" : "How often the monitor runs, in minutes. Minimum is 1.",
             "writeOnly" : true
           },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "UUID of the location the alerts of the monitor are raised at. Omit to raise them without a location.",
+            "writeOnly" : true
+          },
           "lookback" : {
             "type" : "integer",
             "format" : "int32",
@@ -46179,6 +46345,13 @@
           "last_seen" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "location_name" : {
+            "type" : "string"
           },
           "organization_id" : {
             "type" : "string",
@@ -50227,6 +50400,13 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "location_name" : {
+            "type" : "string"
+          },
           "lookback" : {
             "type" : "integer",
             "format" : "int32"
@@ -51190,6 +51370,28 @@
           "total" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "NoLocationSummaryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "alert_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "tap_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "taps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TapHighLevelInformationDetailsResponse"
+            }
           }
         }
       },
@@ -57285,6 +57487,12 @@
             "type" : "integer",
             "format" : "int32",
             "description" : "How often the monitor runs, in minutes. Must be 1 or higher.",
+            "writeOnly" : true
+          },
+          "location_id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "UUID of the location the alerts of the monitor are raised at. Written together with the name, description, trigger condition, interval and lookback. Omit to raise the alerts without a location.",
             "writeOnly" : true
           },
           "lookback" : {

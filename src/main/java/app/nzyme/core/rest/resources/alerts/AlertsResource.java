@@ -93,9 +93,12 @@ public class AlertsResource extends UserAuthenticatedResource {
             description = "Returns the alerts of a tenant whose lifetime overlaps the time range and that match "
                     + "the filters, together with the number of matching alerts and how many of them are active. "
                     + "Resolved alerts are included. Each alert carries its status (Active, Inactive or Resolved), "
-                    + "the address and MAC address of the device it is about when its attributes identify one, and "
-                    + "how often it was re-activated after a pause. Filter fields: status, type, subsystem, "
-                    + "details, affected_address, affected_mac, attribute (matches the value of any attribute) and "
+                    + "the location it was raised at, the address and MAC address of the device it is about when "
+                    + "its attributes identify one, and how often it was re-activated after a pause. Something "
+                    + "that is observed at several locations is one alert per location. Alerts that could not be "
+                    + "placed have no location ID and the location name \"No Location\". Filter fields: status, "
+                    + "type, subsystem, location (matches the location name, including \"No Location\"), details, "
+                    + "affected_address, affected_mac, attribute (matches the value of any attribute) and "
                     + "reactivations. The page size cannot be larger than 250. Requires the alerts_view feature "
                     + "permission.")
     @ApiResponse(responseCode = "200", description = "Alerts found.",
@@ -108,7 +111,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                             @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
                             @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                             @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
-                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction. One of STATUS, DETAILS, DETECTION_TYPE, SUBSYSTEM, AFFECTED_ADDRESS, AFFECTED_MAC, REACTIVATIONS, CREATED_AT, LAST_SEEN.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                            @Parameter(description = "Sorting column. Must be passed together with the sorting direction. One of STATUS, DETAILS, DETECTION_TYPE, SUBSYSTEM, LOCATION, AFFECTED_ADDRESS, AFFECTED_MAC, REACTIVATIONS, CREATED_AT, LAST_SEEN.") @QueryParam("order_column") @Nullable String orderColumnParam,
                             @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                             @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                             @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
@@ -145,7 +148,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                 orderColumn, orderDirection, limit, offset)) {
             List<DetectionAlertAttributeEntry> attributes = alerts.findAlertAttributes(entry.alert().id());
 
-            responsesList.add(buildAlertDetailsResponse(nzyme, entry.alert(), attributes,
+            responsesList.add(buildAlertDetailsResponse(nzyme, entry.alert(), attributes, entry.locationName(),
                     Math.max(0, entry.reactivations())));
         }
 
@@ -249,6 +252,31 @@ public class AlertsResource extends UserAuthenticatedResource {
                                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         return aggregation(sc, DetectionAlertService.AggregationKey.SUBSYSTEM, HistogramValueType.GENERIC,
+                organizationId, tenantId, timeRangeParameter, filtersParameter, orderColumnParam,
+                orderDirectionParam, limit, offset);
+    }
+
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/histograms/locations/top")
+    @Operation(operationId = "findTopAlertLocations", summary = "List top alert locations",
+            description = "Returns the names of the locations with the most matching alerts in the time range, "
+                    + "with the alert count of each. Alerts without a location are counted under \"No Location\". "
+                    + "Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = TwoColumnTableHistogramResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The sorting column or direction is not valid.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response topLocationsHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Organization UUID.") @QueryParam("organization_id") @NotNull UUID organizationId,
+                                          @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") @NotNull UUID tenantId,
+                                          @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                          @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                          @Parameter(description = "Sorting column, KEY or VALUE. Must be passed together with the sorting direction.") @QueryParam("order_column") @Nullable String orderColumnParam,
+                                          @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
+                                          @Parameter(description = "Page size.") @QueryParam("limit") int limit,
+                                          @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return aggregation(sc, DetectionAlertService.AggregationKey.LOCATION, HistogramValueType.GENERIC,
                 organizationId, tenantId, timeRangeParameter, filtersParameter, orderColumnParam,
                 orderDirectionParam, limit, offset);
     }

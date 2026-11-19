@@ -45,6 +45,7 @@ public class MonitorEntryMapper implements RowMapper<MonitorEntry> {
                 rs.getString("name"),
                 rs.getString("description"),
                 taps,
+                rs.getString("location_id") == null ? null : UUID.fromString(rs.getString("location_id")),
                 rs.getInt("trigger_condition"),
                 rs.getInt("interval"),
                 rs.getInt("lookback"),

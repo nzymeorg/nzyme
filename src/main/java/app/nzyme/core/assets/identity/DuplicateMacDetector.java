@@ -5,12 +5,14 @@ import app.nzyme.core.assets.identity.db.AssetIdentityExclusionEntry;
 import app.nzyme.core.assets.identity.db.DuplicateMacFindingEntry;
 import app.nzyme.core.assets.identity.db.DuplicateMacStack;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.plugin.Subsystem;
 import app.nzyme.core.assets.identity.db.DuplicateMacDestination;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -127,7 +129,7 @@ public class DuplicateMacDetector {
                         );
 
                         if (config.duplicateAlertOnNew()) {
-                            raiseNewFindingAlert(created, organizationId, tenantId);
+                            raiseFindingAlert(created, AlertOrigin.taps(created.tapUuids()), organizationId, tenantId);
                         }
                     } else {
                         // Rebuilt over the whole lifetime of the finding so counts keep growing.
@@ -136,15 +138,28 @@ public class DuplicateMacDetector {
                             lifetime = stacks;
                         }
 
+                        // Sessions age out, so the taps of the lifetime can be fewer than the finding had before.
+                        Set<UUID> allTaps = Sets.newLinkedHashSet(finding.tapUuids());
+                        allTaps.addAll(tapsOf(lifetime));
+
                         identity.updateDuplicateFinding(
                                 handle,
                                 finding.id(),
                                 toStacks(lifetime),
                                 lifetime.size(),
                                 lifetime.stream().mapToLong(StackRow::sessions).sum(),
-                                tapsOf(lifetime),
+                                Lists.newArrayList(allTaps),
                                 lifetime.stream().map(StackRow::lastSeen).max(Comparator.naturalOrder()).orElse(until)
                         );
+
+                        if (config.duplicateAlertOnNew() && AlertOrigin.seenElsewhere(finding.tapUuids(), allTaps)) {
+                            raiseFindingAlert(
+                                    finding,
+                                    AlertOrigin.taps(allTaps).excludingLocationsOf(finding.tapUuids()),
+                                    organizationId,
+                                    tenantId
+                            );
+                        }
                     }
                 } catch (Exception e) {
                     LOG.error("Could not process duplicate MAC [{}] of tenant [{}/{}]. Skipping.",
@@ -294,7 +309,7 @@ public class DuplicateMacDetector {
         return Lists.newArrayList(taps);
     }
 
-    private void raiseNewFindingAlert(DuplicateMacFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseFindingAlert(DuplicateMacFindingEntry finding, AlertOrigin origin, UUID organizationId, UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("mac", finding.mac());
@@ -307,7 +322,7 @@ public class DuplicateMacDetector {
                 organizationId,
                 tenantId,
                 null,
-                finding.tapUuids().isEmpty() ? null : finding.tapUuids().get(0),
+                origin,
                 DetectionType.ASSETS_MAC_DUPLICATE,
                 Subsystem.ETHERNET,
                 "MAC address \"" + finding.mac() + "\" is used by " + finding.stackCount() +

@@ -6,6 +6,7 @@ import app.nzyme.core.assets.identity.db.AssetLinkEntry;
 import app.nzyme.core.assets.identity.db.AssetLinkEvidence;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.Subsystem;
@@ -267,7 +268,7 @@ public class AssetSuccessorDetector {
         );
 
         if (link.isPresent() && !existed && config.successorAlertOnNew()) {
-            raiseNewLinkAlert(link.get(), organizationId, tenantId);
+            raiseNewLinkAlert(handle, link.get(), newAsset.firstSeen, organizationId, tenantId);
         }
 
         return true;
@@ -769,7 +770,11 @@ public class AssetSuccessorDetector {
                 .one() > 0;
     }
 
-    private void raiseNewLinkAlert(AssetLinkEntry link, UUID organizationId, UUID tenantId) {
+    private void raiseNewLinkAlert(Handle handle,
+                                   AssetLinkEntry link,
+                                   DateTime successorFirstSeen,
+                                   UUID organizationId,
+                                   UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("link_uuid", link.uuid().toString());
         attributes.put("mac", link.successorMac());
@@ -782,7 +787,9 @@ public class AssetSuccessorDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(nzyme.getAssetsManager().findTapsOfMac(
+                        handle, link.successorMac(), organizationId, tenantId, successorFirstSeen
+                )),
                 DetectionType.ASSETS_MAC_CHANGED,
                 Subsystem.ETHERNET,
                 "Asset \"" + link.predecessorMac() + "\" appears to continue as \"" + link.successorMac() +

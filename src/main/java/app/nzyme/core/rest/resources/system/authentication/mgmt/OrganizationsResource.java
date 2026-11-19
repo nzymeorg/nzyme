@@ -2,6 +2,7 @@ package app.nzyme.core.rest.resources.system.authentication.mgmt;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.Crypto;
+import app.nzyme.core.detection.alerts.DetectionAlertService;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.events.EventEngineImpl;
 import app.nzyme.core.events.actions.EventActionUtilities;
@@ -2318,6 +2319,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
                     url = "https://go.nzyme.org/locations"))
     @ApiResponse(responseCode = "201", description = "Location created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Another location of the tenant has this name, or the name is \"No Location\", which is reserved for alerts and taps without a location.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response createTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -2333,6 +2336,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         // Check if user is org admin for this org.
         if (!authenticatedUser.isSuperAdministrator() && !authenticatedUser.getOrganizationId().equals(organizationId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Optional<Response> nameRejection = rejectLocationName(organizationId, tenantId, req.name());
+        if (nameRejection.isPresent()) {
+            return nameRejection.get();
         }
 
         String description = Strings.isNullOrEmpty(req.description()) ? null : req.description();
@@ -2351,6 +2359,19 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         return Response.status(Response.Status.CREATED).build();
     }
 
+    private Optional<Response> rejectLocationName(UUID organizationId, UUID tenantId, String name) {
+        String message;
+        if (name.trim().equalsIgnoreCase(DetectionAlertService.NO_LOCATION_NAME)) {
+            message = "The name \"" + DetectionAlertService.NO_LOCATION_NAME + "\" is reserved.";
+        } else if (nzyme.getAuthenticationService().tenantLocationNameExists(organizationId, tenantId, name)) {
+            message = "A location with this name already exists.";
+        } else {
+            return Optional.empty();
+        }
+
+        return Optional.of(Response.status(Response.Status.BAD_REQUEST).entity(ErrorResponse.create(message)).build());
+    }
+
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}")
@@ -2358,6 +2379,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             description = "Invalidates the environment data cache on all cluster nodes. Requires organization "
                     + "administrator permissions.", tags = {"Locations"})
     @ApiResponse(responseCode = "200", description = "Location updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Another location of the tenant has the new name, or the new name is \"No Location\", which is reserved for alerts and taps without a location.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
     public Response updateTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -2382,6 +2405,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         if (location.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        // A location keeps the name it has, also one it shares with another location from before names were unique.
+        if (!location.get().name().trim().equalsIgnoreCase(req.name().trim())) {
+            Optional<Response> nameRejection = rejectLocationName(organizationId, tenantId, req.name());
+            if (nameRejection.isPresent()) {
+                return nameRejection.get();
+            }
         }
 
         String description = Strings.isNullOrEmpty(req.description()) ? null : req.description();

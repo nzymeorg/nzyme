@@ -244,6 +244,7 @@ public class DashboardContent {
         private final List<Tap> taps;
         private final List<UUID> tapIds;
         private final boolean allTaps;
+        private final DetectionAlertService.Scope alertScope;
 
         private final DateTime from;
         private final DateTime to;
@@ -253,6 +254,7 @@ public class DashboardContent {
 
         private final Map<Optional<Subsystem>, Long> activeAlerts = Maps.newHashMap();
         private Map<UUID, Long> alertsByTap;
+        private Map<UUID, Long> alertsByLocation;
         private List<BSSIDAndSSIDCountHistogramEntry> bssidAndSsidHistogram;
         private List<TenantLocationEntry> tenantLocations;
         private TapsWidgetResponse tapsWidget;
@@ -267,6 +269,9 @@ public class DashboardContent {
             this.taps = tapsInScope(dashboard);
             this.tapIds = taps.stream().map(Tap::uuid).collect(Collectors.toList());
             this.allTaps = dashboard.settings().scope() == DashboardSettings.Scope.ALL;
+            this.alertScope = dashboard.settings().scope() == DashboardSettings.Scope.LOCATIONS
+                    ? DetectionAlertService.Scope.ofLocations(dashboard.settings().scopeIds())
+                    : DetectionAlertService.Scope.ofTaps(tapIds, allTaps);
 
             this.to = DateTime.now();
             this.from = to.minusMinutes(dashboard.settings().windowMinutes());
@@ -394,7 +399,7 @@ public class DashboardContent {
 
         private long activeAlerts(@Nullable Subsystem subsystem) {
             return activeAlerts.computeIfAbsent(Optional.ofNullable(subsystem), s -> nzyme.getDetectionAlertService()
-                    .countActiveAlertsInScope(organizationId, tenantId, tapIds, allTaps, subsystem));
+                    .countActiveAlertsInScope(organizationId, tenantId, alertScope, subsystem));
         }
 
         private Map<UUID, Long> alertsByTap() {
@@ -403,6 +408,19 @@ public class DashboardContent {
             }
 
             return alertsByTap;
+        }
+
+        // A dashboard of taps only counts the alerts of its taps at a location.
+        private long alertsAtLocation(UUID locationId, List<Tap> tapsAtLocation) {
+            if (dashboard.settings().scope() == DashboardSettings.Scope.TAPS) {
+                return tapsAtLocation.stream().mapToLong(t -> alertsByTap().getOrDefault(t.uuid(), 0L)).sum();
+            }
+
+            if (alertsByLocation == null) {
+                alertsByLocation = nzyme.getDetectionAlertService().countActiveAlertsByLocation(organizationId, tenantId);
+            }
+
+            return alertsByLocation.getOrDefault(locationId, 0L);
         }
 
         private long tapsOnline() {
@@ -434,7 +452,7 @@ public class DashboardContent {
 
             List<AlertsWidgetAlertResponse> alerts = Lists.newArrayList();
             for (DetectionAlertEntry alert : nzyme.getDetectionAlertService()
-                    .findActiveAlertsInScope(organizationId, tenantId, tapIds, allTaps, subsystem, MAXIMUM_ALERTS)) {
+                    .findActiveAlertsInScope(organizationId, tenantId, alertScope, subsystem, MAXIMUM_ALERTS)) {
                 String title;
                 try {
                     title = DetectionType.valueOf(alert.detectionType()).getTitle();
@@ -594,7 +612,7 @@ public class DashboardContent {
                         location,
                         tapsAtLocation.size(),
                         (int) tapsAtLocation.stream().filter(t -> Tools.isTapActive(t.lastReport())).count(),
-                        tapsAtLocation.stream().mapToLong(t -> alertsByTap().getOrDefault(t.uuid(), 0L)).sum()
+                        alertsAtLocation(location.uuid(), tapsAtLocation)
                 ));
             }
 
@@ -665,9 +683,9 @@ public class DashboardContent {
                 case ALERTS_ACTIVE -> response(metric, activeAlerts(alertSubsystem), null, List.of());
                 case ALERTS_NEW -> response(
                         metric,
-                        alerts.countNewAlertsInScope(organizationId, tenantId, tapIds, allTaps, alertSubsystem, from, to),
-                        (double) alerts.countNewAlertsInScope(organizationId, tenantId, tapIds, allTaps, alertSubsystem, previousFrom, from),
-                        samples(metric, alerts.getNewAlertsHistogramInScope(organizationId, tenantId, tapIds, allTaps, alertSubsystem, from, to, bucketing)
+                        alerts.countNewAlertsInScope(organizationId, tenantId, alertScope, alertSubsystem, from, to),
+                        (double) alerts.countNewAlertsInScope(organizationId, tenantId, alertScope, alertSubsystem, previousFrom, from),
+                        samples(metric, alerts.getNewAlertsHistogramInScope(organizationId, tenantId, alertScope, alertSubsystem, from, to, bucketing)
                                 .stream()
                                 .map(e -> BriefingHistogramBucketResponse.create(e.bucket(), e.value()))
                                 .toList())

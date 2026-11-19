@@ -1,6 +1,7 @@
 package app.nzyme.core.dot11.monitoring;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.db.SignalTrackHistogramEntry;
 import app.nzyme.core.dot11.db.monitoring.MonitoredBSSID;
@@ -73,7 +74,7 @@ public class Dot11SignalTrackMonitor extends Periodical {
                                     monitoredSSID.organizationId(),
                                     monitoredSSID.tenantId(),
                                     monitoredSSID.uuid(),
-                                    tap.uuid(),
+                                    AlertOrigin.tap(tap.uuid()),
                                     DetectionType.DOT11_MONITOR_SIGNAL_TRACK,
                                     Subsystem.DOT11,
                                     "Monitored network \"" + monitoredSSID.ssid() + "\" advertised " +

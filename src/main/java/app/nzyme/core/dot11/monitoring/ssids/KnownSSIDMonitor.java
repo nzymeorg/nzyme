@@ -2,6 +2,7 @@ package app.nzyme.core.dot11.monitoring.ssids;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.Dot11KnownNetwork;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 public class KnownSSIDMonitor extends Periodical {
 
@@ -87,7 +89,7 @@ public class KnownSSIDMonitor extends Periodical {
 
                             // Raise alarm if network is not approved.
                             if (!knownNetwork.isApproved() && !knownNetwork.isIgnored()) {
-                                raiseAlertIfEventingEnabled(ssid);
+                                raiseAlertIfEventingEnabled(ssid, dwellTimeMinutes);
                             }
                         }
                     }
@@ -99,7 +101,7 @@ public class KnownSSIDMonitor extends Periodical {
                         );
 
                         // Raise alarm for unapproved network.
-                        raiseAlertIfEventingEnabled(ssid);
+                        raiseAlertIfEventingEnabled(ssid, dwellTimeMinutes);
                     }
                 }
             });
@@ -111,7 +113,7 @@ public class KnownSSIDMonitor extends Periodical {
         }
     }
 
-    private void raiseAlertIfEventingEnabled(SSIDWithOrganizationAndTenant ssid) {
+    private void raiseAlertIfEventingEnabled(SSIDWithOrganizationAndTenant ssid, int dwellTimeMinutes) {
         Optional<String> enabled = nzyme.getDatabaseCoreRegistry().getValue(
                 KnownSSIDsRegistryKeys.EVENTING_IS_ENABLED.key(), ssid.organizationId(), ssid.tenantId()
         );
@@ -124,11 +126,18 @@ public class KnownSSIDMonitor extends Periodical {
         Map<String, String> parameters = Maps.newHashMap();
         parameters.put("ssid", ssid.ssid());
 
+        // Alerted where the SSID stayed for the dwell time, or where it stayed longest if it did so nowhere.
+        int longest = ssid.sightings().stream().mapToInt(SSIDWithOrganizationAndTenant.Sighting::activeMinutes).max().orElse(0);
+        List<UUID> taps = ssid.sightings().stream()
+                .filter(sighting -> sighting.activeMinutes() >= Math.min(dwellTimeMinutes, longest))
+                .flatMap(sighting -> sighting.taps().stream())
+                .toList();
+
         nzyme.getDetectionAlertService().raiseAlert(
                 ssid.organizationId(),
                 ssid.tenantId(),
                 null,
-                null,
+                AlertOrigin.taps(taps.isEmpty() ? ssid.taps() : taps),
                 DetectionType.DOT11_UNAPPROVED_SSID,
                 Subsystem.DOT11,
                 "Unapproved SSID \"" + ssid.ssid() + "\" detected.",

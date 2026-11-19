@@ -208,6 +208,7 @@ function AlertsTable(props) {
             <th>Details {columnSorting("details")}</th>
             <th>Type {columnSorting("detection_type")}</th>
             <th>Subsystem {columnSorting("subsystem")}</th>
+            <th>Location {columnSorting("location")}</th>
             <th>Affected {columnSorting("affected_address")}</th>
             <th>Re-activations {columnSorting("reactivations")}</th>
             <th>First Seen {columnSorting("created_at")}</th>

@@ -1,6 +1,7 @@
 package app.nzyme.core.dot11.monitoring.clients;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.db.ConnectedClientDetails;
 import app.nzyme.core.dot11.db.Dot11KnownClient;
@@ -19,6 +20,8 @@ import java.util.*;
 public class KnownClientMonitor extends Periodical {
 
     private static final Logger LOG = LogManager.getLogger(KnownClientMonitor.class);
+
+    private static final int CLIENT_LOOKBACK_MINUTES = 1;
 
     private final NzymeNode nzyme;
 
@@ -50,9 +53,15 @@ public class KnownClientMonitor extends Periodical {
                             .findMonitoredBSSIDsOfMonitoredNetwork(handle, monitoredNetwork.id());
 
                     for (MonitoredBSSID bssid : bssids) {
+                        // Taken before the clients are read, so that every client is covered by the taps lookup.
+                        DateTime since = DateTime.now().minusMinutes(CLIENT_LOOKBACK_MINUTES);
+
                         // Find all clients of BSSID.
                         List<ConnectedClientDetails> clients = nzyme.getDot11()
-                                .findClientsOfBSSID(handle, bssid.bssid(), 1, taps);
+                                .findClientsOfBSSID(handle, bssid.bssid(), CLIENT_LOOKBACK_MINUTES, taps);
+
+                        Map<String, Set<UUID>> tapsOfClients = clients.isEmpty() ? Map.of() : nzyme.getDot11()
+                                .findTapsOfClientsOfBSSID(handle, bssid.bssid(), since, taps);
 
                         // Process all clients.
                         for (ConnectedClientDetails client : clients) {
@@ -66,14 +75,16 @@ public class KnownClientMonitor extends Periodical {
 
                                 // Raise alarm for new client if not approved or ignored.
                                 if (!knownClient.get().isApproved() && !knownClient.get().isIgnored()) {
-                                    raiseAlertIfEventingEnabled(client, monitoredNetwork);
+                                    raiseAlertIfEventingEnabled(client, monitoredNetwork,
+                                            tapsOfClients.getOrDefault(client.clientMac(), Set.of()));
                                 }
                             } else {
                                 // New client.
                                 nzyme.getDot11().createKnownClient(handle, client.clientMac(), monitoredNetwork.id());
 
                                 // Raise alarm for new client.
-                                raiseAlertIfEventingEnabled(client, monitoredNetwork);
+                                raiseAlertIfEventingEnabled(client, monitoredNetwork,
+                                        tapsOfClients.getOrDefault(client.clientMac(), Set.of()));
                             }
                         }
                     }
@@ -87,7 +98,7 @@ public class KnownClientMonitor extends Periodical {
         }
     }
 
-    private void raiseAlertIfEventingEnabled(ConnectedClientDetails client, MonitoredSSID ssid) {
+    private void raiseAlertIfEventingEnabled(ConnectedClientDetails client, MonitoredSSID ssid, Set<UUID> seenBy) {
         if  (!ssid.enabledClientEventing()) {
             LOG.debug("Not raising alert for unapproved client [{}] because eventing is enabled for " +
                     "monitored network [{}].", client.clientMac(), ssid.ssid());
@@ -102,7 +113,7 @@ public class KnownClientMonitor extends Periodical {
                 ssid.organizationId(),
                 ssid.tenantId(),
                 ssid.uuid(),
-                null,
+                AlertOrigin.taps(seenBy),
                 DetectionType.DOT11_UNAPPROVED_CLIENT,
                 Subsystem.DOT11,
                 "Unapproved client \"" + client.clientMac() + "\" connected to monitored network \""  +ssid.ssid() + "\" detected.",

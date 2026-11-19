@@ -6,6 +6,7 @@ import app.nzyme.core.assets.identity.db.IdentityChange;
 import app.nzyme.core.assets.identity.db.IdentityChangeFindingEntry;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
@@ -147,7 +148,7 @@ public class IdentityChangeDetector {
                             );
 
                             if (config.changeAlertOnNew()) {
-                                raiseNewFindingAlert(created, organizationId, tenantId);
+                                raiseNewFindingAlert(handle, created, organizationId, tenantId);
                             }
                         } else {
                             identity.updateChangeFinding(handle, finding.id(), score, changes, previousFingerprint,
@@ -379,7 +380,10 @@ public class IdentityChangeDetector {
         return values.stream().map(Value::value).sorted().limit(10).collect(Collectors.joining(", "));
     }
 
-    private void raiseNewFindingAlert(IdentityChangeFindingEntry finding, UUID organizationId, UUID tenantId) {
+    private void raiseNewFindingAlert(Handle handle,
+                                      IdentityChangeFindingEntry finding,
+                                      UUID organizationId,
+                                      UUID tenantId) {
         Map<String, String> attributes = Maps.newHashMap();
         attributes.put("finding_uuid", finding.uuid().toString());
         attributes.put("mac", finding.mac());
@@ -396,7 +400,9 @@ public class IdentityChangeDetector {
                 organizationId,
                 tenantId,
                 null,
-                null,
+                AlertOrigin.taps(nzyme.getAssetsManager().findTapsOfMac(
+                        handle, finding.mac(), organizationId, tenantId, finding.firstSeen()
+                )),
                 DetectionType.ASSETS_IDENTITY_CHANGED,
                 Subsystem.ETHERNET,
                 "Asset \"" + finding.mac() + "\" changed its identity (score " + finding.score() + ").",

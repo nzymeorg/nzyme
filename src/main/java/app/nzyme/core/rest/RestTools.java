@@ -94,12 +94,14 @@ public class RestTools {
                                                                     List<DetectionAlertAttributeEntry> attributes) {
         long timelineEntries = nzyme.getDetectionAlertService().countAlertTimelineEntries(alert.id());
 
-        return buildAlertDetailsResponse(nzyme, alert, attributes, Math.max(0, timelineEntries - 1));
+        return buildAlertDetailsResponse(nzyme, alert, attributes,
+                nzyme.getDetectionAlertService().findLocationName(alert), Math.max(0, timelineEntries - 1));
     }
 
     public static DetectionAlertDetailsResponse buildAlertDetailsResponse(NzymeNode nzyme,
                                                                     DetectionAlertEntry alert,
                                                                     List<DetectionAlertAttributeEntry> attributes,
+                                                                    String locationName,
                                                                     long reactivationCount) {
         Map<String, String> responseAttributes = Maps.newTreeMap();
         for (DetectionAlertAttributeEntry attribute : attributes) {
@@ -125,6 +127,8 @@ public class RestTools {
                 alert.uuid(),
                 alert.dot11MonitoredNetworkId(),
                 alert.tapId(),
+                alert.locationId(),
+                locationName,
                 alert.detectionType(),
                 alert.subsystem(),
                 alert.details(),

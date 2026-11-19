@@ -15,6 +15,7 @@ public class DetectionAlertSearchEntryMapper implements RowMapper<DetectionAlert
         return DetectionAlertSearchEntry.create(
                 alertMapper.map(rs, ctx),
                 rs.getString("status"),
+                rs.getString("location_name"),
                 rs.getLong("reactivations")
         );
     }

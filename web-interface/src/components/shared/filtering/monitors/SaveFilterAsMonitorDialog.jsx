@@ -7,6 +7,7 @@ import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant"
 import {onNumberInputKeyDown} from "../../../../util/Tools";
 import MonitorTapsTable from "../../../monitors/shared/MonitorTapsTable";
 import MonitorsService from "../../../../services/MonitorsService";
+import LocationSelector from "../../locations/LocationSelector";
 
 const tapsService = new TapsService();
 const monitorsService = new MonitorsService();
@@ -24,6 +25,7 @@ export default function SaveFilterAsMonitorDialog({filters, appliedMonitor, onSa
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [locationId, setLocationId] = useState("");
   const [triggerCondition, setTriggerCondition] = useState(0);
   const [interval, setInterval] = useState(1);
   const [lookback, setLookback] = useState(1);
@@ -81,7 +83,7 @@ export default function SaveFilterAsMonitorDialog({filters, appliedMonitor, onSa
       monitorsService.updateMonitorFilterInformation(appliedMonitor.uuid, selectedTaps, filters, onSuccess, onFailure)
     } else {
       // We are saving a new monitor. Handled in parent. (mostly to supply the correct monitor type)
-      onSave(name, description, selectedTaps, triggerCondition, interval, lookback, filters, onSuccess, onFailure)
+      onSave(name, description, selectedTaps, locationId, triggerCondition, interval, lookback, filters, onSuccess, onFailure)
     }
   }
 
@@ -210,6 +212,13 @@ export default function SaveFilterAsMonitorDialog({filters, appliedMonitor, onSa
                             value={description}
                             onChange={e => setDescription(e.target.value)}/>
                   <div className="form-text">An optional description that provides more detail.</div>
+                </div>
+
+                <div className="mb-3">
+                  <LocationSelector location={locationId}
+                                    onLocationSelected={setLocationId}
+                                    hideWithoutLocations={true}
+                                    helpText="The alerts of this monitor are raised at this location." />
                 </div>
 
                 <h3 className="mt-4 mb-2">Taps</h3>

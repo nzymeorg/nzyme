@@ -6,6 +6,7 @@ import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.assets.profile.AssetRole;
 import app.nzyme.core.assets.db.AssetEntry;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprint;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
@@ -443,7 +444,7 @@ public class DHCPTable implements DataTable {
                 tap.organizationId(),
                 tap.tenantId(),
                 null,
-                tap.uuid(),
+                AlertOrigin.tap(tap.uuid()),
                 DetectionType.ASSETS_DHCP_FINGERPRINT_NEW,
                 Subsystem.ETHERNET,
                 "MAC address \"" + tx.clientMac() + "\" is presenting new DHCP fingerprint " +

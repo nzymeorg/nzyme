@@ -37,6 +37,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.Query;
 import org.joda.time.DateTime;
@@ -45,6 +46,7 @@ import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 public class Dot11 {
 
@@ -263,17 +265,50 @@ public class Dot11 {
     }
 
     public List<SSIDWithOrganizationAndTenant> findAllSSIDsAndOwner(DateTime since) {
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT s.ssid, t.organization_id, t.tenant_id, " +
-                                "COUNT(DISTINCT date_trunc('minute', s.created_at)) AS active_minutes, " +
-                                "MAX(s.created_at) AS last_seen FROM dot11_ssids AS s " +
-                                "LEFT JOIN taps AS t ON s.tap_uuid = t.uuid " +
-                                "WHERE s.created_at >= :since " +
-                                "GROUP BY s.ssid, t.organization_id, t.tenant_id")
-                        .bind("since", since)
-                        .mapTo(SSIDWithOrganizationAndTenant.class)
-                        .list()
-        );
+        List<SSIDWithOrganizationAndTenant> result = Lists.newArrayList();
+
+        /*
+         * One row for each location an SSID was seen at, followed by one row for the SSID as a whole. Streamed,
+         * because the number of SSIDs is not bounded. The fetch size only applies inside a transaction.
+         */
+        nzyme.getDatabase().useTransaction(handle -> {
+            List<SSIDWithOrganizationAndTenant.Sighting> sightings = Lists.newArrayList();
+
+            try (Stream<Map.Entry<Boolean, SSIDWithOrganizationAndTenant>> rows = handle.createQuery(
+                            "SELECT s.ssid, t.organization_id, t.tenant_id, GROUPING(t.location_uuid) = 1 AS is_total, " +
+                                    "COUNT(DISTINCT date_trunc('minute', s.created_at)) AS active_minutes, " +
+                                    "MAX(s.created_at) AS last_seen, " +
+                                    "string_agg(DISTINCT s.tap_uuid::text, ',') AS taps FROM dot11_ssids AS s " +
+                                    "JOIN taps AS t ON s.tap_uuid = t.uuid " +
+                                    "WHERE s.created_at >= :since " +
+                                    "GROUP BY GROUPING SETS ((s.ssid, t.organization_id, t.tenant_id), " +
+                                    "(s.ssid, t.organization_id, t.tenant_id, t.location_uuid)) " +
+                                    "ORDER BY s.ssid, t.organization_id, t.tenant_id, GROUPING(t.location_uuid)")
+                    .bind("since", since)
+                    .setFetchSize(1000)
+                    .map((rs, ctx) -> Map.entry(rs.getBoolean("is_total"), SSIDWithOrganizationAndTenant.create(
+                            rs.getString("ssid"),
+                            UUID.fromString(rs.getString("organization_id")),
+                            UUID.fromString(rs.getString("tenant_id")),
+                            new DateTime(rs.getTimestamp("last_seen")),
+                            rs.getInt("active_minutes"),
+                            Arrays.stream(rs.getString("taps").split(",")).map(UUID::fromString).toList(),
+                            Collections.emptyList()
+                    )))
+                    .stream()) {
+                rows.forEach(row -> {
+                    SSIDWithOrganizationAndTenant ssid = row.getValue();
+                    if (row.getKey()) {
+                        result.add(ssid.toBuilder().sightings(Lists.newArrayList(sightings)).build());
+                        sightings.clear();
+                    } else {
+                        sightings.add(new SSIDWithOrganizationAndTenant.Sighting(ssid.activeMinutes(), ssid.taps()));
+                    }
+                });
+            }
+        });
+
+        return result;
     }
 
     public Optional<BSSIDSummary> findBSSID(String bssid, TimeRange timeRange, List<UUID> taps) {
@@ -1042,6 +1077,24 @@ public class Dot11 {
                 .bindList("taps", taps)
                 .mapTo(ConnectedClientDetails.class)
                 .list();
+    }
+
+    public Map<String, Set<UUID>> findTapsOfClientsOfBSSID(Handle handle, String bssid, DateTime since, List<UUID> taps) {
+        Map<String, Set<UUID>> result = Maps.newHashMap();
+        if (taps.isEmpty()) {
+            return result;
+        }
+
+        handle.createQuery("SELECT DISTINCT c.client_mac, b.tap_uuid::text AS tap_uuid FROM dot11_bssids AS b " +
+                        "JOIN dot11_bssid_clients AS c ON b.id = c.bssid_id " +
+                        "WHERE b.bssid = :bssid AND b.created_at > :since AND b.tap_uuid IN (<taps>)")
+                .bind("bssid", bssid)
+                .bind("since", since)
+                .bindList("taps", taps)
+                .map((rs, ctx) -> Map.entry(rs.getString("client_mac"), UUID.fromString(rs.getString("tap_uuid"))))
+                .forEach(row -> result.computeIfAbsent(row.getKey(), k -> Sets.newLinkedHashSet()).add(row.getValue()));
+
+        return result;
     }
 
     public List<ConnectedClientDetails> findClientsOfBSSID(String bssid, int minutes, List<UUID> taps) {

@@ -1,5 +1,5 @@
 import {Link} from "react-router-dom";
-import React, {useEffect, useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import LoadingSpinner from "../misc/LoadingSpinner";
 import LocationsService from "../../services/LocationsService";
@@ -10,6 +10,9 @@ import LocationWind from "./shared/LocationWind";
 import LocationVisibility from "./shared/LocationVisibility";
 import ApiRoutes from "../../util/ApiRoutes";
 import LocationWeatherCondition from "./shared/LocationWeatherCondition";
+import {UserContext} from "../../App";
+import {userHasPermission} from "../../util/Tools";
+import {alertsAtLocationLink} from "../alerts/AlertFilterFields";
 
 const locationsService = new LocationsService();
 
@@ -17,10 +20,17 @@ export default function LocationsTable() {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
+  const user = useContext(UserContext);
+
   const [locations, setLocations] = useState(null);
+  const [noLocation, setNoLocation] = useState(null);
 
   useEffect(() => {
+    setLocations(null);
+    setNoLocation(null);
+
     locationsService.findAll(organizationId, tenantId, setLocations)
+    locationsService.findNoLocation(organizationId, tenantId, setNoLocation)
   }, [organizationId, tenantId]);
 
   const renderAlertCount = (count) => {
@@ -52,16 +62,25 @@ export default function LocationsTable() {
     );
   };
 
-  if (locations === null) {
+  if (locations === null || noLocation === null) {
     return <LoadingSpinner />
   }
 
-  if (locations.length === 0) {
-    return <div className="alert alert-info mb-0">No locations configured. Learn more about
+  const showNoLocation = noLocation.tap_count > 0 || noLocation.alert_count > 0;
+
+  const noLocationsConfigured = (
+    <div className="alert alert-info mb-0">No locations configured. Learn more about
       locations in the <a href="https://go.nzyme.org/locations">documentation</a>.</div>
+  )
+
+  if (locations.length === 0 && !showNoLocation) {
+    return noLocationsConfigured
   }
 
   return (
+    <>
+    {locations.length === 0 ? <div className="mb-3">{noLocationsConfigured}</div> : null}
+
     <table className="table table-sm table-hover table-striped">
       <thead>
       <tr>
@@ -87,8 +106,21 @@ export default function LocationsTable() {
           <td>{renderEnvironmentalAlerts(l.environment ? l.environment.alerts : null)}</td>
         </tr>
       })}
+      {showNoLocation ?
+        <tr>
+          <td>
+            {userHasPermission(user, "alerts_view")
+              ? <Link to={alertsAtLocationLink(noLocation.name)} className="text-muted">{noLocation.name}</Link>
+              : <span className="text-muted">{noLocation.name}</span>}
+          </td>
+          <td>{numeral(noLocation.tap_count).format("0,0")}</td>
+          <td>{renderAlertCount(noLocation.alert_count)}</td>
+          <td><span className="text-muted">n/a</span></td>
+          <td><span className="text-muted">n/a</span></td>
+        </tr> : null}
       </tbody>
     </table>
+    </>
   )
 
 }

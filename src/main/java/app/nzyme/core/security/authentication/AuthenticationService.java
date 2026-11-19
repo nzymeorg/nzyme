@@ -1165,6 +1165,20 @@ public class AuthenticationService {
         );
     }
 
+    // Names are compared without case and surrounding whitespace. The alert search finds locations by name.
+    public boolean tenantLocationNameExists(UUID organizationId, UUID tenantId, String name) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM auth_tenants_locations " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND LOWER(TRIM(name)) = LOWER(TRIM(:name))")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("name", name)
+                        .mapTo(Long.class)
+                        .one() > 0
+        );
+    }
+
     public void createTenantLocation(UUID organizationId,
                                      UUID tenantId,
                                      String name,

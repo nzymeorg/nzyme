@@ -6,9 +6,11 @@ import {toast} from "react-toastify";
 
 const locationsService = new LocationsService();
 
-export default function LocationSelector({location, onLocationSelected}) {
+export default function LocationSelector({location, onLocationSelected, helpText, hideWithoutLocations, organizationId: ofOrganization, tenantId: ofTenant}) {
 
-  const [organizationId, tenantId] = useSelectedTenant();
+  const [selectedOrganization, selectedTenant] = useSelectedTenant();
+  const organizationId = ofOrganization ? ofOrganization : selectedOrganization;
+  const tenantId = ofTenant ? ofTenant : selectedTenant;
 
   const [locations, setLocations] = useState(null);
 
@@ -24,7 +26,7 @@ export default function LocationSelector({location, onLocationSelected}) {
   }
 
   if (locations.length === 0) {
-    return <div className="alert alert-info mb-0">No locations configured.</div>
+    return hideWithoutLocations ? null : <div className="alert alert-info mb-0">No locations configured.</div>
   }
 
   return (
@@ -40,6 +42,8 @@ export default function LocationSelector({location, onLocationSelected}) {
           return <option value={location.id} key={i}>{location.name}</option>
         })}
       </select>
+
+      {helpText ? <div className="form-text">{helpText}</div> : null}
     </>
   )
 

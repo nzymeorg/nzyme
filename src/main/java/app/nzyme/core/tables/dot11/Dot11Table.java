@@ -1,6 +1,7 @@
 package app.nzyme.core.tables.dot11;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.monitoring.*;
@@ -136,7 +137,7 @@ public class Dot11Table implements DataTable {
                                 tap.organizationId(),
                                 tap.tenantId(),
                                 null,
-                                tap.uuid(),
+                                AlertOrigin.tap(tap.uuid()),
                                 DetectionType.DOT11_PROBEREQ,
                                 Subsystem.DOT11,
                                 "Monitored probe request for SSID \"" + ssid + "\" detected in range.",
@@ -270,7 +271,7 @@ public class Dot11Table implements DataTable {
                                     tap.organizationId(),
                                     tap.tenantId(),
                                     null,
-                                    tap.uuid(),
+                                    AlertOrigin.tap(tap.uuid()),
                                     DetectionType.DOT11_BANDIT_CONTACT,
                                     Subsystem.DOT11,
                                     "Bandit \"" + bandit.name() + "\" advertising BSSID \"" + bssid + "\" " +
@@ -451,7 +452,7 @@ public class Dot11Table implements DataTable {
                                     task.tap().organizationId(),
                                     task.tap().tenantId(),
                                     monitoredSSID.uuid(),
-                                    task.tap().uuid(),
+                                    AlertOrigin.tap(task.tap().uuid()),
                                     DetectionType.DOT11_MONITOR_SIMILAR_LOOKING_SSID,
                                     Subsystem.DOT11,
                                     "SSID \"" + ssid + "\" looking similar to monitored network SSID " +
@@ -476,7 +477,7 @@ public class Dot11Table implements DataTable {
                                         task.tap().organizationId(),
                                         task.tap().tenantId(),
                                         monitoredSSID.uuid(),
-                                        task.tap().uuid(),
+                                        AlertOrigin.tap(task.tap().uuid()),
                                         DetectionType.DOT11_MONITOR_SSID_SUBSTRING,
                                         Subsystem.DOT11,
                                         "SSID \"" + ssid + "\" contains restricted " +
@@ -506,7 +507,7 @@ public class Dot11Table implements DataTable {
                                 task.tap().organizationId(),
                                 task.tap().tenantId(),
                                 monitoredSSID.uuid(),
-                                task.tap().uuid(),
+                                AlertOrigin.tap(task.tap().uuid()),
                                 DetectionType.DOT11_MONITOR_BSSID,
                                 Subsystem.DOT11,
                                 "Monitored network \"" + monitoredSSID.ssid() + "\" advertised with " +
@@ -529,7 +530,7 @@ public class Dot11Table implements DataTable {
                                         task.tap().organizationId(),
                                         task.tap().tenantId(),
                                         monitoredSSID.uuid(),
-                                        task.tap().uuid(),
+                                        AlertOrigin.tap(task.tap().uuid()),
                                         DetectionType.DOT11_MONITOR_FINGERPRINT,
                                         Subsystem.DOT11,
                                         "Monitored network \"" + monitoredSSID.ssid() + "\" advertised " +
@@ -553,7 +554,7 @@ public class Dot11Table implements DataTable {
                                     task.tap().organizationId(),
                                     task.tap().tenantId(),
                                     monitoredSSID.uuid(),
-                                    task.tap().uuid(),
+                                    AlertOrigin.tap(task.tap().uuid()),
                                     DetectionType.DOT11_MONITOR_CHANNEL,
                                     Subsystem.DOT11,
                                     "Monitored network \"" + monitoredSSID.ssid() + "\" advertised on " +
@@ -576,7 +577,7 @@ public class Dot11Table implements DataTable {
                                     task.tap().organizationId(),
                                     task.tap().tenantId(),
                                     monitoredSSID.uuid(),
-                                    task.tap().uuid(),
+                                    AlertOrigin.tap(task.tap().uuid()),
                                     DetectionType.DOT11_MONITOR_SECURITY_SUITE,
                                     Subsystem.DOT11,
                                     "Monitored network \"" + monitoredSSID.ssid() + "\" advertised with " +
@@ -650,7 +651,7 @@ public class Dot11Table implements DataTable {
                             tap.organizationId(),
                             tap.tenantId(),
                             null,
-                            tap.uuid(),
+                            AlertOrigin.tap(tap.uuid()),
                             DetectionType.DOT11_BANDIT_CONTACT,
                             Subsystem.DOT11,
                             "Bandit \"Pwnagotchi\" with name \"" + attributes.get("name") + "\" detected in range.",

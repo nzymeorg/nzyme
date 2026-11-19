@@ -9,6 +9,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 
 import java.util.List;
+import java.util.UUID;
 
 
 @Schema(description = "Body for updating a monitor.")
@@ -20,6 +21,9 @@ public abstract class UpdateMonitorRequest {
 
     @Nullable
     public abstract String description();
+
+    @Nullable
+    public abstract UUID locationId();
 
     @Nullable
     public abstract Integer triggerCondition();
@@ -41,6 +45,8 @@ public abstract class UpdateMonitorRequest {
                                               @JsonProperty("name") String name,
                                               @Schema(description = "New description of the monitor.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("description") String description,
+                                              @Schema(description = "UUID of the location the alerts of the monitor are raised at. Written together with the name, description, trigger condition, interval and lookback. Omit to raise the alerts without a location.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                              @JsonProperty("location_id") UUID locationId,
                                               @Schema(description = "Number of matching results that triggers the monitor. Must be 0 or higher.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                               @JsonProperty("trigger_condition") Integer triggerCondition,
                                               @Schema(description = "How often the monitor runs, in minutes. Must be 1 or higher.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
@@ -54,6 +60,7 @@ public abstract class UpdateMonitorRequest {
         return builder()
                 .name(name)
                 .description(description)
+                .locationId(locationId)
                 .triggerCondition(triggerCondition)
                 .interval(interval)
                 .lookback(lookback)
@@ -71,6 +78,8 @@ public abstract class UpdateMonitorRequest {
         public abstract Builder name(@NotEmpty String name);
 
         public abstract Builder description(String description);
+
+        public abstract Builder locationId(UUID locationId);
 
         public abstract Builder triggerCondition(@Min(0) Integer triggerCondition);
 

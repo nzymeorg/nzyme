@@ -39,6 +39,14 @@ public abstract class MonitorDetailsResponse {
     @JsonProperty("taps")
     public abstract List<UUID> taps();
 
+    @Nullable
+    @JsonProperty("location_id")
+    public abstract UUID locationId();
+
+    @Nullable
+    @JsonProperty("location_name")
+    public abstract String locationName();
+
     @JsonProperty("trigger_condition")
     public abstract int triggerCondition();
 
@@ -74,7 +82,7 @@ public abstract class MonitorDetailsResponse {
     @JsonProperty("partial_data")
     public abstract boolean partialData();
 
-    public static MonitorDetailsResponse create(UUID uuid, UUID organizationId, UUID tenantId, boolean enabled, String type, String name, String description, List<UUID> taps, int triggerCondition, int interval, int lookback, String filters, boolean alerted, String status, DateTime lastRun, DateTime lastEvent, DateTime createdAt, DateTime updatedAt, boolean partialData) {
+    public static MonitorDetailsResponse create(UUID uuid, UUID organizationId, UUID tenantId, boolean enabled, String type, String name, String description, List<UUID> taps, UUID locationId, String locationName, int triggerCondition, int interval, int lookback, String filters, boolean alerted, String status, DateTime lastRun, DateTime lastEvent, DateTime createdAt, DateTime updatedAt, boolean partialData) {
         return builder()
                 .uuid(uuid)
                 .organizationId(organizationId)
@@ -84,6 +92,8 @@ public abstract class MonitorDetailsResponse {
                 .name(name)
                 .description(description)
                 .taps(taps)
+                .locationId(locationId)
+                .locationName(locationName)
                 .triggerCondition(triggerCondition)
                 .interval(interval)
                 .lookback(lookback)
@@ -119,6 +129,10 @@ public abstract class MonitorDetailsResponse {
         public abstract Builder description(String description);
 
         public abstract Builder taps(List<UUID> taps);
+
+        public abstract Builder locationId(UUID locationId);
+
+        public abstract Builder locationName(String locationName);
 
         public abstract Builder triggerCondition(int triggerCondition);
 

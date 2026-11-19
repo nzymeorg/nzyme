@@ -55,6 +55,10 @@ public class SyslogAction implements Action {
         payload.put("event_type", event.detectionType().name());
         payload.put("event_type_subsystem", event.detectionType().getSubsystem().name());
         payload.put("event_type_human_readable", event.detectionType().getTitle());
+        payload.put("location_name", event.locationName());
+        if (event.locationId() != null) {
+            payload.put("location_id", event.locationId().toString());
+        }
 
         return execute(event.timestamp(), payload, "detection", event.details());
     }

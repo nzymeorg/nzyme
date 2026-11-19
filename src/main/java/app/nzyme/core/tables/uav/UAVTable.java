@@ -1,6 +1,7 @@
 package app.nzyme.core.tables.uav;
 
 import app.nzyme.core.designation.Designation;
+import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.rest.resources.taps.reports.tables.uav.*;
 import app.nzyme.core.shared.Classification;
@@ -480,7 +481,7 @@ public class UAVTable implements DataTable {
                 tap.organizationId(),
                 tap.tenantId(),
                 null,
-                tap.uuid(),
+                AlertOrigin.tap(tap.uuid()),
                 detectionType,
                 Subsystem.UAV,
                 "UAV with " + classification + " classification and designation [" + designation + "] detected in range.",

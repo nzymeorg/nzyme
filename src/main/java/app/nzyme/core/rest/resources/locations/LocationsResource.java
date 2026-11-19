@@ -7,6 +7,7 @@ package app.nzyme.core.rest.resources.locations;
  */
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.detection.alerts.DetectionAlertService;
 import app.nzyme.core.detection.alerts.db.DetectionAlertAttributeEntry;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.environment.dto.EnvironmentData;
@@ -42,6 +43,7 @@ import jakarta.ws.rs.core.SecurityContext;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -65,8 +67,9 @@ public class LocationsResource extends UserAuthenticatedResource {
     @Operation(operationId = "findLocations", summary = "List locations of a tenant",
             description = "Returns a summary of every location of the tenant with its floors, its taps and the "
                     + "current environmental data. Environmental data is null for locations without latitude and "
-                    + "longitude. Up to 15 active detection alerts of the taps at a location are included, and only "
-                    + "if the calling user holds the alerts_view feature permission.",
+                    + "longitude. Up to 15 active detection alerts that were raised at a location are included, and "
+                    + "only if the calling user holds the alerts_view feature permission. Taps and alerts without a "
+                    + "location are not part of this list.",
             externalDocs = @ExternalDocumentation(description = "Environmental monitoring in the Nzyme documentation",
                     url = "https://go.nzyme.org/environmental-monitoring"))
     @ApiResponse(responseCode = "200", description = "Locations found.",
@@ -98,7 +101,7 @@ public class LocationsResource extends UserAuthenticatedResource {
             description = "Returns the floors, the taps, the environmental data and the timezone of the location. "
                     + "The timezone and the environmental data are only set if the location has a latitude and a "
                     + "longitude, and only severe environmental alerts that are currently relevant are included. Up "
-                    + "to 15 active detection alerts of the taps at the location are included, and only if the "
+                    + "to 15 active detection alerts that were raised at the location are included, and only if the "
                     + "calling user holds the alerts_view feature permission.",
             externalDocs = @ExternalDocumentation(description = "Environmental monitoring in the Nzyme documentation",
                     url = "https://go.nzyme.org/environmental-monitoring"))
@@ -126,19 +129,65 @@ public class LocationsResource extends UserAuthenticatedResource {
         return Response.ok(buildLocationSummary(location.get(), user, organizationId, tenantId)).build();
     }
 
+    @GET
+    @Path("/none")
+    @Operation(operationId = "findNoLocation", summary = "Get taps and alerts without a location",
+            description = "Returns the taps of the tenant that are not placed at a location, reduced to the taps "
+                    + "the calling user can access, and the number of active detection alerts that were raised "
+                    + "without a location. The alert count is null if the calling user does not hold the "
+                    + "alerts_view feature permission. The name is the location name that such alerts carry and "
+                    + "that the location filter of the alert search matches.")
+    @ApiResponse(responseCode = "200", description = "Summary found.",
+            content = @Content(schema = @Schema(implementation = NoLocationSummaryResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Organization or tenant not accessible by the calling user.", content = @Content)
+    public Response findNoLocation(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
+        AuthenticatedUser user = getAuthenticatedUser(sc);
+
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.UNAUTHORIZED).build();
+        }
+
+        List<UUID> accessibleTaps = nzyme.getTapManager().allTapUUIDsAccessibleByUser(user, organizationId, tenantId);
+
+        Set<UUID> locations = nzyme.getAuthenticationService()
+                .findAllTenantLocations(organizationId, tenantId, Integer.MAX_VALUE, 0)
+                .stream()
+                .map(TenantLocationEntry::uuid)
+                .collect(Collectors.toSet());
+
+        List<TapHighLevelInformationDetailsResponse> taps = Lists.newArrayList();
+        for (Tap tap : nzyme.getTapManager().findAllTapsOfTenant(organizationId, tenantId)) {
+            if (accessibleTaps.contains(tap.uuid())
+                    && (tap.locationId() == null || !locations.contains(tap.locationId()))) {
+                taps.add(TapHighLevelInformationDetailsResponse.create(
+                        tap.uuid(), tap.name(), null, null, Tools.isTapActive(tap.lastReport())
+                ));
+            }
+        }
+
+        return Response.ok(NoLocationSummaryResponse.create(
+                DetectionAlertService.NO_LOCATION_NAME,
+                taps.size(),
+                userHasPermission(user, "alerts_view")
+                        ? nzyme.getDetectionAlertService().countActiveAlertsOfLocation(organizationId, tenantId, null)
+                        : null,
+                taps
+        )).build();
+    }
+
     private LocationSummaryResponse buildLocationSummary(TenantLocationEntry location,
                                                          AuthenticatedUser user,
                                                          UUID organizationId,
                                                          UUID tenantId) {
         List<Tap> taps = nzyme.getTapManager().findAllTapsAtLocation(location.uuid());
 
-        // Taps and alerts.
-        int detectionAlertCount = 0;
+        int detectionAlertCount = (int) nzyme.getDetectionAlertService()
+                .countActiveAlertsOfLocation(organizationId, tenantId, location.uuid());
+
         List<TapHighLevelInformationDetailsResponse> tapsList = Lists.newArrayList();
         for (Tap tap : taps) {
-            detectionAlertCount += (int) nzyme.getDetectionAlertService()
-                    .countActiveAlertsOfTap(organizationId, tenantId, tap.uuid());
-
             tapsList.add(TapHighLevelInformationDetailsResponse.create(
                     tap.uuid(), tap.name(), null, null, Tools.isTapActive(tap.lastReport())
             ));
@@ -212,16 +261,13 @@ public class LocationsResource extends UserAuthenticatedResource {
         // Detection alerts.
         List<DetectionAlertDetailsResponse> detectionAlerts = Lists.newArrayList();
         if (userHasPermission(user, "alerts_view")) {
-            List<UUID> tapUUIDs = taps.stream()
-                    .map(Tap::uuid)
-                    .collect(Collectors.toList());
-
             for (DetectionAlertEntry alert : nzyme.getDetectionAlertService()
-                    .findActiveAlertsOfTaps(organizationId, tenantId, tapUUIDs, 15)) {
+                    .findActiveAlertsOfLocation(organizationId, tenantId, location.uuid(), 15)) {
                 List<DetectionAlertAttributeEntry> attributes = nzyme.getDetectionAlertService()
                         .findAlertAttributes(alert.id());
 
-                detectionAlerts.add(RestTools.buildAlertDetailsResponse(nzyme, alert, attributes));
+                detectionAlerts.add(RestTools.buildAlertDetailsResponse(nzyme, alert, attributes, location.name(),
+                        Math.max(0, nzyme.getDetectionAlertService().countAlertTimelineEntries(alert.id()) - 1)));
             }
         }
 

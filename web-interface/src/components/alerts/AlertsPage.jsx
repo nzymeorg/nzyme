@@ -101,7 +101,7 @@ function AlertsPage() {
         </div>
 
         <div className="row mt-3">
-          <div className="col-6">
+          <div className="col-4">
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Top Alert Types"
@@ -119,7 +119,7 @@ function AlertsPage() {
             </div>
           </div>
 
-          <div className="col-6">
+          <div className="col-4">
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Top Subsystems"
@@ -129,6 +129,24 @@ function AlertsPage() {
                 <AlertsTopHistogram aggregation="subsystems"
                                     columnTitle="Subsystem"
                                     filterField="subsystem"
+                                    timeRange={timeRange}
+                                    filters={filters}
+                                    setFilters={setFilters}
+                                    revision={revision} />
+              </div>
+            </div>
+          </div>
+
+          <div className="col-4">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Top Locations"
+                                       timeRange={timeRange}
+                                       refreshAction={refresh} />
+
+                <AlertsTopHistogram aggregation="locations"
+                                    columnTitle="Location"
+                                    filterField="location"
                                     timeRange={timeRange}
                                     filters={filters}
                                     setFilters={setFilters}

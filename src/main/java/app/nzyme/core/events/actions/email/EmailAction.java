@@ -211,6 +211,7 @@ public class EmailAction implements Action {
 
         String b = "Detection Event: " + detectionType.getTitle() + " [" + detectionType.name() + "]\n\n"
                 + event.details() + "\n\n"
+                + "Location: " + event.locationName() + "\n"
                 + "Event Timestamp: " + event.timestamp();
 
         return b;
@@ -247,6 +248,7 @@ public class EmailAction implements Action {
             parameters.put("event_type_name", detectionType.name());
             parameters.put("event_type_name_human_readable", detectionType.getTitle());
             parameters.put("event_details", event.details());
+            parameters.put("event_location_name", event.locationName());
             parameters.put("event_timestamp", event.timestamp());
             parameters.put("nzyme_url", this.webInterfaceUrl.toString());
 
