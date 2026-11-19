@@ -8,7 +8,7 @@ We welcome outside contributions. Here are a few things to know:
   and come up with a good approach together.
 * Please include a reasonable amount of unit tests.
 * The pull request will prompt you to sign the
-  [nzyme CLA](https://cla-assistant.io/lennartkoopmann/nzyme) and it cannot be merged
+  [Nzyme CLA]([https://cla-assistant.io/lennartkoopmann/nzyme](https://cla-assistant.io/nzymeorg/nzyme)) and it cannot be merged
   before that is done.
 * Please create a PR for each feature, bug fix or improvement. Do not mix multiple types
   of changes into a single PR. This makes reviewing and merging much easier.
@@ -18,7 +18,6 @@ We welcome outside contributions. Here are a few things to know:
 The workflow is the same for external contributors and nzyme team members:
 
 * All changes (except really tiny changes for team members with push access) must be performed through a pull request.
-* [Signed commits](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits) are required.
 * A pull request must link to an associated issue ticket and the issue must be assigned to you (you can self-assign)
 * A pull request is ready for review and merge by definition. If it is a work in progress, it must be marked as a draft.
 * Commit messages should always include the associated ticket number
