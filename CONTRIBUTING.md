@@ -8,7 +8,7 @@ We welcome outside contributions. Here are a few things to know:
   and come up with a good approach together.
 * Please include a reasonable amount of unit tests.
 * The pull request will prompt you to sign the
-  [Nzyme CLA]([https://cla-assistant.io/lennartkoopmann/nzyme](https://cla-assistant.io/nzymeorg/nzyme)) and it cannot be merged
+  [Nzyme CLA]([https://cla-assistant.io/lennartkoopmann/nzyme](https://cla-assistant.io/nzymeorg/nzyme) and it cannot be merged
   before that is done.
 * Please create a PR for each feature, bug fix or improvement. Do not mix multiple types
   of changes into a single PR. This makes reviewing and merging much easier.
