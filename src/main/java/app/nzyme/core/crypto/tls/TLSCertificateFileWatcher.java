@@ -2,6 +2,7 @@ package app.nzyme.core.crypto.tls;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.periodicals.Periodical;
+import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.plugin.distributed.messaging.Message;
 import app.nzyme.plugin.distributed.messaging.MessageType;
 import org.apache.logging.log4j.LogManager;
@@ -9,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /*
@@ -22,6 +24,10 @@ import java.util.Optional;
  *
  * A pair that can't be parsed, or whose key doesn't match the certificate (for example while the two files are
  * being written one after the other), is skipped and the certificate in use is kept. The next run tries again.
+ *
+ * The same file permission check that runs at startup (Crypto#verifyFilePermissions) runs before a reload. If it
+ * finds problems, the new certificate is not loaded: the node would refuse to start with those files at its next
+ * restart, so they are refused now. The next run after the permissions are fixed loads the certificate.
  */
 public class TLSCertificateFileWatcher extends Periodical {
 
@@ -72,6 +78,14 @@ public class TLSCertificateFileWatcher extends Periodical {
                 || !TLSUtils.keyMatchesCertificate(onDisk.key(), onDisk.certificates().get(0))) {
             problem("TLS key on disk does not match the TLS certificate on disk [" + onDisk.signature() + "]. " +
                     "Keeping the certificate in use.", null);
+            return;
+        }
+
+        List<NodeFilePermissions.Problem> permissionProblems = nzyme.getCrypto().findFilePermissionProblems();
+        if (!permissionProblems.isEmpty()) {
+            problem("Not loading the TLS certificate on disk [" + onDisk.signature() + "] because nzyme would " +
+                    "refuse to start with these file permissions. Keeping the certificate in use. " +
+                    NodeFilePermissions.buildMessage(permissionProblems), null);
             return;
         }
 

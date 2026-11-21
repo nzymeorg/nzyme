@@ -719,11 +719,19 @@ public class Crypto {
             return;
         }
 
-        List<NodeFilePermissions.Problem> problems = new NodeFilePermissions(nzyme.getConfiguration()).check();
+        List<NodeFilePermissions.Problem> problems = findFilePermissionProblems();
 
         if (!problems.isEmpty()) {
             throw new CryptoInitializationException(NodeFilePermissions.buildMessage(problems) + "\nRefusing to start.");
         }
+    }
+
+    /*
+     * The permission problems that make the node refuse to start (see verifyFilePermissions()). Also used by
+     * TLSCertificateFileWatcher to refuse loading TLS files at runtime that the node would refuse at the next start.
+     */
+    public List<NodeFilePermissions.Problem> findFilePermissionProblems() {
+        return new NodeFilePermissions(nzyme.getConfiguration()).check();
     }
 
     /*
