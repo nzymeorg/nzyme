@@ -1779,6 +1779,7 @@ dependencies = [
  "psl",
  "rand 0.10.0",
  "regex",
+ "remoteid",
  "reqwest",
  "rusb",
  "rustls",
@@ -2285,6 +2286,12 @@ name = "regex-syntax"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
+
+[[package]]
+name = "remoteid"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "265f4316fa34247037d01a935a715e49397cbd3a2312dedc2e03e4ba31026d8b"
 
 [[package]]
 name = "reqwest"

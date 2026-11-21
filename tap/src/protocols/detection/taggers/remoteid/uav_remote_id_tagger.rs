@@ -43,23 +43,23 @@ pub fn tag(data: &[u8], bssid: String, rssi: Option<i8>, frequency: Option<u16>)
     });
 
     if message_type == 15 {
-        // Message Pack. Iterate over all messages.
-        let mut cursor = 8;
+        // Message Pack. Walk exactly the messages the pack header declares.
+        let pack = match remoteid::MessagePack::parse(&data[5..]) {
+            Ok(pack) => pack,
+            Err(e) => {
+                tracemark!("Invalid remote ID message pack: {:?}", e);
+                return None
+            }
+        };
 
         let mut intact_messages = 0;
-        loop {
-            if data.len() < cursor+25 { // Message must be 25 bytes long.
-                break
-            }
-
-            match parse_message(&data[cursor..cursor+25], &mut parent_message) { Err(e) => {
+        for message in pack.raw_messages() {
+            match parse_message(message, &mut parent_message) { Err(e) => {
                 tracemark!("Could not parse remote ID message in pack: {:?}", e);
                 // We continue with other messages in this pack.
             } _ => {
                 intact_messages += 1;
             }}
-
-            cursor += 25;
         }
 
         // Check if we parsed anything successfully at all.
@@ -424,5 +424,67 @@ fn decode_altitude(data: &[u8]) -> Option<f32> {
         None
     } else {
         Some(decoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tag;
+    use remoteid::{BasicId, HeightType, IdType, Location, Message, MessagePackBuilder, Status, UaType};
+
+    fn vendor_element(pack: &[u8]) -> Vec<u8> {
+        let mut ie = vec![0xFA, 0x0B, 0xBC, 0x0D, 0x01];
+        ie.extend_from_slice(pack);
+        ie
+    }
+
+    fn location() -> [u8; 25] {
+        Message::Location(Location {
+            status: Status::Airborne,
+            height_type: HeightType::AboveTakeoff,
+            speed_horizontal: Some(5.0),
+            speed_vertical: Some(1.0),
+            latitude: 51.5,
+            longitude: -0.12,
+            ..Location::default()
+        }).encode().unwrap()
+    }
+
+    fn basic_id_pack() -> Vec<u8> {
+        let mut b = MessagePackBuilder::new();
+        b.push(&Message::BasicId(BasicId::new(
+            IdType::SerialNumber, UaType::HelicopterOrMultirotor, "1596F3507452").unwrap()
+        )).unwrap();
+        b.as_bytes().to_vec()
+    }
+
+    #[test]
+    fn pack_stops_at_declared_message_count() {
+        // Pack header says one message; 25 trailing bytes must not be decoded as a second one.
+        let mut pack = basic_id_pack();
+        pack.extend_from_slice(&location());
+
+        let msg = tag(&vendor_element(&pack), "00:00:00:00:00:00".into(), Some(-50), Some(2437)).unwrap();
+        assert_eq!(msg.ids.len(), 1);
+        assert_eq!(msg.ids[0].id, "1596F3507452");
+        assert!(msg.location_and_vector.is_none());
+    }
+
+    #[test]
+    fn pack_with_wrong_message_size_is_rejected() {
+        let mut pack = basic_id_pack();
+        pack[1] = 24;
+
+        assert!(tag(&vendor_element(&pack), "00:00:00:00:00:00".into(), Some(-50), Some(2437)).is_none());
+    }
+
+    #[test]
+    fn pack_with_location_is_decoded() {
+        let mut b = MessagePackBuilder::new();
+        b.push_raw(&location()).unwrap();
+
+        let msg = tag(&vendor_element(b.as_bytes()), "00:00:00:00:00:00".into(), Some(-50), Some(2437)).unwrap();
+        let loc = msg.location_and_vector.unwrap();
+        assert!((loc.latitude - 51.5).abs() < 1e-6);
     }
 }
