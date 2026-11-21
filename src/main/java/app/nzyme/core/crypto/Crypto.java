@@ -719,14 +719,26 @@ public class Crypto {
             return;
         }
 
-        List<NodeFilePermissions.Problem> problems = new NodeFilePermissions(nzyme.getConfiguration()).check();
+        List<NodeFilePermissions.Problem> problems = findFilePermissionProblems();
 
         if (!problems.isEmpty()) {
             throw new CryptoInitializationException(NodeFilePermissions.buildMessage(problems) + "\nRefusing to start.");
         }
     }
 
-    private Optional<TLSKeyAndCertificate> loadTLSCertificateFromDisk() {
+    /*
+     * The permission problems that make the node refuse to start (see verifyFilePermissions()). Also used by
+     * TLSCertificateFileWatcher to refuse loading TLS files at runtime that the node would refuse at the next start.
+     */
+    public List<NodeFilePermissions.Problem> findFilePermissionProblems() {
+        return new NodeFilePermissions(nzyme.getConfiguration()).check();
+    }
+
+    /*
+     * Reads tls.cert / tls.key from the crypto directory, if both exist. Also used by TLSCertificateFileWatcher to
+     * notice a certificate that was replaced on disk while the node is running.
+     */
+    public Optional<TLSKeyAndCertificate> loadTLSCertificateFromDisk() {
         File certFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_CERTIFICATE_FILE_NAME).toFile();
         File keyFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_KEY_FILE_NAME).toFile();
 
