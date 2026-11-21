@@ -46,6 +46,8 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
 
     // TSFT.
     if present_flags.tsft {
+        // Radiotap spec: TSFT must be 8-byte aligned.
+        radiotap_buffer.align(8);
         // not parsing
         let _ = match radiotap_buffer.take(8) {
             Some(a) => a,
