@@ -13,7 +13,8 @@ pub struct UavRemoteIdMessage {
     pub system: Option<SystemMessage>,
     pub self_id: Option<SelfIdMessage>,
     pub timestamp: DateTime<Utc>,
-    pub frequency: u16
+    pub frequency: u16,
+    pub trust: Option<remoteid::Verdict>
 }
 
 #[derive(Debug)]

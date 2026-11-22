@@ -1,7 +1,10 @@
+use std::sync::{LazyLock, Mutex};
+
 use anyhow::{Result, bail};
 use base64::Engine;
 use chrono::Utc;
 use log::{debug, info, warn};
+use remoteid::{Observation, Tracker, TrackerConfig, Transmitter, Transport, Verdict};
 use uuid::Uuid;
 use crate::protocols::detection::taggers::remoteid::messages::{BasicIdMessage, ClassificationCategory, ClassificationClass, ClassificationType, HeightType, IdType, LocationVectorMessage, OperationalStatus, OperatorIdMessage, OperatorLocationType, UavRemoteIdMessage, SelfIdMessage, SystemMessage, UavIdSummary, UavType, RemoteIdType};
 use crate::tracemark;
@@ -67,6 +70,9 @@ pub fn tag(data: &[u8], bssid: String, rssi: Option<i8>, frequency: Option<u16>)
             return None
         }
 
+        parent_message.trust = assess_trust(
+            &parent_message.bssid, data, rssi, parent_message.timestamp.timestamp_millis() as u64);
+
         Some(parent_message)
     } else {
         // Single message. Parse.
@@ -80,8 +86,56 @@ pub fn tag(data: &[u8], bssid: String, rssi: Option<i8>, frequency: Option<u16>)
             return None
         }
 
+        parent_message.trust = assess_trust(
+            &parent_message.bssid, data, rssi, parent_message.timestamp.timestamp_millis() as u64);
+
         Some(parent_message)
     }
+}
+
+/// Per-transmitter trust tracker. The hand-rolled parser above decodes one
+/// Wi-Fi frame at a time and keeps no state, so it cannot see the cross-frame
+/// inconsistencies (teleports, reused counters, impossible kinematics, known
+/// spoofing-tool fingerprints) that separate a real drone from a spoofed one.
+/// remoteid's `Tracker` keeps that state per transmitter and expires quiet
+/// aircraft on its own.
+static TRUST_TRACKER: LazyLock<Mutex<Tracker>> =
+    LazyLock::new(|| Mutex::new(Tracker::new(TrackerConfig::default())));
+
+/// Runs the decoded Wi-Fi Remote ID payload through remoteid's trust tracker
+/// and returns the spoof/trust verdict for this transmitter.
+fn assess_trust(bssid: &str, data: &[u8], rssi: Option<i8>, now_ms: u64) -> Option<Verdict> {
+    let addr = parse_bssid(bssid)?;
+
+    if data.len() < 6 {
+        return None
+    }
+
+    // Wi-Fi Remote ID vendor element: 4-byte OUI and vendor type, then a
+    // 1-byte message counter, then the message or message pack remoteid reads.
+    let counter = data[4];
+    let payload = &data[5..];
+
+    let mut obs = Observation::new(Transport::WifiBeacon, Some(counter), payload, now_ms)
+        .with_unix_ms(now_ms);
+    if let Some(rssi) = rssi {
+        obs = obs.with_rssi(rssi);
+    }
+
+    let mut tracker = TRUST_TRACKER.lock().ok()?;
+    Some(tracker.observe(Transmitter::Wifi(addr), &obs).assessment.verdict)
+}
+
+fn parse_bssid(bssid: &str) -> Option<[u8; 6]> {
+    let mut addr = [0u8; 6];
+    let mut parts = bssid.split(':');
+    for byte in addr.iter_mut() {
+        *byte = u8::from_str_radix(parts.next()?, 16).ok()?;
+    }
+    if parts.next().is_some() {
+        return None
+    }
+    Some(addr)
 }
 
 fn parse_message(data: &[u8], parent_message: &mut UavRemoteIdMessage) -> Result<()> {
@@ -424,5 +478,73 @@ fn decode_altitude(data: &[u8]) -> Option<f32> {
         None
     } else {
         Some(decoded)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use remoteid::{BasicId, HorizontalAccuracy, IdType, Location, Message, MessagePackBuilder, UaType, Verdict};
+
+    fn basic_id(serial: &str) -> [u8; 25] {
+        Message::BasicId(
+            BasicId::new(IdType::SerialNumber, UaType::HelicopterOrMultirotor, serial).unwrap(),
+        )
+        .encode()
+        .unwrap()
+    }
+
+    fn location(lat: f64, lon: f64, speed: f32, dir: f32, ts: f32) -> [u8; 25] {
+        Message::Location(Location {
+            latitude: lat,
+            longitude: lon,
+            speed_horizontal: Some(speed),
+            direction: Some(dir),
+            altitude_geo: Some(100.0),
+            timestamp: Some(ts),
+            horizontal_accuracy: HorizontalAccuracy(10),
+            ..Location::default()
+        })
+        .encode()
+        .unwrap()
+    }
+
+    // Open Drone ID Wi-Fi vendor element framing the hand-rolled tagger reads:
+    // OUI 0xFA-0x0B-0xBC, vendor type 0x0D, a message counter, then a pack.
+    fn wifi_frame(serial: &str, lat: f64, lon: f64, speed: f32, dir: f32, ts: f32, counter: u8)
+        -> Vec<u8> {
+        let mut b = MessagePackBuilder::new();
+        b.push_raw(&basic_id(serial)).unwrap();
+        b.push_raw(&location(lat, lon, speed, dir, ts)).unwrap();
+        let mut f = vec![0xFA, 0x0B, 0xBC, 0x0D, counter];
+        f.extend_from_slice(b.as_bytes());
+        f
+    }
+
+    #[test]
+    fn steady_wifi_track_is_plausible() {
+        let bssid = "aa:bb:cc:00:00:01";
+        let mut verdict = None;
+        for i in 0..20u64 {
+            // 10 m/s due north, one frame per second, clock consistent.
+            let lat = 47.0 + (10.0 * i as f64) / 111_195.0;
+            let frame = wifi_frame("1596F35074529ABCDEFG", lat, 8.0, 10.0, 0.0, 600.0 + i as f32, i as u8);
+            verdict = assess_trust(bssid, &frame, Some(-50), 600_000 + 1_000 * i);
+        }
+        assert_eq!(verdict, Some(Verdict::Plausible));
+    }
+
+    #[test]
+    fn teleporting_wifi_transmitter_is_spoofed() {
+        let bssid = "aa:bb:cc:00:00:02";
+        let mut verdict = None;
+        for i in 0..20u64 {
+            // Jumps 2 km east every second while claiming 5 m/s north: the kind
+            // of broadcast the stateless parser accepts and remoteid rejects.
+            let lon = 8.0 + (2_000.0 * i as f64) / 75_800.0;
+            let frame = wifi_frame("1781F79079137HJKLMNP", 47.0, lon, 5.0, 0.0, 600.0 + i as f32, i as u8);
+            verdict = assess_trust(bssid, &frame, Some(-50), 600_000 + 1_000 * i);
+        }
+        assert_eq!(verdict, Some(Verdict::Spoofed));
     }
 }
