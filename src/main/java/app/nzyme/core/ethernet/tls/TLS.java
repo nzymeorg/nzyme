@@ -117,12 +117,12 @@ public class TLS {
                     "BOOL_OR(tls.hello_retry_request) AS hello_retry_request, " +
                     "BOOL_OR(tls.encrypted_client_hello) AS encrypted_client_hello, " +
                     "BOOL_OR(tls.client_certificate_requested) AS client_certificate_requested, " +
-                    "encode(MIN(tls.server_leaf_sha256), 'hex') AS server_leaf_sha256, " +
+                    "MIN(encode(tls.server_leaf_sha256, 'hex')) AS server_leaf_sha256, " +
                     "MIN(leaf.common_name) AS server_leaf_common_name, " +
                     "MIN(leaf.issuer) AS server_leaf_issuer, " +
                     "MIN(leaf.not_after) AS server_leaf_not_after, " +
                     "MIN(tls.server_chain_length) AS server_chain_length, " +
-                    "encode(MIN(tls.client_leaf_sha256), 'hex') AS client_leaf_sha256, " +
+                    "MIN(encode(tls.client_leaf_sha256, 'hex')) AS client_leaf_sha256, " +
                     "BOOL_OR(tls.server_leaf_self_signed) AS server_leaf_self_signed, " +
                     "BOOL_AND(tls.sni_matches_certificate) AS sni_matches_certificate, " +
                     "BOOL_AND(tls.leaf_valid_at_handshake) AS leaf_valid_at_handshake, " +
