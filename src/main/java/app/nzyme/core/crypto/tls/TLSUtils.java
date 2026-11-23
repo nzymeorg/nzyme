@@ -5,6 +5,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
+import app.nzyme.core.security.NodeFilePermissions;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.openssl.PEMKeyPair;
@@ -24,6 +25,7 @@ import java.security.cert.Certificate;
 import java.security.spec.*;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -217,6 +219,25 @@ public class TLSUtils {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /*
+     * Why a certificate and key read from disk must not be loaded into a running node, if there is a reason. Every
+     * reload at runtime has to go through this. The node start has its own checks.
+     */
+    public static Optional<String> findReloadRefusal(TLSKeyAndCertificate onDisk, NodeFilePermissions filePermissions) {
+        if (onDisk.certificates().isEmpty()
+                || !keyMatchesCertificate(onDisk.key(), onDisk.certificates().get(0))) {
+            return Optional.of("The TLS key on disk does not match the TLS certificate on disk.");
+        }
+
+        List<NodeFilePermissions.Problem> permissionProblems = filePermissions.check();
+        if (!permissionProblems.isEmpty()) {
+            return Optional.of("The node would refuse to start with these file permissions. "
+                    + NodeFilePermissions.buildMessage(permissionProblems));
+        }
+
+        return Optional.empty();
     }
 
     public static TLSKeyAndCertificate readTLSKeyAndCertificateFromInputStreams(UUID nodeId,

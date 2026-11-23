@@ -10,7 +10,6 @@ import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 /*
@@ -18,16 +17,13 @@ import java.util.Optional;
  * is running, so automated renewal (ACME clients, `tailscale cert`, cert-manager, ...) only has to write the two
  * files. Without this, a renewed certificate on disk is only loaded at the next restart of nzyme.
  *
- * When the certificate on disk differs from the one the HTTP server is using, and its key matches it, this sends
- * the same CHECK_RESTART_HTTP_SERVER message that a certificate upload in the web interface sends. That handler
- * re-runs the TLS bootstrap and restarts the HTTP server only if the certificate actually changed.
+ * When the certificate on disk differs from the one the HTTP server is using, this sends the same
+ * CHECK_RESTART_HTTP_SERVER message that a certificate upload in the web interface sends. That handler re-runs the
+ * TLS bootstrap and restarts the HTTP server only if the certificate actually changed.
  *
- * A pair that can't be parsed, or whose key doesn't match the certificate (for example while the two files are
- * being written one after the other), is skipped and the certificate in use is kept. The next run tries again.
- *
- * The same file permission check that runs at startup (Crypto#verifyFilePermissions) runs before a reload. If it
- * finds problems, the new certificate is not loaded: the node would refuse to start with those files at its next
- * restart, so they are refused now. The next run after the permissions are fixed loads the certificate.
+ * A pair that can't be parsed or that TLSUtils#findReloadRefusal refuses (key doesn't match the certificate, for
+ * example while the two files are being written one after the other, or file permissions the node would refuse to
+ * start with) is skipped and the certificate in use is kept. The next run tries again.
  */
 public class TLSCertificateFileWatcher extends Periodical {
 
@@ -74,18 +70,11 @@ public class TLSCertificateFileWatcher extends Periodical {
             return;
         }
 
-        if (onDisk.certificates().isEmpty()
-                || !TLSUtils.keyMatchesCertificate(onDisk.key(), onDisk.certificates().get(0))) {
-            problem("TLS key on disk does not match the TLS certificate on disk [" + onDisk.signature() + "]. " +
-                    "Keeping the certificate in use.", null);
-            return;
-        }
-
-        List<NodeFilePermissions.Problem> permissionProblems = nzyme.getCrypto().findFilePermissionProblems();
-        if (!permissionProblems.isEmpty()) {
-            problem("Not loading the TLS certificate on disk [" + onDisk.signature() + "] because nzyme would " +
-                    "refuse to start with these file permissions. Keeping the certificate in use. " +
-                    NodeFilePermissions.buildMessage(permissionProblems), null);
+        // The handler of the message runs this check again on what it loads. Here it keeps refused files off the bus.
+        Optional<String> refusal = TLSUtils.findReloadRefusal(onDisk, new NodeFilePermissions(nzyme.getConfiguration()));
+        if (refusal.isPresent()) {
+            problem("Not loading the TLS certificate on disk [" + onDisk.signature() + "]. Keeping the certificate " +
+                    "in use. " + refusal.get(), null);
             return;
         }
 

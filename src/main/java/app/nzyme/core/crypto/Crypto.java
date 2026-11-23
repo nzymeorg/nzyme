@@ -662,9 +662,19 @@ public class Crypto {
     }
 
     public KeyStoreBootstrapResult bootstrapTLSKeyStore() {
+        Optional<TLSKeyAndCertificate> diskCert;
         try {
-            Optional<TLSKeyAndCertificate> diskCert = loadTLSCertificateFromDisk();
+            diskCert = loadTLSCertificateFromDisk();
+        } catch(Exception e) {
+            throw new RuntimeException("Could not build TLS key store.", e);
+        }
 
+        return bootstrapTLSKeyStore(diskCert);
+    }
+
+    // A reload at runtime passes the certificate from disk it has checked, so that no other one is loaded.
+    public KeyStoreBootstrapResult bootstrapTLSKeyStore(Optional<TLSKeyAndCertificate> diskCert) {
+        try {
             TLSKeyAndCertificate tls;
             if (diskCert.isPresent()) {
                 Optional<TLSKeyAndCertificate> existingCert = findTLSKeyAndCertificateOfNode(nodeId);
@@ -719,25 +729,13 @@ public class Crypto {
             return;
         }
 
-        List<NodeFilePermissions.Problem> problems = findFilePermissionProblems();
+        List<NodeFilePermissions.Problem> problems = new NodeFilePermissions(nzyme.getConfiguration()).check();
 
         if (!problems.isEmpty()) {
             throw new CryptoInitializationException(NodeFilePermissions.buildMessage(problems) + "\nRefusing to start.");
         }
     }
 
-    /*
-     * The permission problems that make the node refuse to start (see verifyFilePermissions()). Also used by
-     * TLSCertificateFileWatcher to refuse loading TLS files at runtime that the node would refuse at the next start.
-     */
-    public List<NodeFilePermissions.Problem> findFilePermissionProblems() {
-        return new NodeFilePermissions(nzyme.getConfiguration()).check();
-    }
-
-    /*
-     * Reads tls.cert / tls.key from the crypto directory, if both exist. Also used by TLSCertificateFileWatcher to
-     * notice a certificate that was replaced on disk while the node is running.
-     */
     public Optional<TLSKeyAndCertificate> loadTLSCertificateFromDisk() {
         File certFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_CERTIFICATE_FILE_NAME).toFile();
         File keyFile = Paths.get(cryptoDirectoryConfig.toString(), TLS_KEY_FILE_NAME).toFile();

@@ -3,6 +3,8 @@ package app.nzyme.core.rest.server;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.tls.KeyStoreBootstrapResult;
 import app.nzyme.core.crypto.tls.TLSKeyAndCertificate;
+import app.nzyme.core.crypto.tls.TLSUtils;
+import app.nzyme.core.security.NodeFilePermissions;
 import app.nzyme.core.rest.CORSFilter;
 import app.nzyme.core.rest.NzymeExceptionMapper;
 import app.nzyme.core.rest.NzymeLeaderInjectionBinder;
@@ -66,6 +68,7 @@ import tools.jackson.jakarta.rs.json.JacksonJsonProvider;
 import javax.net.ssl.SSLContext;
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -90,15 +93,28 @@ public class NzymeHttpServer {
                 LOG.info("Received request to check for a potential restart of HTTP server. Current certificate: [{}]",
                         getCertificateInUse().signature());
                 try {
+                    Optional<TLSKeyAndCertificate> onDisk = nzyme.getCrypto().loadTLSCertificateFromDisk();
+                    if (onDisk.isPresent() && !onDisk.get().signature().equals(getCertificateInUse().signature())) {
+                        Optional<String> refusal = TLSUtils.findReloadRefusal(
+                                onDisk.get(), new NodeFilePermissions(nzyme.getConfiguration())
+                        );
+
+                        if (refusal.isPresent()) {
+                            LOG.warn("Not loading the TLS certificate on disk [{}]. Keeping the certificate in use. {}",
+                                    onDisk.get().signature(), refusal.get());
+                            return MessageProcessingResult.SUCCESS;
+                        }
+                    }
+
                     /*
                      * Run the whole cert bootstrap and compare against cert currently in use to determine if there is
-                     * a new cert. If there is a new cert, restart the server, which will load that cert.
+                     * a new cert. If there is a new cert, restart the server with that cert.
                      */
-                    KeyStoreBootstrapResult keyStore = nzyme.getCrypto().bootstrapTLSKeyStore();
+                    KeyStoreBootstrapResult keyStore = nzyme.getCrypto().bootstrapTLSKeyStore(onDisk);
                     LOG.info("TLS bootstrap certificate decision: [{}]", keyStore.loadedCertificate().signature());
                     if (!keyStore.loadedCertificate().signature().equals(getCertificateInUse().signature())) {
                         LOG.info("Restarting HTTP server to load new TLS certificate.");
-                        reloadHttpServer(0, TimeUnit.SECONDS);
+                        reloadHttpServer(0, TimeUnit.SECONDS, keyStore);
                     } else {
                         LOG.info("No restart of HTTP server required: Certificate did not change.");
                     }
@@ -118,6 +134,10 @@ public class NzymeHttpServer {
     }
 
     public void initialize() {
+        initialize(nzyme.getCrypto().bootstrapTLSKeyStore());
+    }
+
+    private void initialize(KeyStoreBootstrapResult keyStore) {
         JsonMapper om = JsonMapper.builder()
                 .addModule(new JodaModule())
                 .addModule(new JavaTimeModule())
@@ -239,7 +259,6 @@ public class NzymeHttpServer {
         resourceConfig.register(WebInterfaceAssetsResource.class);
 
         try {
-            KeyStoreBootstrapResult keyStore = nzyme.getCrypto().bootstrapTLSKeyStore();
             final SSLContextConfigurator sslContextConfigurator = new SSLContextConfigurator();
             sslContextConfigurator.setKeyStorePass("".toCharArray());
             sslContextConfigurator.setKeyStoreBytes(keyStore.keystoreBytes());
@@ -291,11 +310,11 @@ public class NzymeHttpServer {
         return certificateInUse;
     }
 
-    public void reloadHttpServer(int gracePeriod, TimeUnit tu) {
+    private void reloadHttpServer(int gracePeriod, TimeUnit tu, KeyStoreBootstrapResult keyStore) {
         Executors.newSingleThreadExecutor().submit(() -> {
             LOG.info("Restarting HTTP server.");
             server.shutdown(gracePeriod, tu);
-            initialize();
+            initialize(keyStore);
         });
     }
 
