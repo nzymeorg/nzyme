@@ -343,6 +343,11 @@ public class NodeManager {
             }
             writeGauge(MetricExternalName.FILE_PERMISSION_ISSUES.database_label, filePermissionProblems.size());
 
+            writeGauge(MetricExternalName.CONNECT_DATA_FAILING.database_label,
+                    metrics.counter(MetricNames.CONNECT_DATA_FAILING).getCount());
+            writeTimer(MetricExternalName.CONNECT_DATA_REFRESH_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.CONNECT_DATA_REFRESH_TIMER));
+
             // Database connection pool. Active and pending are peaks of the last completed minute, see PoolMetricsTracker.
             writeGauge(MetricExternalName.DATABASE_POOL_ACTIVE_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_PEAK_ACTIVE_CONNECTIONS));
             writeGauge(MetricExternalName.DATABASE_POOL_IDLE_CONNECTIONS.database_label, getLocalMetricsGaugeValue(metrics, MetricNames.DATABASE_POOL_IDLE_CONNECTIONS));

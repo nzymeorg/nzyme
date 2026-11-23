@@ -326,7 +326,7 @@ public class SystemCollector {
             case "message_bus_message_stuck" -> "A message on the message bus is stuck.";
             case "tap_file_permissions" -> "A tap has files with unsafe permissions.";
             case "node_file_permissions" -> "A node has files with unsafe permissions.";
-            case "connect" -> "Connect is enabled but the cluster cannot reach it. Data from Connect is not updated.";
+            case "connect" -> "Connect is enabled but the cluster cannot reach it or a node cannot update its Connect data.";
             case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
             case "segmentation_lag" -> "Segmentation is behind on evaluating recorded sessions.";
             case "db_configuration" -> "PostgreSQL server settings are below the Nzyme requirements.";

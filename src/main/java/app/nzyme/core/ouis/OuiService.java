@@ -1,22 +1,20 @@
 package app.nzyme.core.ouis;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.connect.ConnectDataset;
 import app.nzyme.core.connect.ConnectRegistryKeys;
 import app.nzyme.core.util.MetricNames;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -33,15 +31,36 @@ public class OuiService {
 
     private final ScheduledExecutorService refresher;
 
+    private final ConnectDataset dataset;
+
     private final ReentrantLock lock = new ReentrantLock();
-    private Map<String, String> ouis;
+    private Map<String, String> ouis = Map.of();
 
     // Can be disabled if Connect is not set up or OUI data source is not enabled in Connect.
-    private boolean isEnabled = false;
+    private volatile boolean isEnabled = false;
 
     public OuiService(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.lookupTimer = nzyme.getMetrics().timer(MetricRegistry.name(MetricNames.OUI_LOOKUP_TIMING));
+
+        ObjectMapper om = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+
+        this.dataset = ConnectDataset.create(nzyme, "ouis", List.of("data", "oui", "all"), false,
+                new ConnectDataset.Consumer() {
+                    @Override
+                    public void load(Path file) {
+                        setOuis(om.readValue(file.toFile(), ConnectOuiResponse.class).ouis());
+                    }
+
+                    @Override
+                    public void unload() {
+                        setOuis(Map.of());
+                    }
+                }
+        );
 
         // Reload on configuration change.
         nzyme.getRegistryChangeMonitor()
@@ -63,37 +82,41 @@ public class OuiService {
         refresher.scheduleAtFixedRate(this::reload, 1, 1, TimeUnit.HOURS);
     }
 
-    private void reload() {
-        // Reload with new registry settings.
-        initialize();
-    }
-
-    public void initialize() {
-        // IMPORTANT: This method will also be called on configuration changes.
-
-        this.isEnabled = nzyme.getConnect().isEnabled();
-        if (!this.isEnabled) {
-            return;
-        }
-
+    private void setOuis(Map<String, String> ouis) {
         lock.lock();
 
         try {
-            Optional<Map<String, String>> data = fetchOuisFromConnect();
+            this.ouis = ouis;
+        } finally {
+            lock.unlock();
+        }
+    }
 
-            // Check if OUI data was disabled in Connect for this cluster.
-            if (data.isEmpty()) {
+    private synchronized void reload() {
+        try {
+            if (!nzyme.getConnect().isEnabled()) {
                 this.isEnabled = false;
+                dataset.delete();
                 return;
             }
 
-            this.ouis = data.get();
-            this.isEnabled = true;
+            this.isEnabled = dataset.refresh();
         } catch (Exception e) {
-            LOG.error("Could not download OUI data from Connect.", e);
-            this.isEnabled = false;
-        } finally {
-            lock.unlock();
+            LOG.error("Could not reload OUI data.", e);
+        }
+    }
+
+    public synchronized void initialize() {
+        if (!nzyme.getConnect().isEnabled()) {
+            dataset.delete();
+            return;
+        }
+
+        if (dataset.loadFromDisk()) {
+            this.isEnabled = true;
+            refresher.execute(this::reload);
+        } else {
+            reload();
         }
     }
 
@@ -116,60 +139,6 @@ public class OuiService {
             } finally {
                 lock.unlock();
             }
-        }
-    }
-
-    private Optional<Map<String, String>> fetchOuisFromConnect() {
-        LOG.debug("Loading new OUIs from Connect.");
-
-        try {
-            OkHttpClient c = new OkHttpClient.Builder()
-                    .connectTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.MINUTES)
-                    .followRedirects(true)
-                    .build();
-
-            HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
-                    .newBuilder()
-                    .addPathSegment("data")
-                    .addPathSegment("oui")
-                    .addPathSegment("all")
-                    .build();
-
-            Response response = c.newCall(new Request.Builder()
-                    .addHeader("User-Agent", "nzyme")
-                    .get()
-                    .url(url)
-                    .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
-                    .build()
-            ).execute();
-
-            try (response) {
-                if (!response.isSuccessful()) {
-                    if (response.code() == 403) {
-                        // OUI data disabled in Connect for this cluster.
-                        return Optional.empty();
-                    }
-
-                    throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
-                }
-
-                LOG.info("OUI data download from Connect complete.");
-
-                ObjectMapper om = JsonMapper.builder()
-                        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .build();
-
-                ConnectOuiResponse data = om.readValue(response.body().bytes(), ConnectOuiResponse.class);
-                return Optional.of(data.ouis());
-            }
-        } catch (Exception e) {
-            LOG.error("Could not download OUI data from Connect.", e);
-            return Optional.empty();
         }
     }
 

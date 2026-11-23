@@ -1,6 +1,7 @@
 package app.nzyme.core.uav;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.connect.ConnectDataset;
 import app.nzyme.core.connect.ConnectRegistryKeys;
 import app.nzyme.core.shared.Classification;
 import app.nzyme.core.uav.db.UavEntry;
@@ -12,14 +13,9 @@ import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.TimeRange;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import jakarta.validation.constraints.NotNull;
 
@@ -28,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -45,16 +42,50 @@ public class Uav {
 
     private final ScheduledExecutorService connectModelsRefresher;
 
+    private final ConnectDataset connectModelsDataset;
+
     private final ReentrantLock connectModelsLock = new ReentrantLock();
-    private List<ConnectUavModel> connectModels;
+    private List<ConnectUavModel> connectModels = List.of();
 
     // Can be disabled if Connect is not set up or UAV models data source is not enabled in Connect.
-    private boolean connectModelsIsEnabled = false;
+    private volatile boolean connectModelsIsEnabled = false;
 
     public Uav(NzymeNode nzyme) {
         this.nzyme = nzyme;
 
         this.connectModelLookupTimer = nzyme.getMetrics().timer(MetricRegistry.name(MetricNames.UAV_CONNECT_TYPE_LOOKUP_TIMING));
+
+        ObjectMapper om = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+
+        this.connectModelsDataset = ConnectDataset.create(nzyme, "uav-models", List.of("data", "uav", "models"), false,
+                new ConnectDataset.Consumer() {
+                    @Override
+                    public void load(Path file) {
+                        List<ConnectUavModel> models = Lists.newArrayList();
+                        for (ConnectUavModelDetailsResponse model : om.readValue(file.toFile(), ConnectUavModelListResponse.class).models()) {
+                            models.add(ConnectUavModel.create(
+                                    model.masterId(),
+                                    model.make(),
+                                    model.model(),
+                                    model.fccId(),
+                                    model.classification(),
+                                    model.serialType(),
+                                    model.serial()
+                            ));
+                        }
+
+                        setConnectModels(models);
+                    }
+
+                    @Override
+                    public void unload() {
+                        setConnectModels(List.of());
+                    }
+                }
+        );
 
         // Reload connect models on configuration change.
         nzyme.getRegistryChangeMonitor()
@@ -76,110 +107,41 @@ public class Uav {
         connectModelsRefresher.scheduleAtFixedRate(this::reloadConnectModels, 1, 1, TimeUnit.HOURS);
     }
 
-    private void reloadConnectModels() {
-        // Reload with new registry settings.
-        initializeConnectModels();
-    }
-
-    public void initializeConnectModels() {
-        // IMPORTANT: This method will also be called on configuration changes.
-
-        this.connectModelsIsEnabled = nzyme.getConnect().isEnabled();
-        if (!this.connectModelsIsEnabled) {
-            return;
-        }
-
+    private void setConnectModels(List<ConnectUavModel> models) {
         connectModelsLock.lock();
 
         try {
-            Optional<ConnectUavModelListResponse> data = fetchModelsFromConnect();
-
-            // Check if UAV model data was disabled in Connect for this cluster.
-            if (data.isEmpty()) {
-                this.connectModelsIsEnabled = false;
-                return;
-            }
-
-            List<ConnectUavModel> models = Lists.newArrayList();
-            for (ConnectUavModelDetailsResponse model : data.get().models()) {
-                    models.add(ConnectUavModel.create(
-                            model.masterId(),
-                            model.make(),
-                            model.model(),
-                            model.fccId(),
-                            model.classification(),
-                            model.serialType(),
-                            model.serial()
-                    ));
-            }
-
             this.connectModels = models;
-            this.connectModelsIsEnabled = true;
-        } catch (Exception e) {
-            LOG.error("Could not download UAV model data from Connect.", e);
-            this.connectModelsIsEnabled = false;
         } finally {
             connectModelsLock.unlock();
         }
     }
 
-
-    private Optional<ConnectUavModelListResponse> fetchModelsFromConnect() {
-        LOG.debug("Loading new UAV models from Connect.");
-
+    private synchronized void reloadConnectModels() {
         try {
-            OkHttpClient c = new OkHttpClient.Builder()
-                    .connectTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.MINUTES)
-                    .followRedirects(true)
-                    .build();
-
-            HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
-                    .newBuilder()
-                    .addPathSegment("data")
-                    .addPathSegment("uav")
-                    .addPathSegment("models")
-                    .build();
-
-            Response response = c.newCall(new Request.Builder()
-                    .addHeader("User-Agent", "nzyme")
-                    .get()
-                    .url(url)
-                    .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
-                    .build()
-            ).execute();
-
-            try (response) {
-                if (!response.isSuccessful()) {
-                    if (response.code() == 403) {
-                        // UAV model data disabled in Connect for this cluster.
-                        return Optional.empty();
-                    }
-
-                    throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
-                }
-
-
-                if (response.body() == null) {
-                    throw new RuntimeException("Empty response.");
-                }
-
-                LOG.info("UAV model data download from Connect complete.");
-
-                ObjectMapper om = JsonMapper.builder()
-                        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .build();
-
-                ConnectUavModelListResponse data = om.readValue(response.body().bytes(), ConnectUavModelListResponse.class);
-                return Optional.of(data);
+            if (!nzyme.getConnect().isEnabled()) {
+                this.connectModelsIsEnabled = false;
+                connectModelsDataset.delete();
+                return;
             }
+
+            this.connectModelsIsEnabled = connectModelsDataset.refresh();
         } catch (Exception e) {
-            LOG.error("Could not download UAV model data from Connect.", e);
-            return Optional.empty();
+            LOG.error("Could not reload UAV model data.", e);
+        }
+    }
+
+    public synchronized void initializeConnectModels() {
+        if (!nzyme.getConnect().isEnabled()) {
+            connectModelsDataset.delete();
+            return;
+        }
+
+        if (connectModelsDataset.loadFromDisk()) {
+            this.connectModelsIsEnabled = true;
+            connectModelsRefresher.execute(this::reloadConnectModels);
+        } else {
+            reloadConnectModels();
         }
     }
 

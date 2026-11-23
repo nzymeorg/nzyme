@@ -2,6 +2,8 @@ package app.nzyme.core.monitoring.health.indicators;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.connect.ConnectRegistryKeys;
+import app.nzyme.core.distributed.MetricExternalName;
+import app.nzyme.core.distributed.Node;
 import app.nzyme.core.events.types.SystemEventType;
 import app.nzyme.core.monitoring.health.Indicator;
 import app.nzyme.core.monitoring.health.db.IndicatorStatus;
@@ -37,7 +39,23 @@ public class ConnectIndicator extends Indicator {
             return IndicatorStatus.red(this);
         }
 
-        return IndicatorStatus.green(this);
+        return nzyme.getDatabase().withHandle(handle -> {
+            for (Node node : nzyme.getNodeManager().getNodes()) {
+                if (node.deleted()) {
+                    continue;
+                }
+
+                Optional<Double> failing = nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
+                        node.uuid(), MetricExternalName.CONNECT_DATA_FAILING.database_label, handle
+                );
+
+                if (failing.isPresent() && failing.get() > 0) {
+                    return IndicatorStatus.red(this);
+                }
+            }
+
+            return IndicatorStatus.green(this);
+        });
     }
 
     @Override

@@ -1,6 +1,7 @@
 package app.nzyme.core.bluetooth.sig;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.connect.ConnectDataset;
 import app.nzyme.core.connect.ConnectRegistryKeys;
 import app.nzyme.core.util.MetricNames;
 import com.codahale.metrics.MetricRegistry;
@@ -8,16 +9,13 @@ import com.codahale.metrics.Timer;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
-import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Executors;
@@ -35,12 +33,15 @@ public class BluetoothSigService {
 
     private final ScheduledExecutorService refresher;
 
+    private final ConnectDataset companyIdsDataset;
+    private final ConnectDataset serviceUuidsDataset;
+
     private final ReentrantLock lock = new ReentrantLock();
-    private Map<Integer, String> companyIds;
-    private Map<String, String> serviceUuids;
+    private Map<Integer, String> companyIds = Map.of();
+    private Map<String, String> serviceUuids = Map.of();
 
     // Can be disabled if Connect is not set up or BT SIG data source is not enabled in Connect.
-    private boolean isEnabled = false;
+    private volatile boolean isEnabled = false;
 
     public BluetoothSigService(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -48,6 +49,51 @@ public class BluetoothSigService {
                 .timer(MetricRegistry.name(MetricNames.BTSIG_CID_LOOKUP_TIMING));
         this.serviceUuidLookupTimer = nzyme.getMetrics()
                 .timer(MetricRegistry.name(MetricNames.BTSIG_SUUID_LOOKUP_TIMING));
+
+        ObjectMapper om = JsonMapper.builder()
+                .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .build();
+
+        this.companyIdsDataset = ConnectDataset.create(nzyme, "bluetooth-company-ids",
+                List.of("data", "bluetooth", "companyids"), false,
+                new ConnectDataset.Consumer() {
+                    @Override
+                    public void load(Path file) {
+                        Map<Integer, String> table = Maps.newHashMap();
+                        for (ConnectCompanyIdResponse id : om.readValue(file.toFile(), ConnectCompanyIdListResponse.class).companyIds()) {
+                            table.put(id.companyId(), id.name());
+                        }
+
+                        setCompanyIds(table);
+                    }
+
+                    @Override
+                    public void unload() {
+                        setCompanyIds(Map.of());
+                    }
+                }
+        );
+
+        this.serviceUuidsDataset = ConnectDataset.create(nzyme, "bluetooth-service-uuids",
+                List.of("data", "bluetooth", "serviceuuids"), false,
+                new ConnectDataset.Consumer() {
+                    @Override
+                    public void load(Path file) {
+                        Map<String, String> table = Maps.newHashMap();
+                        for (ConnectServiceUuidResponse id : om.readValue(file.toFile(), ConnectServiceUuidListResponse.class).serviceUuids()) {
+                            table.put(id.uuid(), id.name());
+                        }
+
+                        setServiceUuids(table);
+                    }
+
+                    @Override
+                    public void unload() {
+                        setServiceUuids(Map.of());
+                    }
+                }
+        );
 
         // Reload on configuration change.
         nzyme.getRegistryChangeMonitor()
@@ -69,39 +115,58 @@ public class BluetoothSigService {
         refresher.scheduleAtFixedRate(this::reload, 1, 1, TimeUnit.HOURS);
     }
 
-    private void reload() {
-        // Reload with new registry settings.
-        initialize();
-    }
-
-    public void initialize() {
-        // IMPORTANT: This method will also be called on configuration changes.
-
-        this.isEnabled = nzyme.getConnect().isEnabled();
-        if (!this.isEnabled) {
-            return;
-        }
-
+    private void setCompanyIds(Map<Integer, String> companyIds) {
         lock.lock();
 
         try {
-            Optional<Map<Integer, String>> companyIds = fetchCompanyIdsFromConnect();
-            Optional<Map<String, String>> serviceUuids = fetchServiceUuidsFromConnect();
+            this.companyIds = companyIds;
+        } finally {
+            lock.unlock();
+        }
+    }
 
-            // Check if BT SIG data was disabled in Connect for this cluster. (It's enough to check for one type)
-            if (companyIds.isEmpty()) {
+    private void setServiceUuids(Map<String, String> serviceUuids) {
+        lock.lock();
+
+        try {
+            this.serviceUuids = serviceUuids;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private synchronized void reload() {
+        try {
+            if (!nzyme.getConnect().isEnabled()) {
                 this.isEnabled = false;
+                companyIdsDataset.delete();
+                serviceUuidsDataset.delete();
                 return;
             }
 
-            this.companyIds = companyIds.get();
-            this.serviceUuids = serviceUuids.get();
-            this.isEnabled = true;
+            boolean companyIdsLoaded = companyIdsDataset.refresh();
+            boolean serviceUuidsLoaded = serviceUuidsDataset.refresh();
+            this.isEnabled = companyIdsLoaded && serviceUuidsLoaded;
         } catch (Exception e) {
-            LOG.error("Could not download Bluetooth SIG data from Connect.", e);
-            this.isEnabled = false;
-        } finally {
-            lock.unlock();
+            LOG.error("Could not reload Bluetooth SIG data.", e);
+        }
+    }
+
+    public synchronized void initialize() {
+        if (!nzyme.getConnect().isEnabled()) {
+            companyIdsDataset.delete();
+            serviceUuidsDataset.delete();
+            return;
+        }
+
+        boolean companyIdsLoaded = companyIdsDataset.loadFromDisk();
+        boolean serviceUuidsLoaded = serviceUuidsDataset.loadFromDisk();
+
+        if (companyIdsLoaded && serviceUuidsLoaded) {
+            this.isEnabled = true;
+            refresher.execute(this::reload);
+        } else {
+            reload();
         }
     }
 
@@ -136,136 +201,6 @@ public class BluetoothSigService {
             } finally {
                 lock.unlock();
             }
-        }
-    }
-
-    private Optional<Map<Integer, String>> fetchCompanyIdsFromConnect() {
-        LOG.debug("Loading new Bluetooth SIG Company IDs from Connect.");
-
-        try {
-            OkHttpClient c = new OkHttpClient.Builder()
-                    .connectTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.MINUTES)
-                    .followRedirects(true)
-                    .build();
-
-            HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
-                    .newBuilder()
-                    .addPathSegment("data")
-                    .addPathSegment("bluetooth")
-                    .addPathSegment("companyids")
-                    .build();
-
-            Response response = c.newCall(new Request.Builder()
-                    .addHeader("User-Agent", "nzyme")
-                    .get()
-                    .url(url)
-                    .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
-                    .build()
-            ).execute();
-
-            try (response) {
-                if (!response.isSuccessful()) {
-                    if (response.code() == 403) {
-                        // BG SIG data disabled in Connect for this cluster.
-                        return Optional.empty();
-                    }
-
-                    throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
-                }
-
-
-                if (response.body() == null) {
-                    throw new RuntimeException("Empty response.");
-                }
-
-                LOG.debug("Bluetooth SIG Company ID data download from Connect complete.");
-
-                ObjectMapper om = JsonMapper.builder()
-                        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .build();
-
-                ConnectCompanyIdListResponse ids = om.readValue(response.body().bytes(), ConnectCompanyIdListResponse.class);
-
-                Map<Integer, String> table = Maps.newHashMap();
-                for (ConnectCompanyIdResponse id : ids.companyIds()) {
-                    table.put(id.companyId(), id.name());
-                }
-
-                return Optional.of(table);
-            }
-        } catch (Exception e) {
-            LOG.error("Could not download SIG Company ID data from Connect.", e);
-            return Optional.empty();
-        }
-    }
-
-    private Optional<Map<String, String>> fetchServiceUuidsFromConnect() {
-        LOG.debug("Loading new Bluetooth SIG service UUIDs from Connect.");
-
-        try {
-            OkHttpClient c = new OkHttpClient.Builder()
-                    .connectTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(15, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.MINUTES)
-                    .followRedirects(true)
-                    .build();
-
-            HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
-                    .newBuilder()
-                    .addPathSegment("data")
-                    .addPathSegment("bluetooth")
-                    .addPathSegment("serviceuuids")
-                    .build();
-
-            Response response = c.newCall(new Request.Builder()
-                    .addHeader("User-Agent", "nzyme")
-                    .get()
-                    .url(url)
-                    .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
-                    .addHeader("Content-Type", "application/json")
-                    .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
-                    .build()
-            ).execute();
-
-            try (response) {
-                if (!response.isSuccessful()) {
-                    if (response.code() == 403) {
-                        // BG SIG data disabled in Connect for this cluster.
-                        return Optional.empty();
-                    }
-
-                    throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
-                }
-
-
-                if (response.body() == null) {
-                    throw new RuntimeException("Empty response.");
-                }
-
-                LOG.debug("Bluetooth SIG service UUID data download from Connect complete.");
-
-                ObjectMapper om = JsonMapper.builder()
-                        .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                        .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                        .build();
-
-                ConnectServiceUuidListResponse ids = om.readValue(response.body().bytes(), ConnectServiceUuidListResponse.class);
-
-                Map<String, String> table = Maps.newHashMap();
-                for (ConnectServiceUuidResponse id : ids.serviceUuids()) {
-                    table.put(id.uuid(), id.name());
-                }
-
-                return Optional.of(table);
-            }
-        } catch (Exception e) {
-            LOG.error("Could not download SIG service UUID data from Connect.", e);
-            return Optional.empty();
         }
     }
 

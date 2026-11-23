@@ -12,9 +12,10 @@ function ConnectConsequence(props) {
       <Consequence
           indicator="Connect"
           color="red"
-          problem="Nzyme Connect is enabled but the cluster has not been able to submit a status report for more than two minutes."
+          problem="Nzyme Connect is enabled but the cluster has not been able to submit a status report for more than two minutes, or a node has not been able to update its data from Connect for more than two hours."
           acceptableRange={[
-            "A status report is accepted by Connect at least every two minutes while Connect is enabled"
+            "A status report is accepted by Connect at least every two minutes while Connect is enabled",
+            "Every node updates its data from Connect at least every two hours while Connect is enabled"
           ]}
           consequences={[
             "Data provided by Connect, such as MAC address vendors, Bluetooth device information, GeoIP and ASN " +

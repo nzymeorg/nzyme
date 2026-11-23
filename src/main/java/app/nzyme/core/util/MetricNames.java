@@ -37,6 +37,7 @@ import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.database.DatabaseImpl;
 import app.nzyme.core.database.PoolMetricsTracker;
 import app.nzyme.core.security.NodeFilePermissions;
+import app.nzyme.core.connect.ConnectDataset;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitors.MonitorExecutionTaskHandler;
 import app.nzyme.core.ouis.OuiService;
@@ -67,6 +68,8 @@ public class MetricNames {
     public static final String DATABASE_POOL_CONNECTION_TIMEOUT_RATE = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.CONNECTION_TIMEOUT_RATE);
     public static final String DATABASE_POOL_WAIT_TIMER = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.WAIT);
     public static final String DATABASE_POOL_USAGE_HISTOGRAM = PoolMetricsTracker.metricName(DatabaseImpl.POOL_NAME, PoolMetricsTracker.USAGE);
+    public static final String CONNECT_DATA_REFRESH_TIMER = name(ConnectDataset.class, "refresh-timing");
+    public static final String CONNECT_DATA_FAILING = name(ConnectDataset.class, "failing");
     public static final String GEOIP_CACHE_SIZE = name(GeoIpService.class, "cache-size");
     public static final String GEOIP_LOOKUP_TIMING_UNCACHED = name(GeoIpService.class, "lookup-timing-uncached");
     public static final String PGP_ENCRYPTION_TIMING = name(Crypto.class, "encryption-timing");

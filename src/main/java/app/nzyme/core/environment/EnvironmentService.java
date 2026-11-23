@@ -9,6 +9,7 @@ import app.nzyme.core.environment.dto.LocationEnvironmentAlertDetails;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
 import app.nzyme.plugin.Subsystem;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import com.google.common.net.HttpHeaders;
@@ -29,11 +30,15 @@ import tools.jackson.datatype.joda.JodaModule;
 
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
@@ -56,6 +61,23 @@ public class EnvironmentService {
     }
 
     private static final int ALERT_FUTURE_WINDOW_HOURS = 12;
+
+    private static final int FETCH_PARALLELISM = 4;
+
+    private static final OkHttpClient HTTP = new OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.MINUTES)
+            .followRedirects(true)
+            .build();
+
+    private static final ObjectMapper OM = JsonMapper.builder()
+            .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .addModule(new JodaModule())
+            .build();
+
+    private static class EnvironmentDataDisabledException extends Exception { }
 
     private final NzymeNode nzyme;
 
@@ -129,126 +151,166 @@ public class EnvironmentService {
     }
 
     private Optional<Map<UUID, EnvironmentData>> fetchEnvironmentFromConnect() {
-        Map<UUID, EnvironmentData> data = Maps.newHashMap();
-
+        List<TenantLocationEntry> locations = Lists.newArrayList();
         for (TenantEntry tenant : nzyme.getAuthenticationService().findAllTenantsOfAllOrganizations()) {
             for (TenantLocationEntry location : nzyme.getAuthenticationService()
                     .findAllTenantLocations(tenant.organizationUuid(), tenant.uuid(), Integer.MAX_VALUE, 0)) {
-
                 if (location.latitude() == null || location.longitude() == null
                         || location.latitude() == 0.0 || location.longitude() == 0.0) {
                     continue;
                 }
 
-                LOG.debug("Loading new environment data from Connect for location [{}].", location.uuid());
-
-                try {
-                    OkHttpClient c = new OkHttpClient.Builder()
-                            .connectTimeout(60, TimeUnit.SECONDS)
-                            .writeTimeout(15, TimeUnit.SECONDS)
-                            .readTimeout(5, TimeUnit.MINUTES)
-                            .followRedirects(true)
-                            .build();
-
-                    HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
-                            .newBuilder()
-                            .addPathSegment("data")
-                            .addPathSegment("environment")
-                            .addPathSegment("location")
-                            .addQueryParameter("latitude", String.valueOf(location.latitude()))
-                            .addQueryParameter("longitude", String.valueOf(location.longitude()))
-                            .build();
-
-                    Response response = c.newCall(new Request.Builder()
-                            .addHeader("User-Agent", "nzyme")
-                            .get()
-                            .url(url)
-                            .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
-                            .addHeader("Content-Type", "application/json")
-                            .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
-                            .build()
-                    ).execute();
-
-                    try (response) {
-                        if (!response.isSuccessful()) {
-                            if (response.code() == 403) {
-                                // Environment data disabled in Connect for this cluster.
-                                return Optional.empty();
-                            }
-
-                            if (response.code() == 400) {
-                                // No environmental data available for location.
-                                continue;
-                            }
-
-                            throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
-                        }
-
-                        LOG.debug("Environment data download from Connect complete.");
-
-                        ObjectMapper om = JsonMapper.builder()
-                                .disable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES)
-                                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                                .addModule(new JodaModule())
-                                .build();
-
-                        EnvironmentData environment = om.readValue(response.body().bytes(), EnvironmentData.class);
-                        data.put(location.uuid(), environment);
-
-                        if (location.environmentalAlertEventingEnabled() && !environment.alerts().isEmpty()) {
-                            for (LocationEnvironmentAlertDetails alert : environment.alerts()) {
-                                if (alert.severity() != null && severityOrdinal(alert.severity()) < MIN_ALERT_SEVERITY) {
-                                    continue;
-                                }
-
-                                if (!alertIsCurrentlyRelevant(alert)) {
-                                    continue;
-                                }
-
-                                String headline = alert.event() == null ? "Unknown Alert Type" : alert.event();
-                                String sender = alert.senderName() == null ? "Unknown" : alert.senderName();
-                                String severity = alert.severity() == null ? "Unknown" : alert.severity();
-                                String urgency = alert.urgency() == null ? "Unknown" : alert.urgency();
-                                String certainty = alert.certainty() == null ? "Unknown" : alert.certainty();
-                                String effective = alert.effective() == null ? "Unknown" : alert.effective().toString();
-
-                                String alertKey = Hashing.sha256()
-                                        .hashString(location.uuid() + headline + alert.effective(), StandardCharsets.UTF_8)
-                                        .toString();
-
-
-                                nzyme.getDetectionAlertService().raiseAlert(
-                                        location.organizationId(),
-                                        location.tenantId(),
-                                        null,
-                                        AlertOrigin.location(location.uuid()),
-                                        DetectionType.ENVIRONMENTAL_SEVERE_ALERT,
-                                        Subsystem.GENERIC,
-                                        "Severe environmental/weather monitoring alert received for location \"" + location.name() + "\": " + headline,
-                                        Map.of(
-                                                "alert_key", alertKey,
-                                                "headline", headline,
-                                                "sender", sender,
-                                                "severity", severity,
-                                                "urgency", urgency,
-                                                "certainty", certainty,
-                                                "effective", effective,
-                                                "location_uuid", location.uuid().toString(),
-                                                "location_name", location.name()
-                                        ),
-                                        Set.of("alert_key")
-                                );
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    LOG.error("Could not download environment data from Connect for location [{}].", location.uuid(), e);
-                    continue;
-                }
+                locations.add(location);
             }
         }
 
+        Map<UUID, EnvironmentData> data = Maps.newHashMap();
+        if (locations.isEmpty()) {
+            return Optional.of(data);
+        }
+
+        ExecutorService fetchers = Executors.newFixedThreadPool(
+                Math.min(FETCH_PARALLELISM, locations.size()),
+                new ThreadFactoryBuilder()
+                        .setDaemon(true)
+                        .setNameFormat("environment-fetcher-%d")
+                        .build()
+        );
+
+        try {
+            List<Future<Optional<EnvironmentData>>> fetches = Lists.newArrayList();
+            for (TenantLocationEntry location : locations) {
+                fetches.add(fetchers.submit(() -> fetchLocationFromConnect(location)));
+            }
+
+            // Alerts are raised here and not by the fetchers, one location after the other.
+            for (int i = 0; i < locations.size(); i++) {
+                TenantLocationEntry location = locations.get(i);
+
+                Optional<EnvironmentData> environment;
+                try {
+                    environment = fetches.get(i).get();
+                } catch (ExecutionException e) {
+                    if (e.getCause() instanceof EnvironmentDataDisabledException) {
+                        // Environment data disabled in Connect for this cluster.
+                        return Optional.empty();
+                    }
+
+                    LOG.error("Could not download environment data from Connect for location [{}].",
+                            location.uuid(), e.getCause());
+                    continue;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return Optional.of(data);
+                }
+
+                if (environment.isEmpty()) {
+                    // No environmental data available for location.
+                    continue;
+                }
+
+                data.put(location.uuid(), environment.get());
+
+                try {
+                    raiseAlerts(location, environment.get());
+                } catch (Exception e) {
+                    LOG.error("Could not raise environment alerts for location [{}].", location.uuid(), e);
+                }
+            }
+        } finally {
+            fetchers.shutdownNow();
+        }
+
         return Optional.of(data);
+    }
+
+    private Optional<EnvironmentData> fetchLocationFromConnect(TenantLocationEntry location) throws Exception {
+        LOG.debug("Loading new environment data from Connect for location [{}].", location.uuid());
+
+        HttpUrl url = HttpUrl.get(nzyme.getConnect().getApiUri())
+                .newBuilder()
+                .addPathSegment("data")
+                .addPathSegment("environment")
+                .addPathSegment("location")
+                .addQueryParameter("latitude", String.valueOf(location.latitude()))
+                .addQueryParameter("longitude", String.valueOf(location.longitude()))
+                .build();
+
+        Response response = HTTP.newCall(new Request.Builder()
+                .get()
+                .url(url)
+                .addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + nzyme.getConnect().getApiKey())
+                .addHeader("Content-Type", "application/json")
+                .addHeader(HttpHeaders.USER_AGENT, "nzyme-node")
+                .build()
+        ).execute();
+
+        try (response) {
+            if (!response.isSuccessful()) {
+                if (response.code() == 403) {
+                    throw new EnvironmentDataDisabledException();
+                }
+
+                if (response.code() == 400) {
+                    return Optional.empty();
+                }
+
+                throw new RuntimeException("Expected HTTP 200 or 403 but got HTTP " + response.code());
+            }
+
+            LOG.debug("Environment data download from Connect complete.");
+
+            return Optional.of(OM.readValue(response.body().bytes(), EnvironmentData.class));
+        }
+    }
+
+    private void raiseAlerts(TenantLocationEntry location, EnvironmentData environment) {
+        if (!location.environmentalAlertEventingEnabled() || environment.alerts().isEmpty()) {
+            return;
+        }
+
+        for (LocationEnvironmentAlertDetails alert : environment.alerts()) {
+            if (alert.severity() != null && severityOrdinal(alert.severity()) < MIN_ALERT_SEVERITY) {
+                continue;
+            }
+
+            if (!alertIsCurrentlyRelevant(alert)) {
+                continue;
+            }
+
+            String headline = alert.event() == null ? "Unknown Alert Type" : alert.event();
+            String sender = alert.senderName() == null ? "Unknown" : alert.senderName();
+            String severity = alert.severity() == null ? "Unknown" : alert.severity();
+            String urgency = alert.urgency() == null ? "Unknown" : alert.urgency();
+            String certainty = alert.certainty() == null ? "Unknown" : alert.certainty();
+            String effective = alert.effective() == null ? "Unknown" : alert.effective().toString();
+
+            String alertKey = Hashing.sha256()
+                    .hashString(location.uuid() + headline + alert.effective(), StandardCharsets.UTF_8)
+                    .toString();
+
+            nzyme.getDetectionAlertService().raiseAlert(
+                    location.organizationId(),
+                    location.tenantId(),
+                    null,
+                    AlertOrigin.location(location.uuid()),
+                    DetectionType.ENVIRONMENTAL_SEVERE_ALERT,
+                    Subsystem.GENERIC,
+                    "Severe environmental/weather monitoring alert received for location \"" + location.name() + "\": " + headline,
+                    Map.of(
+                            "alert_key", alertKey,
+                            "headline", headline,
+                            "sender", sender,
+                            "severity", severity,
+                            "urgency", urgency,
+                            "certainty", certainty,
+                            "effective", effective,
+                            "location_uuid", location.uuid().toString(),
+                            "location_name", location.name()
+                    ),
+                    Set.of("alert_key")
+            );
+        }
     }
 
     public Optional<EnvironmentData> getEnvironmentData(UUID locationId) {

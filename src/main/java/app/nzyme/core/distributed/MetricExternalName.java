@@ -50,6 +50,8 @@ public enum MetricExternalName {
     DATABASE_POOL_WAIT_TIMER("database_pool_wait_timer"),
     DATABASE_POOL_USAGE_TIMER("database_pool_usage_timer"),
     FILE_PERMISSION_ISSUES("file_permission_issues"),
+    CONNECT_DATA_FAILING("connect_data_failing"),
+    CONNECT_DATA_REFRESH_TIMER("connect_data_refresh_timer"),
     LOG_COUNTS_TRACE("log_counts_trace"),
     LOG_COUNTS_DEBUG("log_counts_debug"),
     LOG_COUNTS_INFO("log_counts_info"),

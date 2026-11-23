@@ -17,6 +17,7 @@
 
 package app.nzyme.core;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.assets.AssetMonitor;
 import app.nzyme.core.assets.identity.AssetIdentityThread;
@@ -102,9 +103,15 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
@@ -253,6 +260,41 @@ public class NzymeNodeImpl implements NzymeNode {
         this.scheduledIntegrationsManager = new ScheduledIntegrationsManager(this);
     }
 
+    private void initializeConnectDataServices() {
+        Map<String, Runnable> services = new LinkedHashMap<>();
+        services.put("Geo IP", this.geoIpService::initialize);
+        services.put("OUI", this.ouiService::initialize);
+        services.put("Bluetooth SIG", this.bluetoothSigService::initialize);
+        services.put("UAV", this.uav::initializeConnectModels);
+        services.put("Environment", this.environmentService::initialize);
+
+        ExecutorService initializers = Executors.newFixedThreadPool(
+                services.size(),
+                new ThreadFactoryBuilder()
+                        .setDaemon(true)
+                        .setNameFormat("connect-data-initializer-%d")
+                        .build()
+        );
+
+        try {
+            Map<String, Future<?>> running = new LinkedHashMap<>();
+            services.forEach((name, service) -> running.put(name, initializers.submit(service)));
+
+            for (Map.Entry<String, Future<?>> service : running.entrySet()) {
+                try {
+                    service.getValue().get();
+                } catch (ExecutionException e) {
+                    throw new RuntimeException("Could not initialize " + service.getKey() + " service.", e.getCause());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while initializing Connect data services.", e);
+                }
+            }
+        } finally {
+            initializers.shutdown();
+        }
+    }
+
     @Override
     public void initialize() {
         LOG.info("Initializing nzyme version: {}.", version.getVersionString());
@@ -310,24 +352,8 @@ public class NzymeNodeImpl implements NzymeNode {
             LOG.warn("Connect has been disabled in configuration file. Not connecting.");
         }
 
-        LOG.info("Initializing Geo IP service...");
-        this.geoIpService.initialize();
-        LOG.info("Done.");
-
-        LOG.info("Initializing OUI service...");
-        this.ouiService.initialize();
-        LOG.info("Done.");
-
-        LOG.info("Initializing Bluetooth SIG service...");
-        this.bluetoothSigService.initialize();
-        LOG.info("Done.");
-
-        LOG.info("Initializing UAV service...");
-        this.uav.initializeConnectModels();
-        LOG.info("Done.");
-
-        LOG.info("Initializing environment service...");
-        this.environmentService.initialize();
+        LOG.info("Initializing Connect data services...");
+        initializeConnectDataServices();
         LOG.info("Done.");
 
         LOG.info("Initializing authentication service...");

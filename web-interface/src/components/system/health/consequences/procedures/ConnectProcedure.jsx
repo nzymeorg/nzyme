@@ -1,6 +1,7 @@
 import {Link} from "react-router-dom";
 import React from "react";
 import SolutionCounter from "./layout/SolutionCounter";
+import Conditional from "./layout/Conditional";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 
 function ConnectProcedure() {
@@ -15,10 +16,15 @@ function ConnectProcedure() {
           firewalls, proxies and DNS resolution on the nodes.
         </li>
         <li>
-          <SolutionCounter counter="3" /> Check the node logs for errors of the Connect status reporter.
+          <SolutionCounter counter="3" /> Check the node logs for errors of the Connect status reporter and
+          for &quot;Could not refresh Connect data&quot; errors.
         </li>
         <li>
-          <SolutionCounter counter="4" /> If you no longer want to use Connect, disable it on the Connect page. The
+          <SolutionCounter counter="4" /> <Conditional text="If" /> a node cannot store Connect data, make sure
+          its <code>data_directory</code> is writable by the user Nzyme runs as and has free disk space.
+        </li>
+        <li>
+          <SolutionCounter counter="5" /> If you no longer want to use Connect, disable it on the Connect page. The
           indicator is not applicable while Connect is disabled.
         </li>
       </ol>
