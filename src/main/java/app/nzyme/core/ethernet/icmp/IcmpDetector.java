@@ -21,6 +21,7 @@ import org.joda.time.DateTime;
 import java.sql.Array;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class IcmpDetector {
@@ -39,6 +40,17 @@ public class IcmpDetector {
     private static final int TTL_RAMP_MINIMUM_DISTINCT = 3;
     private static final int TTL_RAMP_MAXIMUM_START = 2;
     private static final int TTL_RAMP_MAXIMUM_TTL = 64;
+
+    // Every return of a tunnel or traceroute after a quiet detection window is a record of its own. Compared by
+    // its addresses, the alert of the earlier records is re-opened and points to the latest one.
+    private static final Set<String> COMPARED_BY_ADDRESSES = Set.of("source_address", "destination_address");
+
+    private static final String DETECTOR_SAVEPOINT = "icmp_detector";
+    private static final String CANDIDATE_SAVEPOINT = "icmp_candidate";
+
+    private interface Step {
+        void run() throws Exception;
+    }
 
     private record TtlRamp(String sourceAddress, @Nullable String sourceMac, String destinationAddress,
                            long sessionCount, boolean destinationAnswered, Set<UUID> taps,
@@ -87,33 +99,42 @@ public class IcmpDetector {
             Map<Long, Long> exclusionMatches = new HashMap<>();
 
             if (config.redirectDetectionEnabled()) {
-                try {
-                    detectRedirects(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches);
-                } catch (Exception e) {
-                    LOG.error("Could not run ICMP redirect detection for tenant [{}/{}].", organizationId, tenantId, e);
-                }
+                isolated(handle, DETECTOR_SAVEPOINT,
+                        () -> detectRedirects(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches),
+                        e -> LOG.error("Could not run ICMP redirect detection for tenant [{}/{}].", organizationId, tenantId, e));
             }
 
             if (config.tracerouteDetectionEnabled()) {
-                try {
-                    detectTraceroutes(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches);
-                } catch (Exception e) {
-                    LOG.error("Could not run ICMP traceroute detection for tenant [{}/{}].", organizationId, tenantId, e);
-                }
+                isolated(handle, DETECTOR_SAVEPOINT,
+                        () -> detectTraceroutes(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches),
+                        e -> LOG.error("Could not run ICMP traceroute detection for tenant [{}/{}].", organizationId, tenantId, e));
             }
 
             if (config.tunnelDetectionEnabled()) {
-                try {
-                    detectTunnels(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches);
-                } catch (Exception e) {
-                    LOG.error("Could not run ICMP tunnel detection for tenant [{}/{}].", organizationId, tenantId, e);
-                }
+                isolated(handle, DETECTOR_SAVEPOINT,
+                        () -> detectTunnels(handle, config, taps, since, until, organizationId, tenantId, exclusions, exclusionMatches),
+                        e -> LOG.error("Could not run ICMP tunnel detection for tenant [{}/{}].", organizationId, tenantId, e));
             }
 
-            for (Map.Entry<Long, Long> match : exclusionMatches.entrySet()) {
-                icmp.exclusions().recordMatches(handle, match.getKey(), match.getValue());
-            }
+            isolated(handle, DETECTOR_SAVEPOINT, () -> {
+                for (Map.Entry<Long, Long> match : exclusionMatches.entrySet()) {
+                    icmp.exclusions().recordMatches(handle, match.getKey(), match.getValue());
+                }
+            }, e -> LOG.error("Could not record ICMP exclusion matches for tenant [{}/{}].", organizationId, tenantId, e));
         });
+    }
+
+    // A failed statement aborts the transaction, and the commit at the end of the run then silently rolls back
+    // everything the run wrote. The savepoint limits the loss to the step that failed.
+    private void isolated(Handle handle, String savepoint, Step step, Consumer<Exception> onFailure) {
+        handle.savepoint(savepoint);
+        try {
+            step.run();
+            handle.releaseSavepoint(savepoint);
+        } catch (Exception e) {
+            onFailure.accept(e);
+            handle.rollbackToSavepoint(savepoint);
+        }
     }
 
     private void detectRedirects(Handle handle,
@@ -140,54 +161,51 @@ public class IcmpDetector {
                 .bind("since", since)
                 .bind("until", until)
                 .mapToMap()
-                .forEach(row -> {
-                    try {
-                        String senderAddress = (String) row.get("sender_address");
-                        String gatewayAddress = (String) row.get("gateway_address");
-                        String targetAddress = (String) row.get("target_address");
-                        String senderMac = (String) row.get("sender_mac");
+                .forEach(row -> isolated(handle, CANDIDATE_SAVEPOINT, () -> {
+                    String senderAddress = (String) row.get("sender_address");
+                    String gatewayAddress = (String) row.get("gateway_address");
+                    String targetAddress = (String) row.get("target_address");
+                    String senderMac = (String) row.get("sender_mac");
 
-                        IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
-                                IcmpDetectionType.REDIRECT, senderAddress, senderMac, gatewayAddress);
-                        if (exclusion != null) {
-                            exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
-                            return;
-                        }
-                        List<String> destinations = stringArray(row.get("redirected_destinations")).stream()
-                                .filter(Objects::nonNull).limit(MAXIMUM_REDIRECTED_DESTINATIONS).toList();
-                        Set<UUID> tapUuids = uuidArray(row.get("taps"));
-                        long packetCount = ((Number) row.get("packet_count")).longValue();
-                        DateTime firstSeen = new DateTime(row.get("first_seen"));
-                        DateTime lastSeen = new DateTime(row.get("last_seen"));
-
-                        Optional<IcmpRedirectEntry> existing = icmp.findRedirectByIdentity(
-                                handle, organizationId, tenantId, senderAddress, gatewayAddress, targetAddress
-                        );
-
-                        if (existing.isPresent()) {
-                            // Window overlaps previous runs: count only rows with last_seen after the stored last_seen.
-                            long newPackets = countRedirectPacketsAfter(handle, taps, senderAddress, gatewayAddress,
-                                    targetAddress, existing.get().lastSeen(), until);
-                            icmp.updateRedirect(handle, existing.get().id(), destinations, newPackets, tapUuids, lastSeen);
-
-                            if (config.alertOnRedirect() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
-                                raiseRedirectAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
-                                        organizationId, tenantId);
-                            }
-                            return;
-                        }
-
-                        IcmpRedirectEntry created = icmp.createRedirect(handle, organizationId, tenantId,
-                                senderAddress, senderMac, gatewayAddress, targetAddress,
-                                (String) row.get("target_mac"), destinations, packetCount, tapUuids, firstSeen, lastSeen);
-
-                        if (config.alertOnRedirect()) {
-                            raiseRedirectAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
-                        }
-                    } catch (Exception e) {
-                        LOG.error("Could not process ICMP redirect candidate.", e);
+                    IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
+                            IcmpDetectionType.REDIRECT, senderAddress, senderMac, gatewayAddress);
+                    if (exclusion != null) {
+                        exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
+                        return;
                     }
-                });
+                    List<String> destinations = stringArray(row.get("redirected_destinations")).stream()
+                            .filter(Objects::nonNull).limit(MAXIMUM_REDIRECTED_DESTINATIONS).toList();
+                    Set<UUID> tapUuids = uuidArray(row.get("taps"));
+                    long packetCount = ((Number) row.get("packet_count")).longValue();
+                    DateTime firstSeen = new DateTime(row.get("first_seen"));
+                    DateTime lastSeen = new DateTime(row.get("last_seen"));
+
+                    Optional<IcmpRedirectEntry> existing = icmp.findRedirectByIdentity(
+                            handle, organizationId, tenantId, senderAddress, gatewayAddress, targetAddress
+                    );
+
+                    if (existing.isPresent()) {
+                        // Window overlaps previous runs: count only rows with last_seen after the stored last_seen.
+                        long newPackets = countRedirectPacketsAfter(handle, taps, senderAddress, gatewayAddress,
+                                targetAddress, existing.get().lastSeen(), until);
+                        IcmpRedirectEntry updated = icmp.updateRedirect(handle, existing.get().id(), senderMac,
+                                (String) row.get("target_mac"), destinations, newPackets, tapUuids, lastSeen);
+
+                        if (config.alertOnRedirect() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                            raiseRedirectAlert(updated, atNewLocations(tapUuids, existing.get().tapUuids()),
+                                    organizationId, tenantId);
+                        }
+                        return;
+                    }
+
+                    IcmpRedirectEntry created = icmp.createRedirect(handle, organizationId, tenantId,
+                            senderAddress, senderMac, gatewayAddress, targetAddress,
+                            (String) row.get("target_mac"), destinations, packetCount, tapUuids, firstSeen, lastSeen);
+
+                    if (config.alertOnRedirect()) {
+                        raiseRedirectAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
+                    }
+                }, e -> LOG.error("Could not process ICMP redirect candidate.", e)));
     }
 
     private long countRedirectPacketsAfter(Handle handle, List<UUID> taps, String sender, String gateway,
@@ -235,75 +253,71 @@ public class IcmpDetector {
                 .bind("port_start", TRACEROUTE_PORT_START)
                 .bind("port_end", TRACEROUTE_PORT_END)
                 .mapToMap()
-                .forEach(row -> {
-                    try {
-                        String sourceAddress = (String) row.get("source_address");
-                        String destinationAddress = (String) row.get("traced_destination");
-                        Integer protocol = row.get("protocol") == null ? null : ((Number) row.get("protocol")).intValue();
-                        List<String> routers = stringArray(row.get("routers")).stream()
-                                .filter(Objects::nonNull).limit(MAXIMUM_ROUTERS).toList();
-                        Set<UUID> tapUuids = uuidArray(row.get("taps"));
-                        long packetCount = ((Number) row.get("packet_count")).longValue();
-                        DateTime firstSeen = new DateTime(row.get("first_seen"));
-                        DateTime lastSeen = new DateTime(row.get("last_seen"));
+                .forEach(row -> isolated(handle, CANDIDATE_SAVEPOINT, () -> {
+                    String sourceAddress = (String) row.get("source_address");
+                    String destinationAddress = (String) row.get("traced_destination");
+                    Integer protocol = row.get("protocol") == null ? null : ((Number) row.get("protocol")).intValue();
+                    List<String> routers = stringArray(row.get("routers")).stream()
+                            .filter(Objects::nonNull).limit(MAXIMUM_ROUTERS).toList();
+                    Set<UUID> tapUuids = uuidArray(row.get("taps"));
+                    long packetCount = ((Number) row.get("packet_count")).longValue();
+                    DateTime firstSeen = new DateTime(row.get("first_seen"));
+                    DateTime lastSeen = new DateTime(row.get("last_seen"));
 
-                        String sourceMac = (String) row.get("source_mac");
+                    String sourceMac = (String) row.get("source_mac");
 
-                        IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
-                                IcmpDetectionType.TRACEROUTE, sourceAddress, sourceMac, null);
-                        if (exclusion != null) {
-                            exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
-                            return;
-                        }
-
-                        String pair = sourceAddress + "/" + destinationAddress;
-                        TtlRamp ramp = ramps.get(pair);
-
-                        // The destination itself answers the last probe with a port unreachable (UDP) or an echo reply.
-                        boolean reached = destinationReached(handle, taps, sourceAddress, destinationAddress, since, until)
-                                || (ramp != null && ramp.destinationAnswered());
-                        boolean udpTraceroutePorts = Boolean.TRUE.equals(row.get("udp_traceroute_ports"));
-
-                        // Accept a sub-threshold router count only when the trace is unmistakable anyway:
-                        // reached, traceroute port range, or a TCP TTL ramp.
-                        if (routers.size() < config.tracerouteMinimumRouters() && !reached && !udpTraceroutePorts && ramp == null) {
-                            return;
-                        }
-
-                        handled.add(pair);
-                        if (ramp != null) {
-                            tapUuids.addAll(ramp.taps());
-                            packetCount = Math.max(packetCount, ramp.sessionCount());
-                        }
-
-                        Optional<IcmpTracerouteEntry> existing = icmp.findActiveTraceroute(
-                                handle, organizationId, tenantId, sourceAddress, destinationAddress, since
-                        );
-
-                        if (existing.isPresent()) {
-                            Set<String> merged = new LinkedHashSet<>(existing.get().routers());
-                            merged.addAll(routers);
-                            icmp.updateTraceroute(handle, existing.get().id(), Lists.newArrayList(merged),
-                                    packetCount, reached, tapUuids, lastSeen);
-
-                            if (config.alertOnTraceroute() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
-                                raiseTracerouteAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
-                                        organizationId, tenantId);
-                            }
-                            return;
-                        }
-
-                        IcmpTracerouteEntry created = icmp.createTraceroute(handle, organizationId, tenantId,
-                                sourceAddress, sourceMac, destinationAddress, protocol, routers,
-                                packetCount, reached, tapUuids, firstSeen, lastSeen);
-
-                        if (config.alertOnTraceroute()) {
-                            raiseTracerouteAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
-                        }
-                    } catch (Exception e) {
-                        LOG.error("Could not process ICMP traceroute candidate.", e);
+                    IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
+                            IcmpDetectionType.TRACEROUTE, sourceAddress, sourceMac, null);
+                    if (exclusion != null) {
+                        exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
+                        return;
                     }
-                });
+
+                    String pair = sourceAddress + "/" + destinationAddress;
+                    TtlRamp ramp = ramps.get(pair);
+
+                    // The destination itself answers the last probe with a port unreachable (UDP) or an echo reply.
+                    boolean reached = destinationReached(handle, taps, sourceAddress, destinationAddress, since, until)
+                            || (ramp != null && ramp.destinationAnswered());
+                    boolean udpTraceroutePorts = Boolean.TRUE.equals(row.get("udp_traceroute_ports"));
+
+                    // Accept a sub-threshold router count only when the trace is unmistakable anyway:
+                    // reached, traceroute port range, or a TCP TTL ramp.
+                    if (routers.size() < config.tracerouteMinimumRouters() && !reached && !udpTraceroutePorts && ramp == null) {
+                        return;
+                    }
+
+                    handled.add(pair);
+                    if (ramp != null) {
+                        tapUuids.addAll(ramp.taps());
+                        packetCount = Math.max(packetCount, ramp.sessionCount());
+                    }
+
+                    Optional<IcmpTracerouteEntry> existing = icmp.findActiveTraceroute(
+                            handle, organizationId, tenantId, sourceAddress, destinationAddress, since
+                    );
+
+                    if (existing.isPresent()) {
+                        Set<String> merged = new LinkedHashSet<>(existing.get().routers());
+                        merged.addAll(routers);
+                        icmp.updateTraceroute(handle, existing.get().id(), Lists.newArrayList(merged),
+                                packetCount, reached, tapUuids, lastSeen);
+
+                        if (config.alertOnTraceroute() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                            raiseTracerouteAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
+                                    organizationId, tenantId);
+                        }
+                        return;
+                    }
+
+                    IcmpTracerouteEntry created = icmp.createTraceroute(handle, organizationId, tenantId,
+                            sourceAddress, sourceMac, destinationAddress, protocol, routers,
+                            packetCount, reached, tapUuids, firstSeen, lastSeen);
+
+                    if (config.alertOnTraceroute()) {
+                        raiseTracerouteAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
+                    }
+                }, e -> LOG.error("Could not process ICMP traceroute candidate.", e)));
 
         // TCP traceroutes where no router answered at all, or only the time exceeded messages were out of view.
         for (Map.Entry<String, TtlRamp> entry : ramps.entrySet()) {
@@ -312,12 +326,12 @@ public class IcmpDetector {
             }
 
             TtlRamp ramp = entry.getValue();
-            try {
+            isolated(handle, CANDIDATE_SAVEPOINT, () -> {
                 IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
                         IcmpDetectionType.TRACEROUTE, ramp.sourceAddress(), ramp.sourceMac(), null);
                 if (exclusion != null) {
                     exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
-                    continue;
+                    return;
                 }
 
                 Optional<IcmpTracerouteEntry> existing = icmp.findActiveTraceroute(
@@ -332,7 +346,7 @@ public class IcmpDetector {
                         raiseTracerouteAlert(existing.get(), atNewLocations(ramp.taps(), existing.get().tapUuids()),
                                 organizationId, tenantId);
                     }
-                    continue;
+                    return;
                 }
 
                 IcmpTracerouteEntry created = icmp.createTraceroute(handle, organizationId, tenantId,
@@ -342,9 +356,7 @@ public class IcmpDetector {
                 if (config.alertOnTraceroute()) {
                     raiseTracerouteAlert(created, AlertOrigin.taps(ramp.taps()), organizationId, tenantId);
                 }
-            } catch (Exception e) {
-                LOG.error("Could not process TCP traceroute candidate.", e);
-            }
+            }, e -> LOG.error("Could not process TCP traceroute candidate.", e));
         }
     }
 
@@ -420,13 +432,11 @@ public class IcmpDetector {
         attributes.put("target_address", redirect.targetAddress());
         attributes.put("packet_count", String.valueOf(redirect.packetCount()));
 
-        nzyme.getDetectionAlertService().raiseAlert(
+        raiseAlert(
                 organizationId,
                 tenantId,
-                null,
                 origin,
                 DetectionType.ICMP_REDIRECT,
-                Subsystem.ETHERNET,
                 "ICMP redirect from [" + redirect.senderAddress() + "] telling [" + redirect.targetAddress()
                         + "] to route via [" + redirect.gatewayAddress() + "] detected.",
                 attributes,
@@ -460,51 +470,64 @@ public class IcmpDetector {
                 .bind("min_payload", config.tunnelMinimumPayloadBytes())
                 .bind("min_packets", config.tunnelMinimumPackets())
                 .mapToMap()
-                .forEach(row -> {
-                    try {
-                        String sourceAddress = (String) row.get("source_address");
-                        String sourceMac = (String) row.get("source_mac");
-                        String destinationAddress = (String) row.get("destination_address");
-                        String destinationMac = (String) row.get("destination_mac");
+                .forEach(row -> isolated(handle, CANDIDATE_SAVEPOINT, () -> {
+                    String sourceAddress = (String) row.get("source_address");
+                    String sourceMac = (String) row.get("source_mac");
+                    String destinationAddress = (String) row.get("destination_address");
+                    String destinationMac = (String) row.get("destination_mac");
 
-                        IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
-                                IcmpDetectionType.TUNNEL, sourceAddress, sourceMac, null);
-                        if (exclusion != null) {
-                            exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
-                            return;
-                        }
-
-                        long maxPayload = ((Number) row.get("max_payload")).longValue();
-                        long packetCount = ((Number) row.get("packet_count")).longValue();
-                        Set<UUID> tapUuids = uuidArray(row.get("taps"));
-                        DateTime firstSeen = new DateTime(row.get("first_seen"));
-                        DateTime lastSeen = new DateTime(row.get("last_seen"));
-
-                        Optional<IcmpTunnelEntry> existing = icmp.findActiveTunnel(
-                                handle, organizationId, tenantId, sourceAddress, destinationAddress, since
-                        );
-
-                        if (existing.isPresent()) {
-                            icmp.updateTunnel(handle, existing.get().id(), maxPayload, packetCount, tapUuids, lastSeen);
-
-                            if (config.alertOnTunnel() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
-                                raiseTunnelAlert(existing.get(), atNewLocations(tapUuids, existing.get().tapUuids()),
-                                        organizationId, tenantId);
-                            }
-                            return;
-                        }
-
-                        IcmpTunnelEntry created = icmp.createTunnel(handle, organizationId, tenantId, sourceAddress,
-                                sourceMac, destinationAddress, destinationMac, maxPayload, packetCount, tapUuids,
-                                firstSeen, lastSeen);
-
-                        if (config.alertOnTunnel()) {
-                            raiseTunnelAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
-                        }
-                    } catch (Exception e) {
-                        LOG.error("Could not process ICMP tunnel candidate.", e);
+                    IcmpExclusionEntry exclusion = icmp.exclusions().findMatching(exclusions,
+                            IcmpDetectionType.TUNNEL, sourceAddress, sourceMac, null);
+                    if (exclusion != null) {
+                        exclusionMatches.merge(exclusion.id(), 1L, Long::sum);
+                        return;
                     }
-                });
+
+                    long maxPayload = ((Number) row.get("max_payload")).longValue();
+                    long packetCount = ((Number) row.get("packet_count")).longValue();
+                    Set<UUID> tapUuids = uuidArray(row.get("taps"));
+                    DateTime firstSeen = new DateTime(row.get("first_seen"));
+                    DateTime lastSeen = new DateTime(row.get("last_seen"));
+
+                    Optional<IcmpTunnelEntry> existing = icmp.findActiveTunnel(
+                            handle, organizationId, tenantId, sourceAddress, destinationAddress, since
+                    );
+
+                    if (existing.isPresent()) {
+                        IcmpTunnelEntry updated = icmp.updateTunnel(handle, existing.get().id(), sourceMac,
+                                destinationMac, maxPayload, packetCount, tapUuids, lastSeen);
+
+                        if (config.alertOnTunnel() && AlertOrigin.seenElsewhere(existing.get().tapUuids(), tapUuids)) {
+                            raiseTunnelAlert(updated, atNewLocations(tapUuids, existing.get().tapUuids()),
+                                    organizationId, tenantId);
+                        }
+                        return;
+                    }
+
+                    IcmpTunnelEntry created = icmp.createTunnel(handle, organizationId, tenantId, sourceAddress,
+                            sourceMac, destinationAddress, destinationMac, maxPayload, packetCount, tapUuids,
+                            firstSeen, lastSeen);
+
+                    if (config.alertOnTunnel()) {
+                        raiseTunnelAlert(created, AlertOrigin.taps(tapUuids), organizationId, tenantId);
+                    }
+                }, e -> LOG.error("Could not process ICMP tunnel candidate.", e)));
+    }
+
+    // Alerts are written on connections of their own. A failure must not take back the finding they are about.
+    private void raiseAlert(UUID organizationId,
+                            UUID tenantId,
+                            AlertOrigin origin,
+                            DetectionType detectionType,
+                            String details,
+                            Map<String, String> attributes,
+                            Set<String> comparisonAttributeKeys) {
+        try {
+            nzyme.getDetectionAlertService().raiseAlert(organizationId, tenantId, null, origin, detectionType,
+                    Subsystem.ETHERNET, details, attributes, comparisonAttributeKeys);
+        } catch (Exception e) {
+            LOG.error("Could not raise alert of type [{}] for tenant [{}/{}].", detectionType, organizationId, tenantId, e);
+        }
     }
 
     private void raiseTunnelAlert(IcmpTunnelEntry tunnel, AlertOrigin origin, UUID organizationId, UUID tenantId) {
@@ -517,17 +540,15 @@ public class IcmpDetector {
         attributes.put("destination_address", tunnel.destinationAddress());
         attributes.put("max_payload_bytes", String.valueOf(tunnel.maxPayloadBytes()));
 
-        nzyme.getDetectionAlertService().raiseAlert(
+        raiseAlert(
                 organizationId,
                 tenantId,
-                null,
                 origin,
                 DetectionType.ICMP_TUNNEL,
-                Subsystem.ETHERNET,
                 "Possible ICMP tunnel from [" + tunnel.sourceAddress() + "] to [" + tunnel.destinationAddress()
                         + "] with echo payloads up to " + tunnel.maxPayloadBytes() + " bytes detected.",
                 attributes,
-                Set.of("tunnel_uuid")
+                COMPARED_BY_ADDRESSES
         );
     }
 
@@ -541,17 +562,15 @@ public class IcmpDetector {
         attributes.put("destination_address", traceroute.destinationAddress());
         attributes.put("router_count", String.valueOf(traceroute.routers().size()));
 
-        nzyme.getDetectionAlertService().raiseAlert(
+        raiseAlert(
                 organizationId,
                 tenantId,
-                null,
                 origin,
                 DetectionType.ICMP_TRACEROUTE,
-                Subsystem.ETHERNET,
                 "Traceroute from [" + traceroute.sourceAddress() + "] to [" + traceroute.destinationAddress()
                         + "] through " + traceroute.routers().size() + " routers detected.",
                 attributes,
-                Set.of("traceroute_uuid")
+                COMPARED_BY_ADDRESSES
         );
     }
 

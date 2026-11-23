@@ -13409,4 +13409,15 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="allow_recurring_icmp_tunnels" author="lennartkoopmann">
+        <dropIndex tableName="icmp_tunnels" indexName="icmp_tunnels_org_tenant_source_address_destination_address_key" />
+        <createIndex tableName="icmp_tunnels" indexName="icmp_tunnels_org_tenant_src_addr_dst_addr_last_seen_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="source_address" />
+            <column name="destination_address" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

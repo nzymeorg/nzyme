@@ -983,25 +983,32 @@ public class ICMP {
                 .one();
     }
 
-    public void updateRedirect(Handle handle,
-                               long id,
-                               List<String> redirectedDestinations,
-                               long additionalPackets,
-                               Collection<UUID> tapUuids,
-                               DateTime lastSeen) {
-        handle.createUpdate("UPDATE icmp_redirects SET " +
+    public IcmpRedirectEntry updateRedirect(Handle handle,
+                                            long id,
+                                            @Nullable String senderMac,
+                                            @Nullable String targetMac,
+                                            List<String> redirectedDestinations,
+                                            long additionalPackets,
+                                            Collection<UUID> tapUuids,
+                                            DateTime lastSeen) {
+        return handle.createQuery("UPDATE icmp_redirects SET " +
+                        "sender_mac = COALESCE(:sender_mac, sender_mac), " +
+                        "target_mac = COALESCE(:target_mac, target_mac), " +
                         "redirected_destinations = (SELECT COALESCE(jsonb_agg(DISTINCT d), '[]'::jsonb) FROM " +
                         "jsonb_array_elements_text(redirected_destinations || :redirected_destinations::jsonb) AS d), " +
                         "packet_count = packet_count + :additional_packets, " +
                         "tap_uuids = (SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb) FROM " +
                         "jsonb_array_elements_text(tap_uuids || :tap_uuids::jsonb) AS t), " +
-                        "last_seen = GREATEST(last_seen, :last_seen), updated_at = NOW() WHERE id = :id")
+                        "last_seen = GREATEST(last_seen, :last_seen), updated_at = NOW() WHERE id = :id RETURNING *")
                 .bind("id", id)
+                .bind("sender_mac", senderMac)
+                .bind("target_mac", targetMac)
                 .bind("redirected_destinations", JsonArrays.toJson(redirectedDestinations))
                 .bind("additional_packets", additionalPackets)
                 .bind("tap_uuids", JsonArrays.toJson(tapUuids.stream().map(UUID::toString).toList()))
                 .bind("last_seen", lastSeen)
-                .execute();
+                .mapTo(IcmpRedirectEntry.class)
+                .one();
     }
 
     public long countTraceroutes(Filters filters, @Nullable List<UUID> taps, TimeRange timeRange, UUID organizationId, UUID tenantId) {
@@ -1380,24 +1387,31 @@ public class ICMP {
                 .one();
     }
 
-    public void updateTunnel(Handle handle,
-                             long id,
-                             long maxPayloadBytes,
-                             long packetCount,
-                             Collection<UUID> tapUuids,
-                             DateTime lastSeen) {
-        handle.createUpdate("UPDATE icmp_tunnels SET " +
+    public IcmpTunnelEntry updateTunnel(Handle handle,
+                                        long id,
+                                        @Nullable String sourceMac,
+                                        @Nullable String destinationMac,
+                                        long maxPayloadBytes,
+                                        long packetCount,
+                                        Collection<UUID> tapUuids,
+                                        DateTime lastSeen) {
+        return handle.createQuery("UPDATE icmp_tunnels SET " +
+                        "source_mac = COALESCE(:source_mac, source_mac), " +
+                        "destination_mac = COALESCE(:destination_mac, destination_mac), " +
                         "max_payload_bytes = GREATEST(max_payload_bytes, :max_payload_bytes), " +
                         "packet_count = GREATEST(packet_count, :packet_count), " +
                         "tap_uuids = (SELECT COALESCE(jsonb_agg(DISTINCT t), '[]'::jsonb) FROM " +
                         "jsonb_array_elements_text(tap_uuids || :tap_uuids::jsonb) AS t), " +
-                        "last_seen = GREATEST(last_seen, :last_seen), updated_at = NOW() WHERE id = :id")
+                        "last_seen = GREATEST(last_seen, :last_seen), updated_at = NOW() WHERE id = :id RETURNING *")
                 .bind("id", id)
+                .bind("source_mac", sourceMac)
+                .bind("destination_mac", destinationMac)
                 .bind("max_payload_bytes", maxPayloadBytes)
                 .bind("packet_count", packetCount)
                 .bind("tap_uuids", JsonArrays.toJson(tapUuids.stream().map(UUID::toString).toList()))
                 .bind("last_seen", lastSeen)
-                .execute();
+                .mapTo(IcmpTunnelEntry.class)
+                .one();
     }
 
     public Optional<IcmpTunnelEntry> findTunnel(UUID uuid, UUID organizationId, UUID tenantId) {
