@@ -87,6 +87,7 @@ import app.nzyme.core.configuration.node.NodeConfiguration;
 import app.nzyme.core.crypto.Crypto;
 import app.nzyme.core.database.DatabaseImpl;
 import app.nzyme.core.security.NodeFilePermissions;
+import app.nzyme.core.crypto.tls.TLSCertificateFileWatcher;
 import app.nzyme.core.ethernet.Ethernet;
 import app.nzyme.core.periodicals.PeriodicalManager;
 import app.nzyme.core.periodicals.versioncheck.VersioncheckThread;
@@ -348,6 +349,7 @@ public class NzymeNodeImpl implements NzymeNode {
         // Periodicals. (TODO: Replace with scheduler service)
         PeriodicalManager periodicalManager = new PeriodicalManager();
         periodicalManager.scheduleAtFixedRate(new NodeUpdater(this), 0, 5, TimeUnit.SECONDS);
+        periodicalManager.scheduleAtFixedRate(new TLSCertificateFileWatcher(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new ConnectStatusReporter(this), 0, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new L4ConnectionCleaner(this), 0, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new Dot11SignalTrackMonitor(this), 1, 1, TimeUnit.MINUTES);
