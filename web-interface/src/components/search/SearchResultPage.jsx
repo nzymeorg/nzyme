@@ -280,7 +280,8 @@ function SearchResultPage() {
               <CardTitleWithControls title="Query"
                                      timeRange={timeRange ? timeRange : Presets.RELATIVE_HOURS_24}
                                      setTimeRange={setTimeRange}
-                                     urlKey={TIME_RANGE_KEY} />
+                                     urlKey={TIME_RANGE_KEY}
+                                     helpLink="https://go.nzyme.org/search" />
 
               <form role="search" onSubmit={submit}>
                 <div className="input-group">
@@ -297,8 +298,7 @@ function SearchResultPage() {
               </form>
 
               <p className="search-scope mb-0 mt-3">
-                All taps are searched, whatever taps are selected. The time range applies to recorded network
-                data.{" "}
+                All taps are searched and the time range applies to recorded network data.{" "}
                 {timeRange ? <a href="#" onClick={resetTimeRange}>Reset Time Range</a> : null}
               </p>
             </div>
@@ -310,7 +310,7 @@ function SearchResultPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Results" />
+              <CardTitleWithControls title="Results" helpLink="https://go.nzyme.org/search-groups" />
 
               {summary() ? (
                 <p className="search-summary mb-0">
