@@ -101,7 +101,8 @@ public class DNS {
                 handle.createQuery("SELECT server_address, server_port, server_address_geo_asn_number, " +
                                 "server_address_geo_asn_name, server_address_geo_asn_domain, " +
                                 "server_address_geo_city, server_address_geo_latitude, " +
-                                "server_address_geo_longitude, server_address_is_site_local, " +
+                                "server_address_geo_longitude, " +
+                                "BOOL_OR(server_address_is_site_local) AS server_address_is_site_local, " +
                                 "server_address_is_multicast, server_address_is_loopback, " +
                                 "server_address_geo_country_code, SUM(count) AS request_count, " +
                                 "COUNT(DISTINCT(client_address)) AS client_count " +
@@ -111,8 +112,7 @@ public class DNS {
                                 "server_address_geo_asn_name, server_address_geo_asn_domain, " +
                                 "server_address_geo_city, server_address_geo_country_code, " +
                                 "server_address_geo_latitude, server_address_geo_longitude, " +
-                                "server_address_is_site_local, server_address_is_multicast, " +
-                                "server_address_is_loopback " +
+                                "server_address_is_multicast, server_address_is_loopback " +
                                 "ORDER BY request_count DESC " +
                                 "LIMIT :limit OFFSET :offset")
                         .bindList("taps", taps)

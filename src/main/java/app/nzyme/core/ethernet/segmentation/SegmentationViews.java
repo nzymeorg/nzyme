@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.CIDR;
@@ -422,7 +423,7 @@ public class SegmentationViews {
                 return Coverage.NONE;
             }
 
-            boolean internal = network.address().isSiteLocalAddress();
+            boolean internal = resolver.siteLocal(network.address());
             return internal == (group == Flow.GROUP_UNASSIGNED) ? Coverage.PARTIAL : Coverage.NONE;
         }
 
@@ -864,7 +865,7 @@ public class SegmentationViews {
     private static final List<CIDR> PRIVATE_NETWORKS = List.of(CIDR.parse("10.0.0.0/8"), CIDR.parse("172.16.0.0/12"),
             CIDR.parse("192.168.0.0/16"), CIDR.parse("fec0::/10"));
 
-    static boolean canBeExternal(CIDR network, Collection<Segment> segments) {
+    static boolean canBeExternal(CIDR network, Collection<Segment> segments, InternalAddresses.Rules internalAddresses) {
         boolean insideSegment = false;
 
         for (Segment segment : segments) {
@@ -884,6 +885,10 @@ public class SegmentationViews {
         }
 
         if (insideSegment) {
+            return false;
+        }
+
+        if (internalAddresses.cgnatIsInternal() && isWithin(network, InternalAddresses.CGNAT_NETWORK)) {
             return false;
         }
 
@@ -973,7 +978,7 @@ public class SegmentationViews {
 
                     if (!exact) {
                         conditions.add("(" + side + "_address <<= :" + bind + "::inet OR " + side + "_address IS NULL)");
-                    } else if (canBeExternal(network, resolver.segments())) {
+                    } else if (canBeExternal(network, resolver.segments(), resolver.internalAddresses())) {
                         conditions.add("(" + side + "_address <<= :" + bind + "::inet OR (" + side
                                 + "_address IS NULL AND NOT " + side + "_internal AND " + side + "_key NOT LIKE '"
                                 + Flows.BROADCAST_KEYS + "'))");

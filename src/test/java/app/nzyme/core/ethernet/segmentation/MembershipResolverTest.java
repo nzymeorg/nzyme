@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.testng.annotations.Test;
@@ -90,6 +91,17 @@ public class MembershipResolverTest {
         assertNull(external.segment());
         assertEquals(external.asn(), Long.valueOf(64500));
         assertEquals(external.countryCode(), "DE");
+    }
+
+    @Test
+    public void cgnatAddressIsInternalWhereItIsRecordedAsInternal() {
+        assertFalse(resolver().siteLocal(address("100.100.1.2")));
+
+        MembershipResolver resolver = new MembershipResolver(Lists.newArrayList(), Collections.emptyMap(),
+                new InternalAddresses.Rules(true));
+        assertTrue(resolver.siteLocal(address("100.100.1.2")));
+        assertTrue(resolver.siteLocal(address("10.1.2.3")));
+        assertFalse(resolver.siteLocal(address("8.8.8.8")));
     }
 
     @Test

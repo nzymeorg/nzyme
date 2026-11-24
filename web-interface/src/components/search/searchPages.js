@@ -129,6 +129,10 @@ const flatten = (section, items, path, pages, user) => {
       return;
     }
 
+    if (item.administrators_only && !administrator(user)) {
+      return;
+    }
+
     if (item.children) {
       flatten(section, item.children, path.concat([item.name]), pages, user);
       return;

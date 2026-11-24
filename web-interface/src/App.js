@@ -275,6 +275,7 @@ import CreateNetworkContextPage from "./components/context/networks/CreateNetwor
 import NetworkContextDetailsPage from "./components/context/networks/NetworkContextDetailsPage";
 import EditNetworkContextPage from "./components/context/networks/EditNetworkContextPage";
 import L4SessionsPage from "./components/ethernet/l4/L4SessionsPage";
+import L4SettingsPage from "./components/ethernet/l4/settings/L4SettingsPage";
 import TopologyPage from "./components/ethernet/topology/TopologyPage";
 import SegmentationOverviewPage from "./components/ethernet/segmentation/overview/SegmentationOverviewPage";
 import SegmentsPage from "./components/ethernet/segmentation/segments/SegmentsPage";
@@ -695,6 +696,7 @@ function App() {
                                 { /* Ethernet/L4. */}
                                 <Route path={ApiRoutes.ETHERNET.L4.OVERVIEW} element={<L4OverviewPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.L4.SESSIONS} element={<L4SessionsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.L4.SETTINGS} element={<L4SettingsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.L4.TCP.SESSION_DETAILS(':sessionKey', ':startTime')} element={<TCPSessionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.L4.UDP.SESSION_DETAILS(':sessionKey', ':startTime')} element={<UDPSessionDetailsPage />}/>
 

@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.beacons;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
@@ -166,6 +167,8 @@ public class BeaconDetector {
                                  DateTime until,
                                  UUID organizationId,
                                  UUID tenantId) {
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
+
         return nzyme.getDatabase().inTransaction(handle -> {
             /*
              * All nodes of a cluster run this detector. The advisory lock makes sure that only one node processes
@@ -187,12 +190,12 @@ public class BeaconDetector {
             try (Timer.Context ignored = candidateDiscoveryTimer.time()) {
                 if (config.enabledSources().contains(BeaconType.TLS)) {
                     readSource(handle, "TLS", candidates,
-                            () -> readTlsCandidates(handle, taps, since, activitySince, until, config));
+                            () -> readTlsCandidates(handle, taps, since, activitySince, until, config, internalAddresses));
                 }
 
                 if (config.enabledSources().contains(BeaconType.SOCKS)) {
                     readSource(handle, "SOCKS", candidates,
-                            () -> readSocksCandidates(handle, taps, since, activitySince, until, config));
+                            () -> readSocksCandidates(handle, taps, since, activitySince, until, config, internalAddresses));
                 }
 
                 if (config.enabledSources().contains(BeaconType.DNS)) {
@@ -605,7 +608,8 @@ public class BeaconDetector {
                                               DateTime since,
                                               DateTime activitySince,
                                               DateTime until,
-                                              BeaconsConfiguration config) {
+                                              BeaconsConfiguration config,
+                                              InternalAddresses.Rules internalAddresses) {
         List<Candidate> result = Lists.newArrayList();
         handle.createQuery("WITH active AS (SELECT DISTINCT source_address, source_mac, " +
                         "COALESCE(server_name, host(destination_address)) AS destination_host, destination_port " +
@@ -665,7 +669,7 @@ public class BeaconDetector {
                                 hasServerName ? destinationHost : null,
                                 destinationAddress,
                                 destinationPort,
-                                anySiteLocal(stringArray(row.get("destination_addresses"))),
+                                anySiteLocal(stringArray(row.get("destination_addresses")), internalAddresses),
                                 (String) row.get("source_address"),
                                 (String) row.get("source_mac"),
                                 destinationHost,
@@ -697,7 +701,8 @@ public class BeaconDetector {
                                                 DateTime since,
                                                 DateTime activitySince,
                                                 DateTime until,
-                                                BeaconsConfiguration config) {
+                                                BeaconsConfiguration config,
+                                                InternalAddresses.Rules internalAddresses) {
         List<Candidate> result = Lists.newArrayList();
         handle.createQuery("WITH " + SOCKS_TUNNELS_CTE +
                         ", active AS (SELECT DISTINCT source_address, source_mac, destination_host, destination_port " +
@@ -731,7 +736,8 @@ public class BeaconDetector {
                         // Tunneled destination addresses are only known for some SOCKS requests. We fall back to
                         // the proxy address to decide if this is a site-local destination.
                         boolean siteLocal = destinationAddress != null && isValidAddress(destinationAddress)
-                                ? isSiteLocal(destinationAddress) : isSiteLocal(proxyAddress);
+                                ? isSiteLocal(destinationAddress, internalAddresses)
+                                : isSiteLocal(proxyAddress, internalAddresses);
 
                         Map<String, Object> enrichment = Maps.newHashMap();
                         putIfNotNull(enrichment, "socks_type", row.get("socks_type"));
@@ -1125,9 +1131,9 @@ public class BeaconDetector {
         return result;
     }
 
-    private static boolean anySiteLocal(List<String> addresses) {
+    private static boolean anySiteLocal(List<String> addresses, InternalAddresses.Rules internalAddresses) {
         for (String address : addresses) {
-            if (address != null && isSiteLocal(address)) {
+            if (address != null && isSiteLocal(address, internalAddresses)) {
                 return true;
             }
         }
@@ -1155,14 +1161,15 @@ public class BeaconDetector {
         }
     }
 
-    public static boolean isSiteLocal(String address) {
+    public static boolean isSiteLocal(String address, InternalAddresses.Rules internalAddresses) {
         if (!isValidAddress(address)) {
             return false;
         }
 
         try {
             InetAddress a = InetAddress.getByName(address);
-            return a.isSiteLocalAddress() || a.isLoopbackAddress() || a.isLinkLocalAddress() || a.isAnyLocalAddress();
+            return internalAddresses.isSiteLocal(a) || a.isLoopbackAddress() || a.isLinkLocalAddress()
+                    || a.isAnyLocalAddress();
         } catch (UnknownHostException e) {
             return false;
         }

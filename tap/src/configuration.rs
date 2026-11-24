@@ -140,7 +140,8 @@ pub struct Performance {
 pub struct Misc {
     pub context_mac_ip_retention_hours: i32,
     pub context_mac_hostname_retention_hours: i32,
-    pub panic_log_file_path: Option<String>
+    pub panic_log_file_path: Option<String>,
+    pub cgnat_is_internal: Option<bool>
 }
 
 #[derive(Debug, Clone, Deserialize)]

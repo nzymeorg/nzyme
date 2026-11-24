@@ -190,6 +190,7 @@ const ApiRoutes = {
     L4: {
       OVERVIEW: '/ethernet/l4',
       SESSIONS: '/ethernet/l4/sessions',
+      SETTINGS: '/ethernet/l4/settings',
       TCP: {
         SESSION_DETAILS: (sessionKey, startTime) => `/ethernet/l4/tcp/${sessionKey}/${startTime}`
       },

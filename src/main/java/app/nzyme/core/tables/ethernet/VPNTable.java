@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.integrations.geoip.GeoIpService;
 import tools.jackson.databind.ObjectMapper;
@@ -44,14 +45,19 @@ public class VPNTable implements DataTable {
     }
 
     public void handleReport(UUID tapUuid, DateTime timestamp, VpnTunnelsReport report) {
+        InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tapUuid);
+
         tablesService.getNzyme().getDatabase().useHandle(handle -> {
             try(Timer.Context ignored = totalReportTimer.time()) {
-                writeTunnels(handle, tapUuid, report.tunnels());
+                writeTunnels(handle, tapUuid, report.tunnels(), internalAddresses);
             }
         });
     }
     
-    private void writeTunnels(Handle handle, UUID tapUuid, List<VpnTunnelReport> tunnels) {
+    private void writeTunnels(Handle handle,
+                              UUID tapUuid,
+                              List<VpnTunnelReport> tunnels,
+                              InternalAddresses.Rules internalAddresses) {
         PreparedBatch batch = handle.prepareBatch("INSERT INTO vpn_tunnels(uuid, tap_uuid, session_key, " +
                 "untimed_session_key, l4_type, vpn_type, handshake_status, message_types, provider, server_name, " +
                 "details, connection_status, " +
@@ -194,7 +200,7 @@ public class VPNTable implements DataTable {
                         .bind("source_mac", tunnel.sourceMac())
                         .bind("source_address", tunnel.sourceAddress())
                         .bind("source_port", tunnel.sourcePort())
-                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_site_local", internalAddresses.isSiteLocal(sourceAddress))
                         .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
                         .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
                         .bind("source_address_geo_asn_number", sourceGeo.map(g -> g.asn().number()).orElse(null))
@@ -207,7 +213,7 @@ public class VPNTable implements DataTable {
                         .bind("destination_mac", tunnel.destinationMac())
                         .bind("destination_address", tunnel.destinationAddress())
                         .bind("destination_port", tunnel.destinationPort())
-                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_site_local", internalAddresses.isSiteLocal(destinationAddress))
                         .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
                         .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
                         .bind("destination_address_geo_asn_number", destinationGeo.map(g -> g.asn().number()).orElse(null))

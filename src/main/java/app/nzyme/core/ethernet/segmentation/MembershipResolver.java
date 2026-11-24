@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
@@ -45,11 +46,19 @@ public class MembershipResolver {
     private final Map<Long, Segment> byId = Maps.newHashMap();
     private final Map<UUID, Segment> byUuid = Maps.newHashMap();
     private final Map<InetAddress, TaggedAsset> assets;
+    private final InternalAddresses.Rules internalAddresses;
 
     private boolean tapLimited = false;
 
     public MembershipResolver(Collection<Segment> segments, Map<InetAddress, TaggedAsset> assets) {
+        this(segments, assets, InternalAddresses.Rules.DEFAULT);
+    }
+
+    public MembershipResolver(Collection<Segment> segments,
+                              Map<InetAddress, TaggedAsset> assets,
+                              InternalAddresses.Rules internalAddresses) {
         this.assets = assets;
+        this.internalAddresses = internalAddresses;
 
         List<Segment> ordered = Lists.newArrayList(segments);
         ordered.sort(Comparator.comparingLong(Segment::id));
@@ -189,8 +198,16 @@ public class MembershipResolver {
         );
     }
 
+    public boolean siteLocal(InetAddress address) {
+        return internalAddresses.isSiteLocal(address);
+    }
+
+    public InternalAddresses.Rules internalAddresses() {
+        return internalAddresses;
+    }
+
     public AnyTap resolveForAnyTap(Collection<UUID> taps, InetAddress address, @Nullable Long asn) {
-        boolean siteLocal = address.isSiteLocalAddress();
+        boolean siteLocal = siteLocal(address);
 
         if (!tapLimited || taps.isEmpty()) {
             Segment segment = resolve(NO_TAP, address, siteLocal, asn, null).segment();

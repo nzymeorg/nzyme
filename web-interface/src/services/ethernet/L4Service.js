@@ -2,6 +2,21 @@ import RESTClient from "../../util/RESTClient";
 
 export default class L4Service {
 
+  getConfiguration(organizationId, tenantId, setConfiguration) {
+    RESTClient.get(`/ethernet/l4/organization/${organizationId}/tenant/${tenantId}/configuration`, {},
+        (response) => setConfiguration(response.data));
+  }
+
+  getTapSettings(organizationId, tenantId, setTapSettings) {
+    RESTClient.get(`/ethernet/l4/organization/${organizationId}/tenant/${tenantId}/configuration/taps`, {},
+        (response) => setTapSettings(response.data));
+  }
+
+  updateConfiguration(newConfig, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/ethernet/l4/organization/${organizationId}/tenant/${tenantId}/configuration`,
+        {change: newConfig}, successCallback, errorCallback);
+  }
+
   findAllSessions(organizationId, tenantId, taps, filters, timeRange, orderColumn, orderDirection, limit, offset, setSessions) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 

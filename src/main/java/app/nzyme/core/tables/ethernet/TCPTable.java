@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
@@ -82,9 +83,11 @@ public class TCPTable implements DataTable {
                     throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
                 }
 
+                InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tap.get());
+
                 tablesService.getNzyme().getDatabase().useHandle(handle -> {
                     try (Timer.Context ignored2 = sessionsReportTimer.time()) {
-                        writeSessions(handle, tap.get(), timestamp, report.sessions());
+                        writeSessions(handle, tap.get(), timestamp, report.sessions(), internalAddresses);
                     }
 
                     try (Timer.Context ignored2 = assetRegistrationTimer.time()) {
@@ -109,9 +112,11 @@ public class TCPTable implements DataTable {
                     throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
                 }
 
+                InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tap.get());
+
                 tablesService.getNzyme().getDatabase().useHandle(handle -> {
                     if (hasProbes) {
-                        writeProbes(handle, tap.get(), timestamp, report.probes());
+                        writeProbes(handle, tap.get(), timestamp, report.probes(), internalAddresses);
                     }
 
                     if (hasReplies) {
@@ -149,7 +154,11 @@ public class TCPTable implements DataTable {
         }
     }
 
-    private void writeSessions(Handle handle, Tap tap, DateTime timestamp, List<TcpSessionReport> sessions) {
+    private void writeSessions(Handle handle,
+                               Tap tap,
+                               DateTime timestamp,
+                               List<TcpSessionReport> sessions,
+                               InternalAddresses.Rules internalAddresses) {
         PreparedBatch upsertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
                 "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
@@ -405,13 +414,13 @@ public class TCPTable implements DataTable {
                         .bind("untimed_session_key", untimedSessionKey)
                         .bind("source_mac", session.sourceMac())
                         .bind("source_address", session.sourceAddress())
-                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_site_local", internalAddresses.isSiteLocal(sourceAddress))
                         .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
                         .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
                         .bind("source_port", session.sourcePort())
                         .bind("destination_mac", session.destinationMac())
                         .bind("destination_address", session.destinationAddress())
-                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_site_local", internalAddresses.isSiteLocal(destinationAddress))
                         .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
                         .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
                         .bind("destination_port", session.destinationPort())
@@ -486,7 +495,7 @@ public class TCPTable implements DataTable {
                 totalSegments += session.segmentsCountIncremental();
                 totalSessions += 1;
 
-                if (sourceAddress.isSiteLocalAddress() && destinationAddress.isSiteLocalAddress()) {
+                if (internalAddresses.isSiteLocal(sourceAddress) && internalAddresses.isSiteLocal(destinationAddress)) {
                     totalInternalSessions += 1;
                     totalRxInternalBytes += session.bytesCountRxIncremental();
                     totalTxInternalBytes += session.bytesCountTxIncremental();
@@ -508,7 +517,8 @@ public class TCPTable implements DataTable {
                         session.mostRecentSegmentTime(),
                         sourceGeo,
                         destinationGeo,
-                        identity
+                        identity,
+                        internalAddresses
                 );
             } catch (Exception e) {
                 LOG.error("Could not handle TCP session.", e);
@@ -546,7 +556,11 @@ public class TCPTable implements DataTable {
         }
     }
 
-    private void writeProbes(Handle handle, Tap tap, DateTime timestamp, List<TcpProbeReport> probes) {
+    private void writeProbes(Handle handle,
+                             Tap tap,
+                             DateTime timestamp,
+                             List<TcpProbeReport> probes,
+                             InternalAddresses.Rules internalAddresses) {
         PreparedBatch batch = handle.prepareBatch("INSERT INTO tcp_probes(tap_uuid, source_mac, source_address, " +
                 "source_address_is_site_local, destination_mac, destination_address, " +
                 "destination_address_is_site_local, destination_port, flag_syn, flag_ack, flag_fin, flag_rst, " +
@@ -574,10 +588,10 @@ public class TCPTable implements DataTable {
                 batch.bind("tap_uuid", tap.uuid())
                         .bind("source_mac", probe.sourceMac())
                         .bind("source_address", probe.sourceAddress())
-                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_site_local", internalAddresses.isSiteLocal(sourceAddress))
                         .bind("destination_mac", probe.destinationMac())
                         .bind("destination_address", probe.destinationAddress())
-                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_site_local", internalAddresses.isSiteLocal(destinationAddress))
                         .bind("destination_port", probe.destinationPort())
                         .bind("flag_syn", probe.flagSyn())
                         .bind("flag_ack", probe.flagAck())

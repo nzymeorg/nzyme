@@ -52,6 +52,15 @@ public class L4FiltersTest {
     }
 
     @Test
+    public void testInternalFieldsReadTheStoredFlags() {
+        assertEquals(where("source_is_internal", FilterOperator.BOOLEAN), "source_address_is_site_local = :b");
+        assertEquals(where("destination_is_internal", FilterOperator.BOOLEAN),
+                "destination_address_is_site_local = :b");
+        assertEquals(where("is_internal", FilterOperator.BOOLEAN),
+                "(source_address_is_site_local AND destination_address_is_site_local) = :b");
+    }
+
+    @Test
     public void testEitherSideUsesTheMatchersOfTheSidedFields() {
         L4Filters filters = new L4Filters();
 

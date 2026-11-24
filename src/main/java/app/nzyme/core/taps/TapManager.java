@@ -1,5 +1,6 @@
 package app.nzyme.core.taps;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.context.ContextService;
 import app.nzyme.core.context.db.MacAddressContextEntry;
@@ -453,6 +454,7 @@ public class TapManager {
 
         UUID organizationId = tap.get().organizationId();
         UUID tenantId = tap.get().tenantId();
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
 
         nzyme.getDatabase().useHandle(handle -> {
             for (TapMacContextReport mac : report.macs()) {
@@ -500,7 +502,7 @@ public class TapManager {
                     try {
                         InetAddress ipAddr = InetAddress.getByName(ip.value());
 
-                        if (!ipAddr.isSiteLocalAddress()) {
+                        if (!internalAddresses.isSiteLocal(ipAddr)) {
                             // We only handle local addresses.
                             continue;
                         }

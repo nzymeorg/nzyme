@@ -181,7 +181,8 @@ public class Segmentation {
 
         return new MembershipResolver(
                 all,
-                nzyme.getAssetsManager().tags().resolveAddresses(handle, organizationId, tenantId, assets)
+                nzyme.getAssetsManager().tags().resolveAddresses(handle, organizationId, tenantId, assets),
+                nzyme.getEthernet().internalAddresses().read(organizationId, tenantId)
         );
     }
 

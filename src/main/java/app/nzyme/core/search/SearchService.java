@@ -391,7 +391,7 @@ public class SearchService {
 
         if (term.is(SearchTerm.Kind.IP)) {
             interpretations.add(SearchInterpretationResponse.create("IP_ADDRESS", term.address(),
-                    describeAddress(term.address()),
+                    describeAddress(term.address(), scope),
                     scope.hasSubsystem(Subsystem.ETHERNET) && scope.hasTaps()
                             ? BriefingLinks.to("IP_ADDRESS", "address", term.address()) : null));
         }
@@ -414,7 +414,7 @@ public class SearchService {
     }
 
     @Nullable
-    private String describeAddress(String address) {
+    private String describeAddress(String address, SearchScope scope) {
         InetAddress parsed = InetAddresses.forString(address);
 
         if (parsed.isLoopbackAddress()) {
@@ -423,7 +423,8 @@ public class SearchService {
         if (parsed.isMulticastAddress()) {
             return "Multicast address";
         }
-        if (parsed.isSiteLocalAddress() || parsed.isLinkLocalAddress()) {
+        if (nzyme.getEthernet().internalAddresses().of(scope.organizationId(), scope.tenantId()).isSiteLocal(parsed)
+                || parsed.isLinkLocalAddress()) {
             return "Internal address";
         }
 

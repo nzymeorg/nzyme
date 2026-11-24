@@ -1,6 +1,6 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use log::{debug, error, trace};
 use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
@@ -71,9 +71,63 @@ pub fn route_ipv4_packet(packet: IPv4Packet, bus: &Arc<Bus>) {
     }
 }
 
+static CGNAT_IS_INTERNAL: AtomicBool = AtomicBool::new(false);
+
+// Set once from the configuration at startup.
+pub fn set_cgnat_is_internal(cgnat_is_internal: bool) {
+    CGNAT_IS_INTERNAL.store(cgnat_is_internal, Ordering::Relaxed);
+}
+
 pub fn is_site_local(addr: IpAddr) -> bool {
+    is_site_local_with(addr, CGNAT_IS_INTERNAL.load(Ordering::Relaxed))
+}
+
+pub fn is_site_local_with(addr: IpAddr, cgnat_is_internal: bool) -> bool {
     match addr {
-        IpAddr::V4(v4) => v4.is_private(),
+        IpAddr::V4(v4) => v4.is_private() || (cgnat_is_internal && is_cgnat(v4)),
         IpAddr::V6(v6) => (v6.segments()[0] & 0xfe00) == 0xfc00,
+    }
+}
+
+// 100.64.0.0/10
+fn is_cgnat(addr: Ipv4Addr) -> bool {
+    let octets = addr.octets();
+    octets[0] == 100 && (octets[1] & 0xc0) == 64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn site_local(addr: &str, cgnat_is_internal: bool) -> bool {
+        is_site_local_with(addr.parse::<IpAddr>().unwrap(), cgnat_is_internal)
+    }
+
+    #[test]
+    fn cgnat_is_external_by_default() {
+        assert!(!site_local("100.64.0.1", false));
+        assert!(!site_local("100.100.100.100", false));
+        assert!(site_local("10.0.0.1", false));
+        assert!(site_local("172.16.5.5", false));
+        assert!(site_local("192.168.1.1", false));
+        assert!(!site_local("8.8.8.8", false));
+    }
+
+    #[test]
+    fn cgnat_is_internal_where_configured() {
+        assert!(site_local("100.64.0.0", true));
+        assert!(site_local("100.100.100.100", true));
+        assert!(site_local("100.127.255.255", true));
+        assert!(site_local("10.0.0.1", true));
+    }
+
+    #[test]
+    fn only_the_shared_address_space_is_added() {
+        assert!(!site_local("100.63.255.255", true));
+        assert!(!site_local("100.128.0.0", true));
+        assert!(!site_local("101.64.0.1", true));
+        assert!(!site_local("8.8.8.8", true));
+        assert!(!site_local("2606:4700:4700::1111", true));
+        assert!(site_local("fd7a:115c:a1e0::1", true));
     }
 }

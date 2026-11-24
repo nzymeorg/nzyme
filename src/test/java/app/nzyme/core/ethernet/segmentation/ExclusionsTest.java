@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.CIDR;
 import com.google.common.collect.Lists;
 import org.joda.time.DateTime;
@@ -39,7 +40,7 @@ public class ExclusionsTest {
 
     private static void assertRejected(Segment segment, String destination, String note, List<Exclusion> existing) {
         assertThrows(IllegalArgumentException.class, () -> Exclusions.validate(segment,
-                destination == null ? null : CIDR.parse(destination), note, existing, SEGMENTS));
+                destination == null ? null : CIDR.parse(destination), note, existing, SEGMENTS, InternalAddresses.Rules.DEFAULT));
     }
 
     @Test
@@ -87,14 +88,23 @@ public class ExclusionsTest {
 
     @Test
     public void testAnAddressAndASmallNetworkCanBeExcluded() {
-        Exclusions.validate(CLIENTS, CIDR.parse("172.16.0.157"), "Does not exist.", none(), SEGMENTS);
-        Exclusions.validate(CLIENTS, CIDR.parse("172.16.0.0/24"), "Does not exist.", none(), SEGMENTS);
-        Exclusions.validate(CLIENTS, CIDR.parse("10.1.0.9/32"), "Inside the segment itself.", none(), SEGMENTS);
+        Exclusions.validate(CLIENTS, CIDR.parse("172.16.0.157"), "Does not exist.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT);
+        Exclusions.validate(CLIENTS, CIDR.parse("172.16.0.0/24"), "Does not exist.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT);
+        Exclusions.validate(CLIENTS, CIDR.parse("10.1.0.9/32"), "Inside the segment itself.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT);
+    }
+
+    @Test
+    public void testACgnatAddressCanBeExcludedWhereItIsRecordedAsInternal() {
+        assertThrows(IllegalArgumentException.class, () -> Exclusions.validate(CLIENTS,
+                CIDR.parse("100.100.1.2"), "Does not exist.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT));
+
+        Exclusions.validate(CLIENTS, CIDR.parse("100.100.1.2"), "Does not exist.", none(), SEGMENTS,
+                new InternalAddresses.Rules(true));
     }
 
     @Test
     public void testAnAddressThatIsOnlyInternalByItsSegmentCanBeExcluded() {
-        Exclusions.validate(CLIENTS, CIDR.parse("203.0.113.9"), "Decommissioned.", none(), SEGMENTS);
+        Exclusions.validate(CLIENTS, CIDR.parse("203.0.113.9"), "Decommissioned.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT);
 
         assertRejected(CLIENTS, "203.0.114.9", "Not ours.", none());
         assertRejected(CLIENTS, "198.51.100.7", "In an external network.", none());
@@ -106,7 +116,7 @@ public class ExclusionsTest {
         assertRejected(CLIENTS, "10.0.0.0/8", "Too large.", none());
         assertRejected(CLIENTS, "fec0::/48", "Too large.", none());
 
-        Exclusions.validate(CLIENTS, CIDR.parse("fec0:0:0:1::/64"), "Small enough.", none(), SEGMENTS);
+        Exclusions.validate(CLIENTS, CIDR.parse("fec0:0:0:1::/64"), "Small enough.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT);
     }
 
     @Test
@@ -128,7 +138,7 @@ public class ExclusionsTest {
         assertRejected(CLIENTS, "172.16.0.157/32", "Again.", List.of(exclusion("172.16.0.157")));
 
         Exclusions.validate(CLIENTS, CIDR.parse("172.16.0.158"), "Another one.", List.of(exclusion("172.16.0.157")),
-                SEGMENTS);
+                SEGMENTS, InternalAddresses.Rules.DEFAULT);
     }
 
     @Test

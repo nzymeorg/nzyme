@@ -144,7 +144,8 @@ public class RestHelpers {
             return L4AddressMacRoleResponse.UNKNOWN;
         }
 
-        if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
+        if (address instanceof Inet4Address
+                && nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(address)) {
             return nzyme.getAssetsManager().claimedIpAddress(mac, address, organizationId, tenantId)
                     ? L4AddressMacRoleResponse.DEVICE : L4AddressMacRoleResponse.UNCLAIMED;
         }

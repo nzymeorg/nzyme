@@ -69,6 +69,13 @@ public class L4Filters implements SqlFilterProvider  {
                 return GeneratedSql.create("", numericMatch(bindId, "(EXTRACT(EPOCH FROM (MAX(most_recent_segment_time) - MIN(start_time))) * 1000)", operator));
             case "tags":
                 return GeneratedSql.create(jsonbStringMatch(bindId, "tags", operator), "");
+            case "source_is_internal":
+                return GeneratedSql.create(booleanMatch(bindId, "source_address_is_site_local", operator), "");
+            case "destination_is_internal":
+                return GeneratedSql.create(booleanMatch(bindId, "destination_address_is_site_local", operator), "");
+            case "is_internal":
+                return GeneratedSql.create(booleanMatch(bindId,
+                        "(source_address_is_site_local AND destination_address_is_site_local)", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

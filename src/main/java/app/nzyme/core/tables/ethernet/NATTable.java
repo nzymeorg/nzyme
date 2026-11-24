@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.GeoData;
 import app.nzyme.core.ethernet.l4.db.L4AddressAttributes;
 import app.nzyme.core.ethernet.l4.db.L4AddressData;
@@ -64,18 +65,23 @@ public class NATTable implements DataTable  {
 
     public void handleTraversalReport(UUID tapUuid, DateTime timestamp, NatTraversalReport report) {
         try(Timer.Context ignored1 = totalReportTimer.time()) {
+            InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tapUuid);
+
             tablesService.getNzyme().getDatabase().useHandle(handle -> {
                 try (Timer.Context ignored2 = traversalDiscoveriesTimer.time()) {
-                    writeStunDiscoveries(handle, tapUuid, report.discoveries());
+                    writeStunDiscoveries(handle, tapUuid, report.discoveries(), internalAddresses);
                 }
                 try (Timer.Context ignored2 = traversalNegotiationsTimer.time()) {
-                    writeStunNegotiationFlows(handle, tapUuid, report.negotiationFlows());
+                    writeStunNegotiationFlows(handle, tapUuid, report.negotiationFlows(), internalAddresses);
                 }
             });
         }
     }
 
-    private void writeStunDiscoveries(Handle handle, UUID tapUuid, List<StunDiscoveryReport> discoveries) {
+    private void writeStunDiscoveries(Handle handle,
+                                      UUID tapUuid,
+                                      List<StunDiscoveryReport> discoveries,
+                                      InternalAddresses.Rules internalAddresses) {
         if (discoveries == null || discoveries.isEmpty()) {
             return;
         }
@@ -116,7 +122,7 @@ public class NATTable implements DataTable  {
                         discovery.destinationPort()
                 );
 
-                List<L4AddressData> mappedAddresses = buildAddresses(discovery.mappedAddresses());
+                List<L4AddressData> mappedAddresses = buildAddresses(discovery.mappedAddresses(), internalAddresses);
                 String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
 
                 NATTraversalDiscoveryStatus status;
@@ -150,7 +156,10 @@ public class NATTable implements DataTable  {
         }
     }
 
-    private void writeStunNegotiationFlows(Handle handle, UUID tapUuid, List<StunNegotiationFlowReport> negotiations) {
+    private void writeStunNegotiationFlows(Handle handle,
+                                           UUID tapUuid,
+                                           List<StunNegotiationFlowReport> negotiations,
+                                           InternalAddresses.Rules internalAddresses) {
         if (negotiations == null || negotiations.isEmpty()) {
             return;
         }
@@ -215,11 +224,11 @@ public class NATTable implements DataTable  {
                         negotiation.destinationPort()
                 );
 
-                List<L4AddressData> mappedAddresses = buildAddresses(negotiation.mappedAddresses());
+                List<L4AddressData> mappedAddresses = buildAddresses(negotiation.mappedAddresses(), internalAddresses);
                 String mappedAddressesJson = om.writeValueAsString(mappedAddresses);
-                List<L4AddressData> relayedAddresses = buildAddresses(negotiation.relayedAddresses());
+                List<L4AddressData> relayedAddresses = buildAddresses(negotiation.relayedAddresses(), internalAddresses);
                 String relayedAddressesJson = om.writeValueAsString(relayedAddresses);
-                List<L4AddressData> peerAddresses = buildAddresses(negotiation.peerAddresses());
+                List<L4AddressData> peerAddresses = buildAddresses(negotiation.peerAddresses(), internalAddresses);
                 String peerAddressesJson = om.writeValueAsString(peerAddresses);
 
                 String[] ufrags = negotiation.ufrags().toArray(new String[0]);
@@ -254,7 +263,8 @@ public class NATTable implements DataTable  {
         }
     }
 
-    private List<L4AddressData> buildAddresses(List<SocketAddressReport> addresses) {
+    private List<L4AddressData> buildAddresses(List<SocketAddressReport> addresses,
+                                               InternalAddresses.Rules internalAddresses) {
         List<L4AddressData> result = Lists.newArrayList();
 
         if (addresses == null) {
@@ -265,7 +275,7 @@ public class NATTable implements DataTable  {
             try {
                 InetAddress address = stringtoInetAddress(mapped.address());
                 GeoData geoData;
-                if (address.isSiteLocalAddress() || address.isLoopbackAddress()
+                if (internalAddresses.isSiteLocal(address) || address.isLoopbackAddress()
                         || address.isAnyLocalAddress() || address.isLinkLocalAddress()) {
                     geoData = GeoData.create(null, null, null, null, null, null, null);
                 } else {
@@ -287,7 +297,7 @@ public class NATTable implements DataTable  {
                         mapped.port(),
                         geoData,
                         L4AddressAttributes.create(
-                                address.isSiteLocalAddress(),
+                                internalAddresses.isSiteLocal(address),
                                 address.isLoopbackAddress(),
                                 address.isMulticastAddress()
                         )

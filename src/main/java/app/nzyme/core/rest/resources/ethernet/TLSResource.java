@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
@@ -382,9 +383,10 @@ public class TLSResource extends TapDataHandlingResource {
         TLS tls = nzyme.getEthernet().tls();
         long count = clients ? tls.getTopClientsCount(timeRange, filters, tapUUIDs)
                 : tls.getTopServersCount(timeRange, filters, tapUUIDs);
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
         List<L4AddressDataAddressNumberNumberAggregationResult> results = clients
-                ? tls.getTopClients(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs)
-                : tls.getTopServers(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs);
+                ? tls.getTopClients(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs, internalAddresses)
+                : tls.getTopServers(timeRange, filters, limit, offset, orderColumn, orderDirection, tapUUIDs, internalAddresses);
 
         List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
         for (L4AddressDataAddressNumberNumberAggregationResult x : results) {
@@ -939,11 +941,12 @@ public class TLSResource extends TapDataHandlingResource {
          */
         Optional<TcpSessionEntry> tcpSession = nzyme.getEthernet().tcp()
                 .findSessionBySessionKey(s.tcpSessionKey(), s.establishedAt(), taps);
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
 
         L4AddressData clientData = tcpSession.map(TcpSessionEntry::source)
-                .orElseGet(() -> addressData(s.sourceMac(), s.sourceAddress(), s.sourcePort()));
+                .orElseGet(() -> addressData(s.sourceMac(), s.sourceAddress(), s.sourcePort(), internalAddresses));
         L4AddressData serverData = tcpSession.map(TcpSessionEntry::destination)
-                .orElseGet(() -> addressData(s.destinationMac(), s.destinationAddress(), s.destinationPort()));
+                .orElseGet(() -> addressData(s.destinationMac(), s.destinationAddress(), s.destinationPort(), internalAddresses));
 
         L4AddressResponse client = RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.TCP, clientData);
         L4AddressResponse server = RestHelpers.L4AddressDataToResponse(nzyme, organizationId, tenantId, L4Type.TCP, serverData);
@@ -983,13 +986,14 @@ public class TLSResource extends TapDataHandlingResource {
                 .build();
     }
 
-    private static L4AddressData addressData(String mac, String address, int port) {
+    private static L4AddressData addressData(String mac, String address, int port,
+                                             InternalAddresses.Rules internalAddresses) {
         boolean siteLocal = false;
         boolean loopback = false;
         boolean multicast = false;
         try {
             InetAddress inet = InetAddress.getByName(address);
-            siteLocal = inet.isSiteLocalAddress();
+            siteLocal = internalAddresses.isSiteLocal(inet);
             loopback = inet.isLoopbackAddress();
             multicast = inet.isMulticastAddress();
         } catch (UnknownHostException ignored) {

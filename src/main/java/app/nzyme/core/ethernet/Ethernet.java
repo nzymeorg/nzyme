@@ -48,6 +48,7 @@ public class Ethernet {
     private final ICMP icmp;
     private final Topology topology;
     private final Segmentation segmentation;
+    private final InternalAddresses internalAddresses;
 
     public Ethernet(NzymeNode nzyme) {
         this.nzyme = nzyme;
@@ -72,6 +73,7 @@ public class Ethernet {
         this.spoofing = new Spoofing(nzyme);
         this.icmp = new ICMP(this);
         this.topology = new Topology(this);
+        this.internalAddresses = new InternalAddresses(nzyme);
         this.segmentation = new Segmentation(nzyme);
     }
 
@@ -161,5 +163,9 @@ public class Ethernet {
 
     public PortalIntegrity portalIntegrity() {
         return portalIntegrity;
+    }
+
+    public InternalAddresses internalAddresses() {
+        return internalAddresses;
     }
 }

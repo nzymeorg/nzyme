@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.ethernet.CIDR;
 import com.google.common.collect.Lists;
@@ -109,6 +110,8 @@ public class Exclusions {
     // Also removes what is stored of the attempts that will no longer be recorded.
     public Exclusion create(Segment segment, @Nullable CIDR destination, @Nullable String note) {
         UUID uuid = UUID.randomUUID();
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses()
+                .of(segment.organizationId(), segment.tenantId());
 
         nzyme.getDatabase().useTransaction(handle -> {
             // Waits for an evaluation that is running, so that it cannot store again what is removed here.
@@ -116,7 +119,8 @@ public class Exclusions {
 
             List<Exclusion> existing = findAllOfSegment(handle, segment);
             validate(segment, destination, note, existing,
-                    segmentation.segments().findAll(handle, segment.organizationId(), segment.tenantId()));
+                    segmentation.segments().findAll(handle, segment.organizationId(), segment.tenantId()),
+                    internalAddresses);
 
             handle.createUpdate("INSERT INTO segmentation_exclusions(uuid, segment_id, destination, note, created_at) " +
                             "VALUES(:uuid, :segment_id, :destination::cidr, :note, NOW())")
@@ -148,7 +152,8 @@ public class Exclusions {
                          @Nullable CIDR destination,
                          @Nullable String note,
                          List<Exclusion> existing,
-                         List<Segment> segments) {
+                         List<Segment> segments,
+                         InternalAddresses.Rules internalAddresses) {
         if (segment.kind() != SegmentKind.INTERNAL) {
             throw new IllegalArgumentException("Only a segment can have excluded destinations.");
         }
@@ -175,7 +180,7 @@ public class Exclusions {
             throw new IllegalArgumentException("The destination must not be larger than a /" + widest + " network.");
         }
 
-        if (!internal(destination, segments)) {
+        if (!internal(destination, segments, internalAddresses)) {
             throw new IllegalArgumentException("Only internal destinations can be excluded.");
         }
 
@@ -190,8 +195,8 @@ public class Exclusions {
         }
     }
 
-    private static boolean internal(CIDR destination, List<Segment> segments) {
-        if (destination.address().isSiteLocalAddress()) {
+    private static boolean internal(CIDR destination, List<Segment> segments, InternalAddresses.Rules internalAddresses) {
+        if (internalAddresses.isSiteLocal(destination.address())) {
             return true;
         }
 

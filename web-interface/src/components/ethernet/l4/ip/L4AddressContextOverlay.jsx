@@ -12,6 +12,12 @@ countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
 
 const contextService = new ContextService();
 
+// 100.64.0.0/10 is site-local only where the TCP/UDP settings say so.
+const isCgnat = (ip) => {
+  const octets = String(ip).split(".").map(Number);
+  return octets.length === 4 && octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127;
+}
+
 export default function L4AddressContextOverlay({address}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
@@ -29,7 +35,7 @@ export default function L4AddressContextOverlay({address}) {
     }
 
     if (address.attributes.is_site_local) {
-      return "Site-Local / RFC 1918 IP Address"
+      return isCgnat(address.address) ? "Internal / CGNAT IP Address" : "Site-Local / RFC 1918 IP Address"
     }
 
     if (address.attributes.is_loopback) {
@@ -49,7 +55,7 @@ export default function L4AddressContextOverlay({address}) {
     let attributes = [];
 
     if (address.attributes.is_site_local) {
-      attributes.push("Site-Local");
+      attributes.push(isCgnat(address.address) ? "Internal (CGNAT)" : "Site-Local");
     }
 
     if (address.attributes.is_loopback) {

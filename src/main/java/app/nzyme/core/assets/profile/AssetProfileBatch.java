@@ -1,5 +1,6 @@
 package app.nzyme.core.assets.profile;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
 
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
@@ -200,7 +201,8 @@ public class AssetProfileBatch {
                           @Nullable DateTime mostRecentSegmentTime,
                           Optional<GeoIpLookupResult> sourceGeo,
                           Optional<GeoIpLookupResult> destinationGeo,
-                          @Nullable TcpIdentity tcpIdentity) {
+                          @Nullable TcpIdentity tcpIdentity,
+                          InternalAddresses.Rules internalAddresses) {
         if (sourceAddress == null || destinationAddress == null) {
             return;
         }
@@ -221,9 +223,9 @@ public class AssetProfileBatch {
                 && !destinationAddress.isMulticastAddress()
                 && !destinationAddress.isLoopbackAddress()
                 && !isBroadcast(destinationMac, destinationAddress);
-        boolean destinationInternal = destinationAddress.isSiteLocalAddress()
+        boolean destinationInternal = internalAddresses.isSiteLocal(destinationAddress)
                 || destinationAddress.isLinkLocalAddress();
-        boolean sourceInternal = sourceAddress.isSiteLocalAddress() || sourceAddress.isLinkLocalAddress();
+        boolean sourceInternal = internalAddresses.isSiteLocal(sourceAddress) || sourceAddress.isLinkLocalAddress();
 
         if (sourceUsable) {
             activity(sourceMac, timestamp, activityKind, sessionCount, bytesRxIncremental, bytesTxIncremental);

@@ -14,7 +14,9 @@ export default function reconstructFromNodeData(data, filterFields) {
         field: fieldFilter.field,
         operator: operator.name,
         sign: operator.sign,
-        value: fieldFilter.untransformed_value,
+        // Boolean filters are stored as booleans and are strings everywhere else.
+        value: typeof fieldFilter.untransformed_value === "boolean"
+            ? String(fieldFilter.untransformed_value) : fieldFilter.untransformed_value,
         transformed_value: fieldFilter.value
       });
     }

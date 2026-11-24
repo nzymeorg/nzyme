@@ -127,3 +127,7 @@ tick_ms = 100
 context_mac_ip_retention_hours = 36 
 context_mac_hostname_retention_hours = 36
 panic_log_file_path = "/var/log/nzyme-tap/panic.log"
+
+# Treats addresses of the CGNAT range 100.64.0.0/10 as internal, for example on overlay networks like Tailscale.
+# Set it to the same value as the setting of the TCP/UDP section in the Nzyme web interface.
+cgnat_is_internal = false

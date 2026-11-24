@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.AssetInformation;
 import app.nzyme.core.assets.db.AssetEntry;
@@ -73,9 +74,11 @@ public class UDPTable implements DataTable {
                     throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
                 }
 
+                InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tap.get());
+
                 tablesService.getNzyme().getDatabase().useHandle(handle -> {
                     try (Timer.Context ignored2 = conversationsReportTimer.time()) {
-                        writeConversations(handle, tap.get(), timestamp, report.conversations());
+                        writeConversations(handle, tap.get(), timestamp, report.conversations(), internalAddresses);
                     }
 
                     try (Timer.Context ignored2 = assetRegistrationTimer.time()) {
@@ -89,7 +92,8 @@ public class UDPTable implements DataTable {
     private void writeConversations(Handle handle,
                                     Tap tap,
                                     DateTime timestamp,
-                                    List<UdpConversationReport> conversations) {
+                                    List<UdpConversationReport> conversations,
+                                    InternalAddresses.Rules internalAddresses) {
         PreparedBatch upsertBatch = handle.prepareBatch("INSERT INTO l4_sessions(tap_uuid, l4_type, " +
                 "session_key, untimed_session_key, source_mac, source_address, source_address_is_site_local, " +
                 "source_address_is_loopback, source_address_is_multicast, source_port, destination_mac, " +
@@ -204,13 +208,13 @@ public class UDPTable implements DataTable {
                         .bind("untimed_session_key", untimedSessionKey)
                         .bind("source_mac", conversation.sourceMac())
                         .bind("source_address", conversation.sourceAddress())
-                        .bind("source_address_is_site_local", sourceAddress.isSiteLocalAddress())
+                        .bind("source_address_is_site_local", internalAddresses.isSiteLocal(sourceAddress))
                         .bind("source_address_is_loopback", sourceAddress.isLoopbackAddress())
                         .bind("source_address_is_multicast", sourceAddress.isMulticastAddress())
                         .bind("source_port", conversation.sourcePort())
                         .bind("destination_mac", conversation.destinationMac())
                         .bind("destination_address", conversation.destinationAddress())
-                        .bind("destination_address_is_site_local", destinationAddress.isSiteLocalAddress())
+                        .bind("destination_address_is_site_local", internalAddresses.isSiteLocal(destinationAddress))
                         .bind("destination_address_is_loopback", destinationAddress.isLoopbackAddress())
                         .bind("destination_address_is_multicast", destinationAddress.isMulticastAddress())
                         .bind("destination_port", conversation.destinationPort())
@@ -244,7 +248,7 @@ public class UDPTable implements DataTable {
                 totalDatagrams += conversation.datagramsCountIncremental();
                 totalSessions += 1;
 
-                if (sourceAddress.isSiteLocalAddress() && destinationAddress.isSiteLocalAddress()) {
+                if (internalAddresses.isSiteLocal(sourceAddress) && internalAddresses.isSiteLocal(destinationAddress)) {
                     totalInternalSessions += 1;
                     totalRxInternalBytes += conversation.bytesCountRxIncremental();
                     totalTxInternalBytes += conversation.bytesCountTxIncremental();
@@ -266,7 +270,8 @@ public class UDPTable implements DataTable {
                         conversation.mostRecentSegmentTime(),
                         sourceGeo,
                         destinationGeo,
-                        null
+                        null,
+                        internalAddresses
                 );
             } catch (Exception e) {
                 LOG.error("Could not handle UDP conversation.", e);

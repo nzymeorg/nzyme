@@ -85,8 +85,6 @@ public class SegmentationEngine {
     private static final String ORIENTED = "SELECT tap_uuid, start_time, most_recent_segment_time, l4_type, tags, " +
             "CASE WHEN reversed THEN destination_address ELSE source_address END AS src, " +
             "CASE WHEN reversed THEN source_address ELSE destination_address END AS dst, " +
-            "CASE WHEN reversed THEN destination_address_is_site_local ELSE source_address_is_site_local END AS src_local, " +
-            "CASE WHEN reversed THEN source_address_is_site_local ELSE destination_address_is_site_local END AS dst_local, " +
             "CASE WHEN reversed THEN destination_address_geo_asn_number ELSE source_address_geo_asn_number END AS src_asn, " +
             "CASE WHEN reversed THEN source_address_geo_asn_number ELSE destination_address_geo_asn_number END AS dst_asn, " +
             "CASE WHEN reversed THEN destination_address_geo_asn_name ELSE source_address_geo_asn_name END AS src_asn_name, " +
@@ -105,8 +103,7 @@ public class SegmentationEngine {
             "FROM l4_sessions WHERE ";
 
     private static final String GROUPED_COLUMNS = "tap_uuid, l4_type, host(src) AS src, host(dst) AS dst, " +
-            "COALESCE(src_local, false) AS src_local, COALESCE(dst_local, false) AS dst_local, src_asn, src_cc, " +
-            "dst_asn, dst_cc, port, tags::text AS tags, outcome, broadcast, COUNT(*) AS sessions, " +
+            "src_asn, src_cc, dst_asn, dst_cc, port, tags::text AS tags, outcome, broadcast, COUNT(*) AS sessions, " +
             "MAX(most_recent_segment_time) AS last_seen, " +
             "LEFT(MAX(src_asn_name), " + ASN_DETAIL_MAX_LENGTH + ") AS src_asn_name, " +
             "LEFT(MAX(src_asn_domain), " + ASN_DETAIL_MAX_LENGTH + ") AS src_asn_domain, " +
@@ -155,8 +152,6 @@ public class SegmentationEngine {
                          String l4Type,
                          String source,
                          String destination,
-                         boolean sourceLocal,
-                         boolean destinationLocal,
                          @Nullable Long sourceAsn,
                          @Nullable String sourceAsnName,
                          @Nullable String sourceAsnDomain,
@@ -393,7 +388,7 @@ public class SegmentationEngine {
         List<Group> groups = handle.createQuery("SELECT date_trunc('hour', start_time, 'UTC') AS bucket, " +
                         "MIN(start_time) AS first_seen, " + GROUPED_COLUMNS + " FROM (" + ORIENTED +
                         "tap_uuid IN (<taps>) AND created_at >= :from AND created_at < :to " + EXCLUSIONS +
-                        ") AS s) AS o GROUP BY bucket, tap_uuid, l4_type, src, dst, src_local, dst_local, src_asn, " +
+                        ") AS s) AS o GROUP BY bucket, tap_uuid, l4_type, src, dst, src_asn, " +
                         "src_cc, dst_asn, dst_cc, port, tags, outcome, broadcast LIMIT :limit")
                 .bindList("taps", taps)
                 .bind("from", from)
@@ -601,7 +596,7 @@ public class SegmentationEngine {
                             "tap_uuid IN (<taps>) AND l4_type IN ('TCP', 'UDP') " +
                             "AND most_recent_segment_time >= :bucket AND " + L4ConnectionCleaner.OPEN_STATE + " " +
                             "AND created_at < :bucket " + EXCLUSIONS + ") AS s) AS o " +
-                            "GROUP BY tap_uuid, l4_type, src, dst, src_local, dst_local, src_asn, src_cc, dst_asn, " +
+                            "GROUP BY tap_uuid, l4_type, src, dst, src_asn, src_cc, dst_asn, " +
                             "dst_cc, port, tags, outcome, broadcast LIMIT :limit")
                     .bindList("taps", taps)
                     .bind("bucket", bucket)
@@ -641,8 +636,6 @@ public class SegmentationEngine {
                 rs.getString("l4_type"),
                 rs.getString("src"),
                 rs.getString("dst"),
-                rs.getBoolean("src_local"),
-                rs.getBoolean("dst_local"),
                 sourceAsnOrNull,
                 rs.getString("src_asn_name"),
                 rs.getString("src_asn_domain"),
@@ -717,12 +710,15 @@ public class SegmentationEngine {
                 continue;
             }
 
-            Endpoint source = definitions.resolver.resolve(group.tap(), sourceAddress, group.sourceLocal(),
+            // The address decides and not what the session was stored with, like when flows are matched again.
+            Endpoint source = definitions.resolver.resolve(group.tap(), sourceAddress,
+                    definitions.resolver.siteLocal(sourceAddress),
                     group.sourceAsn(), group.sourceCountryCode())
                     .withAsnDetails(group.sourceAsnName(), group.sourceAsnDomain());
             Endpoint destination = group.broadcast()
                     ? Endpoint.broadcast(destinationAddress)
-                    : definitions.resolver.resolve(group.tap(), destinationAddress, group.destinationLocal(),
+                    : definitions.resolver.resolve(group.tap(), destinationAddress,
+                            definitions.resolver.siteLocal(destinationAddress),
                             group.destinationAsn(), group.destinationCountryCode())
                     .withAsnDetails(group.destinationAsnName(), group.destinationAsnDomain());
 
@@ -1220,7 +1216,7 @@ public class SegmentationEngine {
             Segment segment = resolver.segmentOf(stamp.tap(), address);
 
             Long segmentId = segment == null ? null : segment.id();
-            boolean internal = segment == null ? address.isSiteLocalAddress() : segment.kind() == SegmentKind.INTERNAL;
+            boolean internal = segment == null ? resolver.siteLocal(address) : segment.kind() == SegmentKind.INTERNAL;
 
             if (java.util.Objects.equals(segmentId, stamp.segmentId()) && internal == stamp.internal()) {
                 continue;

@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.beacons;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
@@ -18,14 +19,14 @@ public class BeaconDetectorTest {
 
     @Test
     public void testIsSiteLocal() {
-        assertTrue(BeaconDetector.isSiteLocal("10.0.0.1"));
-        assertTrue(BeaconDetector.isSiteLocal("192.168.1.1"));
-        assertTrue(BeaconDetector.isSiteLocal("172.16.5.5"));
-        assertTrue(BeaconDetector.isSiteLocal("127.0.0.1"));
-        assertTrue(BeaconDetector.isSiteLocal("169.254.1.1"));
-        assertFalse(BeaconDetector.isSiteLocal("8.8.8.8"));
-        assertFalse(BeaconDetector.isSiteLocal("2606:4700::1111"));
-        assertFalse(BeaconDetector.isSiteLocal("example.com"));
+        assertTrue(BeaconDetector.isSiteLocal("10.0.0.1", InternalAddresses.Rules.DEFAULT));
+        assertTrue(BeaconDetector.isSiteLocal("192.168.1.1", InternalAddresses.Rules.DEFAULT));
+        assertTrue(BeaconDetector.isSiteLocal("172.16.5.5", InternalAddresses.Rules.DEFAULT));
+        assertTrue(BeaconDetector.isSiteLocal("127.0.0.1", InternalAddresses.Rules.DEFAULT));
+        assertTrue(BeaconDetector.isSiteLocal("169.254.1.1", InternalAddresses.Rules.DEFAULT));
+        assertFalse(BeaconDetector.isSiteLocal("8.8.8.8", InternalAddresses.Rules.DEFAULT));
+        assertFalse(BeaconDetector.isSiteLocal("2606:4700::1111", InternalAddresses.Rules.DEFAULT));
+        assertFalse(BeaconDetector.isSiteLocal("example.com", InternalAddresses.Rules.DEFAULT));
     }
 
     @Test

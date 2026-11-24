@@ -1690,7 +1690,9 @@ public class IcmpResource extends TapDataHandlingResource {
         }
 
         L4AddressAttributes attributes = L4AddressAttributes.create(
-                inet.isSiteLocalAddress(), inet.isLoopbackAddress(), inet.isMulticastAddress()
+                nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(inet),
+                inet.isLoopbackAddress(),
+                inet.isMulticastAddress()
         );
 
         try {

@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.CIDR;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -83,23 +84,36 @@ public class ObservedConditionTest {
         Segment cloud = segment(4, SegmentKind.EXTERNAL, "Cloud", null, 64500L);
         List<Segment> segments = List.of(SERVERS, branch, dmz, cloud);
 
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("10.99.0.0/16"), segments));
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("192.168.1.7/32"), segments));
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("172.16.0.0/12"), segments));
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("fec0::/64"), segments));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("10.50.3.0/24"), segments));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("10.0.0.0/8"), segments));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("10.99.0.0/16"), segments, InternalAddresses.Rules.DEFAULT));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("192.168.1.7/32"), segments, InternalAddresses.Rules.DEFAULT));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("172.16.0.0/12"), segments, InternalAddresses.Rules.DEFAULT));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("fec0::/64"), segments, InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("10.50.3.0/24"), segments, InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("10.0.0.0/8"), segments, InternalAddresses.Rules.DEFAULT));
 
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("203.0.113.0/24"), segments));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("2001:db8::/32"), segments));
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("198.51.100.16/28"), segments));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("198.51.0.0/16"), segments));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("203.0.113.0/24"), segments, InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("2001:db8::/32"), segments, InternalAddresses.Rules.DEFAULT));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("198.51.100.16/28"), segments, InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("198.51.0.0/16"), segments, InternalAddresses.Rules.DEFAULT));
 
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("172.0.0.0/8"), segments));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("0.0.0.0/0"), segments));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("172.0.0.0/8"), segments, InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("0.0.0.0/0"), segments, InternalAddresses.Rules.DEFAULT));
 
-        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("10.50.3.0/24"), List.of()));
-        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("198.51.100.16/28"), List.of()));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("10.50.3.0/24"), List.of(), InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("198.51.100.16/28"), List.of(), InternalAddresses.Rules.DEFAULT));
+    }
+
+    @Test
+    public void cgnatNetworksCanBeExternalUnlessTheyAreRecordedAsInternal() {
+        InternalAddresses.Rules cgnatIsInternal = new InternalAddresses.Rules(true);
+
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.64.0.0/10"), List.of(), InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.100.1.0/24"), List.of(), InternalAddresses.Rules.DEFAULT));
+
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("100.64.0.0/10"), List.of(), cgnatIsInternal));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("100.100.1.0/24"), List.of(), cgnatIsInternal));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.0.0.0/8"), List.of(), cgnatIsInternal));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("203.0.113.0/24"), List.of(), cgnatIsInternal));
     }
 
     @Test

@@ -17,6 +17,7 @@
 
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
@@ -69,17 +70,19 @@ public class DNSTable implements DataTable {
 
     public void handleReport(UUID tapUuid, DateTime timestamp, DnsTablesReport report) {
         try (Timer.Context ignored = totalReportTimer.time()) {
+            InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tapUuid);
+
             tablesService.getNzyme().getDatabase().useHandle(handle -> {
                 try (Timer.Context ignored2 = statisticsReportTimer.time()) {
                     registerStatistics(handle, tapUuid, report.ips(), timestamp);
                 }
 
                 try (Timer.Context ignored2 = pairsReportTimer.time()) {
-                    registerPairs(handle, tapUuid, report.queryLog(), timestamp);
+                    registerPairs(handle, tapUuid, report.queryLog(), timestamp, internalAddresses);
                 }
 
                 try (Timer.Context ignored2 = logReportTimer.time()) {
-                    registerLogs(handle, tapUuid, report.queryLog(), report.responseLog());
+                    registerLogs(handle, tapUuid, report.queryLog(), report.responseLog(), internalAddresses);
                 }
 
                 writeAssetProfiles(handle, tapUuid, report.queryLog());
@@ -114,7 +117,11 @@ public class DNSTable implements DataTable {
         batch.execute();
     }
 
-    private void registerPairs(Handle handle, UUID tapUuid, List<DnsLogReport> logs, DateTime timestamp) {
+    private void registerPairs(Handle handle,
+                               UUID tapUuid,
+                               List<DnsLogReport> logs,
+                               DateTime timestamp,
+                               InternalAddresses.Rules internalAddresses) {
         // Build pairs.
         Map<String, Map<Integer, Map<String, Long>>> pairs = Maps.newHashMap();
         for (DnsLogReport log : logs) {
@@ -163,7 +170,7 @@ public class DNSTable implements DataTable {
                             .bind("server_address_geo_country_code", geo.map(g -> g.geo().countryCode()).orElse(null))
                             .bind("server_address_geo_latitude", geo.map(g -> g.geo().latitude()).orElse(null))
                             .bind("server_address_geo_longitude", geo.map(g -> g.geo().longitude()).orElse(null))
-                            .bind("server_address_is_site_local", serverAddress.isSiteLocalAddress())
+                            .bind("server_address_is_site_local", internalAddresses.isSiteLocal(serverAddress))
                             .bind("server_address_is_multicast", serverAddress.isMulticastAddress())
                             .bind("server_address_is_loopback", serverAddress.isLoopbackAddress())
                             .bind("count", port.getValue())
@@ -209,7 +216,8 @@ public class DNSTable implements DataTable {
     private void registerLogs(Handle handle,
                               UUID tapUuid,
                               List<DnsLogReport> queries,
-                              List<DnsLogReport> responses) {
+                              List<DnsLogReport> responses,
+                              InternalAddresses.Rules internalAddresses) {
         PreparedBatch batch = handle.prepareBatch("INSERT INTO dns_log(uuid, tap_uuid, transaction_id, " +
                 "dns_type, client_address, client_port, client_mac, client_address_geo_asn_number, " +
                 "client_address_geo_asn_name, client_address_geo_asn_domain, client_address_geo_city, " +
@@ -252,7 +260,7 @@ public class DNSTable implements DataTable {
                     .bind("client_address_geo_country_code", clientGeo.map(g -> g.geo().countryCode()).orElse(null))
                     .bind("client_address_geo_latitude", clientGeo.map(g -> g.geo().latitude()).orElse(null))
                     .bind("client_address_geo_longitude", clientGeo.map(g -> g.geo().longitude()).orElse(null))
-                    .bind("client_address_is_site_local", clientAddress.isSiteLocalAddress())
+                    .bind("client_address_is_site_local", internalAddresses.isSiteLocal(clientAddress))
                     .bind("client_address_is_multicast", clientAddress.isMulticastAddress())
                     .bind("client_address_is_loopback", clientAddress.isLoopbackAddress())
                     .bind("server_address", d.serverAddress())
@@ -265,7 +273,7 @@ public class DNSTable implements DataTable {
                     .bind("server_address_geo_country_code", serverGeo.map(g -> g.geo().countryCode()).orElse(null))
                     .bind("server_address_geo_latitude", serverGeo.map(g -> g.geo().latitude()).orElse(null))
                     .bind("server_address_geo_longitude", serverGeo.map(g -> g.geo().longitude()).orElse(null))
-                    .bind("server_address_is_site_local", serverAddress.isSiteLocalAddress())
+                    .bind("server_address_is_site_local", internalAddresses.isSiteLocal(serverAddress))
                     .bind("server_address_is_multicast", serverAddress.isMulticastAddress())
                     .bind("server_address_is_loopback", serverAddress.isLoopbackAddress())
                     .bind("data_value", d.dataValue())
@@ -299,7 +307,7 @@ public class DNSTable implements DataTable {
                     .bind("client_address_geo_country_code", clientGeo.map(g -> g.geo().countryCode()).orElse(null))
                     .bind("client_address_geo_latitude", clientGeo.map(g -> g.geo().latitude()).orElse(null))
                     .bind("client_address_geo_longitude", clientGeo.map(g -> g.geo().longitude()).orElse(null))
-                    .bind("client_address_is_site_local", clientAddress.isSiteLocalAddress())
+                    .bind("client_address_is_site_local", internalAddresses.isSiteLocal(clientAddress))
                     .bind("client_address_is_multicast", clientAddress.isMulticastAddress())
                     .bind("client_address_is_loopback", clientAddress.isLoopbackAddress())
                     .bind("server_address", d.serverAddress())
@@ -312,7 +320,7 @@ public class DNSTable implements DataTable {
                     .bind("server_address_geo_country_code", serverGeo.map(g -> g.geo().countryCode()).orElse(null))
                     .bind("server_address_geo_latitude", serverGeo.map(g -> g.geo().latitude()).orElse(null))
                     .bind("server_address_geo_longitude", serverGeo.map(g -> g.geo().longitude()).orElse(null))
-                    .bind("server_address_is_site_local", serverAddress.isSiteLocalAddress())
+                    .bind("server_address_is_site_local", internalAddresses.isSiteLocal(serverAddress))
                     .bind("server_address_is_multicast", serverAddress.isMulticastAddress())
                     .bind("server_address_is_loopback", serverAddress.isLoopbackAddress())
                     .bind("data_value", d.dataValue())

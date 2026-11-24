@@ -7,7 +7,8 @@ export default function SectionMenuBar({items, activeRoute}) {
 
   const user = useContext(UserContext);
 
-  const visible = (item) => !item.with_permission || userHasPermission(user, item.with_permission);
+  const visible = (item) => (!item.with_permission || userHasPermission(user, item.with_permission))
+      && (!item.administrators_only || user.is_orgadmin || user.is_superadmin);
 
   return (
       <ul className="nav nav-tabs section-menu-bar">

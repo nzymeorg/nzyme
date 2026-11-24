@@ -32,23 +32,23 @@ export const L4_SESSIONS_FILTER_FIELDS = {
   session_key: { title: "Session Key", type: FILTER_TYPE.STRING },
   fingerprint: { title: "Fingerprint", type: FILTER_TYPE.STRING },
   duration: { title: "Duration (ms)", type: FILTER_TYPE.NUMERIC },
-  tags: { title: "Tags", type: FILTER_TYPE.STRING_ARRAY }
+  tags: { title: "Tags", type: FILTER_TYPE.STRING_ARRAY },
+  is_internal: { title: "Internal Connection", type: FILTER_TYPE.BOOLEAN },
+  source_is_internal: { title: "Source is Internal", type: FILTER_TYPE.BOOLEAN },
+  destination_is_internal: { title: "Destination is Internal", type: FILTER_TYPE.BOOLEAN }
 }
 
 export const L4_SESSIONS_QUICK_FILTERS = [
   {
     title: "Only Internal Connections",
-    filters: [
-      {field: "source_address", operator: "is_private", value: ""},
-      {field: "destination_address", operator: "is_private", value: ""}
-    ]
+    filters: [{field: "is_internal", operator: "boolean", value: "true"}]
   },
   {
     title: "No Internal Connections",
-    filters: [{field: "address", operator: "is_not_private", value: ""}]
+    filters: [{field: "is_internal", operator: "boolean", value: "false"}]
   },
   {
     title: "Only Connections from External",
-    filters: [{field: "source_address", operator: "is_not_private", value: ""}]
+    filters: [{field: "source_is_internal", operator: "boolean", value: "false"}]
   }
 ];

@@ -44,4 +44,13 @@ public class EthernetRegistryKeys {
             false
     );
 
+    public static final RegistryKey CGNAT_IS_INTERNAL = RegistryKey.create(
+            "ethernet_cgnat_is_internal",
+            Optional.of(new ArrayList<>() {{
+                add(ConfigurationEntryConstraint.createSimpleBooleanConstraint());
+            }}),
+            Optional.of("false"),
+            false
+    );
+
 }

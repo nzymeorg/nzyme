@@ -1,5 +1,6 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.tls.CertificateStore;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.rest.resources.taps.reports.tables.portalintegrity.PortalIntegrityCheckContext;
@@ -46,6 +47,8 @@ public class PortalIntegrityTable implements DataTable {
 
             UUID reportUuid = UUID.randomUUID();
             PortalIntegrityCheckContext ctx = report.context();
+
+            InternalAddresses.Rules internalAddresses = tablesService.getNzyme().getEthernet().internalAddresses().ofTap(tapUuid);
 
             tablesService.getNzyme().getDatabase().useTransaction(handle -> {
                 handle.createUpdate("INSERT INTO portal_integrity_reports(uuid, tap_uuid, control_url, " +
@@ -142,7 +145,7 @@ public class PortalIntegrityTable implements DataTable {
                             .bind("hop_index", hopIndex)
                             .bind("url", hop.url())
                             .bind("resolved_address", hop.resolvedIp())
-                            .bind("resolved_address_is_site_local", resolvedIpAddr.isSiteLocalAddress())
+                            .bind("resolved_address_is_site_local", internalAddresses.isSiteLocal(resolvedIpAddr))
                             .bind("resolved_address_is_loopback", resolvedIpAddr.isLoopbackAddress())
                             .bind("resolved_address_is_multicast", resolvedIpAddr.isMulticastAddress())
                             .bind("resolved_address_geo_asn_number", resolvedIpGeo.map(g -> g.asn().number()).orElse(null))

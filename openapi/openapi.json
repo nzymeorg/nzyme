@@ -19270,6 +19270,150 @@
         "tags" : [ "IP Addresses" ]
       }
     },
+    "/api/ethernet/l4/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns whether addresses of the carrier-grade NAT range 100.64.0.0/10 are recorded as internal addresses. Requires organization administrator permissions.",
+        "operationId" : "findL4Configuration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/L4ConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the TCP/UDP configuration of a tenant",
+        "tags" : [ "L4" ]
+      },
+      "put" : {
+        "description" : "Updates one or more TCP/UDP settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. A change applies to data recorded from then on. Requires organization administrator permissions.",
+        "operationId" : "updateL4Configuration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains an unknown key, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the TCP/UDP configuration of a tenant",
+        "tags" : [ "L4" ]
+      }
+    },
+    "/api/ethernet/l4/organization/{organization_id}/tenant/{tenant_id}/configuration/taps" : {
+      "get" : {
+        "description" : "Taps have a cgnat_is_internal option of their own, which should have the value of the tenant. Returns the taps of the tenant that reported another value, the value of the tenant and the number of taps that were compared. A tap that reports no value counts with the default, false. Deleted taps are left out. Requires organization administrator permissions.",
+        "operationId" : "findL4TapSettings",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/L4TapSettingsResponse"
+                }
+              }
+            },
+            "description" : "Taps compared."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List taps of a tenant that are configured differently",
+        "tags" : [ "L4" ]
+      }
+    },
     "/api/ethernet/l4/sessions" : {
       "get" : {
         "description" : "Returns all layer 4 sessions in the time range, most recent segment first by default. Source and destination addresses are enriched with asset, context and geo information. Each session carries its state and the tags Nzyme assigned to it, for example SSH or HTTP. A TCP session is only recorded if a tap observed its initial SYN. Results are paginated.",
@@ -50004,6 +50148,14 @@
           }
         }
       },
+      "L4ConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "cgnat_is_internal" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          }
+        }
+      },
       "L4SessionDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -50109,6 +50261,24 @@
             "additionalProperties" : {
               "$ref" : "#/components/schemas/L4SessionsTimelineBucketResponse"
             }
+          }
+        }
+      },
+      "L4TapSettingsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "cgnat_is_internal" : {
+            "type" : "boolean"
+          },
+          "taps_different" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TapSetting"
+            }
+          },
+          "taps_total" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -56155,6 +56325,21 @@
           "y" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "TapSetting" : {
+        "type" : "object",
+        "properties" : {
+          "cgnat_is_internal" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },

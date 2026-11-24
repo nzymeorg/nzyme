@@ -1116,7 +1116,9 @@ public class BeaconsResource extends TapDataHandlingResource {
         }
 
         L4AddressAttributes attributes = L4AddressAttributes.create(
-                inet.isSiteLocalAddress(), inet.isLoopbackAddress(), inet.isMulticastAddress()
+                nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(inet),
+                inet.isLoopbackAddress(),
+                inet.isMulticastAddress()
         );
 
         L4Type l4Type = BeaconType.UDP.name().equals(beaconType) || BeaconType.DNS.name().equals(beaconType)

@@ -9,25 +9,35 @@ import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregati
 import app.nzyme.core.database.generic.NumberNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
+import app.nzyme.core.ethernet.EthernetRegistryKeys;
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.L4Type;
 import app.nzyme.core.ethernet.l4.L4;
 import app.nzyme.core.ethernet.l4.db.L4Numbers;
 import app.nzyme.core.ethernet.l4.db.L4Session;
 import app.nzyme.core.ethernet.l4.db.L4SessionsTimelineBucket;
 import app.nzyme.core.ethernet.l4.db.L4StatisticsBucket;
+import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.RestHelpers;
+import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.responses.ethernet.*;
+import app.nzyme.core.rest.responses.ethernet.l4.L4ConfigurationResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4NumbersResponse;
+import app.nzyme.core.rest.responses.ethernet.l4.L4TapSettingsResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsListResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineBucketResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4StatisticsBucketResponse;
 import app.nzyme.core.rest.responses.shared.*;
+import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
+import app.nzyme.plugin.RegistryKey;
+import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
+import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
@@ -49,6 +59,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.joda.time.DateTime;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,8 +76,129 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
         + "statistics and histograms of the busiest addresses, MAC addresses and ports.")
 public class L4Resource extends TapDataHandlingResource  {
 
+    private static final RegistryKey[] CONFIGURATION_KEYS = {
+            EthernetRegistryKeys.CGNAT_IS_INTERNAL
+    };
+
     @Inject
     private NzymeNode nzyme;
+
+    @GET
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
+    @Operation(operationId = "findL4Configuration", summary = "Get the TCP/UDP configuration of a tenant",
+            description = "Returns whether addresses of the carrier-grade NAT range 100.64.0.0/10 are recorded as "
+                    + "internal addresses. Requires organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration found.",
+            content = @Content(schema = @Schema(implementation = L4ConfigurationResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        RegistryKey key = EthernetRegistryKeys.CGNAT_IS_INTERNAL;
+        boolean cgnatIsInternal = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId)
+                .cgnatIsInternal();
+
+        return Response.ok(L4ConfigurationResponse.create(
+                ConfigurationEntryResponse.create(
+                        key.key(),
+                        "Treat CGNAT addresses (" + InternalAddresses.CGNAT_NETWORK + ") as internal",
+                        cgnatIsInternal,
+                        ConfigurationEntryValueType.BOOLEAN,
+                        key.defaultValue().orElse(null),
+                        key.requiresRestart(),
+                        key.constraints().orElse(Collections.emptyList()),
+                        "ethernet-l4-config"
+                )
+        )).build();
+    }
+
+    @GET
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration/taps")
+    @Operation(operationId = "findL4TapSettings", summary = "List taps of a tenant that are configured differently",
+            description = "Taps have a cgnat_is_internal option of their own, which should have the value of the "
+                    + "tenant. Returns the taps of the tenant that reported another value, the value of the "
+                    + "tenant and the number of taps that were compared. A tap that reports no value counts with "
+                    + "the default, false. Deleted taps are left out. Requires organization administrator "
+                    + "permissions.")
+    @ApiResponse(responseCode = "200", description = "Taps compared.",
+            content = @Content(schema = @Schema(implementation = L4TapSettingsResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response getTapSettings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        boolean cgnatIsInternal = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId)
+                .cgnatIsInternal();
+
+        List<Tap> taps = nzyme.getTapManager().findAllTapsOfTenant(organizationId, tenantId);
+        List<L4TapSettingsResponse.TapSetting> different = Lists.newArrayList();
+        for (Tap tap : taps) {
+            boolean tapSetting = InternalAddresses.tapSetting(tap.configuration());
+            if (tapSetting != cgnatIsInternal) {
+                different.add(L4TapSettingsResponse.TapSetting.create(tap.uuid(), tap.name(), tapSetting));
+            }
+        }
+
+        return Response.ok(L4TapSettingsResponse.create(cgnatIsInternal, taps.size(), different)).build();
+    }
+
+    @PUT
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
+    @Operation(operationId = "updateL4Configuration", summary = "Update the TCP/UDP configuration of a tenant",
+            description = "Updates one or more TCP/UDP settings of the tenant. Accepted keys are the keys returned "
+                    + "by the configuration endpoint. A change applies to data recorded from then on. Requires "
+                    + "organization administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "The change is empty, contains an unknown key, or a value violates the constraints of its configuration key.", content = @Content)
+    public Response setConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                     @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                     @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                     @Valid GenericConfigurationUpdateRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req == null || req.change().isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
+                .allowing(CONFIGURATION_KEYS)
+                .validate(req.change());
+
+        if (changes.isEmpty()) {
+            return Response.status(422).build();
+        }
+
+        InternalAddresses internalAddresses = nzyme.getEthernet().internalAddresses();
+        InternalAddresses.Rules before = internalAddresses.read(organizationId, tenantId);
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
+        }
+
+        if (!before.equals(internalAddresses.read(organizationId, tenantId))) {
+            internalAddresses.invalidate(organizationId, tenantId);
+
+            // Segmentation keeps what is internal with its flows and has to follow the change.
+            nzyme.getEthernet().segmentation().invalidateResolver(organizationId, tenantId);
+            nzyme.getDatabase().useHandle(handle ->
+                    nzyme.getEthernet().segmentation().requestRestamp(handle, organizationId, tenantId));
+        }
+
+        return Response.ok().build();
+    }
 
     @GET
     @Path("/sessions")

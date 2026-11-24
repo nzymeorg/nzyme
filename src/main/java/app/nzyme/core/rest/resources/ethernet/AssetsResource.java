@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.resources.ethernet;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import org.joda.time.LocalDate;
 import org.joda.time.Days;
 import app.nzyme.plugin.RegistryKey;
@@ -849,6 +850,7 @@ public class AssetsResource extends TapDataHandlingResource {
         }
 
         Map<String, Integer> externalResolved = new HashMap<>();
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
 
         Map<String, List<AssetAttributeResponse>> attributes = new LinkedHashMap<>();
         for (AssetProfiles.AttributeEntry a : nzyme.getAssetsManager().profiles()
@@ -862,7 +864,7 @@ public class AssetsResource extends TapDataHandlingResource {
                 } else {
                     InetAddress ip = parseAddress(a.value());
                     if (ip != null) {
-                        boolean local = ip.isSiteLocalAddress() || ip.isLinkLocalAddress();
+                        boolean local = internalAddresses.isSiteLocal(ip) || ip.isLinkLocalAddress();
                         int resolved = externalResolved.getOrDefault(a.dimension(), 0);
                         if (local || resolved < EXTERNAL_INFRASTRUCTURE_RESOLVED) {
                             l4Address = infrastructureAddress(ip, a.value(), organizationId, tenantId);
@@ -1397,7 +1399,8 @@ public class AssetsResource extends TapDataHandlingResource {
     }
 
     private L4AddressResponse infrastructureAddress(InetAddress ip, String value, UUID organizationId, UUID tenantId) {
-        boolean local = ip.isSiteLocalAddress() || ip.isLinkLocalAddress();
+        boolean local = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(ip)
+                || ip.isLinkLocalAddress();
 
         String mac = null;
         if (local) {

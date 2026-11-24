@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.recon;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
@@ -130,6 +131,8 @@ public class ReconDetector {
                               DateTime until,
                               UUID organizationId,
                               UUID tenantId) {
+        InternalAddresses.Rules internalAddresses = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId);
+
         nzyme.getDatabase().useTransaction(handle -> {
             // Only one node of a cluster processes a tenant at a time.
             boolean locked = handle.createQuery("SELECT pg_try_advisory_xact_lock(hashtext(:key))")
@@ -163,15 +166,15 @@ public class ReconDetector {
                 }
 
                 if (config.sourceIcmpEnabled()) {
-                    readSource(handle, "ICMP", candidates, () -> readIcmpCandidates(handle, taps, since, until, config));
+                    readSource(handle, "ICMP", candidates, () -> readIcmpCandidates(handle, taps, since, until, config, internalAddresses));
                 }
 
                 if (config.sourceDnsEnabled()) {
-                    readSource(handle, "DNS", candidates, () -> readReverseDnsCandidates(handle, taps, since, until, config));
+                    readSource(handle, "DNS", candidates, () -> readReverseDnsCandidates(handle, taps, since, until, config, internalAddresses));
                 }
 
                 if (config.fingerprintingEnabled()) {
-                    readSource(handle, "FINGERPRINTING", candidates, () -> readFingerprintingCandidates(handle, taps, since, until, config));
+                    readSource(handle, "FINGERPRINTING", candidates, () -> readFingerprintingCandidates(handle, taps, since, until, config, internalAddresses));
                 }
             }
 
@@ -723,7 +726,8 @@ public class ReconDetector {
                                                List<UUID> taps,
                                                DateTime since,
                                                DateTime until,
-                                               ReconConfiguration config) {
+                                               ReconConfiguration config,
+                                               InternalAddresses.Rules internalAddresses) {
         List<Candidate> result = Lists.newArrayList();
 
         // Taps that see the same requests each report them. Counts are taken per tap and the highest wins.
@@ -732,8 +736,8 @@ public class ReconDetector {
                         "MIN(bytes_min) AS bytes_min, MAX(bytes_max) AS bytes_max, " +
                         "mode() WITHIN GROUP (ORDER BY ip_ttl) AS ip_ttl " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
-                        "AND last_seen >= :since AND last_seen <= :until " + siteLocalCondition("source_address", config.includeExternalSources()) +
-                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        "AND last_seen >= :since AND last_seen <= :until " + siteLocalCondition("source_address", config.includeExternalSources(), internalAddresses) +
+                        siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
                         "GROUP BY source_address, source_mac, destination_address, tap_uuid), " +
                         "requests AS (SELECT source_address, source_mac, destination_address, " +
                         "MAX(packets) AS packets, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen, " +
@@ -785,7 +789,7 @@ public class ReconDetector {
                                 new DateTime(row.get("last_seen")),
                                 parseTaps((String) row.get("taps")),
                                 enrichment,
-                                limit -> loadIcmpTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit)
+                                limit -> loadIcmpTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit, internalAddresses)
                         ));
                     } catch (Exception e) {
                         LOG.error("Could not read ping sweep candidate.", e);
@@ -802,13 +806,14 @@ public class ReconDetector {
                                                      DateTime since,
                                                      DateTime until,
                                                      ReconConfiguration config,
-                                                     int limit) {
+                                                     int limit,
+                                                     InternalAddresses.Rules internalAddresses) {
         return handle.createQuery("WITH per_tap AS (SELECT destination_address, tap_uuid, SUM(packet_count) AS packets, " +
                         "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen FROM icmp_packets " +
                         "WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
                         "AND source_address = :source_address::inet AND source_mac IS NOT DISTINCT FROM :source_mac " +
                         "AND last_seen >= :since AND last_seen <= :until " +
-                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
                         "GROUP BY destination_address, tap_uuid), " +
                         "requests AS (SELECT destination_address, MAX(packets) AS packets, MIN(first_seen) AS first_seen, " +
                         "MAX(last_seen) AS last_seen FROM per_tap GROUP BY destination_address), " +
@@ -929,7 +934,8 @@ public class ReconDetector {
                                                          List<UUID> taps,
                                                          DateTime since,
                                                          DateTime until,
-                                                         ReconConfiguration config) {
+                                                         ReconConfiguration config,
+                                                         InternalAddresses.Rules internalAddresses) {
         List<Candidate> result = Lists.newArrayList();
 
         String l4SourceCondition = config.includeExternalSources() ? "" : "AND source_address_is_site_local = true ";
@@ -951,8 +957,8 @@ public class ReconDetector {
                         "ip_ttl, bytes_max, false AS replied " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND last_seen >= :since AND last_seen <= :until " +
                         "AND ((icmp_type = 8 AND (icmp_code <> 0 OR ip_tos = 4)) OR icmp_type IN (13, 15, 17)) " +
-                        siteLocalCondition("source_address", config.includeExternalSources()) +
-                        siteLocalCondition("destination_address", config.includeExternalTargets()) +
+                        siteLocalCondition("source_address", config.includeExternalSources(), internalAddresses) +
+                        siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
                         "UNION ALL " +
                         "SELECT 'TCP' AS protocol, source_address, source_mac, destination_address, destination_port, " +
                         "CASE WHEN " + TCP_ECN_SHAPE_CONDITION + " THEN '" + SIGNATURE_TCP_ECN_PROBE + "' " +
@@ -1082,13 +1088,17 @@ public class ReconDetector {
     }
 
     /** The ICMP table has no site-local flag, so the private ranges are matched directly. */
-    private static String siteLocalCondition(String column, boolean includeExternal) {
+    private static String siteLocalCondition(String column,
+                                             boolean includeExternal,
+                                             InternalAddresses.Rules internalAddresses) {
         if (includeExternal) {
             return "";
         }
 
         return "AND (" + column + " << '10.0.0.0/8'::inet OR " + column + " << '172.16.0.0/12'::inet " +
-                "OR " + column + " << '192.168.0.0/16'::inet) ";
+                "OR " + column + " << '192.168.0.0/16'::inet" +
+                (internalAddresses.cgnatIsInternal()
+                        ? " OR " + column + " << '" + InternalAddresses.CGNAT_NETWORK + "'::inet" : "") + ") ";
     }
 
     private static List<String> stringArray(Object value) throws java.sql.SQLException {
@@ -1111,7 +1121,7 @@ public class ReconDetector {
             "(split_part(data_value, '.', 4) || '.' || split_part(data_value, '.', 3) || '.' || " +
             "split_part(data_value, '.', 2) || '.' || split_part(data_value, '.', 1))::inet";
 
-    private String reverseDnsQueriesCte(ReconConfiguration config) {
+    private String reverseDnsQueriesCte(ReconConfiguration config, InternalAddresses.Rules internalAddresses) {
         return "WITH queries AS (SELECT q.client_address, q.client_mac, q.server_address, q.tap_uuid, " +
                 "q.transaction_id, q.timestamp, " + REVERSE_NAME_ADDRESS + " AS address, " +
                 "EXISTS (SELECT 1 FROM dns_log r WHERE r.dns_type = 'response' AND r.data_type = 'PTR' " +
@@ -1128,7 +1138,7 @@ public class ReconDetector {
                 "AND f.timestamp >= :since AND f.timestamp <= :until)), " +
                 "targets AS (SELECT client_address, client_mac, address, bool_or(answered) AS answered, " +
                 "COUNT(DISTINCT transaction_id) AS query_count, MIN(timestamp) AS first_seen, MAX(timestamp) AS last_seen " +
-                "FROM queries WHERE true " + siteLocalCondition("address", config.includeExternalTargets()) +
+                "FROM queries WHERE true " + siteLocalCondition("address", config.includeExternalTargets(), internalAddresses) +
                 "GROUP BY client_address, client_mac, address) ";
     }
 
@@ -1136,10 +1146,11 @@ public class ReconDetector {
                                                      List<UUID> taps,
                                                      DateTime since,
                                                      DateTime until,
-                                                     ReconConfiguration config) {
+                                                     ReconConfiguration config,
+                                                     InternalAddresses.Rules internalAddresses) {
         List<Candidate> result = Lists.newArrayList();
 
-        handle.createQuery(reverseDnsQueriesCte(config) +
+        handle.createQuery(reverseDnsQueriesCte(config, internalAddresses) +
                         "SELECT host(t.client_address) AS source_address, t.client_mac, COUNT(*) AS host_count, " +
                         "COUNT(*) FILTER (WHERE t.answered) AS answered_count, SUM(t.query_count) AS query_count, " +
                         "COUNT(DISTINCT network(set_masklen(t.address, 24))) AS network_count, " +
@@ -1190,7 +1201,7 @@ public class ReconDetector {
                                 new DateTime(row.get("last_seen")),
                                 parseTaps((String) row.get("taps")),
                                 enrichment,
-                                limit -> loadReverseDnsTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit)
+                                limit -> loadReverseDnsTargets(handle, taps, sourceAddress, sourceMac, since, until, config, limit, internalAddresses)
                         ));
                     } catch (Exception e) {
                         LOG.error("Could not read reverse DNS sweep candidate.", e);
@@ -1207,8 +1218,9 @@ public class ReconDetector {
                                                            DateTime since,
                                                            DateTime until,
                                                            ReconConfiguration config,
-                                                           int limit) {
-        return handle.createQuery(reverseDnsQueriesCte(config) +
+                                                           int limit,
+                                                           InternalAddresses.Rules internalAddresses) {
+        return handle.createQuery(reverseDnsQueriesCte(config, internalAddresses) +
                         "SELECT host(address) AS address, answered, query_count, first_seen, last_seen FROM targets " +
                         "WHERE client_address = :source_address::inet AND client_mac IS NOT DISTINCT FROM :source_mac " +
                         "ORDER BY answered DESC, last_seen DESC LIMIT :limit")

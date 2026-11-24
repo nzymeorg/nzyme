@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.tls;
 
+import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregationResult;
@@ -325,7 +326,7 @@ public class TLS {
                 "GROUP BY tls.tcp_session_key HAVING 1=1 " + filterFragment.havingSql() + " ";
     }
 
-    private static String keyAddressColumns(Side side) {
+    private static String keyAddressColumns(Side side, InternalAddresses.Rules internalAddresses) {
         String a = "sess." + side.alias + "_address";
 
         return "host(" + a + ") AS key, " +
@@ -340,7 +341,9 @@ public class TLS {
                 "NULL::float AS key_address_geo_latitude, " +
                 "NULL::float AS key_address_geo_longitude, " +
                 "(" + a + " <<= '10.0.0.0/8'::cidr OR " + a + " <<= '172.16.0.0/12'::cidr OR " +
-                a + " <<= '192.168.0.0/16'::cidr OR " + a + " <<= 'fc00::/7'::cidr) AS key_address_is_site_local, " +
+                a + " <<= '192.168.0.0/16'::cidr OR " + a + " <<= 'fc00::/7'::cidr" +
+                (internalAddresses.cgnatIsInternal() ? " OR " + a + " <<= '" + InternalAddresses.CGNAT_NETWORK + "'::cidr" : "") +
+                ") AS key_address_is_site_local, " +
                 "(" + a + " <<= '127.0.0.0/8'::cidr OR " + a + " = '::1'::inet) AS key_address_is_loopback, " +
                 "(" + a + " <<= '224.0.0.0/4'::cidr OR " + a + " <<= 'ff00::/8'::cidr) AS key_address_is_multicast, ";
     }
@@ -349,16 +352,16 @@ public class TLS {
         return countDistinct("sess.client_address", timeRange, filters, taps);
     }
 
-    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopClients(TimeRange timeRange, Filters filters, int limit, int offset, ThreeColumnWithKeyHistogramOrderColumn orderColumn, OrderDirection orderDirection, List<UUID> taps) {
-        return findTopAddresses(Side.CLIENT, timeRange, filters, limit, offset, orderColumn, orderDirection, taps);
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopClients(TimeRange timeRange, Filters filters, int limit, int offset, ThreeColumnWithKeyHistogramOrderColumn orderColumn, OrderDirection orderDirection, List<UUID> taps, InternalAddresses.Rules internalAddresses) {
+        return findTopAddresses(Side.CLIENT, timeRange, filters, limit, offset, orderColumn, orderDirection, taps, internalAddresses);
     }
 
     public long getTopServersCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
         return countDistinct("sess.server_address", timeRange, filters, taps);
     }
 
-    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopServers(TimeRange timeRange, Filters filters, int limit, int offset, ThreeColumnWithKeyHistogramOrderColumn orderColumn, OrderDirection orderDirection, List<UUID> taps) {
-        return findTopAddresses(Side.SERVER, timeRange, filters, limit, offset, orderColumn, orderDirection, taps);
+    public List<L4AddressDataAddressNumberNumberAggregationResult> getTopServers(TimeRange timeRange, Filters filters, int limit, int offset, ThreeColumnWithKeyHistogramOrderColumn orderColumn, OrderDirection orderDirection, List<UUID> taps, InternalAddresses.Rules internalAddresses) {
+        return findTopAddresses(Side.SERVER, timeRange, filters, limit, offset, orderColumn, orderDirection, taps, internalAddresses);
     }
 
     public long getTopServerNamesCount(TimeRange timeRange, Filters filters, List<UUID> taps) {
@@ -419,7 +422,8 @@ public class TLS {
                                                                                      int offset,
                                                                                      ThreeColumnWithKeyHistogramOrderColumn orderColumn,
                                                                                      OrderDirection orderDirection,
-                                                                                     List<UUID> taps) {
+                                                                                     List<UUID> taps,
+                                                                                     InternalAddresses.Rules internalAddresses) {
         if (taps.isEmpty()) {
             return Collections.emptyList();
         }
@@ -428,7 +432,7 @@ public class TLS {
 
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("WITH sess AS (" + sessionAggregateSelect(filterFragment) + ") " +
-                                "SELECT " + keyAddressColumns(side) +
+                                "SELECT " + keyAddressColumns(side, internalAddresses) +
                                 "COUNT(*) AS value1, " +
                                 "COALESCE(SUM(sess.bytes_count), 0)::bigint AS value2 " +
                                 "FROM sess " +
