@@ -6,6 +6,8 @@ import app.nzyme.core.database.generic.StringNumberAggregationResult;
 import app.nzyme.core.database.generic.TwoColumnHistogramOrderColumn;
 import app.nzyme.core.detection.alerts.DetectionAlertService;
 import app.nzyme.core.detection.alerts.DetectionType;
+import app.nzyme.core.detection.alerts.actions.AlertAction;
+import app.nzyme.core.detection.alerts.actions.AlertActions;
 import app.nzyme.core.detection.alerts.db.DetectionAlertSearchEntry;
 import app.nzyme.core.rest.resources.ethernet.ReconAddressResponses;
 import app.nzyme.core.rest.responses.shared.HistogramValueStructureResponse;
@@ -445,6 +447,15 @@ public class AlertsResource extends UserAuthenticatedResource {
         return Response.ok(TwoColumnTableHistogramResponse.create(count, true, values)).build();
     }
 
+    private Optional<DetectionAlertEntry> findAlertOfSelectedTenant(AuthenticatedUser user, UUID uuid) {
+        Optional<SelectedTenant> selected = selectedTenant();
+
+        return nzyme.getDetectionAlertService().findAlert(uuid, user.getOrganizationId(), user.getTenantId())
+                .filter(alert -> selected.isEmpty()
+                        || (selected.get().organizationId().equals(alert.organizationId())
+                        && selected.get().tenantId().equals(alert.tenantId())));
+    }
+
     @GET
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
     @Path("/show/{uuid}")
@@ -458,8 +469,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                             @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
-        Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
         if (alert.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -488,8 +498,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
-        Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
         if (alert.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -513,6 +522,47 @@ public class AlertsResource extends UserAuthenticatedResource {
         return Response.ok(DetectionAlertTimelineListResponse.create(total, entries)).build();
     }
 
+    @GET
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_view" })
+    @Path("/show/{uuid}/actions")
+    @Operation(operationId = "findAlertActions", summary = "List actions for an alert",
+            description = "Returns what the calling user can do about the cause of this alert, like adding an "
+                    + "unexpected fingerprint to the monitored network, approving an SSID or creating an exclusion. "
+                    + "Each action names its type and the identifiers of what it would change, and is executed with "
+                    + "the endpoint of the feature it belongs to. Actions that require a feature permission the "
+                    + "calling user does not have are left out, and done is true if the change is already in place. "
+                    + "The action that adds an unexpected BSSID carries the fingerprints the BSSID advertised in "
+                    + "the last 24 hours on taps the calling user can access, limited to "
+                    + AlertActions.MAX_FINGERPRINTS_WITH_BSSID + ". Its target field fingerprints_limited is true "
+                    + "if there were more. "
+                    + "Requires the alerts_view feature permission.")
+    @ApiResponse(responseCode = "200", description = "Actions found.",
+            content = @Content(schema = @Schema(implementation = DetectionAlertActionListResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Alert not found or not accessible by the calling user.", content = @Content)
+    public Response findActions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
+
+        if (alert.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Map<String, String> attributes = Maps.newHashMap();
+        for (DetectionAlertAttributeEntry attribute : nzyme.getDetectionAlertService()
+                .findAlertAttributes(alert.get().id())) {
+            attributes.put(attribute.key(), attribute.value());
+        }
+
+        List<DetectionAlertActionResponse> actions = Lists.newArrayList();
+        for (AlertAction action : new AlertActions(nzyme).resolve(alert.get(), attributes, authenticatedUser)) {
+            actions.add(DetectionAlertActionResponse.create(action.type().name(), action.done(), action.target()));
+        }
+
+        return Response.ok(DetectionAlertActionListResponse.create(actions)).build();
+    }
+
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "alerts_manage" })
     @Path("/show/{uuid}")
@@ -526,8 +576,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                            @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
-        Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
         if (alert.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -551,8 +600,7 @@ public class AlertsResource extends UserAuthenticatedResource {
                                    @Parameter(description = "Alert UUID.") @PathParam("uuid") UUID uuid) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
-        Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+        Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
         if (alert.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -577,8 +625,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         for (UUID uuid : uuids.uuids()) {
-            Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                    authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+            Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
             if (alert.isEmpty()) {
                 return Response.status(Response.Status.NOT_FOUND).build();
@@ -604,8 +651,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         for (UUID uuid : uuids.uuids()) {
-            Optional<DetectionAlertEntry> alert = nzyme.getDetectionAlertService().findAlert(uuid,
-                    authenticatedUser.getOrganizationId(), authenticatedUser.getTenantId());
+            Optional<DetectionAlertEntry> alert = findAlertOfSelectedTenant(authenticatedUser, uuid);
 
             if (alert.isEmpty()) {
                 return Response.status(Response.Status.NOT_FOUND).build();

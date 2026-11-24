@@ -4,6 +4,7 @@ import com.google.auto.value.AutoValue;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,8 +27,9 @@ public abstract class PreLoadedMonitoredSSID {
     public abstract boolean enabledSSIDSubstring();
 
     public abstract Integer detectionConfigSimilarLookingSSIDThreshold();
+    public abstract Set<String> allowedSimilarSSIDs();
 
-    public static PreLoadedMonitoredSSID create(long id, UUID uuid, String ssid, Map<String, PreLoadedMonitoredBSSID> bssids, List<Integer> channels, List<String> securitySuites, boolean enabledUnexpectedBSSID, boolean enabledUnexpectedChannel, boolean enabledUnexpectedSecuritySuites, boolean enabledUnexpectedFingerprint, boolean enabledUnexpectedSignalTracks, boolean enabledSimilarLookingSSID, boolean enabledSSIDSubstring, Integer detectionConfigSimilarLookingSSIDThreshold) {
+    public static PreLoadedMonitoredSSID create(long id, UUID uuid, String ssid, Map<String, PreLoadedMonitoredBSSID> bssids, List<Integer> channels, List<String> securitySuites, boolean enabledUnexpectedBSSID, boolean enabledUnexpectedChannel, boolean enabledUnexpectedSecuritySuites, boolean enabledUnexpectedFingerprint, boolean enabledUnexpectedSignalTracks, boolean enabledSimilarLookingSSID, boolean enabledSSIDSubstring, Integer detectionConfigSimilarLookingSSIDThreshold, Set<String> allowedSimilarSSIDs) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -43,6 +45,7 @@ public abstract class PreLoadedMonitoredSSID {
                 .enabledSimilarLookingSSID(enabledSimilarLookingSSID)
                 .enabledSSIDSubstring(enabledSSIDSubstring)
                 .detectionConfigSimilarLookingSSIDThreshold(detectionConfigSimilarLookingSSIDThreshold)
+                .allowedSimilarSSIDs(allowedSimilarSSIDs)
                 .build();
     }
 
@@ -79,6 +82,8 @@ public abstract class PreLoadedMonitoredSSID {
         public abstract Builder enabledSSIDSubstring(boolean enabledSSIDSubstring);
 
         public abstract Builder detectionConfigSimilarLookingSSIDThreshold(Integer detectionConfigSimilarLookingSSIDThreshold);
+
+        public abstract Builder allowedSimilarSSIDs(Set<String> allowedSimilarSSIDs);
 
         public abstract PreLoadedMonitoredSSID build();
     }

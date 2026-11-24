@@ -28,6 +28,7 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,6 +62,8 @@ import java.util.stream.Collectors;
         externalDocs = @ExternalDocumentation(description = "Network monitoring in the Nzyme documentation",
                 url = "https://go.nzyme.org/wifi-network-monitoring"))
 public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
+
+    private static final int MAX_IMPORT_ENTRIES = 10_000;
 
     private static final Logger LOG = LogManager.getLogger(Dot11MonitoredNetworksResource.class);
 
@@ -351,6 +354,7 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                 channels,
                 securitySuites,
                 ssid.detectionConfigSimilarLookingSSIDThreshold(),
+                nzyme.getDot11().findAllowedSimilarSSIDs(ssid.id()),
                 restrictedSSIDSubstrings,
                 ssid.createdAt(),
                 ssid.updatedAt(),
@@ -974,7 +978,7 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
             if (ss != null) {
                 String ssId = Dot11.securitySuitesToIdentifier(ss);
                 securitySuitesResponse.add(SecuritySuiteImportDataResponse.create(
-                        ssId, monitoredSuites.contains(ssId)
+                        ssId, Dot11.isMonitoredSecuritySuite(monitoredSuites, ssId)
                 ));
             }
         }
@@ -1001,6 +1005,7 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                     + "network. Entries that are already monitored are skipped, nothing is removed. "
                     + "Requires the dot11_monitoring_manage feature permission.")
     @ApiResponse(responseCode = "201", description = "Data imported.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "A BSSID is not a valid MAC address, a fingerprint does not have 64 characters, a frequency is not a WiFi channel, a security suite identifier is malformed or the request has more than 10,000 entries in total. Nothing was imported.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
     public Response writeImportData(@Parameter(hidden = true) @Context SecurityContext sc,
                                     @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
@@ -1019,65 +1024,110 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        // Load currently monitored data.
-        List<String> currentBSSIDs = nzyme.getDot11()
-                .findMonitoredBSSIDsOfMonitoredNetwork(ssid.get().id())
-                .stream()
-                .map(MonitoredBSSID::bssid)
-                .collect(Collectors.toList());
-
-        List<Long> currentChannels = nzyme.getDot11()
-                .findMonitoredChannelsOfMonitoredNetwork(ssid.get().id())
-                .stream()
-                .map(MonitoredChannel::frequency)
-                .collect(Collectors.toList());
-
-        List<String> currentSecSuites = nzyme.getDot11()
-                .findMonitoredSecuritySuitesOfMonitoredNetwork(ssid.get().id())
-                .stream()
-                .map(MonitoredSecuritySuite::securitySuite)
-                .collect(Collectors.toList());
-
-        // BSSIDS.
+        long entries = (long) req.bssids().size() + req.channels().size() + req.securitySuites().size();
         for (ImportMonitoredNetworkDataBSSIDRequest bssid : req.bssids()) {
-            if (currentBSSIDs.contains(bssid.bssid())) {
-                // Existing BSSID. Check if we need to add fingeprints.
-                @SuppressWarnings("OptionalGetWithoutIsPresent")
-                long bssidId = nzyme.getDot11().findMonitoredBSSIDId(ssid.get().id(), bssid.bssid()).get();
+            if (bssid == null || !Tools.isValidMacAddress(bssid.bssid())
+                    || bssid.fingerprints().stream().anyMatch(f -> f == null || f.length() != 64)) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
 
-                List<String> existingFingerprints = nzyme.getDot11().findMonitoredFingerprintsOfMonitoredBSSID(bssidId)
-                        .stream()
-                        .map(MonitoredFingerprint::fingerprint)
-                        .collect(Collectors.toList());
+            entries += bssid.fingerprints().size();
+        }
 
-                for (String fingerprint : bssid.fingerprints()) {
-                    if (!existingFingerprints.contains(fingerprint)) {
+        if (entries > MAX_IMPORT_ENTRIES) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        for (Long channel : req.channels()) {
+            if (channel == null || channel < 0 || channel > Integer.MAX_VALUE
+                    || Dot11.frequencyToChannel(channel.intValue()) == -1) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        for (String securitySuite : req.securitySuites()) {
+            if (securitySuite == null || securitySuite.length() > 255 || (!securitySuite.equals("NONE")
+                    && (!securitySuite.contains("-") || !securitySuite.contains("/")))) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+        }
+
+        // Two imports of the same network at the same time would both add what neither of them sees yet.
+        nzyme.getDatabase().useTransaction(lock -> {
+            lock.createQuery("SELECT pg_advisory_xact_lock(hashtext(:key))")
+                    .bind("key", "dot11_monitored_network_import:" + ssid.get().id())
+                    .mapToMap()
+                    .list();
+
+            // Load currently monitored data.
+            List<String> currentBSSIDs = nzyme.getDot11()
+                    .findMonitoredBSSIDsOfMonitoredNetwork(ssid.get().id())
+                    .stream()
+                    .map(MonitoredBSSID::bssid)
+                    .collect(Collectors.toList());
+
+            List<Long> currentChannels = nzyme.getDot11()
+                    .findMonitoredChannelsOfMonitoredNetwork(ssid.get().id())
+                    .stream()
+                    .map(MonitoredChannel::frequency)
+                    .collect(Collectors.toList());
+
+            List<String> currentSecSuites = nzyme.getDot11()
+                    .findMonitoredSecuritySuitesOfMonitoredNetwork(ssid.get().id())
+                    .stream()
+                    .map(MonitoredSecuritySuite::securitySuite)
+                    .collect(Collectors.toList());
+
+            // BSSIDS.
+            for (ImportMonitoredNetworkDataBSSIDRequest bssid : req.bssids()) {
+                // Monitored BSSIDs are stored in upper case.
+                String mac = bssid.bssid().toUpperCase();
+                Set<String> fingerprints = Sets.newLinkedHashSet(bssid.fingerprints());
+
+                if (currentBSSIDs.contains(mac)) {
+                    // Existing BSSID. Check if we need to add fingeprints.
+                    @SuppressWarnings("OptionalGetWithoutIsPresent")
+                    long bssidId = nzyme.getDot11().findMonitoredBSSIDId(ssid.get().id(), mac).get();
+
+                    List<String> existingFingerprints = nzyme.getDot11().findMonitoredFingerprintsOfMonitoredBSSID(bssidId)
+                            .stream()
+                            .map(MonitoredFingerprint::fingerprint)
+                            .collect(Collectors.toList());
+
+                    for (String fingerprint : fingerprints) {
+                        if (!existingFingerprints.contains(fingerprint)) {
+                            nzyme.getDot11().createdMonitoredBSSIDFingerprint(bssidId, fingerprint);
+                        }
+                    }
+                } else {
+                    // New BSSID.
+                    long bssidId = nzyme.getDot11().createMonitoredBSSID(ssid.get().id(), mac);
+                    currentBSSIDs.add(mac);
+
+                    for (String fingerprint : fingerprints) {
                         nzyme.getDot11().createdMonitoredBSSIDFingerprint(bssidId, fingerprint);
                     }
                 }
-            } else {
-                // New BSSID.
-                long bssidId = nzyme.getDot11().createMonitoredBSSID(ssid.get().id(), bssid.bssid());
+            }
 
-                for (String fingerprint : bssid.fingerprints()) {
-                    nzyme.getDot11().createdMonitoredBSSIDFingerprint(bssidId, fingerprint);
+            // Channels.
+            for (Long channel : req.channels()) {
+                if (!currentChannels.contains(channel)) {
+                    nzyme.getDot11().createMonitoredChannel(ssid.get().id(), channel);
+                    currentChannels.add(channel);
                 }
             }
-        }
 
-        // Channels.
-        for (Long channel : req.channels()) {
-            if (!currentChannels.contains(channel)) {
-                nzyme.getDot11().createMonitoredChannel(ssid.get().id(), channel);
+            // Security Suites.
+            for (String securitySuite : req.securitySuites()) {
+                if (!currentSecSuites.contains(securitySuite)) {
+                    nzyme.getDot11().createMonitoredSecuritySuite(ssid.get().id(), securitySuite);
+                    currentSecSuites.add(securitySuite);
+                }
             }
-        }
+        });
 
-        // Security Suites.
-        for (String securitySuite : req.securitySuites()) {
-            if (!currentSecSuites.contains(securitySuite)) {
-                nzyme.getDot11().createMonitoredSecuritySuite(ssid.get().id(), securitySuite);
-            }
-        }
+        nzyme.getDot11().bumpMonitoredSSIDUpdatedAt(ssid.get().id());
 
         return Response.status(Response.Status.CREATED).build();
     }
@@ -1115,14 +1165,17 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                 .stream().map(MonitoredSSID::ssid)
                 .collect(Collectors.toList());
 
+        List<String> allowedSSIDNames = nzyme.getDot11().findAllowedSimilarSSIDs(ssid.get().id());
+
         JaroWinkler jaroWinkler = new JaroWinkler();
         for (String ssidName : nzyme.getDot11().findAllRecentSSIDNames(nzyme.getTapManager()
                 .allTapUUIDsAccessibleByUser(authenticatedUser, ssid.get().organizationId(), ssid.get().tenantId()), 15)) {
             double similarity = jaroWinkler.similarity(ssid.get().ssid(), ssidName) * 100.0;
             boolean monitored = monitoredSSIDNames.contains(ssidName);
-            boolean alerted = !monitored && similarity > threshold;
+            boolean allowed = allowedSSIDNames.contains(ssidName);
+            boolean alerted = !monitored && !allowed && similarity > threshold;
 
-            similarities.add(SSIDSimilarityResponse.create(ssidName, similarity, monitored, alerted));
+            similarities.add(SSIDSimilarityResponse.create(ssidName, similarity, monitored, allowed, alerted));
         }
 
         return Response.ok(similarities).build();
@@ -1154,6 +1207,81 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
         }
 
         nzyme.getDot11().setSimilarSSIDMonitorConfiguration(ssid.get().id(), (int) req.threshold());
+
+        return Response.ok().build();
+    }
+
+    @POST
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
+    @Path("/ssids/show/{uuid}/configuration/similarssids/allowed")
+    @Operation(operationId = "createMonitoredNetworkAllowedSimilarSsid", summary = "Allow a similar looking SSID",
+            description = "Adds an SSID that no longer raises the similar SSID alert of this monitored network, "
+                    + "whatever its similarity. The SSID is matched exactly, after control characters and "
+                    + "surrounding whitespace are removed like for observed SSIDs. A monitored network holds up to "
+                    + Dot11.MAX_ALLOWED_SIMILAR_SSIDS + " allowed SSIDs. Adding an SSID that is already allowed changes "
+                    + "nothing. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "201", description = "SSID allowed.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The SSID is empty after control characters and surrounding whitespace are removed, or the monitored network already holds the maximum number of allowed SSIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response addAllowedSimilarSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                          @RequestBody(description = "SSID to allow.", required = true, content = @Content(mediaType = "application/json"))
+                                          @Valid CreateDot11MonitoredNetworkAllowedSimilarSSIDRequest req) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
+
+        if (ssid.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!entityAccessible(authenticatedUser, ssid.get())) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        String allowedSsid = Tools.sanitizeSSID(req.ssid());
+        if (allowedSsid.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        List<String> allowed = nzyme.getDot11().findAllowedSimilarSSIDs(ssid.get().id());
+        if (!allowed.contains(allowedSsid)) {
+            if (allowed.size() >= Dot11.MAX_ALLOWED_SIMILAR_SSIDS) {
+                return Response.status(Response.Status.BAD_REQUEST).build();
+            }
+
+            nzyme.getDot11().createAllowedSimilarSSID(ssid.get().id(), allowedSsid);
+            nzyme.getDot11().bumpMonitoredSSIDUpdatedAt(ssid.get().id());
+        }
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @DELETE
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
+    @Path("/ssids/show/{uuid}/configuration/similarssids/allowed")
+    @Operation(operationId = "deleteMonitoredNetworkAllowedSimilarSsid", summary = "Remove an allowed similar looking SSID",
+            description = "The SSID raises the similar SSID alert again if it is above the similarity threshold. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "SSID no longer allowed.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response deleteAllowedSimilarSSID(@Parameter(hidden = true) @Context SecurityContext sc,
+                                             @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                             @Parameter(description = "The allowed SSID to remove.") @QueryParam("ssid") @NotEmpty String allowedSsid) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
+
+        if (ssid.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!entityAccessible(authenticatedUser, ssid.get())) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getDot11().deleteAllowedSimilarSSID(ssid.get().id(), Tools.sanitizeSSID(allowedSsid));
+        nzyme.getDot11().bumpMonitoredSSIDUpdatedAt(ssid.get().id());
 
         return Response.ok().build();
     }

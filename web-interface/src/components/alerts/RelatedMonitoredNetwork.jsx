@@ -30,7 +30,11 @@ function RelatedMonitoredNetwork(props) {
         }
       });
     }
-  }, [ssid]);
+  }, [networkId]);
+
+  if (!networkId) {
+    return null;
+  }
 
   if (!userHasPermission(user, "dot11_monitoring_manage")) {
     return (
@@ -66,10 +70,6 @@ function RelatedMonitoredNetwork(props) {
           </div>
         </div>
     )
-  }
-
-  if (!networkId) {
-    return null;
   }
 
   return (

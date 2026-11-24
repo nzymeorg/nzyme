@@ -1,13 +1,33 @@
 import React, {useState} from "react";
-import {Link, Navigate} from "react-router-dom";
+import {Link, Navigate, useLocation} from "react-router-dom";
 import {toast} from "react-toastify";
 import ApiRoutes from "../../../../util/ApiRoutes";
 import usePageTitle from "../../../../util/UsePageTitle";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
 import IcmpService from "../../../../services/ethernet/IcmpService";
-import IcmpExclusionForm from "./IcmpExclusionForm";
+import IcmpExclusionForm, {DETECTION_TYPES} from "./IcmpExclusionForm";
 
 const icmpService = new IcmpService();
+
+const prefill = (query) => {
+  const type = query.get("type");
+  const source = query.get("source");
+  const sourceMac = query.get("source_mac");
+  const gateway = query.get("gateway");
+
+  if (!source && !sourceMac && !gateway) {
+    return undefined;
+  }
+
+  return {
+    name: "Exclude " + (source ? source : sourceMac ? sourceMac : gateway),
+    description: "Created from an alert.",
+    detection_types: DETECTION_TYPES.some((t) => t.value === type) ? [type] : [],
+    source_cidr: source ? source : "",
+    source_mac: sourceMac ? sourceMac : "",
+    gateway_cidr: gateway ? gateway : ""
+  };
+}
 
 export default function CreateIcmpExclusionPage() {
 
@@ -15,6 +35,7 @@ export default function CreateIcmpExclusionPage() {
 
   const [organizationId, tenantId] = useSelectedTenant();
   const [redirect, setRedirect] = useState(false);
+  const query = new URLSearchParams(useLocation().search);
 
   const create = (payload, onError) => {
     icmpService.createExclusion(organizationId, tenantId, payload, () => {
@@ -53,7 +74,7 @@ export default function CreateIcmpExclusionPage() {
         <div className="col-xl-12 col-xxl-8">
           <div className="card">
             <div className="card-body">
-              <IcmpExclusionForm submitText="Create Exclusion" onSubmit={create} />
+              <IcmpExclusionForm initialValues={prefill(query)} submitText="Create Exclusion" onSubmit={create} />
             </div>
           </div>
         </div>

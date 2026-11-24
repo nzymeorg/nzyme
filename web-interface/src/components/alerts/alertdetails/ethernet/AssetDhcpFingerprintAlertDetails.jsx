@@ -1,15 +1,10 @@
-import React, {useContext} from "react";
+import React from "react";
 import {Link} from "react-router-dom";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {UserContext} from "../../../../App";
-import {userHasPermission} from "../../../../util/Tools";
 
 export default function AssetDhcpFingerprintAlertDetails({alert}) {
 
   const a = alert.attributes;
-
-  const user = useContext(UserContext);
-  const canManage = userHasPermission(user, "ethernet_assets_manage");
 
   return (
     <React.Fragment>
@@ -33,15 +28,6 @@ export default function AssetDhcpFingerprintAlertDetails({alert}) {
                 <dd><span className="machine-data">{a.existing_fingerprint}</span></dd>
                 <dt>New Fingerprint</dt>
                 <dd><span className="machine-data">{a.new_fingerprint}</span></dd>
-                {canManage ?
-                  <React.Fragment>
-                    <dt>Exclusions</dt>
-                    <dd>
-                      <Link to={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.CREATE + "?mac=" + a.mac}>
-                        Exclude this asset from DHCP fingerprint alerts
-                      </Link>
-                    </dd>
-                  </React.Fragment> : null}
 
                 <p className="mb-0 mt-3">
                   The device requested a DHCP lease with a different set of options than before. The options a

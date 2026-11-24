@@ -257,9 +257,9 @@ class Dot11Service {
       })
   }
 
-  writeMonitoredNetworkImportData(ssidUUID, bssids, channels, securitySuites, successCallback) {
+  writeMonitoredNetworkImportData(ssidUUID, bssids, channels, securitySuites, successCallback, errorCallback = undefined) {
     RESTClient.post("/dot11/monitoring/ssids/show/" + ssidUUID + "/import/data",
-        {bssids: bssids, channels: channels, security_suites: securitySuites}, successCallback);
+        {bssids: bssids, channels: channels, security_suites: securitySuites}, successCallback, errorCallback);
   }
 
   findBuiltinBandits(setBandits) {
@@ -427,6 +427,16 @@ class Dot11Service {
     RESTClient.put("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID + "/configuration/similarssids", {threshold: threshold}, successCallback)
   }
 
+  addAllowedSimilarSSID(monitoredNetworkUUID, ssid, successCallback, errorCallback = undefined) {
+    RESTClient.post("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID + "/configuration/similarssids/allowed",
+        {ssid: ssid}, successCallback, errorCallback)
+  }
+
+  deleteAllowedSimilarSSID(monitoredNetworkUUID, ssid, successCallback) {
+    RESTClient.delete("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID
+        + "/configuration/similarssids/allowed?ssid=" + encodeURIComponent(ssid), successCallback)
+  }
+
   addRestrictedSSIDSubstring(monitoredNetworkUUID, substring, successCallback) {
     RESTClient.post("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID + "/configuration/restricted-ssid-substrings",
         {substring: substring}, successCallback)
@@ -567,11 +577,12 @@ class Dot11Service {
     )
   }
 
-  approveKnownNetwork(uuid, organizationUUID, tenantUUID, onSuccess) {
+  approveKnownNetwork(uuid, organizationUUID, tenantUUID, onSuccess, onError = undefined) {
     RESTClient.put(
         `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}/show/${uuid}/approve`,
         {},
-        onSuccess
+        onSuccess,
+        onError
     )
   }
 
@@ -583,11 +594,12 @@ class Dot11Service {
     )
   }
 
-  ignoreKnownNetwork(uuid, organizationUUID, tenantUUID, onSuccess) {
+  ignoreKnownNetwork(uuid, organizationUUID, tenantUUID, onSuccess, onError = undefined) {
     RESTClient.put(
         `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}/show/${uuid}/ignore`,
         {},
-        onSuccess
+        onSuccess,
+        onError
     )
   }
 
@@ -614,16 +626,16 @@ class Dot11Service {
         (response) => { setClients(response.data); })
   }
 
-  approveMonitoredClient(ssidUUID, clientUUID, onSuccess) {
-    RESTClient.put(`/dot11/monitoring/ssids/show/${ssidUUID}/clients/show/${clientUUID}/approve`, {}, onSuccess)
+  approveMonitoredClient(ssidUUID, clientUUID, onSuccess, onError = undefined) {
+    RESTClient.put(`/dot11/monitoring/ssids/show/${ssidUUID}/clients/show/${clientUUID}/approve`, {}, onSuccess, onError)
   }
 
   revokedMonitoredClient(ssidUUID, clientUUID, onSuccess) {
     RESTClient.put(`/dot11/monitoring/ssids/show/${ssidUUID}/clients/show/${clientUUID}/revoke`, {}, onSuccess)
   }
 
-  ignoreMonitoredClient(ssidUUID, clientUUID, onSuccess) {
-    RESTClient.put(`/dot11/monitoring/ssids/show/${ssidUUID}/clients/show/${clientUUID}/ignore`, {}, onSuccess)
+  ignoreMonitoredClient(ssidUUID, clientUUID, onSuccess, onError = undefined) {
+    RESTClient.put(`/dot11/monitoring/ssids/show/${ssidUUID}/clients/show/${clientUUID}/ignore`, {}, onSuccess, onError)
   }
 
   unignoreMonitoredClient(ssidUUID, clientUUID, onSuccess) {

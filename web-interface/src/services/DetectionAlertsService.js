@@ -24,10 +24,16 @@ class DetectionAlertsService {
     })
   }
 
-  findAlert(uuid, setAlert) {
+  findAlert(uuid, setAlert, errorCallback = undefined) {
     RESTClient.get('/alerts/show/' + uuid, {}, function (response) {
       setAlert(response.data)
-    })
+    }, errorCallback)
+  }
+
+  findAlertActions(uuid, setActions, errorCallback = undefined) {
+    RESTClient.get('/alerts/show/' + uuid + '/actions', {}, function (response) {
+      setActions(response.data.actions)
+    }, errorCallback)
   }
 
   getActiveAlertsHistogram(setHistogram, organizationId, tenantId, timeRange, filters) {

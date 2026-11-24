@@ -2,6 +2,7 @@ package app.nzyme.core.tables.ethernet;
 
 import com.google.common.base.Joiner;
 
+import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.assets.profile.AssetRole;
@@ -238,11 +239,12 @@ public class DHCPTable implements DataTable {
     }
 
     private void registerAssets(Handle handle, Tap tap, List<Dhcpv4TransactionReport> txs) {
+        // Fingerprints are only filled in, so that one a user accepted is not written back by a stale asset.
         PreparedBatch updateBatch = handle.prepareBatch("UPDATE assets SET last_seen = :last_seen, " +
-                "dhcp_fingerprint_initial = :dhcp_fingerprint_initial, " +
-                "dhcp_fingerprint_renew = :dhcp_fingerprint_renew, " +
-                "dhcp_fingerprint_reboot = :dhcp_fingerprint_reboot, " +
-                "dhcp_fingerprint_rebind = :dhcp_fingerprint_rebind, " +
+                "dhcp_fingerprint_initial = COALESCE(dhcp_fingerprint_initial, :dhcp_fingerprint_initial), " +
+                "dhcp_fingerprint_renew = COALESCE(dhcp_fingerprint_renew, :dhcp_fingerprint_renew), " +
+                "dhcp_fingerprint_reboot = COALESCE(dhcp_fingerprint_reboot, :dhcp_fingerprint_reboot), " +
+                "dhcp_fingerprint_rebind = COALESCE(dhcp_fingerprint_rebind, :dhcp_fingerprint_rebind), " +
                 "seen_dhcp = true, updated_at = NOW() " +
                 "WHERE id = :id");
 
@@ -404,30 +406,14 @@ public class DHCPTable implements DataTable {
 
     private boolean fingerprintChanged(AssetEntry asset, Dhcpv4TransactionReport tx) {
         Optional<String> fingerprint = new DHCPFingerprint(tx.options(), tx.vendorClass()).generate();
-        String existingFingerprint = existingFingerprint(asset, tx.transactionType());
+        String existingFingerprint = AssetManager.dhcpFingerprintOf(asset, tx.transactionType());
 
         return fingerprint.isPresent() && existingFingerprint != null && !fingerprint.get().equals(existingFingerprint);
     }
 
-    @Nullable
-    private static String existingFingerprint(AssetEntry asset, String transactionType) {
-        switch (transactionType) {
-            case "Initial":
-                return asset.dhcpFingerprintInitial();
-            case "Renew":
-                return asset.dhcpFingerprintRenew();
-            case "Reboot":
-                return asset.dhcpFingerprintReboot();
-            case "Rebind":
-                return asset.dhcpFingerprintRebind();
-            default:
-                return null;
-        }
-    }
-
     private void raiseFingerprintAlert(Tap tap, AssetEntry asset, Dhcpv4TransactionReport tx) {
         Optional<String> fingerprint = new DHCPFingerprint(tx.options(), tx.vendorClass()).generate();
-        String existingFingerprint = existingFingerprint(asset, tx.transactionType());
+        String existingFingerprint = AssetManager.dhcpFingerprintOf(asset, tx.transactionType());
 
         if (fingerprint.isEmpty() || existingFingerprint == null) {
             return;

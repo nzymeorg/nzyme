@@ -4,6 +4,8 @@ import Dot11Service from "../../../services/Dot11Service";
 import ApiRoutes from "../../../util/ApiRoutes";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import SimilarSSIDSimulator from "./SimilarSSIDSimulator";
+import AllowedSimilarSSIDs from "./AllowedSimilarSSIDs";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import {toast} from "react-toastify";
 import usePageTitle from "../../../util/UsePageTitle";
 
@@ -22,15 +24,28 @@ function SimilarSSIDConfigurationPage() {
 
   usePageTitle(ssid ? `Similar SSID Monitor: ${ssid.ssid}` : "Similar SSID Monitor Configuration");
 
-  useEffect(() => {
-    dot11Service.findMonitoredSSID(uuid, setSSID, () => {});
-  }, [uuid]);
+  const [allowedRevision, setAllowedRevision] = useState(0);
 
+  useEffect(() => {
+    let active = true;
+
+    dot11Service.findMonitoredSSID(uuid, (found) => {
+      if (active) {
+        setSSID(found);
+      }
+    }, () => {});
+
+    return () => {
+      active = false;
+    }
+  }, [uuid, allowedRevision]);
+
+  // Reloading the network after a change of the allowed SSIDs must not reset a threshold that is being edited.
   useEffect(() => {
     if (ssid) {
       setThreshold(ssid.similar_looking_ssid_threshold);
     }
-  }, [ssid]);
+  }, [ssid ? ssid.uuid : null]);
 
   const onSubmit = () => {
     dot11Service.setSimilarSSIDMonitorConfiguration(uuid, threshold, () => {
@@ -78,13 +93,9 @@ function SimilarSSIDConfigurationPage() {
           <div className="col-xl-12 col-xxl-6">
             <div className="card">
               <div className="card-body">
-                <h3>Configure Similar SSID Monitor</h3>
+                <CardTitleWithControls title="Configure Similar SSID Monitor"
+                                       helpLink="https://go.nzyme.org/wifi-network-monitoring-similar-ssids" />
 
-                <p className="mb-3">
-                  Note that other monitored networks never trigger a similar SSID alarm because they are considered
-                  known and not malicious. Comparison is performed in a case-insensitive way.
-                </p>
-                
                 <label htmlFor="threshold" className="form-label">Threshold</label>
                 <div className="input-group mb-3" style={{width: 110}}>
                   <input type="number"
@@ -108,6 +119,13 @@ function SimilarSSIDConfigurationPage() {
             </div>
           </div>
         </div>
+
+        <AllowedSimilarSSIDs uuid={uuid}
+                             allowedSsids={ssid.allowed_similar_ssids ? ssid.allowed_similar_ssids : []}
+                             onChange={() => {
+                               setAllowedRevision((previous) => previous + 1);
+                               setRevision((previous) => previous > 0 ? previous + 1 : previous);
+                             }} />
 
         <SimilarSSIDSimulator threshold={threshold} uuid={uuid} revision={revision} />
       </React.Fragment>

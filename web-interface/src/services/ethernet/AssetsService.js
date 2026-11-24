@@ -328,9 +328,14 @@ export default class AssetsService {
       (response) => setLink(response.data), onError);
   }
 
-  setAssetLinkStatus(uuid, organizationId, tenantId, status, successCallback) {
+  acceptDHCPFingerprint(assetUuid, transactionType, fingerprint, organizationId, tenantId, successCallback, errorCallback = undefined) {
+    RESTClient.put(`/ethernet/assets/show/${assetUuid}/dhcp/fingerprints/${transactionType}/organization/${organizationId}/tenant/${tenantId}`,
+      {fingerprint: fingerprint}, successCallback, errorCallback);
+  }
+
+  setAssetLinkStatus(uuid, organizationId, tenantId, status, successCallback, errorCallback = undefined) {
     RESTClient.put(`/ethernet/assets/identity/links/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/status/${status}`,
-      {}, successCallback);
+      {}, successCallback, errorCallback);
   }
 
   deleteAssetLink(uuid, organizationId, tenantId, successCallback) {

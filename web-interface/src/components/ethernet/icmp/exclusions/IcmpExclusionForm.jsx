@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-const DETECTION_TYPES = [
+export const DETECTION_TYPES = [
   {value: "REDIRECT", name: "Redirect"},
   {value: "TRACEROUTE", name: "Traceroute"},
   {value: "TUNNEL", name: "Tunnel"}

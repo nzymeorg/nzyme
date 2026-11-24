@@ -9,8 +9,8 @@ public class Permissions {
         put("alerts_manage", Permission.create(
                 "alerts_manage",
                 "Manage Alerts",
-                "Allows user to create, edit and delete alert definitions across data from all taps of tenant " +
-                        "the user belongs to. This includes classifying UAVs.",
+                "Allows user to mark triggered alerts as resolved and to delete them, across data from all " +
+                        "taps of tenant the user belongs to.",
                 false
         ));
         put("alerts_view", Permission.create(

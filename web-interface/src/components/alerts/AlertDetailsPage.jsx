@@ -12,6 +12,8 @@ import L4Address from "../ethernet/shared/L4Address";
 import EthernetMacAddress from "../shared/context/macs/EthernetMacAddress";
 import numeral from "numeral";
 import AlertDetails from "./alertdetails/AlertDetails";
+import AlertActions from "./actions/AlertActions";
+import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
 import AlertTimeline from "./AlertTimeline";
 import RelatedMonitoredNetwork from "./RelatedMonitoredNetwork";
 import WithPermission from "../misc/WithPermission";
@@ -24,17 +26,43 @@ function AlertDetailsPage() {
 
   const {uuid} = useParams();
 
+  const [selectedOrganization, selectedTenant] = useSelectedTenant();
+
   const [alert, setAlert] = useState(null);
+  const [notFound, setNotFound] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
 
   const [revision, setRevision] = useState(0);
+  const [actionsRevision, setActionsRevision] = useState(0);
 
   usePageTitle(alert ? `Alert: ${alert.details}` : "Alert Details");
 
+  // The node does not find an alert of a tenant other than the selected one.
   useEffect(() => {
+    let active = true;
+
     setAlert(null);
-    alertsService.findAlert(uuid, setAlert);
-  }, [uuid, revision]);
+    setNotFound(false);
+    alertsService.findAlert(uuid, (found) => {
+      if (active) {
+        setAlert(found);
+      }
+    }, (error) => {
+      if (!active) {
+        return;
+      }
+
+      if (error.response.status === 404) {
+        setNotFound(true);
+      } else {
+        toast.error('REST call failed. (HTTP ' + error.response.status + ')');
+      }
+    });
+
+    return () => {
+      active = false;
+    }
+  }, [uuid, revision, selectedOrganization, selectedTenant]);
 
   const markAsResolved = (e) => {
     e.preventDefault();
@@ -64,6 +92,14 @@ function AlertDetailsPage() {
 
   if (isDeleted) {
     return <Navigate to={ApiRoutes.ALERTS.INDEX} />
+  }
+
+  if (notFound) {
+    return (
+      <div className="alert alert-warning">
+        Alert not found. <Link to={ApiRoutes.ALERTS.INDEX}>Back to Alerts</Link>
+      </div>
+    )
   }
 
   if (!alert) {
@@ -109,6 +145,8 @@ function AlertDetailsPage() {
             </div>
           </div>
         </div>
+
+        <AlertActions alert={alert} onActionCompleted={() => setActionsRevision((previous) => previous + 1)} />
 
         <div className="row mt-3">
           <div className="col-md-6">
@@ -161,7 +199,7 @@ function AlertDetailsPage() {
 
         <AlertDetails alert={alert} />
 
-        <RelatedMonitoredNetwork networkId={alert.dot11_monitored_network_id} alert={alert} />
+        <RelatedMonitoredNetwork key={actionsRevision} networkId={alert.dot11_monitored_network_id} alert={alert} />
 
         <div className="row mt-3">
           <div className="col-md-12">

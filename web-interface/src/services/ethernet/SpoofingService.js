@@ -63,14 +63,14 @@ export default class SpoofingService {
     }, (response) => setServers(response.data));
   }
 
-  setDhcpServerTrusted(uuid, organizationId, tenantId, trusted, successCallback) {
+  setDhcpServerTrusted(uuid, organizationId, tenantId, trusted, successCallback, errorCallback = undefined) {
     RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/trusted/${trusted}`,
-      {}, successCallback);
+      {}, successCallback, errorCallback);
   }
 
-  acceptDhcpServerConfiguration(uuid, organizationId, tenantId, successCallback) {
+  acceptDhcpServerConfiguration(uuid, organizationId, tenantId, successCallback, errorCallback = undefined) {
     RESTClient.put(`/ethernet/spoofing/dhcp/servers/organization/${organizationId}/tenant/${tenantId}/show/${uuid}/baseline`,
-      {}, successCallback);
+      {}, successCallback, errorCallback);
   }
 
   restartDhcpLearningPeriod(organizationId, tenantId, successCallback) {

@@ -1848,6 +1848,39 @@ public class Dot11 {
         );
     }
 
+    public static final int MAX_ALLOWED_SIMILAR_SSIDS = 500;
+
+    public List<String> findAllowedSimilarSSIDs(long monitoredNetworkId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT ssid FROM dot11_monitored_networks_allowed_similar_ssids " +
+                                "WHERE monitored_network_id = :monitored_network_id ORDER BY ssid")
+                        .bind("monitored_network_id", monitoredNetworkId)
+                        .mapTo(String.class)
+                        .list()
+        );
+    }
+
+    public void createAllowedSimilarSSID(long monitoredNetworkId, String ssid) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("INSERT INTO dot11_monitored_networks_allowed_similar_ssids(" +
+                                "monitored_network_id, ssid, created_at) VALUES(:monitored_network_id, :ssid, NOW()) " +
+                                "ON CONFLICT (monitored_network_id, ssid) DO NOTHING")
+                        .bind("monitored_network_id", monitoredNetworkId)
+                        .bind("ssid", ssid)
+                        .execute()
+        );
+    }
+
+    public void deleteAllowedSimilarSSID(long monitoredNetworkId, String ssid) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("DELETE FROM dot11_monitored_networks_allowed_similar_ssids " +
+                                "WHERE monitored_network_id = :monitored_network_id AND ssid = :ssid")
+                        .bind("monitored_network_id", monitoredNetworkId)
+                        .bind("ssid", ssid)
+                        .execute()
+        );
+    }
+
     public long countCustomBandits(UUID organizationId, UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM dot11_bandits " +
@@ -1913,6 +1946,23 @@ public class Dot11 {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM dot11_bandits WHERE uuid = :uuid")
                         .bind("uuid", uuid)
+                        .mapTo(CustomBanditDescription.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<CustomBanditDescription> findCustomBanditByFingerprint(String fingerprint,
+                                                                           UUID organizationId,
+                                                                           UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.* FROM dot11_bandits AS b " +
+                                "WHERE b.organization_id = :organization_id AND b.tenant_id = :tenant_id " +
+                                "AND EXISTS (SELECT 1 FROM dot11_bandit_fingerprints AS f " +
+                                "WHERE f.bandit_id = b.id AND f.fingerprint = :fingerprint) " +
+                                "ORDER BY b.name ASC LIMIT 1")
+                        .bind("fingerprint", fingerprint)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
                         .mapTo(CustomBanditDescription.class)
                         .findOne()
         );
@@ -2656,6 +2706,21 @@ public class Dot11 {
         );
     }
 
+    public Optional<Dot11KnownNetwork> findKnownNetworkBySSID(String ssid, UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                // Nodes can each have created a row for the SSID. One that is still open is the one to act on.
+                handle.createQuery("SELECT * FROM dot11_known_networks " +
+                                "WHERE ssid = :ssid AND organization_id = :organization_id " +
+                                "AND tenant_id = :tenant_id " +
+                                "ORDER BY (is_approved OR is_ignored) ASC, id ASC LIMIT 1")
+                        .bind("ssid", ssid)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .mapTo(Dot11KnownNetwork.class)
+                        .findOne()
+        );
+    }
+
     public void changeStatusOfKnownNetwork(long id, boolean isApproved) {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("UPDATE dot11_known_networks SET is_approved = :is_approved WHERE id = :id")
@@ -2775,6 +2840,10 @@ public class Dot11 {
                 .findOne();
     }
 
+    public Optional<Dot11KnownClient> findKnownClient(String mac, long monitoredNetworkId) {
+        return nzyme.getDatabase().withHandle(handle -> findKnownClient(handle, mac, monitoredNetworkId));
+    }
+
     public Optional<Dot11KnownClient> findKnownClientByUuid(UUID uuid, long monitoredNetworkId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM dot11_known_clients " +
@@ -2848,46 +2917,63 @@ public class Dot11 {
         );
     }
 
+    private static final String SECURITY_SUITE_NO_PMF_SUFFIX = "+PMF_NA";
+
     public static String securitySuitesToIdentifier(Dot11SecuritySuiteJson suite) {
-        if (Strings.isNullOrEmpty(suite.groupCipher()) && Strings.isNullOrEmpty(suite.pairwiseCiphers())
-                && Strings.isNullOrEmpty(suite.keyManagementModes())) {
-            return "NONE";
-        }
-
-        String id = suite.groupCipher() + "-" + suite.pairwiseCiphers() + "/" + suite.keyManagementModes();
-
-        // Migration. We added PMF later.
-        if (!Strings.isNullOrEmpty(suite.pmfMode()) && !suite.pmfMode().equals("Unavailable")) {
-            id += "+PMF_" + suite.pmfMode().toUpperCase();
-        } else {
-            id += "+PMF_NA";
-        }
-
-        return id;
+        return securitySuitesToIdentifier(
+                suite.groupCipher(), suite.pairwiseCiphers(), suite.keyManagementModes(), suite.pmfMode()
+        );
     }
 
     public static String securitySuitesToIdentifier(Dot11SecurityInformationReport suite) {
-        if (Strings.isNullOrEmpty(suite.suites().groupCipher())
-                && suite.suites().pairwiseCiphers().isEmpty()
-                && suite.suites().keyManagementModes().isEmpty()) {
+        return securitySuitesToIdentifier(
+                suite.suites().groupCipher(),
+                Joiner.on(",").join(suite.suites().pairwiseCiphers()),
+                Joiner.on(",").join(suite.suites().keyManagementModes()),
+                suite.pmf()
+        );
+    }
+
+    private static String securitySuitesToIdentifier(@Nullable String groupCipher,
+                                                     @Nullable String pairwiseCiphers,
+                                                     @Nullable String keyManagementModes,
+                                                     @Nullable String pmfMode) {
+        if (Strings.isNullOrEmpty(groupCipher) && Strings.isNullOrEmpty(pairwiseCiphers)
+                && Strings.isNullOrEmpty(keyManagementModes)) {
             return "NONE";
         }
 
-        String id = suite.suites().groupCipher() + "-"
-                + Joiner.on(",").join(suite.suites().pairwiseCiphers()) + "/"
-                + Joiner.on(",").join(suite.suites().keyManagementModes());
+        String id = Strings.nullToEmpty(groupCipher) + "-" + Strings.nullToEmpty(pairwiseCiphers)
+                + "/" + Strings.nullToEmpty(keyManagementModes);
 
-        // Migration. We added PMF later.
-        if (!Strings.isNullOrEmpty(suite.pmf()) && !suite.pmf().equals("Unavailable")) {
-            id += "+PMF_" + suite.pmf().toUpperCase();
+        if (!Strings.isNullOrEmpty(pmfMode) && !pmfMode.equals("Unavailable")) {
+            return id + "+PMF_" + pmfMode.toUpperCase();
         }
 
-        return id;
+        return id + SECURITY_SUITE_NO_PMF_SUFFIX;
+    }
+
+    /*
+     * Tap reports used to be compared without the suffix for suites that have no PMF information, so users
+     * added those suites to their monitored networks without it.
+     */
+    public static boolean isMonitoredSecuritySuite(Collection<String> monitoredSuites, String identifier) {
+        if (monitoredSuites.contains(identifier)) {
+            return true;
+        }
+
+        return identifier.endsWith(SECURITY_SUITE_NO_PMF_SUFFIX) && monitoredSuites.contains(
+                identifier.substring(0, identifier.length() - SECURITY_SUITE_NO_PMF_SUFFIX.length())
+        );
     }
 
     private static final Map<Integer, Integer> frequencyChannelMap = Maps.newHashMap();
 
     public static int frequencyToChannel(int frequency) {
+        // Also keeps arbitrary input from callers out of the cache below.
+        if (frequency < 2400 || frequency > 7125) {
+            return -1;
+        }
 
         Integer c = frequencyChannelMap.get(frequency);
         if (c == null) {
@@ -2905,6 +2991,11 @@ public class Dot11 {
             } else if (frequency <= 7115) {
                 c = (frequency - 5950) / 5;
             } else {
+                c = -1;
+            }
+
+            // Frequencies between the bands calculate to zero or negative numbers.
+            if (c < 1) {
                 c = -1;
             }
 

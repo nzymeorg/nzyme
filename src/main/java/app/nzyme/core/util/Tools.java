@@ -66,7 +66,7 @@ public class Tools {
         }
 
         Matcher m = VALID_MAC.matcher(addr);
-        return m.find();
+        return m.matches();
     }
 
     public static String durationToHumanReadable(Duration duration) {

@@ -76,6 +76,7 @@ function SimilarSSIDSimulator(props) {
                               {numeral(result.similarity).format("0.[00]")}%
                             </span>{' '}
                             {result.is_monitored ? <span className="text-muted">(Monitored Network, exempt)</span> : null}
+                            {result.is_allowed ? <span className="text-muted">(Allowed SSID, exempt)</span> : null}
                           </td>
                         </tr>
                     )

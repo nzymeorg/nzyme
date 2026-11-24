@@ -20,6 +20,7 @@ import app.nzyme.plugin.Subsystem;
 import tools.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import info.debatty.java.stringsimilarity.JaroWinkler;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -182,6 +183,12 @@ public class Dot11Table implements DataTable {
                         fingerprints.add(f.fingerprint());
                     }
 
+                    // Two requests at the same time can have stored a BSSID twice. Both rows count.
+                    PreLoadedMonitoredBSSID existing = preLoadedBSSIDs.get(b.bssid());
+                    if (existing != null) {
+                        fingerprints.addAll(existing.fingerprints());
+                    }
+
                     preLoadedBSSIDs.put(b.bssid(), PreLoadedMonitoredBSSID.create(b.bssid(), fingerprints));
                 }
 
@@ -209,7 +216,9 @@ public class Dot11Table implements DataTable {
                         s.enabledUnexpectedSignalTracks(),
                         s.enabledSimilarLookingSSID(),
                         s.enabledSSIDSubstring(),
-                        s.detectionConfigSimilarLookingSSIDThreshold()
+                        s.detectionConfigSimilarLookingSSIDThreshold(),
+                        s.enabledSimilarLookingSSID()
+                                ? Sets.newHashSet(nzyme.getDot11().findAllowedSimilarSSIDs(s.id())) : Set.of()
                 ));
             }
 
@@ -437,7 +446,8 @@ public class Dot11Table implements DataTable {
             for (PreLoadedMonitoredSSID monitoredSSID : monitoredSSIDs.values()) {
                 if (!monitoredSSIDNames.contains(ssid)) {
                     // Similar looking SSIDs.
-                    if (monitoredSSID.enabledSimilarLookingSSID()) {
+                    if (monitoredSSID.enabledSimilarLookingSSID()
+                            && !monitoredSSID.allowedSimilarSSIDs().contains(ssid)) {
                         double similarity = jaroWinkler
                                 .similarity(monitoredSSID.ssid().toLowerCase(), ssid.toLowerCase()) * 100.0;
 
@@ -569,7 +579,7 @@ public class Dot11Table implements DataTable {
                 if (monitoredSSID.enabledUnexpectedSecuritySuites()) {
                     for (Dot11SecurityInformationReport security : task.ssidReport().security()) {
                         String suite = Dot11.securitySuitesToIdentifier(security);
-                        if (!monitoredSSID.securitySuites().contains(suite)) {
+                        if (!Dot11.isMonitoredSecuritySuite(monitoredSSID.securitySuites(), suite)) {
                             Map<String, String> attributes = Maps.newHashMap();
                             attributes.put("suite", suite);
 

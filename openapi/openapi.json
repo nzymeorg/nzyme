@@ -1622,6 +1622,42 @@
         "tags" : [ "Alerts" ]
       }
     },
+    "/api/alerts/show/{uuid}/actions" : {
+      "get" : {
+        "description" : "Returns what the calling user can do about the cause of this alert, like adding an unexpected fingerprint to the monitored network, approving an SSID or creating an exclusion. Each action names its type and the identifiers of what it would change, and is executed with the endpoint of the feature it belongs to. Actions that require a feature permission the calling user does not have are left out, and done is true if the change is already in place. The action that adds an unexpected BSSID carries the fingerprints the BSSID advertised in the last 24 hours on taps the calling user can access, limited to 25. Its target field fingerprints_limited is true if there were more. Requires the alerts_view feature permission.",
+        "operationId" : "findAlertActions",
+        "parameters" : [ {
+          "description" : "Alert UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DetectionAlertActionListResponse"
+                }
+              }
+            },
+            "description" : "Actions found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Alert not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "List actions for an alert",
+        "tags" : [ "Alerts" ]
+      }
+    },
     "/api/alerts/show/{uuid}/resolve" : {
       "put" : {
         "description" : "A resolved alert stays in the list but immediately stops counting as active. If the underlying condition still exists, the next detection run re-triggers the alert. Requires the alerts_manage feature permission.",
@@ -7573,6 +7609,94 @@
         "tags" : [ "Monitoring" ]
       }
     },
+    "/api/dot11/monitoring/ssids/show/{uuid}/configuration/similarssids/allowed" : {
+      "delete" : {
+        "description" : "The SSID raises the similar SSID alert again if it is above the similarity threshold. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "deleteMonitoredNetworkAllowedSimilarSsid",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The allowed SSID to remove.",
+          "in" : "query",
+          "name" : "ssid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "SSID no longer allowed."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Remove an allowed similar looking SSID",
+        "tags" : [ "Monitoring" ]
+      },
+      "post" : {
+        "description" : "Adds an SSID that no longer raises the similar SSID alert of this monitored network, whatever its similarity. The SSID is matched exactly, after control characters and surrounding whitespace are removed like for observed SSIDs. A monitored network holds up to 500 allowed SSIDs. Adding an SSID that is already allowed changes nothing. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "createMonitoredNetworkAllowedSimilarSsid",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateDot11MonitoredNetworkAllowedSimilarSSIDRequest"
+              }
+            }
+          },
+          "description" : "SSID to allow.",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "SSID allowed."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The SSID is empty after control characters and surrounding whitespace are removed, or the monitored network already holds the maximum number of allowed SSIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Allow a similar looking SSID",
+        "tags" : [ "Monitoring" ]
+      }
+    },
     "/api/dot11/monitoring/ssids/show/{uuid}/configuration/similarssids/simulate" : {
       "get" : {
         "description" : "Compares the SSID of the monitored network with all SSIDs seen in the last 15 minutes by the taps of its tenant that the calling user can access and returns the similarity of each in percent, together with whether it would trigger an alert at the given threshold. SSIDs that are themselves monitored networks of the tenant never trigger an alert. Requires the dot11_monitoring_manage feature permission.",
@@ -7749,6 +7873,12 @@
               "application/json" : { }
             },
             "description" : "Data imported."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "A BSSID is not a valid MAC address, a fingerprint does not have 64 characters, a frequency is not a WiFi channel, a security suite identifier is malformed or the request has more than 10,000 entries in total. Nothing was imported."
           },
           "404" : {
             "content" : {
@@ -11056,6 +11186,81 @@
         "tags" : [ "Assets" ]
       }
     },
+    "/api/ethernet/assets/show/{asset_id}/dhcp/fingerprints/{transaction_type}/organization/{organization_id}/tenant/{tenant_id}" : {
+      "put" : {
+        "description" : "Replaces the known DHCP fingerprint of the asset for one transaction type, so that transactions with this fingerprint no longer raise a new fingerprint alert. The previous fingerprint raises the alert from then on. Requires the ethernet_assets_manage feature permission.",
+        "operationId" : "acceptAssetDhcpFingerprint",
+        "parameters" : [ {
+          "description" : "Asset UUID.",
+          "in" : "path",
+          "name" : "asset_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "DHCP transaction type: Initial, Renew, Reboot or Rebind.",
+          "in" : "path",
+          "name" : "transaction_type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptAssetDHCPFingerprintRequest"
+              }
+            }
+          },
+          "description" : "The fingerprint to accept.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Fingerprint accepted."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown transaction type or the fingerprint is not 64 hexadecimal characters."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Asset not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Accept a DHCP fingerprint of an asset",
+        "tags" : [ "Assets" ]
+      }
+    },
     "/api/ethernet/assets/show/{asset_id}/hostnames" : {
       "get" : {
         "description" : "Returns all hostnames the asset was seen with in the time range, most recently seen first by default. Each entry names the protocol the hostname was learned from. Results are paginated.",
@@ -11153,7 +11358,7 @@
     },
     "/api/ethernet/assets/show/{asset_id}/hostnames/{hostname_id}/organization/{organization_id}/tenant/{tenant_id}" : {
       "delete" : {
-        "description" : "Removes one hostname from the asset and invalidates the asset caches on all online nodes. The hostname comes back if a tap reports it again. Requires the ethernet_assets_manage feature permission.",
+        "description" : "Removes one hostname from the asset. The hostname comes back if a tap reports it again. Requires the ethernet_assets_manage feature permission.",
         "operationId" : "deleteAssetHostname",
         "parameters" : [ {
           "description" : "Asset UUID.",
@@ -11307,7 +11512,7 @@
     },
     "/api/ethernet/assets/show/{asset_id}/ip_addresses/{address_id}/organization/{organization_id}/tenant/{tenant_id}" : {
       "delete" : {
-        "description" : "Removes one IP address from the asset and invalidates the asset caches on all online nodes. The address comes back if a tap reports it again. Requires the ethernet_assets_manage feature permission.",
+        "description" : "Removes one IP address from the asset. The address comes back if a tap reports it again. Requires the ethernet_assets_manage feature permission.",
         "operationId" : "deleteAssetIpAddress",
         "parameters" : [ {
           "description" : "Asset UUID.",
@@ -40819,6 +41024,19 @@
   },
   "components" : {
     "schemas" : {
+      "AcceptAssetDHCPFingerprintRequest" : {
+        "type" : "object",
+        "description" : "Body for accepting a DHCP fingerprint as the known fingerprint of an asset.",
+        "properties" : {
+          "fingerprint" : {
+            "type" : "string",
+            "description" : "DHCP fingerprint to accept, 64 hexadecimal characters.",
+            "minLength" : 1,
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "fingerprint" ]
+      },
       "ActiveChannelDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -44420,6 +44638,20 @@
         },
         "required" : [ "frequency" ]
       },
+      "CreateDot11MonitoredNetworkAllowedSimilarSSIDRequest" : {
+        "type" : "object",
+        "description" : "Body for allowing an SSID that looks similar to a monitored WiFi network.",
+        "properties" : {
+          "ssid" : {
+            "type" : "string",
+            "description" : "SSID that no longer raises the similar SSID alert of this monitored network. Matched exactly.",
+            "maxLength" : 255,
+            "minLength" : 0,
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "ssid" ]
+      },
       "CreateDot11MonitoredNetworkRequest" : {
         "type" : "object",
         "description" : "Body for creating a monitored WiFi network.",
@@ -46300,6 +46532,34 @@
           "vacuum_count" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DetectionAlertActionListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DetectionAlertActionResponse"
+            }
+          }
+        }
+      },
+      "DetectionAlertActionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "done" : {
+            "type" : "boolean"
+          },
+          "target" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "type" : {
+            "type" : "string"
           }
         }
       },
@@ -50651,6 +50911,12 @@
       "MonitoredSSIDDetailsResponse" : {
         "type" : "object",
         "properties" : {
+          "allowed_similar_ssids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "bssids" : {
             "type" : "array",
             "items" : {
@@ -53228,6 +53494,9 @@
         "type" : "object",
         "properties" : {
           "alerted" : {
+            "type" : "boolean"
+          },
+          "is_allowed" : {
             "type" : "boolean"
           },
           "is_monitored" : {

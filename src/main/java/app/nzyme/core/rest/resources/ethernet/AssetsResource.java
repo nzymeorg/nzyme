@@ -14,6 +14,7 @@ import app.nzyme.core.assets.profile.AssetProfiles;
 import app.nzyme.core.assets.profile.AssetAttributeDimension;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.AssetManager;
+import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
 import app.nzyme.core.assets.AssetRegistryKeys;
 import java.util.regex.Pattern;
 import com.google.common.net.InetAddresses;
@@ -35,6 +36,7 @@ import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortPro
 import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortResponse;
 import app.nzyme.core.rest.responses.ethernet.assets.profile.AssetInboundPortsResponse;
 import app.nzyme.core.rest.TapDataHandlingResource;
+import app.nzyme.core.rest.requests.AcceptAssetDHCPFingerprintRequest;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
 import app.nzyme.core.rest.responses.context.MacAddressTagResponse;
 import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
@@ -46,8 +48,6 @@ import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.Filters;
-import app.nzyme.plugin.distributed.messaging.ClusterMessage;
-import app.nzyme.plugin.distributed.messaging.MessageType;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryResponse;
 import app.nzyme.plugin.rest.configuration.ConfigurationEntryValueType;
@@ -514,12 +514,49 @@ public class AssetsResource extends TapDataHandlingResource {
         return Response.ok(AssetIpAddressesListResponse.create(total, addresses)).build();
     }
 
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
+    @Path("/show/{asset_id}/dhcp/fingerprints/{transaction_type}/organization/{organization_id}/tenant/{tenant_id}")
+    @Operation(operationId = "acceptAssetDhcpFingerprint", summary = "Accept a DHCP fingerprint of an asset",
+            description = "Replaces the known DHCP fingerprint of the asset for one transaction type, so that "
+                    + "transactions with this fingerprint no longer raise a new fingerprint alert. The previous "
+                    + "fingerprint raises the alert from then on. "
+                    + "Requires the ethernet_assets_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Fingerprint accepted.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Unknown transaction type or the fingerprint is not 64 hexadecimal characters.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
+    public Response acceptDhcpFingerprint(@Parameter(hidden = true) @Context SecurityContext sc,
+                                          @Parameter(description = "Asset UUID.") @PathParam("asset_id") UUID assetId,
+                                          @Parameter(description = "DHCP transaction type: Initial, Renew, Reboot or Rebind.") @PathParam("transaction_type") String transactionType,
+                                          @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                          @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                          @RequestBody(description = "The fingerprint to accept.", required = true, content = @Content(mediaType = "application/json"))
+                                          @Valid AcceptAssetDHCPFingerprintRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!DHCPFingerprintExclusionMatcher.TRANSACTION_TYPES.contains(transactionType)
+                || !DHCP_FINGERPRINT_PATTERN.matcher(req.fingerprint()).matches()) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        Optional<AssetEntry> asset = nzyme.getAssetsManager().findAsset(assetId, organizationId, tenantId);
+
+        if (asset.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getAssetsManager().setDhcpFingerprint(asset.get().id(), transactionType, req.fingerprint());
+
+        return Response.ok().build();
+    }
+
     @DELETE
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/show/{asset_id}/hostnames/{hostname_id}/organization/{organization_id}/tenant/{tenant_id}")
     @Operation(operationId = "deleteAssetHostname", summary = "Delete a hostname of an asset",
-            description = "Removes one hostname from the asset and invalidates the asset caches on all online "
-                    + "nodes. The hostname comes back if a tap reports it again. Requires the "
+            description = "Removes one hostname from the asset. The hostname comes back if a tap reports it again. Requires the "
                     + "ethernet_assets_manage feature permission.")
     @ApiResponse(responseCode = "200", description = "Hostname deleted.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
@@ -540,8 +577,6 @@ public class AssetsResource extends TapDataHandlingResource {
 
         nzyme.getAssetsManager().deleteHostnameOfAsset(asset.get().id(), hostnameId);
 
-        invalidateAssetByMacCachesClusterWide();
-
         return Response.ok().build();
     }
 
@@ -549,8 +584,8 @@ public class AssetsResource extends TapDataHandlingResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "ethernet_assets_manage" })
     @Path("/show/{asset_id}/ip_addresses/{address_id}/organization/{organization_id}/tenant/{tenant_id}")
     @Operation(operationId = "deleteAssetIpAddress", summary = "Delete an IP address of an asset",
-            description = "Removes one IP address from the asset and invalidates the asset caches on all online "
-                    + "nodes. The address comes back if a tap reports it again. Requires the "
+            description = "Removes one IP address from the asset. "
+                    + "The address comes back if a tap reports it again. Requires the "
                     + "ethernet_assets_manage feature permission.")
     @ApiResponse(responseCode = "200", description = "IP address deleted.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Asset not found, or organization or tenant not accessible by the calling user.", content = @Content)
@@ -570,8 +605,6 @@ public class AssetsResource extends TapDataHandlingResource {
         }
 
         nzyme.getAssetsManager().deleteIpAddressOfAsset(asset.get().id(), addressId);
-
-        invalidateAssetByMacCachesClusterWide();
 
         return Response.ok().build();
     }
@@ -1347,16 +1380,9 @@ public class AssetsResource extends TapDataHandlingResource {
         return nzyme.getAssetsManager().findAsset(assetId, organizationId, tenantId);
     }
 
-    private void invalidateAssetByMacCachesClusterWide() {
-        nzyme.getMessageBus().sendToAllOnlineNodes(ClusterMessage.create(
-                MessageType.INVALIDATE_CACHE,
-                Map.of("cache_type", "asset_by_mac"),
-                false
-        ));
-    }
-
 
     private static final Set<String> INFRASTRUCTURE_DIMENSIONS = Set.of("GATEWAY_MAC", "DNS_SERVER", "DHCP_SERVER", "NTP_SERVER");
+    private static final Pattern DHCP_FINGERPRINT_PATTERN = Pattern.compile("^[0-9a-f]{64}$");
     private static final Pattern MAC_PATTERN = Pattern.compile("^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$");
     private static final int EXTERNAL_INFRASTRUCTURE_RESOLVED = 25;
     private static final int INFRASTRUCTURE_ASSET_LOOKBACK_DAYS = 30;

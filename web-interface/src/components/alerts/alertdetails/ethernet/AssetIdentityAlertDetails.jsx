@@ -1,9 +1,7 @@
-import React, {useContext} from "react";
+import React from "react";
 import {Link} from "react-router-dom";
 import numeral from "numeral";
 import ApiRoutes from "../../../../util/ApiRoutes";
-import {UserContext} from "../../../../App";
-import {userHasPermission} from "../../../../util/Tools";
 import TcpFingerprint from "../../../ethernet/assets/identity/TcpFingerprint";
 import {changeSignalTitle, linkEvidenceTitle} from "../../../ethernet/assets/identity/AssetIdentityHelpers";
 
@@ -11,9 +9,6 @@ export default function AssetIdentityAlertDetails({alert}) {
 
   const a = alert.attributes;
   const type = alert.detection_type;
-
-  const user = useContext(UserContext);
-  const canManage = userHasPermission(user, "ethernet_assets_manage");
 
   const fingerprints = (csv) => {
     if (!csv) {
@@ -30,23 +25,6 @@ export default function AssetIdentityAlertDetails({alert}) {
 
     return csv.split(", ").map((s) => titleOf(s)).join(", ");
   }
-
-  const excludeLink = (mac, exclusionType, label) => {
-    if (!canManage) {
-      return null;
-    }
-
-    return (
-      <React.Fragment>
-        <dt>Exclusions</dt>
-        <dd>
-          <Link to={ApiRoutes.ETHERNET.ASSETS.IDENTITY.EXCLUSIONS.CREATE + "?mac=" + mac + "&type=" + exclusionType}>
-            {label}
-          </Link>
-        </dd>
-      </React.Fragment>
-    );
-  };
 
   const details = () => {
     if (type === "ASSETS_MAC_DUPLICATE") {
@@ -66,7 +44,6 @@ export default function AssetIdentityAlertDetails({alert}) {
           <dd>{fingerprints(a.fingerprints)}</dd>
           <dt>At Time of Alert</dt>
           <dd>{numeral(a.session_count).format("0,0")} sessions</dd>
-          {excludeLink(a.mac, "DUPLICATE_MAC", "Exclude this address from duplicate detection")}
         </React.Fragment>
       )
     }
@@ -93,7 +70,6 @@ export default function AssetIdentityAlertDetails({alert}) {
               <dt>New TCP Fingerprint</dt>
               <dd>{fingerprints(a.new_fingerprint)}</dd>
             </React.Fragment> : null}
-          {excludeLink(a.mac, "IDENTITY_CHANGE", "Exclude this asset from identity change detection")}
         </React.Fragment>
       )
     }
@@ -114,7 +90,6 @@ export default function AssetIdentityAlertDetails({alert}) {
         <dd>{numeral(a.confidence).format("0,0")}%</dd>
         <dt>Evidence</dt>
         <dd>{signals(a.signals, linkEvidenceTitle)}</dd>
-        {excludeLink(a.mac, "MAC_CHANGE", "Exclude the new address from MAC address change detection")}
       </React.Fragment>
     )
   }

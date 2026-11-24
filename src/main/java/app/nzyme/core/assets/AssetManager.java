@@ -24,6 +24,7 @@ import org.jdbi.v3.core.Handle;
 import org.joda.time.DateTime;
 
 import java.net.InetAddress;
+import javax.annotation.Nullable;
 import java.util.*;
 
 public class AssetManager {
@@ -243,6 +244,43 @@ public class AssetManager {
                         .bindMap(filterFragment.bindings())
                         .mapTo(AssetEntry.class)
                         .list()
+        );
+    }
+
+    @Nullable
+    private static String dhcpFingerprintColumn(String transactionType) {
+        return switch (transactionType) {
+            case "Initial" -> "dhcp_fingerprint_initial";
+            case "Renew" -> "dhcp_fingerprint_renew";
+            case "Reboot" -> "dhcp_fingerprint_reboot";
+            case "Rebind" -> "dhcp_fingerprint_rebind";
+            default -> null;
+        };
+    }
+
+    @Nullable
+    public static String dhcpFingerprintOf(AssetEntry asset, String transactionType) {
+        return switch (transactionType) {
+            case "Initial" -> asset.dhcpFingerprintInitial();
+            case "Renew" -> asset.dhcpFingerprintRenew();
+            case "Reboot" -> asset.dhcpFingerprintReboot();
+            case "Rebind" -> asset.dhcpFingerprintRebind();
+            default -> null;
+        };
+    }
+
+    public void setDhcpFingerprint(long assetId, String transactionType, String fingerprint) {
+        String column = dhcpFingerprintColumn(transactionType);
+        if (column == null) {
+            throw new IllegalArgumentException("Unknown DHCP transaction type.");
+        }
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE assets SET " + column + " = :fingerprint, updated_at = NOW() " +
+                                "WHERE id = :id")
+                        .bind("fingerprint", fingerprint)
+                        .bind("id", assetId)
+                        .execute()
         );
     }
 

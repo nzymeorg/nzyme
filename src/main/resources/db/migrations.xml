@@ -13420,4 +13420,36 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="create_dot11_monitored_networks_allowed_similar_ssids" author="lennartkoopmann">
+        <createTable tableName="dot11_monitored_networks_allowed_similar_ssids">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="monitored_network_id" type="bigint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="ssid" type="varchar(255)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <addUniqueConstraint constraintName="dot11_allowed_similar_ssids_network_ssid_key"
+                             tableName="dot11_monitored_networks_allowed_similar_ssids"
+                             columnNames="monitored_network_id, ssid" />
+
+        <addForeignKeyConstraint constraintName="link_allowedsimilarssids2monitorednets"
+                                 baseTableName="dot11_monitored_networks_allowed_similar_ssids"
+                                 baseColumnNames="monitored_network_id"
+                                 referencedTableName="dot11_monitored_networks"
+                                 referencedColumnNames="id"
+                                 onUpdate="NO ACTION"
+                                 onDelete="CASCADE" />
+    </changeSet>
+
 </databaseChangeLog>

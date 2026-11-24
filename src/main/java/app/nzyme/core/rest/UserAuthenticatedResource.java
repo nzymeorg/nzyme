@@ -7,8 +7,11 @@ import app.nzyme.core.security.authentication.TenantScopedEntity;
 import app.nzyme.core.security.authentication.db.OrganizationEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
 import app.nzyme.core.security.authentication.roles.Permission;
+import com.google.common.base.Strings;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.List;
@@ -17,11 +20,37 @@ import java.util.UUID;
 
 public class UserAuthenticatedResource extends RestResource {
 
+    public static final String SELECTED_ORGANIZATION_HEADER = "X-Nzyme-Organization";
+    public static final String SELECTED_TENANT_HEADER = "X-Nzyme-Tenant";
+
+    protected record SelectedTenant(UUID organizationId, UUID tenantId) { }
+
+    @Context
+    private HttpHeaders httpHeaders;
+
     @Inject
     private NzymeNode nzyme;
 
     protected AuthenticatedUser getAuthenticatedUser(SecurityContext sc) {
         return (AuthenticatedUser) sc.getUserPrincipal();
+    }
+
+    /*
+     * The tenant the web interface is looking at. Other clients do not send it. It is never a grant: use it
+     * only to narrow down what the user could access anyway.
+     */
+    protected Optional<SelectedTenant> selectedTenant() {
+        String organization = httpHeaders == null ? null : httpHeaders.getHeaderString(SELECTED_ORGANIZATION_HEADER);
+        String tenant = httpHeaders == null ? null : httpHeaders.getHeaderString(SELECTED_TENANT_HEADER);
+        if (Strings.isNullOrEmpty(organization) && Strings.isNullOrEmpty(tenant)) {
+            return Optional.empty();
+        }
+
+        if (Strings.isNullOrEmpty(organization) || Strings.isNullOrEmpty(tenant)) {
+            throw new IllegalArgumentException("Organization and tenant must be selected together.");
+        }
+
+        return Optional.of(new SelectedTenant(UUID.fromString(organization.trim()), UUID.fromString(tenant.trim())));
     }
 
     protected boolean passedTenantDataAccessible(SecurityContext sc,
