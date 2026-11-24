@@ -50,12 +50,22 @@ const RESTClient = {
     return stableRoot + stableUri
   },
 
-  get (uri, params, successCallback, errorCallback = undefined) {
-    axiosInstance.get(this.buildUri(uri), { params: params, headers: this.getAuthHeaders() })
+  get (uri, params, successCallback, errorCallback = undefined, signal = undefined) {
+    axiosInstance.get(this.buildUri(uri), { params: params, headers: this.getAuthHeaders(), signal: signal })
       .then(function (response) {
         successCallback(response)
       })
       .catch(function (error) {
+        if (axios.isCancel(error)) {
+          return
+        }
+
+        // Callers that can abort a request show its state themselves and must hear of every failure.
+        if (signal && errorCallback) {
+          errorCallback(error)
+          return
+        }
+
         if (error.response) {
           if (errorCallback) {
             errorCallback(error)

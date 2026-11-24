@@ -42,6 +42,7 @@ import app.nzyme.core.integrations.geoip.GeoIpService;
 import app.nzyme.core.monitors.MonitorExecutionTaskHandler;
 import app.nzyme.core.ouis.OuiService;
 import app.nzyme.core.rest.interceptors.TapTableSizeInterceptor;
+import app.nzyme.core.search.SearchService;
 import app.nzyme.core.security.authentication.PasswordHasher;
 import app.nzyme.core.tables.bluetooth.BluetoothTable;
 import app.nzyme.core.tables.ethernet.*;
@@ -130,6 +131,8 @@ public class MetricNames {
     public static final String UAV_TOTAL_REPORT_PROCESSING_TIMER = name(UAVTable.class, "total-report-processing-timing");
 
     public static final String DASHBOARD_CONTENT_BUILD_TIMER = name(DashboardContent.class, "build-timing");
+    public static final String SEARCH_INSTANT_TIMER = name(SearchService.class, "instant-timing");
+    public static final String SEARCH_RECORDED_TIMER = name(SearchService.class, "recorded-timing");
     public static final String DASHBOARD_TOPOLOGY_BUILD_TIMER = name(DashboardTopology.class, "build-timing");
 
     public static final String DATABASE_STATISTICS_COLLECTION_TIMER = name(DatabaseMaintenance.class, "statistics-collection-timing");

@@ -143,7 +143,7 @@ export default function AlertActions({alert, onActionCompleted = undefined}) {
       <div className="col-md-12">
         <div className="card">
           <div className="card-body">
-            <CardTitleWithControls title="Actions" helpLink="https://go.nzyme.org/detection-alerts-actions" />
+            <CardTitleWithControls title="Quick Actions" helpLink="https://go.nzyme.org/detection-alerts-quick-actions" />
 
             <table className="table table-sm table-hover table-striped mb-0">
               <tbody>

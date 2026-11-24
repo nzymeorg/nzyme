@@ -62,6 +62,9 @@ public enum MetricExternalName {
     DASHBOARD_CONTENT_BUILD_TIMER("dashboard_content_build_timer"),
     DASHBOARD_TOPOLOGY_BUILD_TIMER("dashboard_topology_build_timer"),
 
+    SEARCH_INSTANT_TIMER("search_instant_timer"),
+    SEARCH_RECORDED_TIMER("search_recorded_timer"),
+
     DATABASE_STATISTICS_COLLECTION_TIMER("database_statistics_collection_timer"),
     DATABASE_USAGE_CALCULATION_TIMER("database_usage_calculation_timer"),
     DATABASE_SIZE_BYTES("database_size_bytes"),

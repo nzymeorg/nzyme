@@ -102,7 +102,7 @@ img.loading-miller-layer2 {
 }
 
 .tap-selector {
-    margin-left: 3px;
+    margin-left: 8px;
 }
 
 div.tap-selector button.tap-selector-select {
@@ -4139,4 +4139,297 @@ a.briefing-tile-link:hover .briefing-tile-value {
     cursor: nwse-resize;
     border-right: 4px solid var(--db-data);
     border-bottom: 4px solid var(--db-data);
+}
+
+/* ------------------------------------------------------------------------------------------------------------ */
+/* Search                                                                                                       */
+/* ------------------------------------------------------------------------------------------------------------ */
+
+.nav-search {
+    position: relative;
+    margin-left: 12px;
+}
+
+.nav-search-field {
+    position: relative;
+    width: 360px;
+}
+
+.nav-search-field input.form-control {
+    padding-left: 32px;
+    padding-right: 34px;
+}
+
+.nav-search-return {
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
+.nav-search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #8a9099;
+    pointer-events: none;
+}
+
+.nav-search-shortcut,
+.nav-search-all kbd {
+    font-family: "Geist Mono", monospace;
+    font-size: 11px;
+    line-height: 1;
+    padding: 3px 6px;
+    border: 1px solid #d6d6d6;
+    border-radius: 4px;
+    background-color: #f4f4f4;
+    color: #6c757d;
+}
+
+.nav-search-shortcut {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.nav-search-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #8a9099;
+    padding: 4px 8px;
+}
+
+.nav-search-clear:hover {
+    color: #111;
+}
+
+.nav-search-panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    width: 660px;
+    max-width: calc(100vw - 300px);
+    max-height: min(76vh, 760px);
+    overflow: hidden;
+    background-color: #fff;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+    z-index: 1040;
+}
+
+.nav-search-results {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 6px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #c4c4c4 transparent;
+}
+
+a.nav-search-all {
+    flex: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    border-top: 1px solid #ececec;
+    background-color: #f9f9f9;
+    font-weight: 500;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.nav-search-all:hover {
+    background-color: #f0f0f0;
+    color: inherit;
+}
+
+a.nav-search-all i {
+    width: 16px;
+    margin-right: 6px;
+    text-align: center;
+    color: #8a9099;
+}
+
+.search-group + .search-group,
+.search-row-static + .search-group,
+.search-row + .search-group {
+    border-top: 1px solid #ececec;
+    margin-top: 4px;
+    padding-top: 2px;
+}
+
+.search-group-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 14px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+.search-group-coverage {
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    text-decoration: none;
+}
+
+.search-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 14px;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.search-row:hover {
+    color: inherit;
+    background-color: #f5f5f5;
+}
+
+/* Chosen with the arrow keys. Hovering does not choose a row: Enter would then open what the mouse rests on. */
+a.search-row.search-row-active {
+    background-color: #e3eafb;
+    box-shadow: inset 3px 0 0 #1d30d7;
+}
+
+.search-row-icon {
+    flex: none;
+    width: 16px;
+    margin-top: 3px;
+    text-align: center;
+    color: #8a9099;
+}
+
+.search-row-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.search-row-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.search-row-detail {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.search-row-detail > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 1 auto;
+    min-width: 40px;
+}
+
+/* The first attribute is the one that matched. It keeps its width, the description next to it gives way. */
+.search-row-detail > span.search-row-fact-first {
+    flex-shrink: 0;
+    max-width: 60%;
+}
+
+.search-row-time {
+    flex: none;
+    font-size: 12px;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
+.search-fact-label {
+    color: #8a9099;
+}
+
+.search-value {
+    font-weight: 600;
+}
+
+mark.search-mark {
+    padding: 0;
+    color: inherit;
+    background-color: #ffe98a;
+    border-radius: 2px;
+}
+
+.search-note {
+    padding: 8px 14px;
+    color: #6c757d;
+}
+
+.search-scope,
+.search-summary,
+.search-result-subtitle,
+.search-section-count {
+    color: #757575;
+}
+
+.search-result-subtitle {
+    font-size: 12px;
+}
+
+table.search-results .search-result-icon {
+    width: 30px;
+    text-align: center;
+    color: #8a9099;
+}
+
+table.search-results td.search-result-title {
+    width: 44%;
+    word-break: break-word;
+}
+
+table.search-results td.search-result-facts {
+    font-size: 12px;
+    word-break: break-word;
+}
+
+table.search-results td.search-result-time {
+    width: 140px;
+    white-space: nowrap;
+}
+
+ul.search-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 6px 20px;
+    margin-bottom: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.search-result-group {
+    scroll-margin-top: 70px;
+}
+
+@media (max-width: 1250px) {
+    .nav-search-field {
+        width: 240px;
+    }
+
+    .nav-search-return span {
+        display: none;
+    }
 }

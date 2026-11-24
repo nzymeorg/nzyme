@@ -253,6 +253,9 @@
     },
     "name" : "Monitors"
   }, {
+    "description" : "Search across everything the calling user can access: assets, access points, clients, devices, alerts, findings, configuration and recorded network data. A query can be a MAC address or the start of one, an IP address, a network in CIDR notation, a UUID, a fingerprint or any text. Results come in groups, one per source. Configuration and findings are searched right away. Sources of recorded network data are slower and are requested one by one.",
+    "name" : "Search"
+  }, {
     "description" : "The TLS certificates of the Nzyme web interface and API, and the PGP keys that Nzyme uses to encrypt sensitive data in the database.",
     "name" : "Crypto"
   }, {
@@ -32376,6 +32379,171 @@
         "tags" : [ "Ping" ]
       }
     },
+    "/api/search" : {
+      "get" : {
+        "description" : "Searches configuration and findings and returns the groups that found something. Sources of recorded network data that apply to the query are listed as pending and are requested one by one. Searches the selected tenant with all of its taps the user can access. Sources the user has no permission or subsystem for are left out. Administrators also find taps, organizations, tenants and users they administer, beyond the selected tenant. Results are cached for a few seconds.",
+        "operationId" : "search",
+        "parameters" : [ {
+          "description" : "What to search for, between 2 and 128 characters.",
+          "in" : "query",
+          "name" : "query",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Maximum number of hits per group, up to 50.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 5
+          }
+        }, {
+          "description" : "Time range of the recorded network data to search, in the format of the web interface time range picker. Without it, a full MAC address is looked up in all recorded WiFi and Bluetooth data, a session key or certificate fingerprint in all recorded data, and everything else covers the last 24 hours. Each group says what it covers. Configuration and findings are always searched in full.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description" : "Search performed."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Query too short or too long, or invalid time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Search",
+        "tags" : [ "Search" ]
+      }
+    },
+    "/api/search/sources/{source}" : {
+      "get" : {
+        "description" : "Searches a single source, for recorded network data or for more hits of a group. A source of recorded network data can take seconds and is given up on after a time limit, which the status of the group says. Results are cached for up to two minutes.",
+        "operationId" : "searchSource",
+        "parameters" : [ {
+          "description" : "Source ID, as listed by a search.",
+          "in" : "path",
+          "name" : "source",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "What to search for, between 2 and 128 characters.",
+          "in" : "query",
+          "name" : "query",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Maximum number of hits, up to 50.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 5
+          }
+        }, {
+          "description" : "Number of hits to skip, up to 1000.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "description" : "Time range of the recorded network data to search, in the format of the web interface time range picker. Without it, a full MAC address is looked up in all recorded WiFi and Bluetooth data, a session key or certificate fingerprint in all recorded data, and everything else covers the last 24 hours. Each group says what it covers. Configuration and findings are always searched in full.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchGroupResponse"
+                }
+              }
+            },
+            "description" : "Source searched."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Query too short or too long, invalid paging or time range."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found or not accessible, or the source does not exist, does not apply to the query or is not accessible by the calling user."
+          }
+        },
+        "summary" : "Search one source",
+        "tags" : [ "Search" ]
+      }
+    },
     "/api/system/authentication/mfa/recovery" : {
       "post" : {
         "description" : "Uses one of the recovery codes of a user to pass the multi-factor authentication challenge. Each code works only once and is marked as used. Nzyme records a system event for every used code and for every attempt to reuse one. Available while multi-factor authentication is still pending for the session.",
@@ -43832,6 +44000,7 @@
       },
       "BriefingLinkResponse" : {
         "type" : "object",
+        "description" : "Page of the web interface that lists the matching records of this source, if there is one.",
         "properties" : {
           "params" : {
             "type" : "object",
@@ -53507,6 +53676,175 @@
             "format" : "double"
           },
           "ssid" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SearchFactResponse" : {
+        "type" : "object",
+        "description" : "Up to four attributes of the entity, the ones that matched the query first.",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SearchGroupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "all_link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "has_more" : {
+            "type" : "boolean",
+            "description" : "If the source has more hits after the returned ones. Request them with a higher offset."
+          },
+          "hits" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchHitResponse"
+            }
+          },
+          "limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "limited" : {
+            "type" : "boolean",
+            "description" : "If the source has more hits that cannot be requested, because the offset is limited."
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Place of the source in the order groups are shown in when nothing else ranks them."
+          },
+          "searched_from" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Start of the recorded data that was searched. Missing if the source searched all of its data."
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "OK, TIMEOUT if the source took longer than it is allowed to, BUSY if too many searches of recorded data were running, ERROR if the source failed. Only OK carries hits."
+          },
+          "tier" : {
+            "type" : "string",
+            "description" : "INSTANT for configuration and findings, RECORDED for recorded network data."
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "took_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SearchHitResponse" : {
+        "type" : "object",
+        "properties" : {
+          "facts" : {
+            "type" : "array",
+            "description" : "Up to four attributes of the entity, the ones that matched the query first.",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchFactResponse"
+            }
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "score" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How well the entity matches: 100 for an exact match of an identifier or name, 60 for a match at the start and 30 for a match somewhere inside."
+          },
+          "subtitle" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the entity was last seen or changed. Missing for entities without such a time."
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "Kind of entity that was found, for example ASSET, DOT11_BSSID or ALERT."
+          }
+        }
+      },
+      "SearchInterpretationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string",
+            "description" : "What is known about the value without searching, like the vendor of a MAC address or the network and country of an IP address."
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "What the query was recognized as: MAC_ADDRESS, MAC_ADDRESS_PREFIX, IP_ADDRESS, NETWORK, UUID, HASH or JA4."
+          },
+          "link" : {
+            "$ref" : "#/components/schemas/BriefingLinkResponse"
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "The query in the notation the node stores this kind of value in."
+          }
+        }
+      },
+      "SearchResponse" : {
+        "type" : "object",
+        "properties" : {
+          "groups" : {
+            "type" : "array",
+            "description" : "Sources that were searched with this request and found something or failed.",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchGroupResponse"
+            }
+          },
+          "interpretations" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchInterpretationResponse"
+            }
+          },
+          "pending" : {
+            "type" : "array",
+            "description" : "Sources of recorded network data that apply to the query and were not searched with this request. Request each one on its own.",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchSourceResponse"
+            }
+          },
+          "query" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SearchSourceResponse" : {
+        "type" : "object",
+        "description" : "Sources of recorded network data that apply to the query and were not searched with this request. Request each one on its own.",
+        "properties" : {
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "title" : {
             "type" : "string"
           }
         }

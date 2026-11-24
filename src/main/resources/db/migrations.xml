@@ -13452,4 +13452,15 @@
                                  onDelete="CASCADE" />
     </changeSet>
 
+    <changeSet id="create_mac_address_lookup_indexes_for_search" author="lennartkoopmann">
+        <createIndex tableName="bluetooth_devices" indexName="bluetooth_devices_mac_last_seen_idx">
+            <column name="mac" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="dot11_bssid_clients" indexName="dot11_bssid_clients_client_mac_bssid_id_idx">
+            <column name="client_mac" />
+            <column name="bssid_id" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

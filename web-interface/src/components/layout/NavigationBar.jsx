@@ -4,6 +4,8 @@ import TapSelector from "../misc/TapSelector";
 import GlobalTenantSelectorButton from "../system/tenantselector/GlobalTenantSelectorButton";
 import WithMinimumRole from "../misc/WithMinimumRole";
 import NarrowModeButton from "./NarrowModeButton";
+import NavigationSearch from "../search/NavigationSearch";
+import SearchReturnLink from "../search/SearchReturnLink";
 
 function NavigationBar({onLogout, darkModeEnabled, setDarkModeEnabled, narrowModeEnabled, setNarrowModeEnabled}) {
 
@@ -11,15 +13,8 @@ function NavigationBar({onLogout, darkModeEnabled, setDarkModeEnabled, narrowMod
     <nav className="navbar sticky-top">
       <div className="container-fluid">
         <div className="d-flex flex-row">
-          {/*<form method="GET" action={ApiRoutes.SEARCH.RESULTS}>*/}
-          <form method="GET" action="#" onSubmit={(e) => e.preventDefault()}>
-            <div className="input-group">
-              <input className="form-control" type="search" placeholder="Search" aria-label="Search" />
-              <button className="btn btn-outline-secondary" type="submit">
-                <i className="fa-solid fa-search" />
-              </button>
-            </div>
-          </form>
+          <NavigationSearch />
+          <SearchReturnLink />
 
           <div className="tap-selector">
             <TapSelector />

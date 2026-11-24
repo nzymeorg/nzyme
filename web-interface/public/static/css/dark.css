@@ -1429,3 +1429,73 @@ tr:hover a.classification-edit, a.classification-edit:hover {
     --db-flow-in: #d455ad;
     --db-glow: 8;
 }
+
+.nav-search-icon,
+.nav-search-clear,
+.search-row-icon,
+.search-fact-label,
+a.nav-search-all i,
+table.search-results > tbody > tr > td.search-result-icon {
+    color: #6b7280;
+}
+
+.nav-search-clear:hover {
+    color: #e8e8ed;
+}
+
+.nav-search-shortcut,
+.nav-search-all kbd {
+    border-color: #33333d;
+    background-color: #25252d;
+    color: #9a9ab0;
+}
+
+.nav-search-panel {
+    background-color: #1c1c22;
+    border-color: #33333d;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.6);
+}
+
+.search-group + .search-group,
+.search-row-static + .search-group,
+.search-row + .search-group {
+    border-top-color: #2a2a33;
+}
+
+.search-group-title,
+.search-row-detail,
+.search-row-time,
+.search-note,
+.search-scope,
+.search-summary,
+.search-result-subtitle,
+.search-section-count {
+    color: #9a9ab0;
+}
+
+a.search-row:hover {
+    background-color: #25252d;
+}
+
+a.search-row.search-row-active {
+    background-color: #2e3350;
+    box-shadow: inset 3px 0 0 #7b93db;
+}
+
+a.nav-search-all {
+    border-top-color: #2a2a33;
+    background-color: #141418;
+}
+
+a.nav-search-all:hover {
+    background-color: #25252d;
+}
+
+mark.search-mark {
+    background-color: #6b5a12;
+    color: #fff;
+}
+
+.nav-search-results {
+    scrollbar-color: #33333d transparent;
+}

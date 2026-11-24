@@ -33,6 +33,7 @@ import app.nzyme.core.rest.ObjectMapperProvider;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.responses.briefing.BriefingResponse;
 import app.nzyme.core.rest.server.NzymeHttpServer;
+import app.nzyme.core.search.SearchService;
 import app.nzyme.core.security.authentication.AuthenticationService;
 import app.nzyme.core.subsystems.Subsystems;
 import app.nzyme.core.tables.TablesService;
@@ -250,6 +251,7 @@ public class BriefingServiceTest extends ResourcesAccessingTest {
         @Override public EventEngine getEventEngine() { throw unavailable(); }
         @Override public Monitors getMonitors() { throw unavailable(); }
         @Override public Dashboards getDashboards() { throw unavailable(); }
+        @Override public SearchService getSearch() { throw unavailable(); }
         @Override public TablesService getTablesService() { throw unavailable(); }
         @Override public GeoIpService getGeoIpService() { throw unavailable(); }
         @Override public OuiService getOuiService() { throw unavailable(); }

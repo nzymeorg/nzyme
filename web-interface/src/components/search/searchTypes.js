@@ -1,0 +1,88 @@
+const ICONS = {
+  PAGE: "fa-regular fa-file-lines",
+  ASSET: "fa-solid fa-desktop",
+  ASSET_TAG: "fa-solid fa-tag",
+  ASSET_DUPLICATE_MAC: "fa-solid fa-clone",
+  ASSET_IDENTITY_CHANGE: "fa-solid fa-fingerprint",
+  ASSET_LINK: "fa-solid fa-right-left",
+  BEACON: "fa-solid fa-location-arrow",
+  SPOOFING_ARP: "fa-solid fa-masks-theater",
+  SPOOFING_DHCP: "fa-solid fa-masks-theater",
+  SPOOFING_DNS: "fa-solid fa-masks-theater",
+  SPOOFING_NAMERES: "fa-solid fa-masks-theater",
+  RECON_SCAN: "fa-solid fa-binoculars",
+  DNS_TUNNEL: "fa-solid fa-car-tunnel",
+  ICMP_REDIRECT: "fa-solid fa-satellite-dish",
+  ICMP_TRACEROUTE: "fa-solid fa-satellite-dish",
+  ICMP_TUNNEL: "fa-solid fa-satellite-dish",
+  SEGMENT: "fa-solid fa-road-barrier",
+  SEGMENTATION_POLICY: "fa-solid fa-road-barrier",
+  SEGMENTATION_FINDING: "fa-solid fa-road-barrier",
+  EXCLUSION: "fa-solid fa-filter",
+  CONTEXT_MAC: "fa-regular fa-address-card",
+  CONTEXT_NETWORK: "fa-solid fa-globe",
+  DOT11_MONITORED_NETWORK: "fa-solid fa-shield-halved",
+  DOT11_KNOWN_CLIENT: "fa-solid fa-shield-halved",
+  DOT11_KNOWN_NETWORK: "fa-solid fa-shield-halved",
+  DOT11_MONITORED_PROBE_REQUEST: "fa-solid fa-shield-halved",
+  DOT11_BANDIT: "fa-solid fa-shield-halved",
+  DOT11_BSSID: "fa-solid fa-tower-cell",
+  DOT11_SSID: "fa-solid fa-wifi",
+  DOT11_CLIENT: "fa-solid fa-mobile-screen-button",
+  DOT11_PROBE_REQUEST: "fa-solid fa-wifi",
+  BLUETOOTH_DEVICE: "fa-brands fa-bluetooth",
+  UAV: "fa-solid fa-paper-plane",
+  UAV_TYPE: "fa-solid fa-fingerprint",
+  ALERT: "fa-solid fa-bell",
+  L4_SESSION: "fa-solid fa-road",
+  L4_CONVERSATION: "fa-solid fa-road",
+  DNS_NAME: "fa-solid fa-signs-post",
+  TLS_SERVER: "fa-solid fa-lock",
+  TLS_CERTIFICATE: "fa-solid fa-certificate",
+  DHCP_TRANSACTION: "fa-solid fa-list",
+  ARP_BINDING: "fa-solid fa-list",
+  SSH_CONNECTION: "fa-solid fa-plug",
+  VPN_CONNECTION: "fa-solid fa-car-tunnel",
+  SOCKS_CONNECTION: "fa-solid fa-car-tunnel",
+  NTP_CONNECTION: "fa-solid fa-clock",
+  RTSP_STREAM: "fa-solid fa-water",
+  WEBRTC_SESSION: "fa-solid fa-water",
+  STUN_CONNECTION: "fa-solid fa-table-cells-large",
+  PORTAL_INTEGRITY_REPORT: "fa-solid fa-archway",
+  MONITOR: "fa-solid fa-eye",
+  DASHBOARD: "fa-solid fa-display",
+  DASHBOARD_DISPLAY: "fa-solid fa-display",
+  LOCATION: "fa-solid fa-globe",
+  FLOOR: "fa-solid fa-layer-group",
+  TAP: "fa-solid fa-server",
+  ORGANIZATION: "fa-solid fa-building",
+  TENANT: "fa-solid fa-users",
+  USER: "fa-solid fa-user",
+  EVENT_ACTION: "fa-solid fa-bolt",
+  NODE: "fa-solid fa-circle-nodes",
+  IP_ADDRESS: "fa-solid fa-network-wired",
+  MAC_ADDRESS: "fa-solid fa-ethernet",
+  MAC_ADDRESS_PREFIX: "fa-solid fa-ethernet"
+}
+
+export const hitIcon = (type) => ICONS[type] || "fa-solid fa-circle-dot";
+
+const INTERPRETATIONS = {
+  MAC_ADDRESS: "MAC address",
+  MAC_ADDRESS_PREFIX: "MAC addresses starting with",
+  IP_ADDRESS: "IP address",
+  NETWORK: "Network",
+  UUID: "UUID",
+  HASH: "Fingerprint or key",
+  JA4: "JA4 fingerprint"
+}
+
+export const interpretationLabel = (kind) => INTERPRETATIONS[kind] || kind;
+
+const INTERPRETATION_TITLES = {
+  MAC_ADDRESS: "MAC Address",
+  MAC_ADDRESS_PREFIX: "MAC Address Prefix",
+  IP_ADDRESS: "IP Address"
+}
+
+export const interpretationTitle = (kind) => INTERPRETATION_TITLES[kind] || interpretationLabel(kind);

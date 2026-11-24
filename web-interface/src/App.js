@@ -291,6 +291,7 @@ import SegmentationSettingsPage from "./components/ethernet/segmentation/setting
 import AssetTagsPage from "./components/ethernet/assets/tags/AssetTagsPage";
 import CreateAssetTagPage from "./components/ethernet/assets/tags/CreateAssetTagPage";
 import EditAssetTagPage from "./components/ethernet/assets/tags/EditAssetTagPage";
+import {clearSearchReturn} from "./components/search/searchReturn";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -417,6 +418,7 @@ function App() {
   const logout = () => {
     authenticationService.deleteSession(function() {
       Store.delete('sessionid');
+      clearSearchReturn();
       setRevision(new Date());
     });
   }
