@@ -188,13 +188,16 @@ impl View for TapsView {
             ])
         });
 
+        // Wide enough for a full IPv6 address where a tap reports from one.
+        let remote_width = rows.iter().map(|r| r.remote.chars().count()).max().unwrap_or(0).clamp(15, 39) as u16;
+
         let widths = [
             Constraint::Min(28),
             Constraint::Min(16),
             Constraint::Length(7),
             Constraint::Length(22),
             Constraint::Length(11),
-            Constraint::Length(15),
+            Constraint::Length(remote_width),
             Constraint::Percentage(10),
             Constraint::Length(7),
             Constraint::Length(6),

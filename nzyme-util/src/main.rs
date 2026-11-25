@@ -14,11 +14,11 @@ use crate::apps::firmware::{flash_firmware_app, verify_firmware_app};
 use crate::apps::devices::list_devices_app;
 use crate::apps::release::verify_release_app;
 use crate::apps::sona::{generate_sona_configuration_app, sona_test_app};
-use crate::apps::api::{gui, list_nodes_app, list_taps_app, tap_metrics_app};
+use crate::apps::api::{assets, briefing_app, gui, list_nodes_app, list_taps_app, search_app, tap_metrics_app};
 use crate::apps::api::profiles::{add_profile_app, list_profiles_app, remove_profile_app};
 use crate::apps::tap;
 
-use crate::arguments::{ApiSubcommand, CliArguments, Command, DevicesSubcommand, FirmwareSubcommand, InfraSubcommand, NodesSubcommand, ProfilesSubcommand, ReleaseSubcommand, SonaSubcommand, TapSubcommand, TapsSubcommand};
+use crate::arguments::{ApiSubcommand, AssetsSubcommand, BriefingSubcommand, CliArguments, Command, DevicesSubcommand, EthernetSubcommand, FirmwareSubcommand, InfraSubcommand, NodesSubcommand, ProfilesSubcommand, ReleaseSubcommand, SonaSubcommand, TapSubcommand, TapsSubcommand};
 use crate::exit_codes::EX_OK;
 
 fn main() {
@@ -85,6 +85,31 @@ fn main() {
                     // $ nzyme-util api gui
                     gui::run(connection);
                 }
+
+                ApiSubcommand::Briefing(briefing) => match briefing.command {
+                    BriefingSubcommand::Show { r#type, organization_id, tenant_id, taps, since, last, range, from, to } => {
+                        let window = briefing_app::Window { since, last, range, from, to };
+                        briefing_app::show(connection, r#type, organization_id, tenant_id, taps, window);
+                    }
+                    BriefingSubcommand::Seen { r#type } => {
+                        briefing_app::mark_seen(connection, r#type);
+                    }
+                },
+
+                ApiSubcommand::Search(search) => {
+                    // $ nzyme-util api search
+                    search_app::run(connection, search);
+                }
+
+                ApiSubcommand::Ethernet(ethernet) => match ethernet.command {
+                    EthernetSubcommand::Assets(assets_cmd) => match assets_cmd.command {
+                        AssetsSubcommand::Show { mac, organization_id, tenant_id, last, activity_days, section } => {
+                            assets::show(connection, assets::ShowOptions {
+                                mac, organization_id, tenant_id, last_minutes: last, activity_days, sections: section,
+                            });
+                        }
+                    },
+                },
 
                 ApiSubcommand::Infra(infra) => match infra.command {
                     InfraSubcommand::Nodes(nodes) => match nodes.command {

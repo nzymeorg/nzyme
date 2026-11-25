@@ -15,8 +15,8 @@ use ratatui::Frame;
 use crate::api::endpoints::alerts;
 use crate::api::error::ApiError;
 use crate::apps::api::gui::common::{
-    header_cell, lock, palette, render_message, row_highlight_style, skipped_label, titled_block, Poller,
-    ScrollableTable, HIGHLIGHT_SYMBOL,
+    big_number, header_cell, lock, palette, render_message, row_highlight_style, skipped_label, titled_block,
+    Poller, ScrollableTable, HIGHLIGHT_SYMBOL,
 };
 use crate::apps::api::gui::prefs::Context;
 use crate::apps::api::gui::view::{View, ViewAction};
@@ -208,32 +208,6 @@ impl View for AlertsView {
 }
 
 const STATUS_HEIGHT: u16 = 7;
-
-/// Three-line block digits for the active alert counter.
-const BIG_DIGITS: [[&str; 3]; 10] = [
-    ["█▀█", "█ █", "▀▀▀"],
-    ["▀█ ", " █ ", "▀▀▀"],
-    ["▀▀█", "█▀▀", "▀▀▀"],
-    ["▀▀█", " ▀█", "▀▀▀"],
-    ["█ █", "▀▀█", "  ▀"],
-    ["█▀▀", "▀▀█", "▀▀▀"],
-    ["█▀▀", "█▀█", "▀▀▀"],
-    ["▀▀█", "  █", "  ▀"],
-    ["█▀█", "█▀█", "▀▀▀"],
-    ["█▀█", "▀▀█", "▀▀▀"],
-];
-
-fn big_number(n: usize) -> [String; 3] {
-    let digits: Vec<usize> = n.to_string().bytes().map(|b| (b - b'0') as usize).collect();
-    let mut rows = [String::new(), String::new(), String::new()];
-    for (i, d) in digits.iter().enumerate() {
-        for (r, row) in rows.iter_mut().enumerate() {
-            if i > 0 { row.push(' '); }
-            row.push_str(BIG_DIGITS[*d][r]);
-        }
-    }
-    rows
-}
 
 /// The status strip: big active count on the left, key figures on the right.
 fn render_status_strip(f: &mut Frame, area: Rect, data: Option<&AlertsData>, empty_text: &str, now: i64) {

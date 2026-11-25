@@ -299,6 +299,8 @@ import AssetTagsPage from "./components/ethernet/assets/tags/AssetTagsPage";
 import CreateAssetTagPage from "./components/ethernet/assets/tags/CreateAssetTagPage";
 import EditAssetTagPage from "./components/ethernet/assets/tags/EditAssetTagPage";
 import {clearSearchReturn} from "./components/search/searchReturn";
+import {rememberedTenantSelection, rememberTenantSelection} from "./components/system/tenantselector/rememberedTenantSelection";
+import RememberedTenantSelectionRestore from "./components/system/tenantselector/RememberedTenantSelectionRestore";
 
 const pingService = new PingService();
 const authenticationService = new AuthenticationService();
@@ -339,6 +341,7 @@ function App() {
 
   const [selectedOrganization, setSelectedOrganization] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(false);
+  const [tenantRestoreSkippedFor, setTenantRestoreSkippedFor] = useState(null);
 
   const onTenantSelectionMade = (organization, tenant) => {
     setSelectedOrganization(organization);
@@ -348,6 +351,8 @@ function App() {
   const saveTenantSelection = (organization = selectedOrganization, tenant = selectedTenant) => {
     Store.set("selected_organization", organization);
     Store.set("selected_tenant", tenant);
+    rememberTenantSelection(userInformation, organization, tenant);
+    setTenantRestoreSkippedFor(null);
 
     setRevision(new Date());
   }
@@ -515,6 +520,18 @@ function App() {
       // Show tenant selector for super- and org admins if no tenant selected.
       if (!Store.get("selected_organization") || !Store.get("selected_tenant")) {
         if (userInformation.is_superadmin || userInformation.is_orgadmin) {
+          const remembered = tenantRestoreSkippedFor === userInformation.id
+            ? null : rememberedTenantSelection(userInformation);
+
+          if (remembered) {
+            return <RememberedTenantSelectionRestore key={userInformation.id}
+                                                     user={userInformation}
+                                                     selection={remembered}
+                                                     darkModeEnabled={darkModeEnabled}
+                                                     onRestored={saveTenantSelection}
+                                                     onSkipped={() => setTenantRestoreSkippedFor(userInformation.id)} />
+          }
+
           return (
               <div className="nzyme">
                 <DarkMode enabled={darkModeEnabled} />

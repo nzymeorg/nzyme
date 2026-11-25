@@ -12,12 +12,13 @@ mod nodes;
 mod taps;
 mod alerts;
 mod locations;
+mod briefing;
+mod assets;
 
 use std::collections::BTreeSet;
 use std::io;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Duration;
 
 use ratatui::backend::CrosstermBackend;
 use ratatui::crossterm::{
@@ -33,10 +34,9 @@ use ratatui::widgets::{Clear, List, ListItem, ListState, Paragraph};
 use ratatui::{Frame, Terminal};
 
 use crate::api::client::{is_api_key, ApiClient, ClientConfig};
-use crate::api::endpoints::user;
 use crate::apps::api::gui::common::{
-    blink_on, centered_rect, cycle, fill_background, lock, palette, panel, panel_title, popup_panel,
-    render_key_hints, render_options_popup, row_highlight_style, spinner_frame, OptionRow, REFRESH_PRESETS,
+    centered_rect, cycle, fill_background, lock, palette, popup_panel, render_key_hints, render_options_popup,
+    row_highlight_style, spinner_frame, OptionRow, REFRESH_PRESETS,
 };
 use crate::apps::api::gui::prefs::{Context, Preferences, TapCatalog, TapSelection};
 use crate::apps::api::gui::scope::{Scope, ScopeTree};
@@ -53,15 +53,22 @@ const UI_TICK: Duration = Duration::from_millis(250);
 struct MenuEntry {
     category: &'static str,
     name: &'static str,
-    open: fn(Arc<Context>) -> Box<dyn View>,
+    open: MenuAction,
+}
+
+enum MenuAction {
+    Home,
+    View(fn(Arc<Context>) -> Box<dyn View>),
 }
 
 const MENU: &[MenuEntry] = &[
-    MenuEntry { category: "Alerts", name: "Overview", open: |ctx| Box::new(alerts::AlertsView::new(ctx)) },
-    MenuEntry { category: "Locations", name: "Overview", open: |ctx| Box::new(locations::LocationsView::new(ctx)) },
-    MenuEntry { category: "WiFi", name: "BSSIDs", open: |ctx| Box::new(bssids::BssidsView::new(ctx)) },
-    MenuEntry { category: "System", name: "Nodes", open: |ctx| Box::new(nodes::NodesView::new(ctx)) },
-    MenuEntry { category: "System", name: "Taps", open: |ctx| Box::new(taps::TapsView::new(ctx)) },
+    MenuEntry { category: "Briefing", name: "Briefing", open: MenuAction::Home },
+    MenuEntry { category: "Alerts", name: "Overview", open: MenuAction::View(|ctx| Box::new(alerts::AlertsView::new(ctx))) },
+    MenuEntry { category: "Ethernet", name: "Asset lookup", open: MenuAction::View(|ctx| Box::new(assets::AssetsView::new(ctx))) },
+    MenuEntry { category: "Locations", name: "Overview", open: MenuAction::View(|ctx| Box::new(locations::LocationsView::new(ctx))) },
+    MenuEntry { category: "WiFi", name: "BSSIDs", open: MenuAction::View(|ctx| Box::new(bssids::BssidsView::new(ctx))) },
+    MenuEntry { category: "System", name: "Nodes", open: MenuAction::View(|ctx| Box::new(nodes::NodesView::new(ctx))) },
+    MenuEntry { category: "System", name: "Taps", open: MenuAction::View(|ctx| Box::new(taps::TapsView::new(ctx))) },
 ];
 
 enum Screen {
@@ -84,22 +91,16 @@ struct Session {
     label: String,
     /// Profile the preferences are persisted to. None when connected through the environment.
     profile_name: Option<String>,
+    home: briefing::BriefingView,
 }
 
 impl Session {
     fn new(client: ApiClient, label: String, profile_name: Option<String>, prefs: Preferences) -> Self {
         let ctx = Context::new(Arc::new(client), prefs);
         ctx.discover();
-        Session { ctx, label, profile_name }
+        let home = briefing::BriefingView::new(Arc::clone(&ctx));
+        Session { ctx, label, profile_name, home }
     }
-}
-
-/// Result of the connection test that runs whenever the start screen is shown.
-#[derive(Clone)]
-enum ProbeState {
-    Pending,
-    Online(String),
-    Failed(String),
 }
 
 struct Shell {
@@ -109,8 +110,6 @@ struct Shell {
     screen: Screen,
     /// Where to go back to when a settings screen closes.
     return_to: Option<Screen>,
-    started: Instant,
-    probe: Arc<Mutex<(u64, ProbeState)>>,
     /// Outcome of the last attempt to persist preferences, shown in the settings screens.
     last_save: Option<Result<String, String>>,
 }
@@ -147,11 +146,8 @@ pub fn run(connection: &ConnectionArgs) {
         }
     };
 
-    let mut shell = Shell {
-        args: connection.clone(), profiles, session, screen, return_to: None, started: Instant::now(),
-        probe: Arc::new(Mutex::new((0, ProbeState::Pending))), last_save: None,
-    };
-    shell.start_probe();
+    let mut shell = Shell { args: connection.clone(), profiles, session, screen, return_to: None, last_save: None };
+    shell.enter_current();
 
     if let Err(e) = run_shell(&mut shell) {
         eprintln!("Terminal error: {}", e);
@@ -160,38 +156,9 @@ pub fn run(connection: &ConnectionArgs) {
 }
 
 impl Shell {
-    /// Tests the connection in the background by fetching the profile of the key owner. A generation counter makes
-    /// sure a slow older probe cannot overwrite the result of a newer one.
-    fn start_probe(&mut self) {
-        let generation = {
-            let mut probe = lock(&self.probe);
-            probe.0 += 1;
-            probe.1 = ProbeState::Pending;
-            probe.0
-        };
-
-        let Some(session) = &self.session else {
-            lock(&self.probe).1 = ProbeState::Failed("No connection configured.".to_string());
-            return;
-        };
-
-        let client = Arc::clone(&session.ctx.client);
-        let probe = Arc::clone(&self.probe);
-        thread::spawn(move || {
-            let result = match user::find_own_profile(&client) {
-                Ok(profile) => ProbeState::Online(profile.data.email.unwrap_or_else(|| "unknown user".to_string())),
-                Err(e) => ProbeState::Failed(e.to_string()),
-            };
-            let mut probe = lock(&probe);
-            if probe.0 == generation {
-                probe.1 = result;
-            }
-        });
-    }
-
     /// Connects with a stored profile. Command line `--insecure` and `--ca-file` still apply on top of it.
     fn connect_profile(&mut self, index: usize) -> Result<(), String> {
-        let (name, profile) = self.profiles.get(index).ok_or_else(|| "No such profile.".to_string())?;
+        let (name, profile) = self.profiles.get(index).cloned().ok_or_else(|| "No such profile.".to_string())?;
 
         if !is_api_key(&profile.api_key) {
             return Err(format!("Profile [{}] does not contain a valid API key.", name));
@@ -205,14 +172,11 @@ impl Shell {
         }).map_err(|e| e.to_string())?;
 
         // Drop any open view before replacing the context it was created with.
-        if let Screen::View { view, .. } = &mut self.screen {
-            view.on_leave();
-        }
+        self.leave_current();
         self.return_to = None;
 
         let prefs = Preferences::from_gui_settings(profile.gui.as_ref());
         self.session = Some(Session::new(client, name.clone(), Some(name.clone()), prefs));
-        self.started = Instant::now();
         self.last_save = None;
         Ok(())
     }
@@ -250,27 +214,41 @@ impl Shell {
         });
     }
 
+    fn leave_current(&mut self) {
+        match &mut self.screen {
+            Screen::View { view, .. } => view.on_leave(),
+            Screen::Start => if let Some(session) = &mut self.session { session.home.on_leave() },
+            _ => {}
+        }
+    }
+
+    fn enter_current(&mut self) {
+        match &mut self.screen {
+            Screen::View { view, .. } => view.on_enter(),
+            Screen::Start => if let Some(session) = &mut self.session { session.home.on_enter() },
+            _ => {}
+        }
+    }
+
+    fn switch_to(&mut self, next: Screen) {
+        self.leave_current();
+        self.screen = next;
+        self.enter_current();
+    }
+
     /// Opens a settings screen and remembers where to return to.
     fn open(&mut self, screen: Screen) {
-        if let Screen::View { view, .. } = &mut self.screen {
-            view.on_leave();
-        }
+        self.leave_current();
         if !matches!(self.screen, Screen::Settings { .. } | Screen::ScopeSelector { .. } | Screen::TapSelector { .. }) {
             self.return_to = Some(std::mem::replace(&mut self.screen, Screen::Start));
         }
         self.screen = screen;
     }
 
-    /// Closes the settings screens and returns to the remembered screen, resuming a view if there was one.
     fn close_settings(&mut self) {
-        let mut target = self.return_to.take().unwrap_or(Screen::Start);
-        if let Screen::View { view, .. } = &mut target {
-            view.on_enter();
-        }
-        if matches!(target, Screen::Start) {
-            self.start_probe();
-        }
+        let target = self.return_to.take().unwrap_or(Screen::Start);
         self.screen = target;
+        self.enter_current();
     }
 }
 
@@ -317,8 +295,7 @@ fn run_shell(shell: &mut Shell) -> io::Result<()> {
                 break;
             }
 
-            // A manual refresh in a view also rediscovers organizations, tenants and taps.
-            if key.code == KeyCode::Char('r') && matches!(shell.screen, Screen::View { .. }) {
+            if key.code == KeyCode::Char('r') && matches!(shell.screen, Screen::View { .. } | Screen::Start) {
                 if let Some(ctx) = shell.ctx() {
                     ctx.discover();
                 }
@@ -332,7 +309,7 @@ fn run_shell(shell: &mut Shell) -> io::Result<()> {
             }
 
             let next = match &mut shell.screen {
-                Screen::Start => handle_start_key(key, shell.session.is_some()),
+                Screen::Start => handle_start_key(key, shell.session.as_mut()),
                 Screen::Profiles { selected, .. } => {
                     let selected = *selected;
                     handle_profiles_key(key, selected, shell)
@@ -360,22 +337,14 @@ fn run_shell(shell: &mut Shell) -> io::Result<()> {
 
             match next {
                 Some(Transition::Quit) => break,
-                Some(Transition::To(next)) => {
-                    let to_start = matches!(next, Screen::Start);
-                    shell.screen = next;
-                    if to_start {
-                        shell.start_probe();
-                    }
-                }
+                Some(Transition::To(next)) => shell.switch_to(next),
                 None => {}
             }
         }
         Ok(())
     })();
 
-    if let Screen::View { view, .. } = &mut shell.screen {
-        view.on_leave();
-    }
+    shell.leave_current();
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, Show)?;
@@ -396,15 +365,19 @@ fn current_entry(screen: &Screen) -> usize {
     }
 }
 
-fn handle_start_key(key: KeyEvent, connected: bool) -> Option<Transition> {
-    match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => Some(Transition::Quit),
-        KeyCode::Char('p') => Some(Transition::To(Screen::Profiles { selected: 0, error: None })),
-        KeyCode::Enter | KeyCode::Char('m') | KeyCode::Char(' ') | KeyCode::Tab if connected =>
-            Some(Transition::To(Screen::Menu { selected: 0 })),
-        KeyCode::Enter | KeyCode::Char('m') | KeyCode::Char(' ') | KeyCode::Tab =>
-            Some(Transition::To(Screen::Profiles { selected: 0, error: None })),
-        _ => None,
+fn handle_start_key(key: KeyEvent, session: Option<&mut Session>) -> Option<Transition> {
+    let Some(session) = session else {
+        return Some(Transition::To(Screen::Profiles { selected: 0, error: None }));
+    };
+
+    if key.code == KeyCode::Char('p') {
+        return Some(Transition::To(Screen::Profiles { selected: 0, error: None }));
+    }
+
+    match session.home.handle_key(key) {
+        ViewAction::Continue => None,
+        ViewAction::Back => Some(Transition::To(Screen::Menu { selected: 0 })),
+        ViewAction::Quit => Some(Transition::Quit),
     }
 }
 
@@ -437,9 +410,10 @@ fn handle_menu_key(key: KeyEvent, selected: &mut usize, ctx: Option<Arc<Context>
         KeyCode::End | KeyCode::Char('G') => { *selected = MENU.len() - 1; None }
         KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Right | KeyCode::Char('l') => {
             let entry = *selected;
-            let mut view = (MENU[entry].open)(ctx);
-            view.on_enter();
-            Some(Transition::To(Screen::View { entry, view }))
+            match MENU[entry].open {
+                MenuAction::Home => Some(Transition::To(Screen::Start)),
+                MenuAction::View(open) => Some(Transition::To(Screen::View { entry, view: open(ctx) })),
+            }
         }
         _ => None,
     }
@@ -595,7 +569,10 @@ fn draw(f: &mut Frame, shell: &mut Shell) {
     }).unwrap_or_default();
 
     let (title, status): (String, Vec<Span<'static>>) = match &shell.screen {
-        Screen::Start => ("STANDBY".to_string(), Vec::new()),
+        Screen::Start => match &shell.session {
+            Some(session) => (session.home.title(), session.home.header_status()),
+            None => ("NOT CONNECTED".to_string(), Vec::new()),
+        },
         Screen::Profiles { .. } => ("PROFILES".to_string(), Vec::new()),
         Screen::Menu { .. } => ("MENU".to_string(), Vec::new()),
         Screen::Settings { .. } => ("SETTINGS".to_string(), Vec::new()),
@@ -607,9 +584,14 @@ fn draw(f: &mut Frame, shell: &mut Shell) {
 
     match &mut shell.screen {
         Screen::Start => {
-            let probe = lock(&shell.probe).1.clone();
-            render_start(f, chunks[1], &server, &profile, shell.started, shell.session.is_some(), &probe, shell.ctx());
-            render_key_hints(f, chunks[2], &[("Enter", "open menu"), ("s", "settings"), ("p", "profiles"), ("q", "quit")]);
+            if let Some(session) = &mut shell.session {
+                session.home.draw(f, chunks[1]);
+                let mut keys = session.home.footer_keys();
+                keys.extend([("s", "settings"), ("p", "profiles")]);
+                render_key_hints(f, chunks[2], &keys);
+            } else {
+                render_key_hints(f, chunks[2], &[("p", "profiles"), ("q", "quit")]);
+            }
         }
         Screen::Profiles { selected, error } => {
             render_profiles(f, chunks[1], &shell.profiles, *selected, error.as_deref(), shell.session.as_ref().map(|s| s.label.as_str()));
@@ -680,136 +662,6 @@ fn render_header(f: &mut Frame, area: Rect, server: &str, profile: &str, context
     f.render_widget(Paragraph::new(Line::from(spans)).style(Style::default().bg(palette::BG)), area);
 }
 
-const LOGO: &[&str] = &[
-    "███╗   ██╗███████╗██╗   ██╗███╗   ███╗███████╗",
-    "████╗  ██║╚══███╔╝╚██╗ ██╔╝████╗ ████║██╔════╝",
-    "██╔██╗ ██║  ███╔╝  ╚████╔╝ ██╔████╔██║█████╗  ",
-    "██║╚██╗██║ ███╔╝    ╚██╔╝  ██║╚██╔╝██║██╔══╝  ",
-    "██║ ╚████║███████╗   ██║   ██║ ╚═╝ ██║███████╗",
-    "╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝     ╚═╝╚══════╝",
-];
-
-/// Boot log lines on the start screen. They appear one after another in the first second.
-const BOOT_LINES: &[&str] = &["LINK", "PROFILE", "SCOPE", "TAPS", "REFRESH", "CLOCK", "STATUS"];
-const BOOT_LINE_INTERVAL_MS: u128 = 150;
-const BOOT_WIDTH: usize = 60;
-
-fn render_start(f: &mut Frame, area: Rect, server: &str, profile: &str, started: Instant, connected: bool,
-                probe: &ProbeState, ctx: Option<&Arc<Context>>) {
-    let failed = matches!(probe, ProbeState::Failed(_));
-    let has_notice = ctx.map_or(false, |c| lock(&c.notice).is_some());
-    let popup = centered_rect(80, 23 + if failed { 2 } else { 0 } + if has_notice { 1 } else { 0 }, area);
-
-    let block = panel().title(panel_title("Nzyme Terminal"));
-    let inner = block.inner(popup);
-    f.render_widget(block, popup);
-
-    let elapsed = started.elapsed().as_millis();
-    let visible_boot_lines = ((elapsed / BOOT_LINE_INTERVAL_MS) as usize).min(BOOT_LINES.len());
-    let boot_done = visible_boot_lines == BOOT_LINES.len();
-
-    let logo_style = Style::default().fg(palette::RED).add_modifier(Modifier::BOLD);
-    let text = Style::default().fg(palette::TEXT);
-    let dim = Style::default().fg(palette::MUTED);
-    let faint = Style::default().fg(palette::FAINT);
-
-    let mut lines: Vec<Line> = vec![Line::raw("")];
-    for row in LOGO {
-        lines.push(Line::styled(*row, logo_style));
-    }
-    lines.push(Line::styled("T E R M I N A L", Style::default().fg(palette::WHITE).add_modifier(Modifier::BOLD)));
-    lines.push(Line::raw(""));
-    lines.push(Line::styled("─".repeat(BOOT_WIDTH), faint));
-
-    let (scope_label, taps_label, refresh) = match ctx {
-        Some(ctx) => {
-            let prefs = ctx.prefs();
-            (prefs.scope.label(&lock(&ctx.scope_tree)), prefs.taps.label(&lock(&ctx.taps)), format!("every {} s", prefs.refresh_seconds))
-        }
-        None => ("—".to_string(), "—".to_string(), "—".to_string()),
-    };
-
-    let (status_text, status_style) = if !connected {
-        ("NO CONNECTION, PICK A PROFILE".to_string(), Style::default().fg(palette::ORANGE))
-    } else {
-        match probe {
-            ProbeState::Pending => (format!("{} TESTING CONNECTION", spinner_frame()), Style::default().fg(palette::ORANGE)),
-            ProbeState::Online(email) => (format!("ONLINE · {}", email), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            ProbeState::Failed(_) => ("UNREACHABLE".to_string(), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-        }
-    };
-
-    let profile_label = if profile.is_empty() { "NONE".to_string() } else { profile.to_uppercase() };
-    let clock = format!("{} UTC", format_clock_utc(now_unix()));
-
-    for (i, label) in BOOT_LINES.iter().enumerate() {
-        if i >= visible_boot_lines {
-            lines.push(Line::raw(""));
-            continue;
-        }
-        let (value, style) = match *label {
-            "LINK" => (server.to_string(), text),
-            "PROFILE" => (profile_label.clone(), text),
-            "SCOPE" => (scope_label.clone(), text),
-            "TAPS" => (taps_label.clone(), text),
-            "REFRESH" => (refresh.clone(), text),
-            "CLOCK" => (clock.clone(), text),
-            _ => (status_text.clone(), status_style),
-        };
-        let dots = ".".repeat(10usize.saturating_sub(label.len()));
-        let used = 2 + label.len() + 1 + dots.len() + 1 + value.chars().count();
-        lines.push(Line::from(vec![
-            Span::styled("> ", Style::default().fg(palette::RED)),
-            Span::styled(format!("{} {} ", label, dots), dim),
-            Span::styled(value, style),
-            Span::raw(" ".repeat(BOOT_WIDTH.saturating_sub(used))),
-        ]));
-    }
-
-    lines.push(Line::styled("─".repeat(BOOT_WIDTH), faint));
-
-    if let Some(notice) = ctx.and_then(|c| lock(&c.notice).clone()) {
-        let max = inner.width.saturating_sub(4) as usize;
-        let mut message: String = notice.chars().take(max).collect();
-        if message.chars().count() < notice.chars().count() { message.push('…'); }
-        lines.push(Line::from(vec![
-            Span::styled("▲ ", Style::default().fg(palette::ORANGE).add_modifier(Modifier::BOLD)),
-            Span::styled(message, Style::default().fg(palette::ORANGE)),
-        ]));
-    }
-
-    if let ProbeState::Failed(error) = probe {
-        if connected {
-            // Fit the message on one line of the panel.
-            let max = inner.width.saturating_sub(4) as usize;
-            let mut message: String = error.chars().take(max).collect();
-            if message.chars().count() < error.chars().count() { message.push('…'); }
-            lines.push(Line::from(vec![
-                Span::styled("▲ ", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-                Span::styled(message, Style::default().fg(Color::Red)),
-            ]));
-            lines.push(Line::styled("Check the server, your network, and that the API key is still valid.", faint));
-        }
-    }
-    lines.push(Line::raw(""));
-
-    if boot_done {
-        let cursor = if blink_on() { "▮" } else { " " };
-        let (key, action) = if connected { ("ENTER", " TO OPEN THE MENU ") } else { ("P", " TO SELECT A PROFILE ") };
-        lines.push(Line::from(vec![
-            Span::styled("PRESS ", dim),
-            Span::styled("[", Style::default().fg(palette::RED_DIM)),
-            Span::styled(key, Style::default().fg(palette::RED).add_modifier(Modifier::BOLD)),
-            Span::styled("]", Style::default().fg(palette::RED_DIM)),
-            Span::styled(action, dim),
-            Span::styled(cursor, Style::default().fg(palette::RED)),
-        ]));
-    } else {
-        lines.push(Line::styled(format!("{} BOOTING", spinner_frame()), Style::default().fg(palette::ORANGE)));
-    }
-
-    f.render_widget(Paragraph::new(lines).alignment(Alignment::Center), inner);
-}
 
 fn render_menu(f: &mut Frame, area: Rect, selected: usize) {
     let categories = MENU.iter().map(|e| e.category).collect::<BTreeSet<_>>().len() as u16;

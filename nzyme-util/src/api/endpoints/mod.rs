@@ -5,9 +5,11 @@ pub mod dot11;
 pub mod alerts;
 pub mod locations;
 pub mod user;
+pub mod briefing;
+pub mod assets;
+pub mod search;
 
 pub struct Endpoint {
-    /// Only used by the spec test; requests are all GET.
     #[cfg_attr(not(test), allow(dead_code))]
     pub method: &'static str,
     /// Path template with `{param}` placeholders, exactly as in the OpenAPI spec.
@@ -34,6 +36,23 @@ pub const ALL_ENDPOINTS: &[&Endpoint] = &[
     &alerts::FIND_ALERTS,
     &locations::FIND_LOCATIONS,
     &user::FIND_OWN_PROFILE,
+    &briefing::FIND_BRIEFING,
+    &briefing::MARK_BRIEFING_SEEN,
+    &assets::FIND_ASSETS,
+    &assets::FIND_ASSET,
+    &assets::FIND_ASSET_HOSTNAMES,
+    &assets::FIND_ASSET_IP_ADDRESSES,
+    &assets::FIND_ASSET_PROFILE_SUMMARY,
+    &assets::FIND_ASSET_PROFILE_ATTRIBUTES,
+    &assets::FIND_ASSET_PROFILE_ACTIVITY,
+    &assets::FIND_ASSET_PROFILE_COMMUNICATION,
+    &assets::FIND_ASSET_PROFILE_TIMELINE,
+    &assets::FIND_ASSET_PROFILE_ALERTS,
+    &assets::FIND_ASSET_PROFILE_FINDINGS,
+    &assets::FIND_ASSET_PROFILE_EXCLUSIONS,
+    &assets::FIND_ASSET_PROFILE_RISKS,
+    &search::SEARCH,
+    &search::SEARCH_SOURCE,
 ];
 
 /// Page size used when walking paginated list endpoints.

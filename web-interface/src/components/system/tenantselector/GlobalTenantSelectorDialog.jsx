@@ -3,12 +3,14 @@ import {createPortal} from "react-dom";
 import GlobalTenantSelectorForm from "./GlobalTenantSelectorForm";
 
 import Store from "../../../util/Store";
-import {AppContext, TapContext} from "../../../App";
+import {AppContext, TapContext, UserContext} from "../../../App";
+import {rememberTenantSelection} from "./rememberedTenantSelection";
 
 export default function GlobalTenantSelectorDialog() {
 
   const app = useContext(AppContext);
   const tapContext = useContext(TapContext);
+  const user = useContext(UserContext);
 
   const [selectedOrganization, setSelectedOrganization] = useState(null);
   const [selectedTenant, setSelectedTenant] = useState(false);
@@ -21,6 +23,7 @@ export default function GlobalTenantSelectorDialog() {
   const save = () => {
     Store.set("selected_organization", selectedOrganization);
     Store.set("selected_tenant", selectedTenant);
+    rememberTenantSelection(user, selectedOrganization, selectedTenant);
 
     // Reset taps as well.
     Store.delete("selected_taps");

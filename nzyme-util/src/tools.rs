@@ -183,3 +183,116 @@ pub fn format_clock_utc(unix: i64) -> String {
     let s = unix.rem_euclid(86400);
     format!("{:02}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
 }
+
+pub fn parse_duration_minutes(input: &str) -> Result<u32, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Duration is empty.".to_string());
+    }
+
+    let (digits, factor) = match trimmed.chars().last() {
+        Some('m') => (&trimmed[..trimmed.len() - 1], 1u32),
+        Some('h') => (&trimmed[..trimmed.len() - 1], 60),
+        Some('d') => (&trimmed[..trimmed.len() - 1], 1440),
+        Some(c) if c.is_ascii_digit() => (trimmed, 1),
+        _ => return Err(format!("[{}] is not a duration. Use a number of minutes or a suffix: 30m, 6h, 2d.", trimmed)),
+    };
+
+    let amount: u32 = digits.trim().parse()
+        .map_err(|_| format!("[{}] is not a duration. Use a number of minutes or a suffix: 30m, 6h, 2d.", trimmed))?;
+
+    if amount == 0 {
+        return Err("Duration must be longer than zero.".to_string());
+    }
+
+    amount.checked_mul(factor).ok_or_else(|| format!("[{}] is too long.", trimmed))
+}
+
+pub fn format_duration_ms(ms: i64) -> String {
+    let total_minutes = (ms as f64 / 60000.0).round() as i64;
+    if total_minutes < 60 {
+        return format!("{}m", total_minutes);
+    }
+
+    let total_hours = total_minutes / 60;
+    let minutes = total_minutes % 60;
+    if total_hours < 48 {
+        return if minutes == 0 { format!("{}h", total_hours) } else { format!("{}h {}m", total_hours, minutes) };
+    }
+
+    let days = total_hours / 24;
+    let hours = total_hours % 24;
+    if hours == 0 { format!("{}d", days) } else { format!("{}d {}h", days, hours) }
+}
+
+pub fn short_time(timestamp: &str) -> String {
+    match parse_iso8601_to_unix(timestamp) {
+        Some(unix) => {
+            let days = unix.div_euclid(86400);
+            let (y, m, d) = civil_from_days(days);
+            let secs = unix.rem_euclid(86400);
+            format!("{:04}-{:02}-{:02} {:02}:{:02} UTC", y, m, d, secs / 3600, (secs % 3600) / 60)
+        }
+        None => timestamp.to_string(),
+    }
+}
+
+pub fn format_iso8601_utc(unix: i64) -> String {
+    let (y, m, d) = civil_from_days(unix.div_euclid(86400));
+    let secs = unix.rem_euclid(86400);
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, secs / 3600, (secs % 3600) / 60, secs % 60)
+}
+
+/// Howard Hinnant's days-to-civil algorithm.
+fn civil_from_days(days: i64) -> (i64, i64, i64) {
+    let z = days + 719468;
+    let era = if z >= 0 { z } else { z - 146096 } / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+#[cfg(test)]
+mod briefing_time_tests {
+    use super::*;
+
+    #[test]
+    fn parses_durations() {
+        assert_eq!(parse_duration_minutes("30m"), Ok(30));
+        assert_eq!(parse_duration_minutes("6h"), Ok(360));
+        assert_eq!(parse_duration_minutes("2d"), Ok(2880));
+        assert_eq!(parse_duration_minutes("90"), Ok(90));
+        assert!(parse_duration_minutes("0").is_err());
+        assert!(parse_duration_minutes("1w").is_err());
+        assert!(parse_duration_minutes("").is_err());
+    }
+
+    #[test]
+    fn formats_durations() {
+        assert_eq!(format_duration_ms(45 * 60000), "45m");
+        assert_eq!(format_duration_ms(3 * 3600000 + 10 * 60000), "3h 10m");
+        assert_eq!(format_duration_ms(24 * 3600000), "24h");
+        assert_eq!(format_duration_ms(52 * 3600000), "2d 4h");
+        assert_eq!(format_duration_ms(7 * 86400000), "7d");
+    }
+
+    #[test]
+    fn formats_iso8601() {
+        assert_eq!(format_iso8601_utc(0), "1970-01-01T00:00:00Z");
+        assert_eq!(format_iso8601_utc(1791392400), "2026-10-07T17:00:00Z");
+        assert_eq!(parse_iso8601_to_unix(&format_iso8601_utc(1762203257)), Some(1762203257));
+    }
+
+    #[test]
+    fn shortens_timestamps() {
+        assert_eq!(short_time("2026-11-03T20:54:17.862Z"), "2026-11-03 20:54 UTC");
+        assert_eq!(short_time("2026-11-03T22:54:17+02:00"), "2026-11-03 20:54 UTC");
+        assert_eq!(short_time("2000-02-29T00:00:00Z"), "2000-02-29 00:00 UTC");
+        assert_eq!(short_time("garbage"), "garbage");
+    }
+}

@@ -1,21 +1,12 @@
 use serde_json::{json, Value};
 use crate::api::client::ApiClient;
-use crate::api::endpoints::{organizations, taps};
+use crate::api::endpoints::taps;
 use crate::api::error::ApiError;
 use crate::api::types::{TapDetailsResponse, TapHighLevelInformationDetailsResponse};
-use crate::apps::api::{connect, exit_with_api_error, or_unknown, print_json, status_label, BOLD, FG_RED, FG_YELLOW, RESET};
+use crate::apps::api::{connect, exit_with_api_error, or_unknown, print_json, status_label, BOLD, FG_YELLOW, RESET};
+use crate::apps::api::scopes::{discover_scopes, Scope};
 use crate::arguments::ConnectionArgs;
-use crate::exit_codes::EX_PERMISSION_DENIED;
 use crate::tools::{format_bytes, format_count, format_usage};
-
-/// An organization/tenant pair to list taps for. Names are only known when the pair was discovered through the
-/// organizations and tenants endpoints.
-struct Scope {
-    organization_id: String,
-    organization_name: Option<String>,
-    tenant_id: String,
-    tenant_name: Option<String>,
-}
 
 enum TapsOfScope {
     Full(Vec<TapDetailsResponse>),
@@ -61,8 +52,8 @@ pub fn run(connection: &ConnectionArgs, organization_id: Option<String>, tenant_
     for result in &results {
         println!(
             "{BOLD}Organization {} / Tenant {}{RESET}",
-            result.scope.organization_name.as_deref().unwrap_or(&result.scope.organization_id),
-            result.scope.tenant_name.as_deref().unwrap_or(&result.scope.tenant_id),
+            result.scope.organization_label(),
+            result.scope.tenant_label(),
         );
         println!("  ({} / {})\n", result.scope.organization_id, result.scope.tenant_id);
 
@@ -98,63 +89,6 @@ pub fn run(connection: &ConnectionArgs, organization_id: Option<String>, tenant_
     if limited_scopes > 0 {
         eprintln!("{FG_YELLOW}[!] Metrics are only available to organization administrators. Showing high-level \
             status only for {} tenants.{RESET}", limited_scopes);
-    }
-}
-
-fn discover_scopes(client: &ApiClient, organization_id: Option<String>, tenant_id: Option<String>) -> Vec<Scope> {
-    match (organization_id, tenant_id) {
-        (Some(org), Some(tenant)) => vec![Scope {
-            organization_id: org, organization_name: None, tenant_id: tenant, tenant_name: None
-        }],
-
-        (Some(org), None) => {
-            eprintln!("{FG_YELLOW}[>] Discovering tenants of organization {}...{RESET}", org);
-            match organizations::find_tenants(client, &org) {
-                Ok(tenants) => tenants.into_iter().map(|t| Scope {
-                    organization_id: org.clone(), organization_name: None, tenant_id: t.id, tenant_name: t.name
-                }).collect(),
-                Err(ApiError::Unauthorized) => {
-                    eprintln!("{FG_RED}[x] ERROR:{RESET} Listing the tenants of an organization requires \
-                        organization administrator permissions. Pass --tenant-id as well to list the taps of a \
-                        single tenant.");
-                    std::process::exit(EX_PERMISSION_DENIED);
-                }
-                Err(e) => exit_with_api_error(&e),
-            }
-        }
-
-        (None, _) => {
-            eprintln!("{FG_YELLOW}[>] Discovering all organizations and tenants...{RESET}");
-            let orgs = match organizations::find_all(client) {
-                Ok(orgs) => orgs,
-                Err(ApiError::Unauthorized) => {
-                    eprintln!("{FG_RED}[x] ERROR:{RESET} Listing all organizations requires super administrator \
-                        permissions. Organization administrators pass --organization-id, all other users pass \
-                        --organization-id and --tenant-id.");
-                    std::process::exit(EX_PERMISSION_DENIED);
-                }
-                Err(e) => exit_with_api_error(&e),
-            };
-
-            let mut scopes = Vec::new();
-            for org in orgs {
-                let tenants = match organizations::find_tenants(client, &org.id) {
-                    Ok(tenants) => tenants,
-                    Err(e) => exit_with_api_error(&e),
-                };
-
-                for tenant in tenants {
-                    scopes.push(Scope {
-                        organization_id: org.id.clone(),
-                        organization_name: org.name.clone(),
-                        tenant_id: tenant.id,
-                        tenant_name: tenant.name,
-                    });
-                }
-            }
-
-            scopes
-        }
     }
 }
 

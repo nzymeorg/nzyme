@@ -80,11 +80,26 @@ impl ApiClient {
 
         match status {
             200..=299 => serde_json::from_str(&body).map_err(|e| ApiError::Decode(e.to_string())),
-            401 => Err(ApiError::Unauthorized),
-            403 => Err(ApiError::Forbidden),
-            404 => Err(ApiError::NotFound(path.to_string())),
-            _ => Err(ApiError::Status(status, body.chars().take(MAX_ERROR_BODY_CHARS).collect())),
+            _ => Err(status_error(status, path, &body)),
         }
+    }
+
+    pub fn put_empty(&self, path: &str) -> Result<(), ApiError> {
+        let url = format!("{}{}", self.base_url, path);
+
+        let response = self.agent.put(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Accept", "application/json")
+            .send_empty()
+            .map_err(|e| ApiError::Transport(e.to_string()))?;
+
+        let status = response.status().as_u16();
+        if (200..=299).contains(&status) {
+            return Ok(());
+        }
+
+        let body = response.into_body().read_to_string().unwrap_or_default();
+        Err(status_error(status, path, &body))
     }
 
     /// Performs a GET request and decodes the response into `T`, keeping the raw JSON around.
@@ -94,6 +109,15 @@ impl ApiClient {
             .map_err(|e| ApiError::Decode(format!("{} (response of {})", e, path)))?;
 
         Ok(Typed { raw, data })
+    }
+}
+
+fn status_error(status: u16, path: &str, body: &str) -> ApiError {
+    match status {
+        401 => ApiError::Unauthorized,
+        403 => ApiError::Forbidden,
+        404 => ApiError::NotFound(path.to_string()),
+        _ => ApiError::Status(status, body.chars().take(MAX_ERROR_BODY_CHARS).collect()),
     }
 }
 

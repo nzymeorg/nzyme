@@ -62,10 +62,10 @@ class AuthenticationManagementService {
     })
   }
 
-  findTenantOfOrganization(organizationId, tenantId, setTenant) {
+  findTenantOfOrganization(organizationId, tenantId, setTenant, errorCallback = undefined, signal = undefined) {
     RESTClient.get('/system/authentication/mgmt/organizations/show/' + organizationId + '/tenants/show/' + tenantId, {}, function (response) {
       setTenant(response.data)
-    })
+    }, errorCallback, signal)
   }
 
   createTenantOfOrganization(organizationId, name, description, sessionTimeoutMinutes, sessionInactivityTimeoutMinutes, mfaTimeoutMinutes, successCallback) {

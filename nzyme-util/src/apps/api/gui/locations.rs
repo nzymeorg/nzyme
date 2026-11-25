@@ -12,45 +12,17 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Cell, Row, Table};
 use ratatui::Frame;
 
-use crate::api::endpoints::{locations, user};
+use crate::api::endpoints::locations;
 use crate::api::error::ApiError;
 use crate::api::types::{LocationEnvironmentDataResponse, LocationSummaryResponse};
 use crate::apps::api::gui::common::{
     header_cell, lock, palette, render_message, row_highlight_style, skipped_label, titled_block, Poller,
     ScrollableTable, HIGHLIGHT_SYMBOL,
 };
+use crate::apps::api::{describe_wind, UnitSystem};
 use crate::apps::api::gui::prefs::Context;
 use crate::apps::api::gui::view::{View, ViewAction};
 use crate::tools::{format_age_seconds, now_unix, parse_iso8601_to_unix};
-
-#[derive(Clone, Copy, PartialEq)]
-enum UnitSystem {
-    Metric,
-    Imperial,
-}
-
-impl UnitSystem {
-    fn temperature(&self, celsius: f64) -> String {
-        match self {
-            UnitSystem::Metric => format!("{:.0}°C", celsius),
-            UnitSystem::Imperial => format!("{:.0}°F", celsius * 1.8 + 32.0),
-        }
-    }
-
-    fn speed(&self, kmh: f64) -> String {
-        match self {
-            UnitSystem::Metric => format!("{:.0} km/h", kmh),
-            UnitSystem::Imperial => format!("{:.0} mph", kmh * 0.621371),
-        }
-    }
-
-    fn distance_km(&self, km: f64) -> String {
-        match self {
-            UnitSystem::Metric => format!("{:.1} km", km),
-            UnitSystem::Imperial => format!("{:.1} miles", km * 0.621371),
-        }
-    }
-}
 
 struct LocationRow {
     id: String,
@@ -106,11 +78,7 @@ impl LocationsView {
 fn fetch(ctx: &Context, units_cache: &Mutex<Option<UnitSystem>>) -> Result<LocationsData, String> {
     // The unit system follows the user who owns the key, like in the web interface.
     if lock(units_cache).is_none() {
-        let units = match user::find_own_profile(&ctx.client) {
-            Ok(profile) if profile.data.unit_system.as_deref() == Some("imperial") => UnitSystem::Imperial,
-            _ => UnitSystem::Metric,
-        };
-        *lock(units_cache) = Some(units);
+        *lock(units_cache) = Some(UnitSystem::of_user(&ctx.client));
     }
     let units = lock(units_cache).unwrap_or(UnitSystem::Metric);
 
@@ -175,30 +143,6 @@ fn to_row(l: LocationSummaryResponse, tenant: &str) -> LocationRow {
 // ---------------------------------------------------------------------------------------------------------------
 // Weather wording, matching the web interface.
 // ---------------------------------------------------------------------------------------------------------------
-
-fn describe_wind(speed: Option<f64>, gust: Option<f64>, units: UnitSystem) -> Option<String> {
-    if speed.is_none() && gust.is_none() {
-        return None;
-    }
-
-    // The descriptor follows whichever is higher. Gusts are what makes wind feel concerning.
-    let effective = speed.unwrap_or(0.0).max(gust.unwrap_or(0.0));
-    let label = match effective {
-        e if e < 5.0 => return Some("calm winds".to_string()),
-        e if e < 15.0 => "light breeze",
-        e if e < 25.0 => "breezy",
-        e if e < 40.0 => "windy",
-        e if e < 60.0 => "strong winds",
-        e if e < 80.0 => "very strong winds",
-        _ => "dangerous winds",
-    };
-
-    let mut parts = Vec::new();
-    if let Some(s) = speed { parts.push(units.speed(s)); }
-    if let Some(g) = gust { parts.push(format!("gusts {}", units.speed(g))); }
-
-    Some(format!("{} ({})", label, parts.join(", ")))
-}
 
 fn describe_visibility(meters: f64, units: UnitSystem) -> String {
     if meters >= 16000.0 {
