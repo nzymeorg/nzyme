@@ -94,7 +94,10 @@ public abstract class DhcpSpoofingFindingResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static DhcpSpoofingFindingResponse create(UUID uuid, String type, String serverMac, EthernetMacAddressResponse serverMacData, String serverAddress, L4AddressResponse serverAddressData, String serverIdentifier, UUID serverUuid, Boolean serverTrusted, Boolean offeredAccepted, Boolean serverLatestMatchesBaseline, DhcpOfferedParametersResponse offered, DhcpOfferedParametersResponse expected, long responseCount, long offerCount, long ackCount, long transactionCount, int victimCount, boolean recent, int windowMinutes, List<SpoofingTapResponse> taps, List<SpoofingExclusionReferenceResponse> exclusions, DateTime firstSeen, DateTime lastSeen) {
+    @JsonProperty("protocol")
+    public abstract String protocol();
+
+    public static DhcpSpoofingFindingResponse create(UUID uuid, String type, String serverMac, EthernetMacAddressResponse serverMacData, String serverAddress, L4AddressResponse serverAddressData, String serverIdentifier, UUID serverUuid, Boolean serverTrusted, Boolean offeredAccepted, Boolean serverLatestMatchesBaseline, DhcpOfferedParametersResponse offered, DhcpOfferedParametersResponse expected, long responseCount, long offerCount, long ackCount, long transactionCount, int victimCount, boolean recent, int windowMinutes, List<SpoofingTapResponse> taps, List<SpoofingExclusionReferenceResponse> exclusions, DateTime firstSeen, DateTime lastSeen, String protocol) {
         return builder()
                 .uuid(uuid)
                 .type(type)
@@ -120,6 +123,7 @@ public abstract class DhcpSpoofingFindingResponse {
                 .exclusions(exclusions)
                 .firstSeen(firstSeen)
                 .lastSeen(lastSeen)
+                .protocol(protocol)
                 .build();
     }
 
@@ -155,6 +159,7 @@ public abstract class DhcpSpoofingFindingResponse {
         public abstract Builder exclusions(List<SpoofingExclusionReferenceResponse> exclusions);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);
+        public abstract Builder protocol(String protocol);
         public abstract DhcpSpoofingFindingResponse build();
     }
 }

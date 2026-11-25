@@ -95,7 +95,7 @@ export default function VPNTunnelDetails({sessionId, l4Type, l4SessionKey, l4Sta
 
                 <dl className="mb-0">
                   <dt>Client Address</dt>
-                  <dd><L4Address address={tunnel.client} /></dd>
+                  <dd><L4Address full={true} address={tunnel.client} /></dd>
                   <dt>Client Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper
@@ -104,7 +104,7 @@ export default function VPNTunnelDetails({sessionId, l4Type, l4SessionKey, l4Sta
                                                                    withAssetLink withAssetName /> : null} />
                   </dd>
                   <dt>Server Address</dt>
-                  <dd><L4Address address={tunnel.server} /></dd>
+                  <dd><L4Address full={true} address={tunnel.server} /></dd>
                   <dt>Server Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper

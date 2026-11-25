@@ -77,7 +77,10 @@ public abstract class DhcpSpoofingServerResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static DhcpSpoofingServerResponse create(UUID uuid, String mac, EthernetMacAddressResponse macData, String address, L4AddressResponse addressData, String serverIdentifier, boolean trusted, String trustSource, DhcpOfferedParametersResponse baseline, DateTime baselineUpdatedAt, DhcpOfferedParametersResponse latest, boolean latestMatchesBaseline, long responseCount, long offerCount, long ackCount, long transactionCount, List<SpoofingTapResponse> taps, DateTime firstSeen, DateTime lastSeen) {
+    @JsonProperty("protocol")
+    public abstract String protocol();
+
+    public static DhcpSpoofingServerResponse create(UUID uuid, String mac, EthernetMacAddressResponse macData, String address, L4AddressResponse addressData, String serverIdentifier, boolean trusted, String trustSource, DhcpOfferedParametersResponse baseline, DateTime baselineUpdatedAt, DhcpOfferedParametersResponse latest, boolean latestMatchesBaseline, long responseCount, long offerCount, long ackCount, long transactionCount, List<SpoofingTapResponse> taps, DateTime firstSeen, DateTime lastSeen, String protocol) {
         return builder()
                 .uuid(uuid)
                 .mac(mac)
@@ -98,6 +101,7 @@ public abstract class DhcpSpoofingServerResponse {
                 .taps(taps)
                 .firstSeen(firstSeen)
                 .lastSeen(lastSeen)
+                .protocol(protocol)
                 .build();
     }
 
@@ -126,6 +130,7 @@ public abstract class DhcpSpoofingServerResponse {
         public abstract Builder taps(List<SpoofingTapResponse> taps);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);
+        public abstract Builder protocol(String protocol);
         public abstract DhcpSpoofingServerResponse build();
     }
 }

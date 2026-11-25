@@ -5,7 +5,7 @@ use log::{error, info};
 use std::sync::atomic::Ordering;
 use crate::state::arp_state::ArpState;
 use crate::metrics::Metrics;
-use crate::protocols::tools::ip_tools::DROPPED_FRAGMENTS;
+use crate::protocols::tools::ip_tools::{DROPPED_FRAGMENTS_IPV4, DROPPED_FRAGMENTS_IPV6};
 
 pub struct State {
     pub arp: Arc<Mutex<ArpState>>,
@@ -54,8 +54,12 @@ impl State {
 
     fn calculate_packet_metrics(metrics: &Arc<Mutex<Metrics>>) {
         match metrics.lock() {
-            Ok(mut metrics) => metrics.set_gauge("packets.ipv4.fragments.dropped",
-                DROPPED_FRAGMENTS.load(Ordering::Relaxed) as i128),
+            Ok(mut metrics) => {
+                metrics.set_gauge("packets.ipv4.fragments.dropped",
+                    DROPPED_FRAGMENTS_IPV4.load(Ordering::Relaxed) as i128);
+                metrics.set_gauge("packets.ipv6.fragments.dropped",
+                    DROPPED_FRAGMENTS_IPV6.load(Ordering::Relaxed) as i128);
+            },
             Err(e) => error!("Could not acquire metrics mutex: {}", e)
         }
     }

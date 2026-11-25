@@ -14,9 +14,13 @@ export default function IPAddressLink(props) {
   // Optional. Links to the IP address details page unless another target is passed.
   const to = props.to ? props.to : ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(ip);
 
+  const full = props.full;
+
+  const withPort = port !== undefined && port !== null;
+
   return (
       <Link to={to}>
-        <IPAddress ip={ip} />{port === undefined || port === null ? null : <Port port={port} />}
+        <IPAddress ip={ip} full={full} />{withPort ? <Port port={port} subdued={String(ip).includes(":")} /> : null}
       </Link>
   )
 

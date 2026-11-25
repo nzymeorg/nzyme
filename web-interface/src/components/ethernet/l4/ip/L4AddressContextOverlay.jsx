@@ -6,16 +6,34 @@ import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant"
 import ContextOverlayLoading from "../../../shared/context/ContextOverlayLoading";
 import {hasSegmentContext, L4AddressSegmentDetails, segmentHasNotes} from "../../shared/L4AddressSegment";
 import {macIsDevice} from "../../shared/L4AddressMacRole";
+import {nat64EmbeddedAddress} from "../../../../util/Nat64";
 
 const countries = require("i18n-iso-countries");
 countries.registerLocale(require("i18n-iso-countries/langs/en.json"));
 
 const contextService = new ContextService();
 
+const octetsOf = (ip) => String(ip).includes(":") ? [] : String(ip).split(".").map(Number);
+
 // 100.64.0.0/10 is site-local only where the TCP/UDP settings say so.
 const isCgnat = (ip) => {
-  const octets = String(ip).split(".").map(Number);
+  const octets = octetsOf(ip);
   return octets.length === 4 && octets[0] === 100 && octets[1] >= 64 && octets[1] <= 127;
+}
+
+const isRfc1918 = (ip) => {
+  const octets = octetsOf(ip);
+  return octets.length === 4 && (octets[0] === 10
+      || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+      || (octets[0] === 192 && octets[1] === 168));
+}
+
+const siteLocalSummary = (ip) => {
+  if (isCgnat(ip)) {
+    return "Internal / CGNAT IP Address";
+  }
+
+  return isRfc1918(ip) ? "Site-Local / RFC 1918 IP Address" : "Internal IP Address";
 }
 
 export default function L4AddressContextOverlay({address}) {
@@ -30,12 +48,12 @@ export default function L4AddressContextOverlay({address}) {
   }, [address]);
 
   const attributeSummary = () => {
-    if (address.attributes === null) {
+    if (!address.attributes) {
       return null;
     }
 
     if (address.attributes.is_site_local) {
-      return isCgnat(address.address) ? "Internal / CGNAT IP Address" : "Site-Local / RFC 1918 IP Address"
+      return siteLocalSummary(address.address)
     }
 
     if (address.attributes.is_loopback) {
@@ -48,14 +66,14 @@ export default function L4AddressContextOverlay({address}) {
   }
 
   const attributes = () => {
-    if (address.attributes === null) {
+    if (!address.attributes) {
       return ["None"];
     }
 
     let attributes = [];
 
     if (address.attributes.is_site_local) {
-      attributes.push(isCgnat(address.address) ? "Internal (CGNAT)" : "Site-Local");
+      attributes.push(isCgnat(address.address) ? "Internal (CGNAT)" : isRfc1918(address.address) ? "Site-Local" : "Internal");
     }
 
     if (address.attributes.is_loopback) {
@@ -64,6 +82,11 @@ export default function L4AddressContextOverlay({address}) {
 
     if (address.attributes.is_multicast) {
       attributes.push("Multicast");
+    }
+
+    const nat64 = nat64EmbeddedAddress(address.address);
+    if (nat64) {
+      attributes.push("NAT64 for " + nat64);
     }
 
     if (attributes.length === 0) {
@@ -242,7 +265,7 @@ export default function L4AddressContextOverlay({address}) {
       return (
           <React.Fragment>
             <h6>
-              <i className="fa-solid fa-map-location-dot"/> {address.address}{' '}
+              <i className="fa-solid fa-map-location-dot"/> <span className="context-address">{address.address}</span>{' '}
               <span className="context-name context-name-asset">
                 {macIsDevice(address)
                   && address.mac && address.mac.context && address.mac.context.name ? address.mac.context.name : null}
@@ -284,7 +307,7 @@ export default function L4AddressContextOverlay({address}) {
       // Not a local IP.
       return (
           <React.Fragment>
-            <h6><i className="fa-solid fa-map-location-dot"/> {address.address}</h6>
+            <h6><i className="fa-solid fa-map-location-dot"/> <span className="context-address">{address.address}</span></h6>
 
             <div className="context-overlay-content">
               <p className="context-description">
@@ -326,7 +349,7 @@ export default function L4AddressContextOverlay({address}) {
 
     return (
         <React.Fragment>
-          <h6><i className="fa-solid fa-map-location-dot"/> {address.address}</h6>
+          <h6><i className="fa-solid fa-map-location-dot"/> <span className="context-address">{address.address}</span></h6>
 
           <div className="context-overlay-content">
             <p className="context-description">

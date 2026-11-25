@@ -92,7 +92,7 @@ public class SpoofingResource extends TapDataHandlingResource {
 
         List<SpoofingConfigurationSectionResponse> sections = Lists.newArrayList();
 
-        sections.add(SpoofingConfigurationSectionResponse.create("arp", "ARP Poisoning",
+        sections.add(SpoofingConfigurationSectionResponse.create("arp", "ARP and NDP Spoofing",
                 List.of(
                         booleanEntry(SpoofingRegistryKeys.ARP_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
                         numberEntry(SpoofingRegistryKeys.ARP_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
@@ -101,20 +101,20 @@ public class SpoofingResource extends TapDataHandlingResource {
                         numberEntry(SpoofingRegistryKeys.ARP_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId)
                 ),
                 List.of(
-                        booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning finding", organizationId, tenantId)
+                        booleanEntry(SpoofingRegistryKeys.ARP_ALERT_ON_NEW, "Alert on new ARP poisoning or NDP spoofing finding", organizationId, tenantId)
                 )
         ));
 
-        sections.add(SpoofingConfigurationSectionResponse.create("dhcp", "DHCP Spoofing",
+        sections.add(SpoofingConfigurationSectionResponse.create("dhcp", "DHCP and Router Spoofing",
                 List.of(
                         booleanEntry(SpoofingRegistryKeys.DHCP_DETECTION_ENABLED, "Detection enabled", organizationId, tenantId),
-                        numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "Server learning period (Hours)", organizationId, tenantId),
+                        numberEntry(SpoofingRegistryKeys.DHCP_LEARNING_PERIOD_HOURS, "Server and router learning period (Hours)", organizationId, tenantId),
                         numberEntry(SpoofingRegistryKeys.DHCP_DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId),
                         numberEntry(SpoofingRegistryKeys.DHCP_RETENTION_TIME_DAYS, "Finding retention time (Days)", organizationId, tenantId)
                 ),
                 List.of(
-                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server", organizationId, tenantId),
-                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP configuration", organizationId, tenantId)
+                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_ROGUE_SERVER, "Alert on rogue DHCP server or IPv6 router", organizationId, tenantId),
+                        booleanEntry(SpoofingRegistryKeys.DHCP_ALERT_ON_PARAMETERS_CHANGED, "Alert on changed DHCP or router configuration", organizationId, tenantId)
                 )
         ));
 

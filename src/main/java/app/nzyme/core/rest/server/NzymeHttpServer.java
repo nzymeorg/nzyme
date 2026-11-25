@@ -200,6 +200,7 @@ public class NzymeHttpServer {
         resourceConfig.register(Dot11LocationsResource.class);
         resourceConfig.register(SocksResource.class);
         resourceConfig.register(VpnResource.class);
+        resourceConfig.register(Ipv6TransitionResource.class);
         resourceConfig.register(SSHResource.class);
         resourceConfig.register(TLSResource.class);
         resourceConfig.register(ConnectResource.class);
@@ -231,6 +232,7 @@ public class NzymeHttpServer {
         resourceConfig.register(L4Resource.class);
         resourceConfig.register(TopologyResource.class);
         resourceConfig.register(ArpResource.class);
+        resourceConfig.register(NdpResource.class);
         resourceConfig.register(TimeResource.class);
         resourceConfig.register(MonitorsResource.class);
         resourceConfig.register(TimelinesResource.class);

@@ -32,7 +32,7 @@ export default function ArpSpoofingTable({findings, page, setPage, perPage, orde
 
   if (findings.findings.length === 0) {
     return <div className="alert alert-info mb-0">
-      No ARP poisoning matches the current filters and time range. A finding appears here once a device claims an
+      No ARP or NDP spoofing matches the current filters and time range. A finding appears here once a device claims an
       address with its own MAC address while the legitimate owner of the address is still claiming it too.
     </div>
   }
@@ -43,6 +43,7 @@ export default function ArpSpoofingTable({findings, page, setPage, perPage, orde
         <thead>
         <tr>
           <th>ID</th>
+          <th>Protocol</th>
           <th>Address {columnSorting("address")}</th>
           <th>Spoofer {columnSorting("spoofer_mac")}</th>
           <th>Owner {columnSorting("owner_mac")}</th>
@@ -68,6 +69,7 @@ export default function ArpSpoofingTable({findings, page, setPage, perPage, orde
                     (excluded)
                   </span> : null}
               </td>
+              <td>{f.address.includes(":") ? "NDP" : "ARP"}</td>
               <td>
                 {f.address_data ?
                   <L4Address address={f.address_data} hidePort={true} withAssetName

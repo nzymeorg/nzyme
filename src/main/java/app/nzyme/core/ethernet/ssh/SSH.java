@@ -23,7 +23,7 @@ public class SSH {
 
     public enum OrderColumn {
 
-        SESSION_ID("MIN(ssh.uuid)"),
+        SESSION_ID("MIN(ssh.uuid::text)"),
         CLIENT_ADDRESS("MIN(tcp.source_address)"),
         CLIENT_MAC("MIN(tcp.source_mac)"),
         CLIENT_TYPE("MIN(client_version_software) || MIN(client_version_version) || MIN(client_version_comments)"),

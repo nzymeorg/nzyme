@@ -20,6 +20,7 @@ import app.nzyme.core.rest.responses.context.MacAddressTransparentIpAddressRespo
 import app.nzyme.core.rest.responses.context.NetworkContextDetailsResponse;
 import app.nzyme.core.rest.responses.ethernet.*;
 import com.google.common.collect.Lists;
+import com.google.common.net.InetAddresses;
 import jakarta.annotation.Nullable;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,6 +34,13 @@ import java.util.UUID;
 public class RestHelpers {
 
     private static final Logger LOG = LogManager.getLogger(RestHelpers.class);
+
+    public static final int DEFAULT_PAGE_SIZE = 25;
+    public static final int MAX_PAGE_SIZE = 250;
+
+    public static int pageSize(int limit) {
+        return limit <= 0 ? DEFAULT_PAGE_SIZE : Math.min(limit, MAX_PAGE_SIZE);
+    }
 
     public static L4AddressResponse L4AddressDataToResponse(NzymeNode nzyme,
                                                             UUID organizationId,
@@ -131,9 +139,9 @@ public class RestHelpers {
         );
     }
 
-    // What the MAC address that traffic of an address was recorded with is to the address. Only private IPv4
-    // addresses are claimed by ARP and recorded for assets, so only there it is known if it is the device that has
-    // the address. If it did not claim the address, it usually is a router that forwarded the traffic. The MAC
+    // What the MAC address that traffic of an address was recorded with is to the address. Internal addresses are
+    // claimed by ARP or neighbor discovery and recorded for assets, so there it is known if it is the device that
+    // has the address. If it did not claim the address, it usually is a router that forwarded the traffic. The MAC
     // address of a public address usually is the gateway.
     public static L4AddressMacRoleResponse macRole(NzymeNode nzyme,
                                                    @Nullable String mac,
@@ -144,8 +152,7 @@ public class RestHelpers {
             return L4AddressMacRoleResponse.UNKNOWN;
         }
 
-        if (address instanceof Inet4Address
-                && nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(address)) {
+        if (nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(address)) {
             return nzyme.getAssetsManager().claimedIpAddress(mac, address, organizationId, tenantId)
                     ? L4AddressMacRoleResponse.DEVICE : L4AddressMacRoleResponse.UNCLAIMED;
         }
@@ -266,7 +273,7 @@ public class RestHelpers {
             switch (dataType) {
                 case IP_ADDRESS:
                     transparentIps.add(MacAddressTransparentIpAddressResponse.create(
-                            t.ipAddress().toString().substring(1),
+                            InetAddresses.toAddrString(t.ipAddress()),
                             t.source(),
                             t.lastSeen(),
                             t.createdAt()

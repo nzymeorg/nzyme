@@ -24,12 +24,16 @@ export function monitorTypeToName(type) {
       return "Ethernet DHCP Transaction"
     case "ETHERNET_ARP_PACKET":
       return "Ethernet ARP Packet"
+    case "ETHERNET_NDP_MESSAGE":
+      return "Ethernet NDP Message"
     case "ETHERNET_SSH_SESSION":
       return "Ethernet SSH Session"
     case "ETHERNET_SOCKS_TUNNEL":
       return "Ethernet SOCKS Tunnel"
     case "ETHERNET_VPN_TUNNEL":
       return "Ethernet VPN Tunnel"
+    case "ETHERNET_IPV6_TRANSITION_TUNNEL":
+      return "Ethernet IPv6 Transition Tunnel"
     case "ETHERNET_TLS_SESSION":
       return "Ethernet TLS Session"
     case "ETHERNET_TLS_CERTIFICATE":

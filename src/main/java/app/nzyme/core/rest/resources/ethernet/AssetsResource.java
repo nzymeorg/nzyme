@@ -79,7 +79,6 @@ import java.net.InetAddress;
 import java.util.*;
 
 import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/assets")
 @Produces(MediaType.APPLICATION_JSON)
@@ -112,7 +111,7 @@ public class AssetsResource extends TapDataHandlingResource {
                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -218,7 +217,7 @@ public class AssetsResource extends TapDataHandlingResource {
                                  @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                  @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -283,7 +282,7 @@ public class AssetsResource extends TapDataHandlingResource {
                                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -373,6 +372,7 @@ public class AssetsResource extends TapDataHandlingResource {
                 asset.get().dhcpFingerprintReboot(),
                 asset.get().dhcpFingerprintRebind(),
                 asset.get().seenArp(),
+                asset.get().seenNdp(),
                 asset.get().seenDhcp(),
                 asset.get().seenTcp(),
                 asset.get().seenUdp(),
@@ -653,6 +653,8 @@ public class AssetsResource extends TapDataHandlingResource {
                         "Asset Attributes Retention Time (Days)", organizationId, tenantId),
                 retentionEntry(AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS,
                         "Asset Communication Retention Time (Days)", organizationId, tenantId),
+                retentionEntry(AssetRegistryKeys.ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS,
+                        "Asset IP Addresses Retention Time (Days)", organizationId, tenantId),
                 ConfigurationEntryResponse.create(
                         AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED.key(),
                         "DHCP Fingerprint Monitoring Enabled",
@@ -675,7 +677,8 @@ public class AssetsResource extends TapDataHandlingResource {
                     + "assets_statistics_retention_time_days, the number of days asset statistics are kept, "
                     + "assets_activity_retention_time_days, assets_attributes_retention_time_days and "
                     + "assets_communication_retention_time_days, the retention of the long-term asset activity, "
-                    + "attribute and communication data, and "
+                    + "attribute and communication data, assets_ip_addresses_retention_time_days, the number of "
+                    + "days an address stays with an asset after it was last seen, and "
                     + "assets_dhcp_fingerprint_monitoring_enabled, which controls whether a changed DHCP "
                     + "fingerprint of an asset raises an alert. Requires the ethernet_assets_manage feature "
                     + "permission.",
@@ -702,6 +705,7 @@ public class AssetsResource extends TapDataHandlingResource {
                         AssetRegistryKeys.ASSETS_ACTIVITY_RETENTION_TIME_DAYS,
                         AssetRegistryKeys.ASSETS_ATTRIBUTES_RETENTION_TIME_DAYS,
                         AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS,
+                        AssetRegistryKeys.ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS,
                         AssetRegistryKeys.DHCP_FINGERPRINT_MONITORING_ENABLED)
                 .validate(req.change());
 
@@ -864,7 +868,7 @@ public class AssetsResource extends TapDataHandlingResource {
                 } else {
                     InetAddress ip = parseAddress(a.value());
                     if (ip != null) {
-                        boolean local = internalAddresses.isSiteLocal(ip) || ip.isLinkLocalAddress();
+                        boolean local = internalAddresses.isSiteLocal(ip);
                         int resolved = externalResolved.getOrDefault(a.dimension(), 0);
                         if (local || resolved < EXTERNAL_INFRASTRUCTURE_RESOLVED) {
                             l4Address = infrastructureAddress(ip, a.value(), organizationId, tenantId);
@@ -986,7 +990,7 @@ public class AssetsResource extends TapDataHandlingResource {
         List<AssetActivityCellResponse> heatmap = new ArrayList<>();
         for (AssetProfiles.ActivityCell c : profiles.activityHeatmap(organizationId, tenantId, asset.get().mac(), lookback, tz)) {
             heatmap.add(AssetActivityCellResponse.create(c.dayOfWeek(), c.hour(), c.events(), c.bytes(),
-                    c.arpPackets(), c.dhcpTransactions(), c.dnsQueries(), c.tcpSessions(), c.udpSessions()));
+                    c.arpPackets(), c.ndpMessages(), c.dhcpTransactions(), c.dnsQueries(), c.tcpSessions(), c.udpSessions()));
         }
 
         List<AssetActivityDayResponse> calendar = new ArrayList<>();
@@ -997,7 +1001,7 @@ public class AssetsResource extends TapDataHandlingResource {
         LocalDate previous = null;
         for (AssetProfiles.ActivityDay d : profiles.activityCalendar(organizationId, tenantId, asset.get().mac(), lookback, tz)) {
             calendar.add(AssetActivityDayResponse.create(d.day().toString(), d.events(), d.bytes(), d.arpPackets(),
-                    d.dhcpTransactions(), d.dnsQueries(), d.tcpSessions(), d.udpSessions()));
+                    d.ndpMessages(), d.dhcpTransactions(), d.dnsQueries(), d.tcpSessions(), d.udpSessions()));
             totalEvents += d.events();
             totalBytes += d.bytes();
 
@@ -1188,7 +1192,7 @@ public class AssetsResource extends TapDataHandlingResource {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         AssetProfiles profiles = nzyme.getAssetsManager().profiles();
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         AssetProfiles.TimelineOrder order;
         try {
@@ -1236,7 +1240,7 @@ public class AssetsResource extends TapDataHandlingResource {
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Map<DateTime, Integer> histogram = Maps.newHashMap();
         for (GenericIntegerHistogramEntry bucket : nzyme.getAssetsManager().profiles()
@@ -1399,8 +1403,7 @@ public class AssetsResource extends TapDataHandlingResource {
     }
 
     private L4AddressResponse infrastructureAddress(InetAddress ip, String value, UUID organizationId, UUID tenantId) {
-        boolean local = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(ip)
-                || ip.isLinkLocalAddress();
+        boolean local = nzyme.getEthernet().internalAddresses().of(organizationId, tenantId).isSiteLocal(ip);
 
         String mac = null;
         if (local) {

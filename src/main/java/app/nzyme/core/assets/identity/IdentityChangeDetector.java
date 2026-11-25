@@ -42,9 +42,15 @@ public class IdentityChangeDetector {
         put(AssetAttributeDimension.DHCP_VENDOR_CLASS, new Weights(10, 5));
         put(AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER, new Weights(10, 0));
         put(AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST, new Weights(10, 0));
+        put(AssetAttributeDimension.DHCP6_FINGERPRINT, new Weights(15, 10));
+        put(AssetAttributeDimension.DHCP6_CLIENT_DUID, new Weights(10, 0));
         put(AssetAttributeDimension.JA4, new Weights(15, 0));
         put(AssetAttributeDimension.NTP_CLIENT_VERSION, new Weights(5, 0));
     }};
+
+    private static final Set<AssetAttributeDimension> TCP_DIMENSIONS = Set.of(
+            AssetAttributeDimension.TCP_STACK, AssetAttributeDimension.TCP_SERVER_FINGERPRINT
+    );
 
     private static final int NEW_SERVER_PROTOCOL_WEIGHT = 5;
     private static final int NEW_SERVER_PROTOCOL_CAP = 10;
@@ -63,7 +69,7 @@ public class IdentityChangeDetector {
         this.identity = nzyme.getAssetsManager().identity();
     }
 
-    private record Value(String value, DateTime firstSeen, DateTime lastSeen) { }
+    record Value(String value, DateTime firstSeen, DateTime lastSeen) { }
     private record Asset(long id, String mac, DateTime firstSeen) { }
 
     public void runForTenant(UUID organizationId, UUID tenantId, AssetIdentityConfiguration config) {
@@ -248,7 +254,7 @@ public class IdentityChangeDetector {
         return result;
     }
 
-    private static List<IdentityChange> score(Map<String, List<Value>> attributes, List<Value> hostnames, DateTime since) {
+    static List<IdentityChange> score(Map<String, List<Value>> attributes, List<Value> hostnames, DateTime since) {
         List<IdentityChange> changes = Lists.newArrayList();
 
         for (Map.Entry<AssetAttributeDimension, Weights> entry : DIMENSIONS.entrySet()) {
@@ -257,11 +263,22 @@ public class IdentityChangeDetector {
                 continue;
             }
 
-            if (entry.getKey() == AssetAttributeDimension.TCP_STACK) {
-                values = collapseStacks(values);
+            // A device has one stack per IP version. A stack that shows up over a version the device did not
+            // use before replaces nothing.
+            IdentityChange change = null;
+            if (TCP_DIMENSIONS.contains(entry.getKey())) {
+                for (List<Value> ofVersion : TcpSignature.byIpVersion(values, Value::value).values()) {
+                    IdentityChange c = replacement(entry.getKey().name(),
+                            entry.getKey() == AssetAttributeDimension.TCP_STACK ? collapseStacks(ofVersion) : ofVersion,
+                            since, entry.getValue());
+                    if (c != null && (change == null || c.weight() > change.weight())) {
+                        change = c;
+                    }
+                }
+            } else {
+                change = replacement(entry.getKey().name(), values, since, entry.getValue());
             }
 
-            IdentityChange change = replacement(entry.getKey().name(), values, since, entry.getValue());
             if (change != null) {
                 changes.add(change);
             }

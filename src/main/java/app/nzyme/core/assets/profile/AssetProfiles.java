@@ -45,9 +45,11 @@ public class AssetProfiles {
         this.nzyme = nzyme;
     }
 
-    public record ActivityCell(int dayOfWeek, int hour, long events, long bytes, long arpPackets, long dhcpTransactions,
+    public record ActivityCell(int dayOfWeek, int hour, long events, long bytes, long arpPackets, long ndpMessages,
+                               long dhcpTransactions,
                                long dnsQueries, long tcpSessions, long udpSessions) {}
-    public record ActivityDay(LocalDate day, long events, long bytes, long arpPackets, long dhcpTransactions,
+    public record ActivityDay(LocalDate day, long events, long bytes, long arpPackets, long ndpMessages,
+                              long dhcpTransactions,
                               long dnsQueries, long tcpSessions, long udpSessions) {}
     public record AttributeEntry(String dimension, String value, long count, long bytes, DateTime firstSeen, DateTime lastSeen) {}
     public record CommunicationEdge(String direction, String l4Type, String peerType, String peerKey,
@@ -70,8 +72,9 @@ public class AssetProfiles {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT EXTRACT(ISODOW FROM shifted)::int AS dow, " +
                                 "EXTRACT(HOUR FROM shifted)::int AS hour, " +
-                                "SUM(arp_packets + dhcp_transactions + dns_queries + tcp_sessions + udp_sessions) AS events, " +
+                                "SUM(arp_packets + ndp_messages + dhcp_transactions + dns_queries + tcp_sessions + udp_sessions) AS events, " +
                                 "SUM(bytes_rx + bytes_tx) AS bytes, SUM(arp_packets) AS arp_packets, " +
+                                "SUM(ndp_messages) AS ndp_messages, " +
                                 "SUM(dhcp_transactions) AS dhcp_transactions, SUM(dns_queries) AS dns_queries, " +
                                 "SUM(tcp_sessions) AS tcp_sessions, SUM(udp_sessions) AS udp_sessions " +
                                 "FROM (SELECT (bucket AT TIME ZONE 'UTC') + make_interval(mins => :tz) AS shifted, * " +
@@ -85,7 +88,7 @@ public class AssetProfiles {
                         .bind("tz", timezoneOffsetMinutes)
                         .map((rs, ctx) -> new ActivityCell(rs.getInt("dow"), rs.getInt("hour"),
                                 rs.getLong("events"), rs.getLong("bytes"), rs.getLong("arp_packets"),
-                                rs.getLong("dhcp_transactions"), rs.getLong("dns_queries"),
+                                rs.getLong("ndp_messages"), rs.getLong("dhcp_transactions"), rs.getLong("dns_queries"),
                                 rs.getLong("tcp_sessions"), rs.getLong("udp_sessions")))
                         .list()
         );
@@ -95,8 +98,9 @@ public class AssetProfiles {
                                               int timezoneOffsetMinutes) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT ((bucket AT TIME ZONE 'UTC') + make_interval(mins => :tz))::date AS day, " +
-                                "SUM(arp_packets + dhcp_transactions + dns_queries + tcp_sessions + udp_sessions) AS events, " +
+                                "SUM(arp_packets + ndp_messages + dhcp_transactions + dns_queries + tcp_sessions + udp_sessions) AS events, " +
                                 "SUM(bytes_rx + bytes_tx) AS bytes, SUM(arp_packets) AS arp_packets, " +
+                                "SUM(ndp_messages) AS ndp_messages, " +
                                 "SUM(dhcp_transactions) AS dhcp_transactions, SUM(dns_queries) AS dns_queries, " +
                                 "SUM(tcp_sessions) AS tcp_sessions, SUM(udp_sessions) AS udp_sessions " +
                                 "FROM assets_activity WHERE organization_id = :organization_id " +
@@ -110,7 +114,7 @@ public class AssetProfiles {
                         .map((rs, ctx) -> new ActivityDay(
                                 LocalDate.parse(rs.getString("day")),
                                 rs.getLong("events"), rs.getLong("bytes"), rs.getLong("arp_packets"),
-                                rs.getLong("dhcp_transactions"), rs.getLong("dns_queries"),
+                                rs.getLong("ndp_messages"), rs.getLong("dhcp_transactions"), rs.getLong("dns_queries"),
                                 rs.getLong("tcp_sessions"), rs.getLong("udp_sessions")))
                         .list()
         );

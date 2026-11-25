@@ -34,16 +34,21 @@ public abstract class DhcpOfferedParametersResponse {
             return null;
         }
 
-        return create(p.subnetMask(), p.routers(), p.dnsServers(), p.domainName(), p.leaseTimeSeconds());
+        return create(p.subnetMask(), p.routers(), p.dnsServers(), p.domainName(), p.leaseTimeSeconds(), p.flags());
     }
 
-    public static DhcpOfferedParametersResponse create(String subnetMask, List<String> routers, List<String> dnsServers, String domainName, Long leaseTimeSeconds) {
+    @Nullable
+    @JsonProperty("flags")
+    public abstract String flags();
+
+    public static DhcpOfferedParametersResponse create(String subnetMask, List<String> routers, List<String> dnsServers, String domainName, Long leaseTimeSeconds, String flags) {
         return builder()
                 .subnetMask(subnetMask)
                 .routers(routers)
                 .dnsServers(dnsServers)
                 .domainName(domainName)
                 .leaseTimeSeconds(leaseTimeSeconds)
+                .flags(flags)
                 .build();
     }
 
@@ -58,6 +63,7 @@ public abstract class DhcpOfferedParametersResponse {
         public abstract Builder dnsServers(List<String> dnsServers);
         public abstract Builder domainName(String domainName);
         public abstract Builder leaseTimeSeconds(Long leaseTimeSeconds);
+        public abstract Builder flags(String flags);
         public abstract DhcpOfferedParametersResponse build();
     }
 }

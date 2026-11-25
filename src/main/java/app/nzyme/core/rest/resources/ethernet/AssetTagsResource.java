@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/assets/tags")
 @Produces(MediaType.APPLICATION_JSON)
@@ -109,7 +108,7 @@ public class AssetTagsResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         AssetTags.OrderColumn orderColumn = AssetTags.OrderColumn.NAME;
         if (orderColumnParam != null && !orderColumnParam.isBlank()) {
@@ -357,7 +356,7 @@ public class AssetTagsResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        return deleteSelection(BulkSelection.matching(parseFiltersQueryParameter(filtersParameter)), organizationId,
+        return deleteSelection(BulkSelection.matching(parseFilters(filtersParameter, sc)), organizationId,
                 tenantId);
     }
 

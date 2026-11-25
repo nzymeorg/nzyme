@@ -32,9 +32,12 @@ export default function AlertSourceLink({alert}) {
     case "RECON_FINGERPRINTING_NEW":
       return a.scan_uuid ? link(ApiRoutes.ETHERNET.RECON.FINGERPRINTING.DETAILS(a.scan_uuid), "Fingerprinting") : null;
     case "SPOOFING_ARP_NEW":
+    case "SPOOFING_NDP_NEW":
       return a.finding_uuid ? link(ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(a.finding_uuid), "Finding") : null;
     case "SPOOFING_DHCP_ROGUE_SERVER":
     case "SPOOFING_DHCP_PARAMETERS_CHANGED":
+    case "SPOOFING_RA_ROGUE_ROUTER":
+    case "SPOOFING_RA_PARAMETERS_CHANGED":
       return a.finding_uuid ? link(ApiRoutes.ETHERNET.SPOOFING.DHCP.DETAILS(a.finding_uuid), "Finding") : null;
     case "SPOOFING_NAME_RESOLUTION_POISONING":
       return a.finding_uuid ? link(ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.DETAILS(a.finding_uuid), "Finding") : null;

@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.segmentation;
 
+import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingServerEntry;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelJson;
 import app.nzyme.core.NzymeNode;
@@ -48,6 +49,7 @@ public class Segments {
 
     public enum SuggestionSource {
         DHCP,
+        ROUTER_ADVERTISEMENT,
         OBSERVED
     }
 
@@ -380,7 +382,8 @@ public class Segments {
             List<DhcpSpoofingServerEntry> servers = nzyme.getEthernet().spoofing()
                     .findAllDhcpServersOfTenant(handle, organizationId, tenantId).stream()
                     .filter(server -> server.trusted() && server.address() != null && server.latest() != null
-                            && server.latest().subnetMask() != null)
+                            && server.latest().subnetMask() != null
+                            && DhcpSpoofingDetector.PROTOCOL_DHCP.equals(server.protocol()))
                     .sorted(Comparator.comparing(DhcpSpoofingServerEntry::lastSeen).reversed())
                     .collect(Collectors.toList());
             if (servers.size() > SUGGESTION_LIMIT) {
@@ -393,6 +396,30 @@ public class Segments {
                     suggestions.add(new Suggestion(SuggestionSource.DHCP, network.toString(), null, server.address()));
                 }
             });
+
+            List<Suggestion> advertised = Lists.newArrayList();
+            nzyme.getEthernet().spoofing().findAllDhcpServersOfTenant(handle, organizationId, tenantId).stream()
+                    .filter(router -> router.trusted() && router.baseline() != null
+                            && router.baseline().subnetMask() != null
+                            && DhcpSpoofingDetector.PROTOCOL_ROUTER_ADVERTISEMENT.equals(router.protocol()))
+                    .sorted(Comparator.comparing(DhcpSpoofingServerEntry::lastSeen).reversed())
+                    .forEach(router -> {
+                        for (String prefix : router.baseline().subnetMask().split(",")) {
+                            try {
+                                String network = CIDR.parse(prefix.trim()).toString();
+                                if (taken.add(network)) {
+                                    advertised.add(new Suggestion(
+                                            SuggestionSource.ROUTER_ADVERTISEMENT, network, null, router.address()
+                                    ));
+                                }
+                            } catch (IllegalArgumentException ignored) {
+                            }
+                        }
+                    });
+            if (advertised.size() > SUGGESTION_LIMIT) {
+                limited[0] = true;
+            }
+            suggestions.addAll(advertised.stream().limit(SUGGESTION_LIMIT).toList());
 
             if (taps.isEmpty()) {
                 return;

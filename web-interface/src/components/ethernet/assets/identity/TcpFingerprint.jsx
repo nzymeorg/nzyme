@@ -18,6 +18,12 @@ const QUIRKS = {
   bad: "options could not be read to the end"
 };
 
+// A stack seen over IPv6 has "-" where the Don't Fragment bit of IPv4 would be.
+export function tcpFingerprintIpVersion(value) {
+  const parts = (value || "").split(":");
+  return parts.length >= 5 && parts[1] === "-" ? 6 : 4;
+}
+
 export function describeTcpFingerprint(value) {
   if (!value) {
     return null;
@@ -32,7 +38,7 @@ export function describeTcpFingerprint(value) {
   lines.push("Stack | Link (MSS, window scale) | Application (window, TOS)");
   lines.push("");
   lines.push("Initial TTL " + parts[0]);
-  lines.push("Don't Fragment " + (parts[1] === "1" ? "set" : "not set"));
+  lines.push(parts[1] === "-" ? "Seen over IPv6" : "Don't Fragment " + (parts[1] === "1" ? "set" : "not set"));
   lines.push("ECN " + (parts[2] === "1" ? "negotiated" : "not negotiated"));
   lines.push("Options: " + (parts[3] === "" ? "none" : parts[3].split(",").map((o) => OPTION_NAMES[o] ? OPTION_NAMES[o] : o).join(", ")));
   lines.push("Quirks: " + (parts[4] === "-" ? "none" : parts[4].split(",").map((q) => QUIRKS[q] ? QUIRKS[q] : q).join(", ")));
@@ -61,9 +67,16 @@ const withoutTimestamps = (options) => (options || "").split(",")
 const withoutTimestampQuirks = (quirks) => (quirks || "").split(",")
   .filter((q) => q !== "ts0" && q !== "ecr" && q !== "-").join(",");
 
-export function describeStackDifference(value, others) {
+export function describeStackDifference(value, allStacks) {
   const parts = value.split(":");
   const differing = [];
+
+  // Stacks are only compared within an IP version: one device has a different stack over each.
+  const version = tcpFingerprintIpVersion(value);
+  const others = allStacks.filter((o) => tcpFingerprintIpVersion(o) === version);
+  if (others.length < 2) {
+    return "The only stack seen over IPv" + version + ".";
+  }
 
   others.filter((o) => o !== value).forEach((other) => {
     const otherParts = other.split(":");

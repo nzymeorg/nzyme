@@ -154,7 +154,7 @@ public class IcmpDetector {
                         "array_agg(DISTINCT host(quoted_destination_address)) AS redirected_destinations, " +
                         "array_agg(DISTINCT tap_uuid::text) AS taps, " +
                         "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen, MAX(id) AS max_id " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type = 5 " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.redirect("") + " " +
                         "AND redirect_gateway IS NOT NULL AND last_seen >= :since AND last_seen <= :until " +
                         "GROUP BY source_address, redirect_gateway, destination_address")
                 .bindList("taps", taps)
@@ -211,7 +211,7 @@ public class IcmpDetector {
     private long countRedirectPacketsAfter(Handle handle, List<UUID> taps, String sender, String gateway,
                                            String target, DateTime after, DateTime until) {
         return handle.createQuery("SELECT COALESCE(SUM(packet_count), 0) FROM icmp_packets WHERE tap_uuid IN (<taps>) " +
-                        "AND icmp_type = 5 AND source_address = :sender::inet AND redirect_gateway = :gateway::inet " +
+                        "AND " + IcmpSql.redirect("") + " AND source_address = :sender::inet AND redirect_gateway = :gateway::inet " +
                         "AND destination_address = :target::inet AND last_seen > :after AND last_seen <= :until")
                 .bindList("taps", taps)
                 .bind("sender", sender)
@@ -244,7 +244,7 @@ public class IcmpDetector {
                         "array_agg(DISTINCT tap_uuid::text) AS taps, " +
                         "bool_or(quoted_protocol = 17 AND quoted_destination_port BETWEEN :port_start AND :port_end) AS udp_traceroute_ports, " +
                         "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type = 11 " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.timeExceeded("") + " " +
                         "AND quoted_destination_address IS NOT NULL AND last_seen >= :since AND last_seen <= :until " +
                         "GROUP BY destination_address, quoted_destination_address")
                 .bindList("taps", taps)
@@ -406,7 +406,7 @@ public class IcmpDetector {
                                        DateTime since, DateTime until) {
         return handle.createQuery("SELECT COUNT(*) FROM icmp_packets WHERE tap_uuid IN (<taps>) " +
                         "AND source_address = :destination::inet AND destination_address = :source::inet " +
-                        "AND ((icmp_type = 3 AND icmp_code = 3) OR icmp_type = 0) " +
+                        "AND (" + IcmpSql.portUnreachable("") + " OR " + IcmpSql.echoReply("") + ") " +
                         "AND last_seen >= :since AND last_seen <= :until")
                 .bindList("taps", taps)
                 .bind("source", source)
@@ -460,7 +460,7 @@ public class IcmpDetector {
                         "MAX(bytes_max) AS max_payload, SUM(packet_count) AS packet_count, " +
                         "array_agg(DISTINCT tap_uuid::text) AS taps, " +
                         "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type = 8 " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.echoRequest("") + " " +
                         "AND last_seen >= :since AND last_seen <= :until " +
                         "GROUP BY source_address, destination_address " +
                         "HAVING MAX(bytes_max) >= :min_payload AND SUM(packet_count) >= :min_packets")

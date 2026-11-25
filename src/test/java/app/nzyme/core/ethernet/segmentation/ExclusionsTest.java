@@ -99,7 +99,7 @@ public class ExclusionsTest {
                 CIDR.parse("100.100.1.2"), "Does not exist.", none(), SEGMENTS, InternalAddresses.Rules.DEFAULT));
 
         Exclusions.validate(CLIENTS, CIDR.parse("100.100.1.2"), "Does not exist.", none(), SEGMENTS,
-                new InternalAddresses.Rules(true));
+                new InternalAddresses.Rules(true, List.of()));
     }
 
     @Test

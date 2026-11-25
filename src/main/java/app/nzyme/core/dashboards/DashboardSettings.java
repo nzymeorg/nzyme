@@ -3,6 +3,7 @@ package app.nzyme.core.dashboards;
 import app.nzyme.core.ethernet.topology.Topology;
 import app.nzyme.core.ethernet.topology.TopologyFilters;
 import app.nzyme.core.util.filters.FilterParser;
+import app.nzyme.core.util.filters.FilterScope;
 import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
@@ -320,7 +321,8 @@ public record DashboardSettings(String name,
                         throw new IllegalArgumentException("The filters of a topology widget are too long.");
                     }
                     try {
-                        FilterSql.generate(FilterParser.parseFiltersQueryParameter(filters.trim()), new TopologyFilters());
+                        FilterSql.generate(FilterParser.parseFiltersQueryParameter(filters.trim(), FilterScope.none()),
+                                new TopologyFilters());
                     } catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException("The filters of a topology widget are not valid.");
                     }

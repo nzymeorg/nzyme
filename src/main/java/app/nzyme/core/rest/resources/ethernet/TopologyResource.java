@@ -48,7 +48,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/topology")
 @Produces(MediaType.APPLICATION_JSON)
@@ -491,7 +490,7 @@ public class TopologyResource extends TapDataHandlingResource {
 
         return new Request(new Topology.Selection(
                 timeRange,
-                parseFiltersQueryParameter(filtersParameter),
+                parseFilters(filtersParameter, sc),
                 taps.stream().map(Tap::uuid).collect(Collectors.toList()),
                 scope, nodeSelectors(nodesParam, MAX_NODES), nodeSelectors(excludedNodesParam, MAX_EXCLUDED_NODES)
         ), taps);

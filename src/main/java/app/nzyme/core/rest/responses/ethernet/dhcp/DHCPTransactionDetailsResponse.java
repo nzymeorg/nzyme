@@ -1,5 +1,7 @@
 package app.nzyme.core.rest.responses.ethernet.dhcp;
 
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Address;
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Prefix;
 import app.nzyme.core.rest.responses.ethernet.EthernetMacAddressResponse;
 import app.nzyme.core.rest.responses.ethernet.InternalAddressResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -86,11 +88,28 @@ public abstract class DHCPTransactionDetailsResponse {
     @JsonProperty("server_responses")
     public abstract List<DHCPServerResponseResponse> serverResponses();
 
+    @JsonProperty("ip_version")
+    public abstract int ipVersion();
+
+    @JsonProperty("client_duid")
+    @Nullable
+    public abstract String clientDuid();
+
+    @JsonProperty("server_duid")
+    @Nullable
+    public abstract String serverDuid();
+
+    @JsonProperty("addresses")
+    public abstract List<Dhcpv6Address> addresses();
+
+    @JsonProperty("prefixes")
+    public abstract List<Dhcpv6Prefix> prefixes();
+
     @JsonProperty("selected_server_address")
     @Nullable
     public abstract String selectedServerAddress();
 
-    public static DHCPTransactionDetailsResponse create(long transactionId, String transactionType, EthernetMacAddressResponse clientMac, List<String> additionalClientMacs, EthernetMacAddressResponse serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, InternalAddressResponse requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, List<DHCPTimelineStepResponse> timeline, DateTime firstPacket, DateTime latestPacket, List<String> notes, Boolean isSuccessful, boolean isComplete, Long durationMs, List<DHCPServerResponseResponse> serverResponses, String selectedServerAddress) {
+    public static DHCPTransactionDetailsResponse create(long transactionId, String transactionType, EthernetMacAddressResponse clientMac, List<String> additionalClientMacs, EthernetMacAddressResponse serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, InternalAddressResponse requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, List<DHCPTimelineStepResponse> timeline, DateTime firstPacket, DateTime latestPacket, List<String> notes, Boolean isSuccessful, boolean isComplete, Long durationMs, List<DHCPServerResponseResponse> serverResponses, String selectedServerAddress, int ipVersion, String clientDuid, String serverDuid, List<Dhcpv6Address> addresses, List<Dhcpv6Prefix> prefixes) {
         return builder()
                 .transactionId(transactionId)
                 .transactionType(transactionType)
@@ -115,6 +134,11 @@ public abstract class DHCPTransactionDetailsResponse {
                 .durationMs(durationMs)
                 .serverResponses(serverResponses)
                 .selectedServerAddress(selectedServerAddress)
+                .ipVersion(ipVersion)
+                .clientDuid(clientDuid)
+                .serverDuid(serverDuid)
+                .addresses(addresses)
+                .prefixes(prefixes)
                 .build();
     }
 
@@ -169,6 +193,16 @@ public abstract class DHCPTransactionDetailsResponse {
         public abstract Builder serverResponses(List<DHCPServerResponseResponse> serverResponses);
 
         public abstract Builder selectedServerAddress(String selectedServerAddress);
+
+        public abstract Builder ipVersion(int ipVersion);
+
+        public abstract Builder clientDuid(String clientDuid);
+
+        public abstract Builder serverDuid(String serverDuid);
+
+        public abstract Builder addresses(List<Dhcpv6Address> addresses);
+
+        public abstract Builder prefixes(List<Dhcpv6Prefix> prefixes);
 
         public abstract DHCPTransactionDetailsResponse build();
     }

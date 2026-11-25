@@ -9,5 +9,6 @@ export const ICMP_REDIRECTS_FILTER_FIELDS = {
   target_address: { title: "Told Host", type: FILTER_TYPE.IP_ADDRESS },
   target_mac: { title: "Told Host MAC", type: FILTER_TYPE.MAC_ADDRESS },
   target_tag: { title: "Told Host Asset Tag", type: FILTER_TYPE.ASSET_TAG },
-  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC }
+  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC },
+  ip_version: { title: "IP Version", type: FILTER_TYPE.NUMERIC }
 }

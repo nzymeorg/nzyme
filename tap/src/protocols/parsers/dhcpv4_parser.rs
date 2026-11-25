@@ -8,6 +8,10 @@ use crate::helpers::network::{to_ipv4_address, to_mac_address_string};
 use crate::tracemark;
 
 pub fn parse(udp: &Arc<Datagram>) -> Option<Dhcpv4Packet> {
+    if !udp.source_address.is_ipv4() {
+        return None;
+    }
+
     if udp.payload.len() < 240 {
         tracemark!("DHCP");
         return None;

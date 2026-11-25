@@ -4,8 +4,8 @@ use crate::context::context_engine::ContextEngine;
 use crate::context::context_source::ContextSource;
 use crate::to_pipeline;
 use crate::protocols::detection::l7_tagger::L7Tag;
-use crate::protocols::detection::l7_tagger::L7Tag::{Unencrypted, DHCP4, DNS, NTP};
-use crate::protocols::parsers::{dhcpv4_parser, dns_parser, nbtns_parser, ntp_parser};
+use crate::protocols::detection::l7_tagger::L7Tag::{Unencrypted, DHCP4, DHCP6, DNS, NTP};
+use crate::protocols::parsers::{dhcpv4_parser, dhcpv6_parser, dns_parser, nbtns_parser, ntp_parser};
 use crate::state::tables::name_resolution_table::NameResolutionTable;
 use crate::state::tables::udp_table::UdpTable;
 use crate::helpers::timer::{record_timer, Timer};
@@ -99,6 +99,19 @@ impl UDPProcessor {
             to_pipeline!(
                 WiredChannelName::Dhcpv4Pipeline,
                 self.bus.dhcpv4_pipeline.sender,
+                Arc::new(dhcp),
+                size
+            );
+        }
+
+        if let Some(dhcp) = dhcpv6_parser::parse(datagram) {
+            tags.push(DHCP6);
+            tags.push(Unencrypted);
+
+            let size = dhcp.size;
+            to_pipeline!(
+                WiredChannelName::Dhcpv6Pipeline,
+                self.bus.dhcpv6_pipeline.sender,
                 Arc::new(dhcp),
                 size
             );

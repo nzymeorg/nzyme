@@ -35,6 +35,8 @@ const rolePivot = (role, mac) => {
       return { title: "Inbound SOCKS tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX, macFilter("server_mac", mac)) };
     case "VPN_SERVER":
       return { title: "Inbound VPN connections", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX, macFilter("server_mac", mac)) };
+    case "IPV6_TUNNEL_SERVER":
+      return { title: "Inbound IPv6 transition tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX, macFilter("server_mac", mac)) };
     case "RTSP_SERVER":
       return { title: "RTSP streams served", to: filteredLink(ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX, macFilter("stream_source_mac", mac)) };
     case "STUN_SERVER":
@@ -55,6 +57,7 @@ const protocolPivot = (tag, served, mac) => {
     case "DNS":
       return { title: served ? "DNS responses served" : "DNS queries", to: filteredLink(ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS, macFilter(side, mac)) };
     case "DHCP4":
+    case "DHCP6":
       return { title: served ? "DHCP transactions served" : "DHCP transactions", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX, macFilter(side, mac)) };
     case "NTP":
       return { title: served ? "NTP responses served" : "NTP requests", to: filteredLink(ApiRoutes.ETHERNET.TIME.NTP.INDEX, macFilter(side, mac)) };
@@ -67,6 +70,8 @@ const protocolPivot = (tag, served, mac) => {
     case "WireGuard":
     case "OpenVPN":
       return { title: (served ? "Inbound" : "Outbound") + " VPN connections", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX, macFilter(side, mac)) };
+    case "Teredo":
+      return { title: (served ? "Inbound" : "Outbound") + " IPv6 transition tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX, macFilter(side, mac)) };
     case "RTSP":
       return { title: served ? "RTSP streams served" : "RTSP streams received", to: filteredLink(ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX, macFilter(served ? "stream_source_mac" : "stream_destination_mac", mac)) };
     case "STUN":

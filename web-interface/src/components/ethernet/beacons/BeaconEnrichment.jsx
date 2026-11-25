@@ -1,4 +1,5 @@
 import React from "react";
+import {addressWithPort} from "../../../util/Tools";
 
 export default function BeaconEnrichment({beacon}) {
 
@@ -65,7 +66,7 @@ export default function BeaconEnrichment({beacon}) {
         return (
           <React.Fragment>
             {row("SOCKS Type", enrichment.socks_type)}
-            {row("Proxy", enrichment.proxy_address ? enrichment.proxy_address + ":" + enrichment.proxy_port : null)}
+            {row("Proxy", enrichment.proxy_address ? addressWithPort(enrichment.proxy_address, enrichment.proxy_port) : null)}
             {row("Tunneled Destination Host", enrichment.tunneled_destination_host)}
             {row("Username", enrichment.username)}
           </React.Fragment>

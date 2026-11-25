@@ -16,6 +16,7 @@ pub struct IcmpSummaryReport {
     pub destination_mac: Option<String>,
     pub source_address: String,
     pub destination_address: String,
+    pub ip_version: u8,
     pub icmp_type: u8,
     pub icmp_code: u8,
     pub packet_count: u64,
@@ -23,7 +24,7 @@ pub struct IcmpSummaryReport {
     pub bytes_max: u32,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
+    pub ip_df: Option<bool>,
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>
 }
@@ -34,6 +35,7 @@ pub struct IcmpErrorReport {
     pub destination_mac: Option<String>,
     pub source_address: String,
     pub destination_address: String,
+    pub ip_version: u8,
     pub icmp_type: u8,
     pub icmp_code: u8,
     pub ip_ttl: u8,
@@ -53,6 +55,7 @@ pub fn generate(summaries: &[(IcmpSummaryKey, IcmpSummary)], errors: &[Arc<IcmpP
         destination_mac: key.destination_mac.clone(),
         source_address: key.source_address.to_string(),
         destination_address: key.destination_address.to_string(),
+        ip_version: key.ip_version,
         icmp_type: key.icmp_type,
         icmp_code: key.icmp_code,
         packet_count: summary.packet_count,
@@ -70,16 +73,17 @@ pub fn generate(summaries: &[(IcmpSummaryKey, IcmpSummary)], errors: &[Arc<IcmpP
         destination_mac: p.destination_mac.clone(),
         source_address: p.source_address.to_string(),
         destination_address: p.destination_address.to_string(),
+        ip_version: p.ip_version,
         icmp_type: p.icmp_type,
         icmp_code: p.icmp_code,
         ip_ttl: p.ip_ttl,
         redirect_gateway: p.redirect_gateway.map(|g| g.to_string()),
-        quoted_protocol: p.quoted.as_ref().map(|q| q.protocol),
+        quoted_protocol: p.quoted.as_ref().and_then(|q| q.protocol),
         quoted_source_address: p.quoted.as_ref().map(|q| q.source_address.to_string()),
         quoted_destination_address: p.quoted.as_ref().map(|q| q.destination_address.to_string()),
         quoted_source_port: p.quoted.as_ref().and_then(|q| q.source_port),
         quoted_destination_port: p.quoted.as_ref().and_then(|q| q.destination_port),
-        quoted_ttl: p.quoted.as_ref().map(|q| q.ttl),
+        quoted_ttl: p.quoted.as_ref().and_then(|q| q.ttl),
         timestamp: p.timestamp
     }).collect();
 

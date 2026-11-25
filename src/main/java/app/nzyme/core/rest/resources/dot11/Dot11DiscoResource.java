@@ -70,7 +70,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/dot11/disco")
 @Produces(MediaType.APPLICATION_JSON)
@@ -124,7 +123,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
         BssidSelection bssids = resolveBssids(authenticatedUser, bssidsParam, monitoredNetworkId);
@@ -173,7 +172,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -259,7 +258,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -336,7 +335,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -409,7 +408,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (limit > 250) {
             return Response.status(Response.Status.BAD_REQUEST).build();
@@ -476,7 +475,7 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (limit > 250) {
             return Response.status(Response.Status.BAD_REQUEST).build();

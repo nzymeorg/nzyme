@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import Store from "../../../util/Store";
 import {colorsForMode, FONT_FAMILY, GRID_SPACING, tooltipStyle} from "../../shared/viz/VizTheme";
 import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {LINK_CLASS_TITLES, linkClassColor, nodeKind, noDataText} from "./TopologyData";
+import {LINK_CLASS_TITLES, linkClassColor, nodeKind, noDataText, truncateLabel as truncate} from "./TopologyData";
 
 const TOP = 36;
 const BOTTOM = 14;
@@ -17,7 +17,6 @@ const shareText = (value, total) => {
   return share > 0 && share < 0.1 ? "under 0.1%" : share.toFixed(1) + "%";
 }
 
-const truncate = (s, max) => (s && s.length > max ? s.substring(0, Math.max(1, max - 1)) + "…" : s);
 
 const bandPath = (band, y0, y1, thickness) => {
   const xm = (band.x0 + band.x1) / 2;

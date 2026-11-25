@@ -16,6 +16,7 @@ import app.nzyme.core.rest.responses.shared.GeoInformationResponse;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import com.google.common.net.InetAddresses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -97,6 +98,7 @@ public class IPAddressesResource extends TapDataHandlingResource {
                     asset.dhcpFingerprintReboot(),
                     asset.dhcpFingerprintRebind(),
                     asset.seenArp(),
+                    asset.seenNdp(),
                     asset.seenDhcp(),
                     asset.seenTcp(),
                     asset.seenUdp(),
@@ -136,7 +138,7 @@ public class IPAddressesResource extends TapDataHandlingResource {
         }
 
         return Response.ok(IPAddressDetailsResponse.create(
-                address.getHostAddress(), AssetsListResponse.create(totalAssets, assets), context, geoResponse
+                InetAddresses.toAddrString(address), AssetsListResponse.create(totalAssets, assets), context, geoResponse
         )).build();
     }
 

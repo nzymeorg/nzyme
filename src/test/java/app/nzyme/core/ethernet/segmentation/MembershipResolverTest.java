@@ -98,7 +98,7 @@ public class MembershipResolverTest {
         assertFalse(resolver().siteLocal(address("100.100.1.2")));
 
         MembershipResolver resolver = new MembershipResolver(Lists.newArrayList(), Collections.emptyMap(),
-                new InternalAddresses.Rules(true));
+                new InternalAddresses.Rules(true, List.of()));
         assertTrue(resolver.siteLocal(address("100.100.1.2")));
         assertTrue(resolver.siteLocal(address("10.1.2.3")));
         assertFalse(resolver.siteLocal(address("8.8.8.8")));

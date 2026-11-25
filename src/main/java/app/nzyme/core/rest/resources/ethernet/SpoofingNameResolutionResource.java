@@ -42,7 +42,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/spoofing/nameres")
 @Produces(MediaType.APPLICATION_JSON)
@@ -82,7 +81,7 @@ public class SpoofingNameResolutionResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Spoofing.NameResolutionOrderColumn orderColumn = Spoofing.NameResolutionOrderColumn.LAST_SEEN;
@@ -130,7 +129,7 @@ public class SpoofingNameResolutionResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 

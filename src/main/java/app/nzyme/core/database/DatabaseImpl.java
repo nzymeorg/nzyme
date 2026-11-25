@@ -51,6 +51,7 @@ import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportHopEntryM
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntryMapper;
 import app.nzyme.core.ethernet.socks.db.SocksTunnelEntryMapper;
 import app.nzyme.core.ethernet.vpn.db.VpnTunnelEntryMapper;
+import app.nzyme.core.ethernet.ipv6transition.db.Ipv6TransitionTunnelEntryMapper;
 import app.nzyme.core.ethernet.ssh.db.SSHSessionEntryMapper;
 import app.nzyme.core.ethernet.tls.db.TLSCertificateEntryMapper;
 import app.nzyme.core.ethernet.tls.db.TLSSessionEntryMapper;
@@ -270,6 +271,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new DNSLogEntryMapper())
                 .registerRowMapper(new SocksTunnelEntryMapper())
                 .registerRowMapper(new VpnTunnelEntryMapper())
+                .registerRowMapper(new Ipv6TransitionTunnelEntryMapper())
                 .registerRowMapper(new SSHSessionEntryMapper())
                 .registerRowMapper(new TLSSessionEntryMapper())
                 .registerRowMapper(new TLSCertificateEntryMapper())
@@ -601,6 +603,16 @@ public class DatabaseImpl implements Database {
                         "DELETE FROM icmp_packets WHERE last_seen < :since AND tap_uuid IN (<taps>)"
                 ));
                 tables.add(new DataTableInformation(
+                        "ndp_messages",
+                        "SELECT COUNT(*) FROM ndp_messages WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM ndp_messages WHERE last_seen < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
+                        "ndp_router_advertisements",
+                        "SELECT COUNT(*) FROM ndp_router_advertisements WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM ndp_router_advertisements WHERE last_seen < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
                         "dhcp_transactions",
                         "SELECT COUNT(*) FROM dhcp_transactions WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM dhcp_transactions WHERE latest_packet < :since AND tap_uuid IN (<taps>)"
@@ -634,6 +646,11 @@ public class DatabaseImpl implements Database {
                         "vpn_tunnels",
                         "SELECT COUNT(*) FROM vpn_tunnels WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM vpn_tunnels WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
+                ));
+                tables.add(new DataTableInformation(
+                        "ipv6_transition_tunnels",
+                        "SELECT COUNT(*) FROM ipv6_transition_tunnels WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM ipv6_transition_tunnels WHERE most_recent_segment_time < :since AND tap_uuid IN (<taps>)"
                 ));
                 tables.add(new DataTableInformation(
                         "ntp_transactions",
@@ -746,6 +763,15 @@ public class DatabaseImpl implements Database {
                         "assets_communication",
                         "SELECT COUNT(*) FROM assets_communication WHERE <scope>",
                         "DELETE FROM assets_communication WHERE <scope> AND bucket < :since",
+                        true
+                ));
+            }
+            case ASSET_IP_ADDRESSES -> {
+                tables.add(new DataTableInformation(
+                        "assets_ip_addresses",
+                        "SELECT COUNT(*) FROM assets_ip_addresses WHERE asset_id IN (SELECT id FROM assets WHERE <scope>)",
+                        "DELETE FROM assets_ip_addresses WHERE asset_id IN (SELECT id FROM assets WHERE <scope>) " +
+                                "AND last_seen < :since",
                         true
                 ));
             }

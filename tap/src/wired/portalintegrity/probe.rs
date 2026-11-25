@@ -187,11 +187,16 @@ fn fetch_one(stack: &mut Stack, url: &Url) -> Result<Hop> {
 
     let port = url.port().unwrap_or(if is_tls { 443 } else { 80 });
 
-    let ip: IpAddress = match host.parse::<std::net::IpAddr>() {
-        Ok(std::net::IpAddr::V4(v4)) => IpAddress::Ipv4(v4.into()),
-        Ok(std::net::IpAddr::V6(_)) => bail!("IPv6 control targets not supported in this build"),
-        Err(_) => stack.resolve(&host, DNS_TIMEOUT)?,
+    let ip: IpAddress = match url.host() {
+        Some(url::Host::Ipv4(v4)) if !stack.is_ipv6() => IpAddress::Ipv4(v4.into()),
+        Some(url::Host::Ipv6(v6)) if stack.is_ipv6() => IpAddress::Ipv6(v6.into()),
+        Some(url::Host::Domain(name)) => stack.resolve(name, DNS_TIMEOUT)?,
+        Some(_) => bail!("the address '{}' cannot be reached over IPv{}", host, if stack.is_ipv6() { 6 } else { 4 }),
+        None => bail!("URL '{}' has no host", url),
     };
+
+    // An IPv6 address is in brackets in the URL and the Host header, but not as a TLS server name.
+    let tls_host = host.trim_start_matches('[').trim_end_matches(']').to_string();
 
     let path_and_query = {
         let mut pq = url.path().to_string();
@@ -213,7 +218,7 @@ fn fetch_one(stack: &mut Stack, url: &Url) -> Result<Hop> {
     let handle = stack.connect(ip, port, CONNECT_TIMEOUT)?;
 
     let (raw, completeness, tls_captured) = if is_tls {
-        read_https(stack, handle, &host, request.as_bytes())?
+        read_https(stack, handle, &tls_host, request.as_bytes())?
     } else {
         let mut stream = stack.stream(handle, IO_TIMEOUT);
         stream.write_all(request.as_bytes())?;

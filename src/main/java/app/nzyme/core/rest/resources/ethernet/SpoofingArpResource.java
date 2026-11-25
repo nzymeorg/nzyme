@@ -39,15 +39,15 @@ import org.joda.time.DateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/spoofing/arp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
-@Tag(name = "Spoofing: ARP", description = "ARP poisoning findings of a tenant. A finding is one address that a "
-        + "device (the spoofer) claimed with its own MAC address while the legitimate owner of the address was "
-        + "still claiming it as well. It carries the devices that received the spoofer's replies, which are the "
-        + "devices whose ARP cache may now point at the spoofer. Findings are built from the ARP packets of all "
+@Tag(name = "Spoofing: ARP", description = "ARP poisoning and NDP spoofing findings of a tenant. A finding is one "
+        + "address that a device (the spoofer) claimed with its own MAC address while the legitimate owner of the "
+        + "address was still claiming it as well. It carries the devices that received the spoofer's replies, "
+        + "which are the devices whose ARP or neighbor cache may now point at the spoofer. Findings of IPv4 "
+        + "addresses are built from the ARP packets and findings of IPv6 addresses from the NDP messages of all "
         + "taps of the tenant.")
 public class SpoofingArpResource extends TapDataHandlingResource {
 
@@ -79,7 +79,7 @@ public class SpoofingArpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Spoofing.ArpOrderColumn orderColumn = Spoofing.ArpOrderColumn.LAST_SEEN;
@@ -127,7 +127,7 @@ public class SpoofingArpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 

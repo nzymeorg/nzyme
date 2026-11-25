@@ -861,10 +861,6 @@ public class SegmentationViews {
         return sideCondition(selectors, side, resolver, bindings, stale, false);
     }
 
-    // The addresses sessions are stored as site-local for.
-    private static final List<CIDR> PRIVATE_NETWORKS = List.of(CIDR.parse("10.0.0.0/8"), CIDR.parse("172.16.0.0/12"),
-            CIDR.parse("192.168.0.0/16"), CIDR.parse("fec0::/10"));
-
     static boolean canBeExternal(CIDR network, Collection<Segment> segments, InternalAddresses.Rules internalAddresses) {
         boolean insideSegment = false;
 
@@ -888,11 +884,7 @@ public class SegmentationViews {
             return false;
         }
 
-        if (internalAddresses.cgnatIsInternal() && isWithin(network, InternalAddresses.CGNAT_NETWORK)) {
-            return false;
-        }
-
-        return PRIVATE_NETWORKS.stream().noneMatch(privateNetwork -> isWithin(network, privateNetwork));
+        return internalAddresses.networks().stream().noneMatch(internal -> isWithin(network, internal));
     }
 
     private static boolean isWithin(CIDR inner, CIDR outer) {

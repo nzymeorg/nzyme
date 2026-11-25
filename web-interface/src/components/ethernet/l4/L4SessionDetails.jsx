@@ -31,7 +31,7 @@ export default function L4SessionDetails({type, session}) {
                           withAssetLink withAssetName />} />
                   </dd>
                   <dt>Source Address</dt>
-                  <dd><L4Address address={session.source} /></dd>
+                  <dd><L4Address full={true} address={session.source} /></dd>
                   <dt>Destination MAC</dt>
                   <dd>
                     <InternalAddressOnlyWrapper
@@ -41,7 +41,7 @@ export default function L4SessionDetails({type, session}) {
                             withAssetLink withAssetName/>} />
                   </dd>
                   <dt>Destination Address</dt>
-                  <dd><L4Address address={session.destination} /></dd>
+                  <dd><L4Address full={true} address={session.destination} /></dd>
                   <dt>State</dt>
                   <dd><L4SessionState state={session.state} showFull={true} /></dd>
                   <dt>Tags</dt>

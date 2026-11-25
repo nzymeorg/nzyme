@@ -165,6 +165,10 @@ public class Tools {
         }
     }
 
+    public static String addressWithPort(String address, Object port) {
+        return (address.contains(":") ? "[" + address + "]" : address) + ":" + port;
+    }
+
     public static InetAddress stringtoInetAddress(String address) {
         try {
             return InetAddress.getByName(address);

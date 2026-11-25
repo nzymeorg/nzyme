@@ -15,6 +15,7 @@ public abstract class IcmpSummaryReport {
     public abstract String destinationMac();
     public abstract String sourceAddress();
     public abstract String destinationAddress();
+    public abstract int ipVersion();
     public abstract int icmpType();
     public abstract int icmpCode();
     public abstract long packetCount();
@@ -22,7 +23,8 @@ public abstract class IcmpSummaryReport {
     public abstract int bytesMax();
     public abstract int ipTtl();
     public abstract int ipTos();
-    public abstract boolean ipDf();
+    @Nullable
+    public abstract Boolean ipDf();
     public abstract DateTime firstSeen();
     public abstract DateTime lastSeen();
 
@@ -31,6 +33,7 @@ public abstract class IcmpSummaryReport {
                                            @JsonProperty("destination_mac") String destinationMac,
                                            @JsonProperty("source_address") String sourceAddress,
                                            @JsonProperty("destination_address") String destinationAddress,
+                                           @JsonProperty("ip_version") int ipVersion,
                                            @JsonProperty("icmp_type") int icmpType,
                                            @JsonProperty("icmp_code") int icmpCode,
                                            @JsonProperty("packet_count") long packetCount,
@@ -38,7 +41,7 @@ public abstract class IcmpSummaryReport {
                                            @JsonProperty("bytes_max") int bytesMax,
                                            @JsonProperty("ip_ttl") int ipTtl,
                                            @JsonProperty("ip_tos") int ipTos,
-                                           @JsonProperty("ip_df") boolean ipDf,
+                                           @JsonProperty("ip_df") Boolean ipDf,
                                            @JsonProperty("first_seen") DateTime firstSeen,
                                            @JsonProperty("last_seen") DateTime lastSeen) {
         return builder()
@@ -46,6 +49,7 @@ public abstract class IcmpSummaryReport {
                 .destinationMac(destinationMac)
                 .sourceAddress(sourceAddress)
                 .destinationAddress(destinationAddress)
+                .ipVersion(ipVersion)
                 .icmpType(icmpType)
                 .icmpCode(icmpCode)
                 .packetCount(packetCount)
@@ -69,6 +73,7 @@ public abstract class IcmpSummaryReport {
         public abstract Builder destinationMac(String destinationMac);
         public abstract Builder sourceAddress(String sourceAddress);
         public abstract Builder destinationAddress(String destinationAddress);
+        public abstract Builder ipVersion(int ipVersion);
         public abstract Builder icmpType(int icmpType);
         public abstract Builder icmpCode(int icmpCode);
         public abstract Builder packetCount(long packetCount);
@@ -76,7 +81,7 @@ public abstract class IcmpSummaryReport {
         public abstract Builder bytesMax(int bytesMax);
         public abstract Builder ipTtl(int ipTtl);
         public abstract Builder ipTos(int ipTos);
-        public abstract Builder ipDf(boolean ipDf);
+        public abstract Builder ipDf(Boolean ipDf);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);
         public abstract IcmpSummaryReport build();

@@ -9,6 +9,8 @@ public record CIDR(InetAddress address, int prefix) {
     public static CIDR parse(String s) {
         if (s == null) throw new IllegalArgumentException("CIDR is null");
 
+        if (s.indexOf('%') >= 0) throw new IllegalArgumentException("Zone not allowed: " + s);
+
         int slash = s.indexOf('/');
         String addrPart = slash < 0 ? s : s.substring(0, slash);
         InetAddress addr = InetAddresses.forString(addrPart);

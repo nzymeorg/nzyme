@@ -52,6 +52,12 @@ public class SegmentFilters implements SqlFilterProvider {
                 return "EXISTS (" + MEMBERS + ipAddressMatch(bindId, "m.network", FilterOperator.IS_CGNAT) + ")";
             case IS_NOT_CGNAT:
                 return "NOT EXISTS (" + MEMBERS + ipAddressMatch(bindId, "m.network", FilterOperator.IS_CGNAT) + ")";
+            case IS_LINK_LOCAL:
+            case IS_IPV4:
+            case IS_IPV6:
+                return "EXISTS (" + MEMBERS + ipAddressMatch(bindId, "m.network", operator) + ")";
+            case IS_NOT_LINK_LOCAL:
+                return "NOT EXISTS (" + MEMBERS + ipAddressMatch(bindId, "m.network", FilterOperator.IS_LINK_LOCAL) + ")";
             case IS_NULL:
                 return "NOT EXISTS (" + MEMBERS + "m.network IS NOT NULL)";
             case IS_NOT_NULL:

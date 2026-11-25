@@ -94,13 +94,13 @@ impl UdpTable {
                     Some(c) => {
                         if c.most_recent_segment_time < Utc::now() - Duration::seconds(3) {
                             /*
-                             * Stale: treat as a brand-new conversation. VPN tunnel tags carry
-                             * over because the tunnel on this 5-tuple continues and its later
-                             * datagrams may not allow a fresh identification.
+                             * Stale: treat as a brand-new conversation. Tags of VPN and IPv6 transition
+                             * tunnels carry over because the tunnel on this 5-tuple continues and its
+                             * later datagrams may not allow a fresh identification.
                              */
                             let mut tags = tags;
                             tags.extend(c.tags.iter()
-                                .filter(|t| matches!(t, L7Tag::WireGuard | L7Tag::OpenVPN))
+                                .filter(|t| matches!(t, L7Tag::WireGuard | L7Tag::OpenVPN | L7Tag::Teredo))
                                 .cloned());
                             self.insert_new_conversation(datagram, tags, &mut conversations)
                         } else {

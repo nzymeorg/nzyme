@@ -1,5 +1,6 @@
 import React from "react";
 import numeral from "numeral";
+import {isRouterAdvertisement} from "./DhcpSpoofingProtocol";
 
 const list = (values) => {
   if (!values || values.length === 0) {
@@ -58,7 +59,9 @@ export function DhcpOfferedValue({parameters, field, compareTo = undefined}) {
   )
 }
 
-export default function DhcpOfferedParameters({parameters, compareTo = undefined}) {
+export default function DhcpOfferedParameters({parameters, compareTo = undefined, protocol = undefined}) {
+
+  const router = isRouterAdvertisement(protocol);
 
   if (!parameters) {
     return <span className="text-muted">Unknown</span>
@@ -78,15 +81,20 @@ export default function DhcpOfferedParameters({parameters, compareTo = undefined
 
   return (
     <dl className="mb-0">
-      <dt>Gateway</dt>
+      <dt>{router ? "Default Router" : "Gateway"}</dt>
       <dd>{mark("routers", list(parameters.routers))}</dd>
       <dt>DNS Servers</dt>
       <dd>{mark("dns_servers", list(parameters.dns_servers))}</dd>
-      <dt>Domain Name</dt>
+      <dt>{router ? "DNS Search List" : "Domain Name"}</dt>
       <dd>{mark("domain_name", parameters.domain_name ? <span className="machine-data">{parameters.domain_name}</span> : <span className="text-muted">None</span>)}</dd>
-      <dt>Subnet Mask</dt>
+      <dt>{router ? "Prefixes" : "Subnet Mask"}</dt>
       <dd>{mark("subnet_mask", parameters.subnet_mask ? <span className="machine-data">{parameters.subnet_mask}</span> : <span className="text-muted">None</span>)}</dd>
-      <dt>Lease Time</dt>
+      {router ?
+        <React.Fragment>
+          <dt>Address Configuration and Role</dt>
+          <dd>{mark("flags", parameters.flags ? parameters.flags : <span className="text-muted">Unknown</span>)}</dd>
+        </React.Fragment> : null}
+      <dt>{router ? "Router Lifetime" : "Lease Time"}</dt>
       <dd className="mb-0">
         {parameters.lease_time_seconds ? numeral(parameters.lease_time_seconds).format("0,0") + " seconds"
           : <span className="text-muted">None</span>}

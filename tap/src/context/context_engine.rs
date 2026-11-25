@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -14,7 +14,7 @@ use crate::context::context_data::{HostnameContextData, IpAddressContextData};
 use crate::context::mac_address_context::MacAddressContext;
 use crate::wired::ethernet::injection::injector::Injector;
 use crate::wired::ethernet::injection::protocols::dns;
-use crate::wired::ethernet::injection::udp::generate_ipv4_udp_packet;
+use crate::wired::ethernet::injection::udp::{generate_ipv4_udp_packet, generate_ipv6_udp_packet};
 use crate::wired::interfaces;
 use crate::helpers::network::{ip_in_cidr, mac_address_from_string, to_mac_address_string};
 use crate::link::leaderlink::Leaderlink;
@@ -35,8 +35,13 @@ pub struct ContextEngine {
 
 #[derive(Default)]
 pub struct ContextEngineMetrics {
-    total_ptr_queries: i128
+    total_ptr_queries: i128,
+    dropped: i128
 }
+
+const MAX_MACS: usize = 50_000;
+const MAX_ADDRESSES_PER_MAC: usize = 64;
+const MAX_HOSTNAMES_PER_MAC: usize = 64;
 
 impl ContextEngine {
 
@@ -155,6 +160,13 @@ impl ContextEngine {
      * similar.
      */
 
+    fn count_dropped(&self) {
+        match self.local_metrics.lock() {
+            Ok(mut metrics) => metrics.dropped += 1,
+            Err(e) => error!("Could not acquire context engine metrics mutex: {}", e)
+        }
+    }
+
     pub fn register_mac_address_ip(&self, mac: String, ip_addr: IpAddr, source: ContextSource) {
         if Self::skip_ip_address(&ip_addr) || Self::skip_mac_address(&mac) {
             return
@@ -162,6 +174,11 @@ impl ContextEngine {
 
         match self.macs.lock() {
             Ok(mut macs) => {
+                if !macs.contains_key(&mac) && macs.len() >= MAX_MACS {
+                    self.count_dropped();
+                    return;
+                }
+
                 let entry = macs
                     .entry(mac.clone())
                     .or_default();
@@ -172,6 +189,8 @@ impl ContextEngine {
 
                     // IP address from this source already exists, update timestamp.
                     ip.timestamp = Utc::now();
+                } else if entry.ip_addresses.len() >= MAX_ADDRESSES_PER_MAC {
+                    self.count_dropped();
                 } else {
                     entry.mac = mac;
 
@@ -222,6 +241,11 @@ impl ContextEngine {
 
         match self.macs.lock() {
             Ok(mut macs) => {
+                if !macs.contains_key(&mac) && macs.len() >= MAX_MACS {
+                    self.count_dropped();
+                    return;
+                }
+
                 let entry = macs
                     .entry(mac.clone())
                     .or_default();
@@ -232,6 +256,8 @@ impl ContextEngine {
 
                     // IP address from this source already exists, update timestamp.
                     hostname.timestamp = Utc::now();
+                } else if entry.hostnames.len() >= MAX_HOSTNAMES_PER_MAC {
+                    self.count_dropped();
                 } else {
                     entry.mac = mac;
 
@@ -268,13 +294,7 @@ impl ContextEngine {
             Ok(arp) => {
                 for (mac, ip_addresses) in arp.get_mapping() {
                     for ip in ip_addresses {
-                        let lookup_ip: Ipv4Addr = match ip.addr {
-                            IpAddr::V4(addr) => addr,
-                            IpAddr::V6(_) => {
-                                error!("IPv6 reverse lookups are not supported yet.");
-                                continue;
-                            }
-                        };
+                        let lookup_ip = ip.addr;
 
                         if let Some(network) = Self::determine_network(ip.addr, configuration) {
                             // We have an Ethernet interface responsible for the IP address.
@@ -319,7 +339,16 @@ impl ContextEngine {
                                 }
                             };
 
+                            let injection_ip_v6: Option<Ipv6Addr> = match network.injection_interface_ip_address {
+                                Some(ref custom_ip) => custom_ip.parse().ok(),
+                                None => interfaces::get_first_ipv6_address_of_interface(&injection_interface)
+                            };
+
                             let injection_ip: Ipv4Addr = match network.injection_interface_ip_address {
+                                Some(ref custom_ip) if injection_ip_v6.is_some() => {
+                                    debug!("Custom IP address [{}] is an IPv6 address.", custom_ip);
+                                    Ipv4Addr::UNSPECIFIED
+                                },
                                 Some(ref custom_ip) => {
                                     custom_ip.parse().ok().unwrap_or_else(|| {
                                         error!("Invalid custom IP address: {}", custom_ip);
@@ -339,19 +368,21 @@ impl ContextEngine {
                             };
 
                             match injection_addresses.lock() {
-                                Ok(mut addresses) => { addresses.insert(IpAddr::V4(injection_ip)); },
+                                Ok(mut addresses) => {
+                                    addresses.insert(IpAddr::V4(injection_ip));
+                                    if let Some(injection_ip_v6) = injection_ip_v6 {
+                                        addresses.insert(IpAddr::V6(injection_ip_v6));
+                                    }
+                                },
                                 Err(e) => error!("Could not acquire injection addresses mutex: {}", e)
                             }
 
                             for dns_server in network.dns_servers {
-                                let server_ip: Ipv4Addr = match dns_server.ip() {
-                                    IpAddr::V4(addr) => addr,
-                                    IpAddr::V6(_) => {
-                                        error!("IPv6 DNS servers for reverse lookups are not \
-                                            supported yet.");
-                                        continue;
-                                    }
-                                };
+                                // The name of an IPv6 address can be asked for over IPv4 and the other way around.
+                                if dns_server.ip().is_ipv6() && injection_ip_v6.is_none() {
+                                    debug!("No IPv6 address to send reverse lookups to [{}] from.", dns_server);
+                                    continue;
+                                }
 
                                 let server_mac = match arp.mac_address_of_ip_address(dns_server.ip()) {
                                     Some(mac) => {
@@ -380,15 +411,18 @@ impl ContextEngine {
                                     }
                                 }
 
-                                let dns = generate_ipv4_udp_packet(
-                                    injection_mac,
-                                    server_mac,
-                                    injection_ip,
-                                    server_ip,
-                                    random(),
-                                    dns_server.port(),
-                                    dns::ptr_query(lookup_ip, transaction_id)
-                                );
+                                let query = dns::ptr_query(lookup_ip, transaction_id);
+                                let dns = match (dns_server.ip(), injection_ip_v6) {
+                                    (IpAddr::V6(server_ip), Some(injection_ip_v6)) => generate_ipv6_udp_packet(
+                                        injection_mac, server_mac, injection_ip_v6, server_ip, random(),
+                                        dns_server.port(), query
+                                    ),
+                                    (IpAddr::V4(server_ip), _) => generate_ipv4_udp_packet(
+                                        injection_mac, server_mac, injection_ip, server_ip, random(),
+                                        dns_server.port(), query
+                                    ),
+                                    _ => continue
+                                };
 
                                 match injector.inject(dns) { Err(e) => {
                                     error!("Could not inject PTR DNS to [{}] on interface [{}]: {}",
@@ -540,6 +574,7 @@ impl ContextEngine {
                         match local_metrics.lock() {
                             Ok(local_metrics) => {
                                 metrics.set_gauge("context.ptr.queries", local_metrics.total_ptr_queries);
+                                metrics.set_gauge("context.dropped", local_metrics.dropped);
                             },
                             Err(e) => error!("Could not acquire local metrics mutex: {}", e)
                         }

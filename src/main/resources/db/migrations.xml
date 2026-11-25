@@ -13463,4 +13463,437 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="make_tcp_probes_ip_df_nullable" author="lennartkoopmann">
+        <dropNotNullConstraint tableName="tcp_probes" columnName="ip_df" />
+    </changeSet>
+
+    <changeSet id="add_ip_version_to_icmp_packets" author="lennartkoopmann">
+        <addColumn tableName="icmp_packets">
+            <column name="ip_version" type="integer" defaultValueNumeric="4">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+
+        <dropNotNullConstraint tableName="icmp_packets" columnName="ip_df" />
+    </changeSet>
+
+    <changeSet id="create_ndp_tables" author="lennartkoopmann">
+        <createTable tableName="ndp_messages">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="message_type" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="text" />
+            <column name="destination_mac" type="text" />
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="hop_limit" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="target_address" type="inet" />
+            <column name="source_link_layer_address" type="text" />
+            <column name="target_link_layer_address" type="text" />
+            <column name="router" type="boolean" />
+            <column name="solicited" type="boolean" />
+            <column name="overrides" type="boolean" />
+            <column name="packet_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="ndp_messages" indexName="ndp_messages_tap_uuid_last_seen_idx">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createIndex tableName="ndp_messages" indexName="ndp_messages_target_address_last_seen_idx">
+            <column name="target_address" />
+            <column name="last_seen" />
+        </createIndex>
+
+        <createTable tableName="ndp_router_advertisements">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_mac" type="text" />
+            <column name="destination_mac" type="text" />
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+            <column name="hop_limit" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="source_link_layer_address" type="text" />
+            <column name="current_hop_limit" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="managed" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="other_configuration" type="boolean">
+                <constraints nullable="false" />
+            </column>
+            <column name="preference" type="text">
+                <constraints nullable="false" />
+            </column>
+            <column name="router_lifetime" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="reachable_time" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="retransmit_timer" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="mtu" type="bigint" />
+            <column name="prefixes" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="routes" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="dns_servers" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="dns_servers_lifetime" type="bigint" />
+            <column name="dns_search_list" type="jsonb">
+                <constraints nullable="false" />
+            </column>
+            <column name="packet_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="ndp_router_advertisements" indexName="ndp_router_advertisements_tap_uuid_last_seen_idx">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_dhcpv6_to_dhcp_transactions" author="lennartkoopmann">
+        <addColumn tableName="dhcp_transactions">
+            <column name="ip_version" type="integer" defaultValueNumeric="4">
+                <constraints nullable="false" />
+            </column>
+            <column name="client_duid" type="text" />
+            <column name="server_duid" type="text" />
+            <column name="addresses" type="jsonb" />
+            <column name="prefixes" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_protocol_to_spoofing_dhcp_servers_and_findings" author="lennartkoopmann">
+        <addColumn tableName="spoofing_dhcp_servers">
+            <column name="protocol" type="text" defaultValue="DHCP">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+        <addColumn tableName="spoofing_dhcp_findings">
+            <column name="protocol" type="text" defaultValue="DHCP">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+
+        <dropIndex tableName="spoofing_dhcp_servers" indexName="spoofing_dhcp_servers_organization_id_tenant_id_mac_address_key" />
+        <createIndex tableName="spoofing_dhcp_servers" indexName="spoofing_dhcp_servers_org_tenant_id_protocol_mac_address_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="protocol" />
+            <column name="mac" />
+            <column name="address" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_ndp_to_assets_and_assets_activity" author="lennartkoopmann">
+        <addColumn tableName="assets">
+            <column name="seen_ndp" type="boolean" defaultValue="false">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+
+        <addColumn tableName="assets_activity">
+            <column name="ndp_messages" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_ipv6_transition_tunnels" author="lennartkoopmann">
+        <createTable tableName="ipv6_transition_tunnels">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="session_key" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="untimed_session_key" type="varchar(64)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="transport" type="varchar(3)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tunnel_type" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="details" type="jsonb" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="connection_status" type="varchar(24)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tunneled_bytes" type="bigint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_mac" type="varchar(17)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_port" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_is_site_local" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_is_loopback" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_is_multicast" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="source_address_geo_asn_number" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_asn_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_asn_domain" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_city" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_country_code" type="varchar(2)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_latitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="source_address_geo_longitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_mac" type="varchar(17)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address" type="inet">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_port" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_is_site_local" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_is_loopback" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_is_multicast" type="boolean">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="destination_address_geo_asn_number" type="integer">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_asn_name" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_asn_domain" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_city" type="text">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_country_code" type="varchar(2)">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_latitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="destination_address_geo_longitude" type="float">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="established_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="terminated_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="most_recent_segment_time" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="ipv6_transition_tunnels"
+                             columnNames="tap_uuid, session_key"
+                             constraintName="ipv6_transition_tunnels_tap_uuid_session_key_key" />
+        <createIndex tableName="ipv6_transition_tunnels" indexName="ipv6_transition_tunnels_most_recent_segment_time_idx">
+            <column name="most_recent_segment_time" />
+        </createIndex>
+        <createIndex tableName="ipv6_transition_tunnels" indexName="ipv6_transition_tunnels_untimed_session_key_idx">
+            <column name="untimed_session_key" />
+        </createIndex>
+
+        <sql>
+            ALTER TABLE ipv6_transition_tunnels SET (autovacuum_vacuum_scale_factor = 0.01, autovacuum_vacuum_threshold = 1000, autovacuum_analyze_scale_factor = 0.02, fillfactor = 85, autovacuum_vacuum_cost_delay = 0);
+        </sql>
+    </changeSet>
+
+    <changeSet id="create_internal_address_rewrites" author="lennartkoopmann">
+        <createTable tableName="internal_address_rewrites">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="network" type="cidr">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="rows_changed" type="bigint" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="requested_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="claimed_until" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="completed_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="internal_address_rewrites"
+                                 baseColumnNames="tenant_id"
+                                 constraintName="internal_address_rewrites_tenant_id_fkey"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onDelete="CASCADE" />
+
+        <sql>
+            CREATE UNIQUE INDEX internal_address_rewrites_pending_key ON internal_address_rewrites (organization_id, tenant_id, network) WHERE completed_at IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="add_ipv6_learning_started_at_to_spoofing_dhcp_detection_state" author="lennartkoopmann">
+        <addColumn tableName="spoofing_dhcp_detection_state">
+            <column name="ipv6_learning_started_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rename_internal_address_rewrites_constraints_and_drop_rows_changed" author="lennartkoopmann">
+        <sql>
+            ALTER INDEX internal_address_rewrites_pending_key RENAME TO internal_address_rewrites_pending_org_tenant_id_network_key;
+            ALTER TABLE internal_address_rewrites RENAME CONSTRAINT internal_address_rewrites_tenant_id_fkey TO link_internal_address_rewrites2tenants;
+        </sql>
+
+        <dropColumn tableName="internal_address_rewrites" columnName="rows_changed" />
+    </changeSet>
+
 </databaseChangeLog>

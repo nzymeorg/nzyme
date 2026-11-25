@@ -53,4 +53,27 @@ public class EthernetRegistryKeys {
             false
     );
 
+    public static final RegistryKey INTERNAL_NETWORKS = RegistryKey.create(
+            "ethernet_internal_networks",
+            Optional.empty(),
+            Optional.of("[]"),
+            false
+    );
+
+    public static final RegistryKey LEARN_INTERNAL_NETWORKS = RegistryKey.create(
+            "ethernet_learn_internal_networks",
+            Optional.of(new ArrayList<>() {{
+                add(ConfigurationEntryConstraint.createSimpleBooleanConstraint());
+            }}),
+            Optional.of("true"),
+            false
+    );
+
+    public static final RegistryKey LEARNED_INTERNAL_NETWORKS = RegistryKey.create(
+            "ethernet_learned_internal_networks",
+            Optional.empty(),
+            Optional.of("[]"),
+            false
+    );
+
 }

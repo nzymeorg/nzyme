@@ -5,6 +5,7 @@ pub enum WiredChannelName {
     EthernetBroker,
     ArpPipeline,
     IcmpPipeline,
+    NdpPipeline,
     TcpPipeline,
     UdpPipeline,
     DnsPipeline,
@@ -14,9 +15,11 @@ pub enum WiredChannelName {
     RtspPipeline,
     StunPipeline,
     Dhcpv4Pipeline,
+    Dhcpv6Pipeline,
     NtpPipeline,
     WebRtcPipeline,
-    VpnPipeline
+    VpnPipeline,
+    Ipv6TransitionPipeline
 }
 
 #[derive(Debug, Clone, EnumIter, Display)]

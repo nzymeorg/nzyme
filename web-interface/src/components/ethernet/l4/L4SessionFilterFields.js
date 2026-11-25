@@ -9,6 +9,7 @@ export const L4_SESSIONS_FILTER_FIELDS = {
   state: { title: "Session State", type: FILTER_TYPE.L4_SESSION_STATE, value_transform: transformSessionState },
   // Match the source or the destination.
   address: { title: "Address", type: FILTER_TYPE.IP_ADDRESS },
+  ip_version: { title: "IP Version", type: FILTER_TYPE.NUMERIC },
   address_geo_asn_number: { title: "Address ASN Number", type: FILTER_TYPE.NUMERIC },
   address_geo_country_code: { title: "Address Country Code", type: FILTER_TYPE.STRING },
   address_geo_city: { title: "Address City", type: FILTER_TYPE.STRING },

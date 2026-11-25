@@ -12,7 +12,7 @@ import {UserContext} from "../../../../App";
 import {userHasPermission} from "../../../../util/Tools";
 import AssetsService from "../../../../services/ethernet/AssetsService";
 import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
-import TcpFingerprint, {describeStackDifference} from "./TcpFingerprint";
+import TcpFingerprint, {describeStackDifference, tcpFingerprintIpVersion} from "./TcpFingerprint";
 import L4Address from "../../shared/L4Address";
 import DuplicateMacDestinationsTable from "./DuplicateMacDestinationsTable";
 import PivotLink from "../../../shared/PivotLink";
@@ -226,6 +226,8 @@ export default function DuplicateMacFindingDetailsPage() {
                   <dl className="mb-0">
                     <dt>Fingerprint</dt>
                     <dd><TcpFingerprint value={s.fingerprint} /></dd>
+                    <dt>IP Version</dt>
+                    <dd>IPv{tcpFingerprintIpVersion(s.fingerprint)}</dd>
                     <dt>Signatures</dt>
                     <dd>
                       {s.signatures.map((sig, j) => <React.Fragment key={sig}>{j > 0 ? <br /> : null}<TcpFingerprint value={sig} /></React.Fragment>)}

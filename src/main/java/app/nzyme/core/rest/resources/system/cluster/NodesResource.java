@@ -265,6 +265,8 @@ public class NodesResource {
                     node.uuid(), MetricExternalName.REPORT_PROCESSING_SOCKS_TIMER.database_label, handle)));
             timers.put("report_processing_vpn", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.REPORT_PROCESSING_VPN_TIMER.database_label, handle)));
+            timers.put("report_processing_ipv6_transition", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
+                    node.uuid(), MetricExternalName.REPORT_PROCESSING_IPV6_TRANSITION_TIMER.database_label, handle)));
 
             // Beacon detection timers.
             timers.put("beacon_detection_run", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(

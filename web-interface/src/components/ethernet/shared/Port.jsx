@@ -4,6 +4,8 @@ export default function Port(props) {
 
   const port = props.port;
 
-  return <span className="port">:{port}</span>
+  const subdued = props.subdued;
+
+  return <span className={"port" + (subdued ? " port-subdued" : "")}>:{port}</span>
 
 }

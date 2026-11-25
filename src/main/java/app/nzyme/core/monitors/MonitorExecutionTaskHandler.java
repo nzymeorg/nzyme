@@ -8,6 +8,7 @@ import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.TimeRangeFactory;
 import app.nzyme.core.util.filters.FilterParser;
+import app.nzyme.core.util.filters.FilterScope;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.distributed.tasksqueue.ReceivedTask;
 import app.nzyme.plugin.distributed.tasksqueue.TaskHandler;
@@ -72,7 +73,8 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
         try (Timer.Context ignored = timer.time()) {
             nzyme.getMonitors().setMonitorStatus(monitor.uuid(), MonitorStatus.EXECUTING);
 
-            Filters filters = FilterParser.parseFiltersQueryParameter(monitor.filters());
+            Filters filters = FilterParser.parseFiltersQueryParameter(
+                    monitor.filters(), FilterScope.tenant(monitor.organizationId(), monitor.tenantId()));
             List<UUID> taps;
             if (monitor.taps() != null) {
                 taps = monitor.taps();
@@ -105,11 +107,15 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
                         .countAllTransactions(lookback, filters, taps);
                 case ETHERNET_ARP_PACKET -> nzyme.getEthernet().arp()
                         .countAllPackets(lookback, filters, taps);
+                case ETHERNET_NDP_MESSAGE -> nzyme.getEthernet().ndp()
+                        .countAllMessages(lookback, filters, taps);
                 case ETHERNET_SSH_SESSION -> nzyme.getEthernet().ssh()
                         .countAllSessions(lookback, filters, taps);
                 case ETHERNET_SOCKS_TUNNEL -> nzyme.getEthernet().socks()
                         .countAllTunnels(lookback, filters, taps);
                 case ETHERNET_VPN_TUNNEL -> nzyme.getEthernet().vpn()
+                        .countAllTunnels(lookback, filters, taps);
+                case ETHERNET_IPV6_TRANSITION_TUNNEL -> nzyme.getEthernet().ipv6Transition()
                         .countAllTunnels(lookback, filters, taps);
                 case ETHERNET_TLS_SESSION -> nzyme.getEthernet().tls()
                         .countAllSessions(lookback, filters, taps);

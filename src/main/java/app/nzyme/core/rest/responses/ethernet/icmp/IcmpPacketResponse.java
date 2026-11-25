@@ -37,6 +37,9 @@ public abstract class IcmpPacketResponse {
     @JsonProperty("destination_mac")
     public abstract EthernetMacAddressResponse destinationMac();
 
+    @JsonProperty("ip_version")
+    public abstract int ipVersion();
+
     @JsonProperty("icmp_type")
     public abstract int icmpType();
 
@@ -97,7 +100,7 @@ public abstract class IcmpPacketResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static IcmpPacketResponse create(UUID tapUuid, String sourceAddress, L4AddressResponse sourceAddressData, EthernetMacAddressResponse sourceMac, String destinationAddress, L4AddressResponse destinationAddressData, EthernetMacAddressResponse destinationMac, int icmpType, String icmpTypeName, int icmpCode, boolean isError, long packetCount, int bytesMin, int bytesMax, int ipTtl, int ipTos, boolean ipDf, String redirectGateway, Integer quotedProtocol, String quotedSourceAddress, String quotedDestinationAddress, Integer quotedSourcePort, Integer quotedDestinationPort, DateTime firstSeen, DateTime lastSeen) {
+    public static IcmpPacketResponse create(UUID tapUuid, String sourceAddress, L4AddressResponse sourceAddressData, EthernetMacAddressResponse sourceMac, String destinationAddress, L4AddressResponse destinationAddressData, EthernetMacAddressResponse destinationMac, int ipVersion, int icmpType, String icmpTypeName, int icmpCode, boolean isError, long packetCount, int bytesMin, int bytesMax, int ipTtl, int ipTos, boolean ipDf, String redirectGateway, Integer quotedProtocol, String quotedSourceAddress, String quotedDestinationAddress, Integer quotedSourcePort, Integer quotedDestinationPort, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .tapUuid(tapUuid)
                 .sourceAddress(sourceAddress)
@@ -106,6 +109,7 @@ public abstract class IcmpPacketResponse {
                 .destinationAddress(destinationAddress)
                 .destinationAddressData(destinationAddressData)
                 .destinationMac(destinationMac)
+                .ipVersion(ipVersion)
                 .icmpType(icmpType)
                 .icmpTypeName(icmpTypeName)
                 .icmpCode(icmpCode)
@@ -140,6 +144,7 @@ public abstract class IcmpPacketResponse {
         public abstract Builder destinationAddress(String destinationAddress);
         public abstract Builder destinationAddressData(L4AddressResponse destinationAddressData);
         public abstract Builder destinationMac(EthernetMacAddressResponse destinationMac);
+        public abstract Builder ipVersion(int ipVersion);
         public abstract Builder icmpType(int icmpType);
         public abstract Builder icmpTypeName(String icmpTypeName);
         public abstract Builder icmpCode(int icmpCode);

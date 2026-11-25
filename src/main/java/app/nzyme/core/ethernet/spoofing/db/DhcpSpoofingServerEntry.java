@@ -15,6 +15,7 @@ public abstract class DhcpSpoofingServerEntry {
     public abstract UUID uuid();
     public abstract UUID organizationId();
     public abstract UUID tenantId();
+    public abstract String protocol();
     public abstract String mac();
     public abstract String address();
     @Nullable
@@ -38,12 +39,13 @@ public abstract class DhcpSpoofingServerEntry {
     public abstract DateTime createdAt();
     public abstract DateTime updatedAt();
 
-    public static DhcpSpoofingServerEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String mac, String address, String serverIdentifier, boolean trusted, String trustSource, DhcpOfferedParameters baseline, DateTime baselineUpdatedAt, DhcpOfferedParameters latest, long responseCount, long offerCount, long ackCount, long transactionCount, List<UUID> tapUuids, DateTime firstSeen, DateTime lastSeen, DateTime createdAt, DateTime updatedAt) {
+    public static DhcpSpoofingServerEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String protocol, String mac, String address, String serverIdentifier, boolean trusted, String trustSource, DhcpOfferedParameters baseline, DateTime baselineUpdatedAt, DhcpOfferedParameters latest, long responseCount, long offerCount, long ackCount, long transactionCount, List<UUID> tapUuids, DateTime firstSeen, DateTime lastSeen, DateTime createdAt, DateTime updatedAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
                 .organizationId(organizationId)
                 .tenantId(tenantId)
+                .protocol(protocol)
                 .mac(mac)
                 .address(address)
                 .serverIdentifier(serverIdentifier)
@@ -74,6 +76,7 @@ public abstract class DhcpSpoofingServerEntry {
         public abstract Builder uuid(UUID uuid);
         public abstract Builder organizationId(UUID organizationId);
         public abstract Builder tenantId(UUID tenantId);
+        public abstract Builder protocol(String protocol);
         public abstract Builder mac(String mac);
         public abstract Builder address(String address);
         public abstract Builder serverIdentifier(String serverIdentifier);

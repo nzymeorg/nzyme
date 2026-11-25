@@ -7,6 +7,7 @@ import ColumnSorting from "../../shared/ColumnSorting";
 import L4Address from "../shared/L4Address";
 import FilterValueIcon from "../../shared/filtering/FilterValueIcon";
 import {ICMP_FILTER_FIELDS} from "./IcmpFilterFields";
+import {addressWithPort} from "../../../util/Tools";
 
 export default function IcmpTrafficTable({packets, page, setPage, perPage, orderColumn, setOrderColumn,
                                           orderDirection, setOrderDirection, setFilters}) {
@@ -40,17 +41,17 @@ export default function IcmpTrafficTable({packets, page, setPage, perPage, order
   }
 
   const details = (p) => {
-    if (p.icmp_type === 5 && p.redirect_gateway) {
+    if (p.redirect_gateway) {
       return <span>Use gateway <span className="machine-data">{p.redirect_gateway}</span>
         {p.quoted_destination_address ? <span> for <span className="machine-data">{p.quoted_destination_address}</span></span> : null}</span>
     }
 
     if (p.is_error && p.quoted_destination_address) {
       return <span>
-        {p.quoted_protocol === 6 ? "TCP" : p.quoted_protocol === 17 ? "UDP" : p.quoted_protocol === 1 ? "ICMP" : "protocol " + p.quoted_protocol}{' '}
-        <span className="machine-data">{p.quoted_source_address}{p.quoted_source_port ? ":" + p.quoted_source_port : ""}</span>
+        {p.quoted_protocol === 6 ? "TCP" : p.quoted_protocol === 17 ? "UDP" : p.quoted_protocol === 1 ? "ICMP" : p.quoted_protocol === 58 ? "ICMPv6" : "protocol " + p.quoted_protocol}{' '}
+        <span className="machine-data">{addressWithPort(p.quoted_source_address, p.quoted_source_port || null)}</span>
         {' '}to{' '}
-        <span className="machine-data">{p.quoted_destination_address}{p.quoted_destination_port ? ":" + p.quoted_destination_port : ""}</span>
+        <span className="machine-data">{addressWithPort(p.quoted_destination_address, p.quoted_destination_port || null)}</span>
       </span>
     }
 
@@ -85,8 +86,9 @@ export default function IcmpTrafficTable({packets, page, setPage, perPage, order
               <td title={moment(p.last_seen).format()}>{moment(p.last_seen).fromNow()}</td>
               <td>
                 <span>{p.icmp_type_name}</span>
+                {p.ip_version === 6 ? <span className="text-muted"> ICMPv6</span> : null}
                 {p.icmp_code !== 0 ? <span className="text-muted"> (code {p.icmp_code})</span> : null}{' '}
-                {filterIcon("icmp_type", p.icmp_type)}
+                {filterIcon("icmp_type", p.ip_version === 6 ? "6:" + p.icmp_type : p.icmp_type)}
               </td>
               <td>{address(p.source_address_data, p.source_address, "source_address")}</td>
               <td>{address(p.destination_address_data, p.destination_address, "destination_address")}</td>

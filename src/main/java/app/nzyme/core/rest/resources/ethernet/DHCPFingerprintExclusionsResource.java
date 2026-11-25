@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/dhcp/fingerprints/exclusions")
 @Produces(MediaType.APPLICATION_JSON)
@@ -81,7 +80,7 @@ public class DHCPFingerprintExclusionsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         DHCPFingerprintExclusions.OrderColumn orderColumn = DHCPFingerprintExclusions.OrderColumn.NAME;
         OrderDirection orderDirection = OrderDirection.ASC;

@@ -17,6 +17,7 @@ public abstract class IcmpPacketEntry {
     public abstract String destinationMac();
     public abstract String sourceAddress();
     public abstract String destinationAddress();
+    public abstract int ipVersion();
     public abstract int icmpType();
     public abstract int icmpCode();
     public abstract long packetCount();
@@ -42,7 +43,7 @@ public abstract class IcmpPacketEntry {
     public abstract DateTime firstSeen();
     public abstract DateTime lastSeen();
 
-    public static IcmpPacketEntry create(long id, UUID tapUuid, String sourceMac, String destinationMac, String sourceAddress, String destinationAddress, int icmpType, int icmpCode, long packetCount, int bytesMin, int bytesMax, int ipTtl, int ipTos, boolean ipDf, String redirectGateway, Integer quotedProtocol, String quotedSourceAddress, String quotedDestinationAddress, Integer quotedSourcePort, Integer quotedDestinationPort, Integer quotedTtl, DateTime firstSeen, DateTime lastSeen) {
+    public static IcmpPacketEntry create(long id, UUID tapUuid, String sourceMac, String destinationMac, String sourceAddress, String destinationAddress, int ipVersion, int icmpType, int icmpCode, long packetCount, int bytesMin, int bytesMax, int ipTtl, int ipTos, boolean ipDf, String redirectGateway, Integer quotedProtocol, String quotedSourceAddress, String quotedDestinationAddress, Integer quotedSourcePort, Integer quotedDestinationPort, Integer quotedTtl, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .id(id)
                 .tapUuid(tapUuid)
@@ -50,6 +51,7 @@ public abstract class IcmpPacketEntry {
                 .destinationMac(destinationMac)
                 .sourceAddress(sourceAddress)
                 .destinationAddress(destinationAddress)
+                .ipVersion(ipVersion)
                 .icmpType(icmpType)
                 .icmpCode(icmpCode)
                 .packetCount(packetCount)
@@ -82,6 +84,7 @@ public abstract class IcmpPacketEntry {
         public abstract Builder destinationMac(String destinationMac);
         public abstract Builder sourceAddress(String sourceAddress);
         public abstract Builder destinationAddress(String destinationAddress);
+        public abstract Builder ipVersion(int ipVersion);
         public abstract Builder icmpType(int icmpType);
         public abstract Builder icmpCode(int icmpCode);
         public abstract Builder packetCount(long packetCount);

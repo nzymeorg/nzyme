@@ -240,7 +240,7 @@ export default function SegmentsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Networks that are no segment yet, from trusted DHCP servers and observed traffic.
+                Networks that are no segment yet, from trusted DHCP servers, trusted IPv6 routers and observed traffic.
               </p>
 
               <SegmentSuggestionsTable suggestions={suggestions} limitPerSource={suggestionLimit}

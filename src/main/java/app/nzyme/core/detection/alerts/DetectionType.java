@@ -20,8 +20,11 @@ public enum DetectionType {
     RECON_FINGERPRINTING_NEW("OS fingerprinting detected", Subsystem.ETHERNET),
 
     SPOOFING_ARP_NEW("ARP poisoning detected", Subsystem.ETHERNET),
+    SPOOFING_NDP_NEW("NDP spoofing detected", Subsystem.ETHERNET),
     SPOOFING_DHCP_ROGUE_SERVER("Rogue DHCP server detected", Subsystem.ETHERNET),
     SPOOFING_DHCP_PARAMETERS_CHANGED("DHCP server handing out changed configuration", Subsystem.ETHERNET),
+    SPOOFING_RA_ROGUE_ROUTER("Rogue IPv6 router detected", Subsystem.ETHERNET),
+    SPOOFING_RA_PARAMETERS_CHANGED("IPv6 router advertising changed configuration", Subsystem.ETHERNET),
     SPOOFING_NAME_RESOLUTION_POISONING("Name resolution poisoning detected", Subsystem.ETHERNET),
     SPOOFING_DNS_NEW("DNS spoofing detected", Subsystem.ETHERNET),
     DNS_TUNNEL("DNS tunnel detected", Subsystem.ETHERNET),

@@ -8,6 +8,7 @@ import app.nzyme.core.search.SearchSource;
 import app.nzyme.core.search.SearchTerm;
 import app.nzyme.core.search.SearchWindow;
 import app.nzyme.core.search.SqlSearchSource;
+import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
 import jakarta.annotation.Nullable;
@@ -28,7 +29,7 @@ public class TrafficSearch {
 
     public static List<SearchSource> sources() {
         return List.of(new Sessions(), new DnsNames(), new TlsServers(), new Certificates(), new Dhcp(), new Arp(),
-                new Ssh(), new Vpn(), new Socks(), new Ntp(), new Rtsp(), new WebRtc(), new Stun(),
+                new Ndp(), new Ssh(), new Vpn(), new Ipv6TransitionTunnels(), new Socks(), new Ntp(), new Rtsp(), new WebRtc(), new Stun(),
                 new PortalIntegrity());
     }
 
@@ -73,7 +74,7 @@ public class TrafficSearch {
             return address;
         }
 
-        return (address.contains(":") ? "[" + address + "]" : address) + ":" + port;
+        return Tools.addressWithPort(address, port);
     }
 
     private static BriefingLinkResponse listOf(String target, SearchTerm term, String addressField, String macField) {
@@ -479,7 +480,8 @@ public class TrafficSearch {
             SearchConditions conditions = new SearchConditions(term)
                     .mac("d.client_mac", "d.server_mac")
                     .address("d.requested_ip_address")
-                    .custom("d.fingerprint = :s_lower", SearchTerm.Kind.HASH);
+                    .custom("(d.fingerprint = :s_lower OR d.client_duid = :s_lower OR d.server_duid = :s_lower)",
+                            SearchTerm.Kind.HASH);
             if (term.isRecordedText() && !term.isAnyOf(SearchTerm.Kind.MAC_PREFIX, SearchTerm.Kind.HASH)) {
                 conditions.contains("d.hostname", "d.fqdn", "d.vendor_class");
             }
@@ -569,6 +571,59 @@ public class TrafficSearch {
 
             return Result.of(hits, request, window,
                     listOf("ARP_PACKETS", term, "arp_sender_address", "arp_sender_mac"));
+        }
+
+    }
+
+    private static class Ndp extends TrafficSource {
+
+        private static final String MAC = "COALESCE(n.target_link_layer_address, n.source_mac)";
+
+        @Override
+        public String id() {
+            return "ndp";
+        }
+
+        @Override
+        public String title() {
+            return "NDP";
+        }
+
+        @Override
+        protected boolean accepts(SearchTerm term) {
+            return addressed(term);
+        }
+
+        @Override
+        public Result search(Handle handle, Request request) {
+            SearchTerm term = request.term();
+            SearchWindow window = window(request);
+            SearchConditions conditions = new SearchConditions(term)
+                    .address("n.target_address")
+                    .mac(MAC);
+
+            String sql = "SELECT " + MAC + " AS mac, host(n.target_address) AS address, "
+                    + "max(n.last_seen) AS last_seen FROM ndp_messages n WHERE n.tap_uuid IN (<taps>) "
+                    + "AND n.last_seen >= :w_from AND n.last_seen <= :w_to "
+                    + "AND n.message_type = 'NEIGHBOR_ADVERTISEMENT' AND " + conditions.sql() + " "
+                    + "GROUP BY " + MAC + ", n.target_address "
+                    + "ORDER BY last_seen DESC, " + MAC + ", n.target_address LIMIT :limit OFFSET :offset";
+
+            List<SearchHitResponse> hits = Lists.newArrayList();
+            for (Map<String, Object> row : rows(handle, sql, conditions, request, window)) {
+                hits.add(hit(
+                        "NDP_BINDING",
+                        text(row, "address") + " is at " + text(row, "mac"),
+                        "Address announced over NDP",
+                        facts(term).build(),
+                        time(row, "last_seen"),
+                        SCORE_EXACT,
+                        link("NDP_MESSAGES", "target_address", text(row, "address"))
+                ));
+            }
+
+            return Result.of(hits, request, window,
+                    listOf("NDP_MESSAGES", term, "target_address", "source_mac"));
         }
 
     }
@@ -686,6 +741,65 @@ public class TrafficSearch {
                         time(row, "last_seen"),
                         term.isIdentifier() ? SCORE_EXACT : SCORE_CONTAINS,
                         link("VPN_TUNNELS", "client_address", text(row, "client"),
+                                "server_address", text(row, "server"))
+                ));
+            }
+
+            return Result.of(hits, request, window, null);
+        }
+
+    }
+
+    private static class Ipv6TransitionTunnels extends TrafficSource {
+
+        @Override
+        public String id() {
+            return "ipv6_transition";
+        }
+
+        @Override
+        public String title() {
+            return "IPv6 Transition Tunnels";
+        }
+
+        @Override
+        protected boolean accepts(SearchTerm term) {
+            return addressed(term) || term.isRecordedText();
+        }
+
+        @Override
+        public Result search(Handle handle, Request request) {
+            SearchTerm term = request.term();
+            SearchWindow window = window(request);
+
+            SearchConditions conditions = new SearchConditions(term)
+                    .address("t.source_address", "t.destination_address")
+                    .mac("t.source_mac", "t.destination_mac");
+            if (term.isRecordedText() && !term.is(SearchTerm.Kind.MAC_PREFIX)) {
+                conditions.contains("t.tunnel_type");
+            }
+
+            String sql = "SELECT host(t.source_address) AS client, host(t.destination_address) AS server, "
+                    + "t.destination_port, t.tunnel_type, max(t.transport) AS transport, "
+                    + "max(t.most_recent_segment_time) AS last_seen FROM ipv6_transition_tunnels t "
+                    + "WHERE t.tap_uuid IN (<taps>) AND t.most_recent_segment_time >= :w_from "
+                    + "AND t.most_recent_segment_time <= :w_to AND " + conditions.sql() + " "
+                    + "GROUP BY t.source_address, t.destination_address, t.destination_port, t.tunnel_type "
+                    + "ORDER BY last_seen DESC, t.source_address, t.destination_address, t.destination_port NULLS FIRST, "
+                    + "t.tunnel_type LIMIT :limit OFFSET :offset";
+
+            List<SearchHitResponse> hits = Lists.newArrayList();
+            for (Map<String, Object> row : rows(handle, sql, conditions, request, window)) {
+                hits.add(hit(
+                        "IPV6_TRANSITION_TUNNEL",
+                        text(row, "client") + " to " + endpoint(text(row, "server"), row.get("destination_port")),
+                        text(row, "tunnel_type") + " tunnels",
+                        facts(term)
+                                .add("Transport", row.get("transport"))
+                                .build(),
+                        time(row, "last_seen"),
+                        term.isIdentifier() ? SCORE_EXACT : SCORE_CONTAINS,
+                        link("IPV6_TRANSITION_TUNNELS", "client_address", text(row, "client"),
                                 "server_address", text(row, "server"))
                 ));
             }

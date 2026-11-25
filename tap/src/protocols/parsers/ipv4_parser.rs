@@ -1,13 +1,12 @@
-use std::net::Ipv4Addr;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
 use byteorder::{BigEndian, ByteOrder};
 use chrono::{DateTime, Utc};
 use crate::helpers::network::to_ipv4_address;
-use crate::wired::packets::{EthernetPacket, IPv4Packet};
+use crate::wired::packets::{EthernetPacket, IpPacket};
 
-pub fn parse_from_ethernet(packet: &Arc<EthernetPacket>) -> Result<IPv4Packet> {
+pub fn parse_from_ethernet(packet: &Arc<EthernetPacket>) -> Result<IpPacket> {
     if packet.data.is_empty() {
         bail!("Empty payload.")
     }
@@ -21,14 +20,14 @@ pub fn parse_from_ethernet(packet: &Arc<EthernetPacket>) -> Result<IPv4Packet> {
 }
 
 // Parses a Raw IPv4 Packet that does not include any prepending headers like Ethernet.
-pub fn parse_raw(packet: &[u8], timestamp: DateTime<Utc>) -> Result<IPv4Packet> {
+pub fn parse_raw(packet: &[u8], timestamp: DateTime<Utc>) -> Result<IpPacket> {
     parse(packet, None, None, timestamp)
 }
 
 fn parse(packet: &[u8], 
          source_mac: Option<String>,
          destination_mac: Option<String>,
-         timestamp: DateTime<Utc>) -> Result<IPv4Packet> {
+         timestamp: DateTime<Utc>) -> Result<IpPacket> {
     let ihl = (packet[0] & 0x0F) as usize;
     let header_length = ihl.checked_mul(4)
         .ok_or_else(|| anyhow::anyhow!("Header length overflow."))?;
@@ -64,7 +63,7 @@ fn parse(packet: &[u8],
     let payload = packet[header_length..total_length].to_vec();
     let size = packet.len();
 
-    Ok(IPv4Packet {
+    Ok(IpPacket {
         source_mac,
         destination_mac,
         header_length,
@@ -77,10 +76,10 @@ fn parse(packet: &[u8],
         size: size as u32,
         timestamp,
         ip_tos,
-        df,
+        df: Some(df),
         more_fragments,
         fragment_offset,
-        identification
+        identification: Some(identification)
     })
 }
 
@@ -99,10 +98,10 @@ mod tests {
     #[test]
     fn parses_unfragmented_packet() {
         let p = parse_raw(&header(0x4000, 1, &[8, 0, 0, 0, 0, 1, 0, 1]), Utc::now()).unwrap();
-        assert!(p.df);
+        assert_eq!(p.df, Some(true));
         assert!(!p.more_fragments);
         assert_eq!(p.fragment_offset, 0);
-        assert_eq!(p.identification, 0x1234);
+        assert_eq!(p.identification, Some(0x1234));
         assert_eq!(p.protocol, 1);
         assert_eq!(p.payload.len(), 8);
     }
@@ -110,7 +109,7 @@ mod tests {
     #[test]
     fn parses_first_fragment() {
         let p = parse_raw(&header(0x2000, 17, &[0, 53, 0, 53, 0, 8, 0, 0]), Utc::now()).unwrap();
-        assert!(!p.df);
+        assert_eq!(p.df, Some(false));
         assert!(p.more_fragments);
         assert_eq!(p.fragment_offset, 0);
     }

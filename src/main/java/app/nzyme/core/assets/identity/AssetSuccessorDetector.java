@@ -1,5 +1,6 @@
 package app.nzyme.core.assets.identity;
 
+import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.identity.db.AssetIdentityExclusionEntry;
 import app.nzyme.core.assets.identity.db.AssetLinkEntry;
@@ -13,12 +14,14 @@ import app.nzyme.plugin.Subsystem;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.net.InetAddresses;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 
+import java.net.InetAddress;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,8 @@ public class AssetSuccessorDetector {
     private static final List<AssetAttributeDimension> CANDIDATE_DIMENSIONS = List.of(
             AssetAttributeDimension.DHCP_FINGERPRINT,
             AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER,
+            AssetAttributeDimension.DHCP6_CLIENT_DUID,
+            AssetAttributeDimension.DHCP6_FINGERPRINT,
             AssetAttributeDimension.TCP_STACK,
             AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST,
             AssetAttributeDimension.JA4,
@@ -49,6 +54,8 @@ public class AssetSuccessorDetector {
     );
 
     private static final List<AssetAttributeDimension> SPREAD_DIMENSIONS = List.of(
+            AssetAttributeDimension.DHCP6_CLIENT_DUID,
+            AssetAttributeDimension.DHCP6_FINGERPRINT,
             AssetAttributeDimension.DHCP_FINGERPRINT,
             AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST,
             AssetAttributeDimension.TCP_STACK,
@@ -56,6 +63,8 @@ public class AssetSuccessorDetector {
     );
 
     private static final List<AssetAttributeDimension> DIMENSIONS = List.of(
+            AssetAttributeDimension.DHCP6_CLIENT_DUID,
+            AssetAttributeDimension.DHCP6_FINGERPRINT,
             AssetAttributeDimension.DHCP_FINGERPRINT,
             AssetAttributeDimension.DHCP_VENDOR_CLASS,
             AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER,
@@ -641,12 +650,24 @@ public class AssetSuccessorDetector {
             }
         }
 
+        shared(evidence, predecessor, successor, AssetAttributeDimension.DHCP6_CLIENT_DUID, 30, attributeSpread);
+        shared(evidence, predecessor, successor, AssetAttributeDimension.DHCP6_FINGERPRINT, 15, attributeSpread);
+
         shared(evidence, predecessor, successor, AssetAttributeDimension.DHCP_FINGERPRINT, 15, attributeSpread);
         shared(evidence, predecessor, successor, AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST, 10, attributeSpread);
         sharedFlat(evidence, predecessor, successor, AssetAttributeDimension.DHCP_VENDOR_CLASS, 5);
 
-        Set<String> predecessorStacks = predecessor.values(AssetAttributeDimension.TCP_STACK);
-        Set<String> successorStacks = successor.values(AssetAttributeDimension.TCP_STACK);
+        // Stacks differ per IP version, so only the versions both assets used say anything about a mismatch.
+        Map<Integer, List<String>> predecessorVersions = TcpSignature.byIpVersion(
+                predecessor.values(AssetAttributeDimension.TCP_STACK), s -> s);
+        Map<Integer, List<String>> successorVersions = TcpSignature.byIpVersion(
+                successor.values(AssetAttributeDimension.TCP_STACK), s -> s);
+        Set<String> predecessorStacks = Sets.newHashSet();
+        Set<String> successorStacks = Sets.newHashSet();
+        for (Integer version : Sets.intersection(predecessorVersions.keySet(), successorVersions.keySet())) {
+            predecessorStacks.addAll(predecessorVersions.get(version));
+            successorStacks.addAll(successorVersions.get(version));
+        }
         if (!predecessorStacks.isEmpty() && !successorStacks.isEmpty()) {
             Set<String> sharedStacks = Sets.intersection(predecessorStacks, successorStacks);
             if (sharedStacks.isEmpty()) {
@@ -753,8 +774,13 @@ public class AssetSuccessorDetector {
     }
 
     private static boolean isUsableAddress(String address) {
-        return address != null && !address.equals("0.0.0.0") && !address.startsWith("169.254.")
-                && !address.startsWith("fe80:") && !address.equals("::");
+        if (address == null || !InetAddresses.isInetAddress(address)) {
+            return false;
+        }
+
+        InetAddress parsed = InetAddresses.forString(address);
+
+        return !parsed.isAnyLocalAddress() && !parsed.isLinkLocalAddress();
     }
 
     private static boolean linkExists(Handle handle, UUID organizationId, UUID tenantId, String predecessorMac,

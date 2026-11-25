@@ -134,7 +134,7 @@ const LINK_LABELS = {
   DOT11_MONITORING_CREATE: "Add monitored network", DOT11_MONITORED_NETWORK: "Network configuration",
   DOT11_MONITORED_CLIENTS: "Client monitoring", DOT11_KNOWN_NETWORKS: "Known networks",
   ETHERNET_ASSETS: "Assets", ETHERNET_ASSET: "Asset", BEACONS: "Beacons", BEACON: "Beacon",
-  RECON_SCANS: "Recon scans", RECON_SCAN: "Scan", SPOOFING_ARP: "ARP spoofing", SPOOFING_DHCP: "DHCP servers",
+  RECON_SCANS: "Recon scans", RECON_SCAN: "Scan", SPOOFING_ARP: "ARP and NDP spoofing", SPOOFING_DHCP: "DHCP servers and routers",
   SPOOFING_DNS: "DNS spoofing", SPOOFING_NAMERES: "Name resolution spoofing",
   DNS_TUNNELS: "DNS tunnels", DNS_TUNNEL: "DNS tunnel", ICMP_TUNNELS: "ICMP tunnels", ICMP_TUNNEL: "ICMP tunnel",
   ICMP_REDIRECTS: "ICMP redirects", ICMP_REDIRECT: "ICMP redirect", ICMP_TRACEROUTES: "Traceroutes",

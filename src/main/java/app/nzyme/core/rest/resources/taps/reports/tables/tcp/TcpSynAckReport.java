@@ -12,8 +12,10 @@ public abstract class TcpSynAckReport {
 
     public abstract int ipTtl();
     public abstract int ipTos();
-    public abstract boolean ipDf();
-    public abstract int ipId();
+    @Nullable
+    public abstract Boolean ipDf();
+    @Nullable
+    public abstract Integer ipId();
     public abstract boolean cwr();
     public abstract boolean ece();
     public abstract int windowSize();
@@ -33,8 +35,8 @@ public abstract class TcpSynAckReport {
     @JsonCreator
     public static TcpSynAckReport create(@JsonProperty("ip_ttl") int ipTtl,
                                          @JsonProperty("ip_tos") int ipTos,
-                                         @JsonProperty("ip_df") boolean ipDf,
-                                         @JsonProperty("ip_id") int ipId,
+                                         @JsonProperty("ip_df") Boolean ipDf,
+                                         @JsonProperty("ip_id") Integer ipId,
                                          @JsonProperty("cwr") boolean cwr,
                                          @JsonProperty("ece") boolean ece,
                                          @JsonProperty("window_size") int windowSize,
@@ -69,8 +71,8 @@ public abstract class TcpSynAckReport {
     public abstract static class Builder {
         public abstract Builder ipTtl(int ipTtl);
         public abstract Builder ipTos(int ipTos);
-        public abstract Builder ipDf(boolean ipDf);
-        public abstract Builder ipId(int ipId);
+        public abstract Builder ipDf(Boolean ipDf);
+        public abstract Builder ipId(Integer ipId);
         public abstract Builder cwr(boolean cwr);
         public abstract Builder ece(boolean ece);
         public abstract Builder windowSize(int windowSize);

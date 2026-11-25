@@ -38,6 +38,8 @@ export const DIMENSION_TITLES = {
   DHCP_VENDOR_CLASS: "DHCP Vendor Class",
   DHCP_PARAMETER_REQUEST_LIST: "DHCP Parameter Request List",
   DHCP_CLIENT_IDENTIFIER: "DHCP Client Identifier",
+  DHCP6_FINGERPRINT: "DHCPv6 Fingerprint",
+  DHCP6_CLIENT_DUID: "DHCPv6 Client DUID",
   NTP_CLIENT_VERSION: "NTP Client Version",
   TLS_VERSION: "TLS Version",
   PROTOCOL_CLIENT: "Protocol (as Client)",
@@ -72,7 +74,8 @@ export const ROLE_TITLES = {
   RTSP_SERVER: "RTSP Server",
   STUN_SERVER: "STUN Server",
   TURN_SERVER: "TURN Server",
-  VPN_SERVER: "VPN Server"
+  VPN_SERVER: "VPN Server",
+  IPV6_TUNNEL_SERVER: "IPv6 Tunnel Server"
 }
 
 export function roleTitle(role) {
@@ -91,6 +94,8 @@ const ATTRIBUTE_CHANGES = {
   IP_ID_BEHAVIOR: { action: "New IP ID behavior", explanation: () => "The asset started picking IP identification values in a way not seen from it before." },
   DHCP_PARAMETER_REQUEST_LIST: { action: "New DHCP parameter request list", explanation: () => "The asset requested a set of DHCP options not seen from it before, which usually means a different DHCP client." },
   DHCP_CLIENT_IDENTIFIER: { action: "New DHCP client identifier", explanation: () => "The asset identified itself to DHCP servers with a client identifier not seen from it before." },
+  DHCP6_FINGERPRINT: { action: "New DHCPv6 fingerprint", explanation: () => "The asset sent DHCPv6 requests with an option fingerprint not seen from it before." },
+  DHCP6_CLIENT_DUID: { action: "New DHCPv6 client DUID", explanation: () => "The asset identified itself to DHCPv6 servers with a DUID not seen from it before, which usually means a different or reinstalled operating system." },
   JA4: { action: "New TLS client fingerprint", explanation: () => "The asset's TLS client presented a JA4 fingerprint not seen from it before, which usually means different client software." },
   DHCP_FINGERPRINT: { action: "New DHCP fingerprint", explanation: () => "The asset sent DHCP requests with an option fingerprint not seen from it before." },
   DHCP_VENDOR_CLASS: { action: "New DHCP vendor class", explanation: () => "The asset identified itself to DHCP servers with a vendor class not seen from it before." },
@@ -168,8 +173,8 @@ export const RISK_SIGNALS = {
   RECON_SCANNER: { title: "Network Scanner", description: "Performed network scans." },
   ICMP_REDIRECT_SENDER: { title: "ICMP Redirect Sender", description: "Sent ICMP redirects to other hosts." },
   TRACEROUTE_SOURCE: { title: "Traceroute Source", description: "Performed traceroutes." },
-  SPOOFING_ARP_ACTOR: { title: "ARP Spoofer", description: "Detected as the source of ARP poisoning." },
-  SPOOFING_DHCP_ACTOR: { title: "Rogue DHCP Server", description: "Detected as a rogue or misbehaving DHCP server." },
+  SPOOFING_ARP_ACTOR: { title: "ARP or NDP Spoofer", description: "Detected as the source of ARP or NDP poisoning." },
+  SPOOFING_DHCP_ACTOR: { title: "Rogue DHCP Server or Router", description: "Detected as a rogue or misbehaving DHCP server or IPv6 router." },
   SPOOFING_DNS_ACTOR: { title: "DNS Spoofer", description: "Detected as the source of forged DNS responses." },
   SPOOFING_NAME_RESOLUTION_ACTOR: { title: "Name Resolution Poisoner", description: "Detected as the source of name resolution poisoning." },
   ACTIVE_ALERTS: { title: "Active Alerts", description: "Involved in alerts that are currently active." },
@@ -206,8 +211,8 @@ export const FINDING_TITLES = {
   ICMP_TUNNEL: "ICMP Tunnels",
   ICMP_TRACEROUTE: "Traceroutes",
   ICMP_REDIRECT: "ICMP Redirects",
-  SPOOFING_ARP: "ARP Spoofing",
-  SPOOFING_DHCP: "DHCP Spoofing",
+  SPOOFING_ARP: "ARP and NDP Spoofing",
+  SPOOFING_DHCP: "DHCP and Router Spoofing",
   SPOOFING_DNS: "DNS Spoofing",
   SPOOFING_NAME_RESOLUTION: "Name Resolution Spoofing"
 }

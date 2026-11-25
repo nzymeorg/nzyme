@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.assets.profile.AssetProfileBatch;
 import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
+import app.nzyme.core.ethernet.icmp.IcmpSql;
 import app.nzyme.core.ethernet.L4ConnectionCleaner;
 import app.nzyme.core.ethernet.dns.tunnels.DnsTunnelJson;
 import app.nzyme.core.util.MetricNames;
@@ -658,7 +659,7 @@ public class SegmentationEngine {
         return Sets.newHashSet(handle.createQuery("SELECT DISTINCT host(quoted_source_address) AS src, " +
                         "host(quoted_destination_address) AS dst, quoted_protocol, quoted_destination_port " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND last_seen >= :from AND last_seen <= :to " +
-                        "AND icmp_type = 3 AND quoted_protocol IN (6, 17) AND quoted_source_address IS NOT NULL " +
+                        "AND " + IcmpSql.unreachable("") + " AND quoted_protocol IN (6, 17) AND quoted_source_address IS NOT NULL " +
                         "AND quoted_destination_address IS NOT NULL AND quoted_destination_port IS NOT NULL " +
                         "LIMIT :limit")
                 .bindList("taps", taps)

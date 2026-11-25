@@ -898,6 +898,10 @@ span.port {
     font-size: 12px;
 }
 
+span.port.port-subdued {
+    opacity: 0.6;
+}
+
 a span.port {
     color: #1d30d7;
 }
@@ -954,6 +958,15 @@ div.context-overlay {
     border: 1px solid #c5c5c5;
     border-radius: 8px;
     z-index: 1030; /* Above the sticky navbar (Bootstrap .sticky-top is 1020). */
+}
+
+div.context-overlay.context-overlay-wide {
+    width: 410px;
+    margin-right: -410px;
+}
+
+div.context-overlay h6 span.context-address {
+    white-space: nowrap;
 }
 
 /* As high as its content, above what it belongs to. */

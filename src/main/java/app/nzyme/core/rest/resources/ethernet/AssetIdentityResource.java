@@ -45,7 +45,6 @@ import org.joda.time.DateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/assets/identity")
 @Produces(MediaType.APPLICATION_JSON)
@@ -198,7 +197,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         AssetIdentity.DuplicateOrderColumn orderColumn = AssetIdentity.DuplicateOrderColumn.LAST_SEEN;
@@ -332,7 +331,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        nzyme.getAssetsManager().identity().deleteDuplicateFindings(parseFiltersQueryParameter(filtersParameter),
+        nzyme.getAssetsManager().identity().deleteDuplicateFindings(parseFilters(filtersParameter, sc),
                 parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
 
         return Response.ok().build();
@@ -365,7 +364,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         AssetIdentity.ChangeOrderColumn orderColumn = AssetIdentity.ChangeOrderColumn.LAST_SEEN;
@@ -499,7 +498,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        nzyme.getAssetsManager().identity().deleteChangeFindings(parseFiltersQueryParameter(filtersParameter),
+        nzyme.getAssetsManager().identity().deleteChangeFindings(parseFilters(filtersParameter, sc),
                 parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
 
         return Response.ok().build();
@@ -533,7 +532,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         AssetIdentity.LinkOrderColumn orderColumn = AssetIdentity.LinkOrderColumn.DETECTED_AT;
@@ -702,7 +701,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        nzyme.getAssetsManager().identity().setLinksStatus(parseFiltersQueryParameter(filtersParameter),
+        nzyme.getAssetsManager().identity().setLinksStatus(parseFilters(filtersParameter, sc),
                 parseTimeRangeQueryParameter(timeRangeParameter), normalized, organizationId, tenantId);
 
         return Response.ok().build();
@@ -764,7 +763,7 @@ public class AssetIdentityResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        nzyme.getAssetsManager().identity().deleteLinks(parseFiltersQueryParameter(filtersParameter),
+        nzyme.getAssetsManager().identity().deleteLinks(parseFilters(filtersParameter, sc),
                 parseTimeRangeQueryParameter(timeRangeParameter), organizationId, tenantId);
 
         return Response.ok().build();

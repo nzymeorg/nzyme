@@ -170,7 +170,8 @@ export default function SpoofingExclusionForm({organizationId, tenantId, initial
                  placeholder="192.168.0.1"
                  value={values.address_cidr} onChange={update("address_cidr")} />
           <div className="form-text">
-            For ARP poisoning, the address that is being claimed. For DHCP spoofing, the address of the DHCP server.
+            For ARP and NDP spoofing, the address that is being claimed. For DHCP and router spoofing, the address of
+            the server or router.
             A single address like <code>192.168.0.1</code> or a network in CIDR notation like <code>10.0.0.0/8</code>.
             Use it for a virtual router address that moves between routers on purpose, or for a lab network with
             its own DHCP servers.
@@ -183,7 +184,7 @@ export default function SpoofingExclusionForm({organizationId, tenantId, initial
                  placeholder="74:56:3C:43:77:AF"
                  value={values.mac} onChange={update("mac")} />
           <div className="form-text">
-            For ARP poisoning, the device doing the claiming. For DHCP spoofing, the DHCP server. Use it for a
+            For ARP and NDP spoofing, the device doing the claiming. For DHCP and router spoofing, the server or router. Use it for a
             failover node or a hypervisor that takes over addresses on purpose, or a DHCP server you do not want
             to see findings for.
           </div>

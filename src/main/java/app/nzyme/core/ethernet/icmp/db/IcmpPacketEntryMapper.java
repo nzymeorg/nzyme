@@ -19,6 +19,7 @@ public class IcmpPacketEntryMapper implements RowMapper<IcmpPacketEntry> {
                 rs.getString("destination_mac"),
                 rs.getString("source_address"),
                 rs.getString("destination_address"),
+                rs.getInt("ip_version"),
                 rs.getInt("icmp_type"),
                 rs.getInt("icmp_code"),
                 rs.getLong("packet_count"),

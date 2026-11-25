@@ -8,9 +8,11 @@ import {L4_SESSIONS_FILTER_FIELDS} from "../../ethernet/l4/L4SessionFilterFields
 import {DNS_FILTER_FIELDS} from "../../ethernet/dns/DNSFilterFields";
 import {DHCP_FILTER_FIELDS} from "../../ethernet/assets/dhcp/DHCPFilterFields";
 import {ARP_FILTER_FIELDS} from "../../ethernet/assets/arp/ARPFilterFields";
+import {NDP_FILTER_FIELDS} from "../../ethernet/assets/ndp/NDPFilterFields";
 import {SSH_FILTER_FIELDS} from "../../ethernet/remote/ssh/SSHFilterFields";
 import {SOCKS_FILTER_FIELDS} from "../../ethernet/tunnels/socks/SOCKSFilterFields";
 import {VPN_FILTER_FIELDS} from "../../ethernet/tunnels/vpn/VPNFilterFields";
+import {IPV6_TRANSITION_FILTER_FIELDS} from "../../ethernet/tunnels/ipv6transition/Ipv6TransitionFilterFields";
 import {TLS_SESSION_FILTER_FIELDS} from "../../ethernet/tls/TLSSessionFilterFields";
 import {TLS_CERTIFICATE_FILTER_FIELDS} from "../../ethernet/tls/TLSCertificateFilterFields";
 import {RTSP_FILTER_FIELDS} from "../../ethernet/streams/rtsp/RTSPFilterFields";
@@ -42,12 +44,16 @@ export default function monitorTypeToFilterFields(type) {
       return DHCP_FILTER_FIELDS
     case "ETHERNET_ARP_PACKET":
       return ARP_FILTER_FIELDS
+    case "ETHERNET_NDP_MESSAGE":
+      return NDP_FILTER_FIELDS
     case "ETHERNET_SSH_SESSION":
       return SSH_FILTER_FIELDS
     case "ETHERNET_SOCKS_TUNNEL":
       return SOCKS_FILTER_FIELDS
     case "ETHERNET_VPN_TUNNEL":
       return VPN_FILTER_FIELDS
+    case "ETHERNET_IPV6_TRANSITION_TUNNEL":
+      return IPV6_TRANSITION_FILTER_FIELDS
     case "ETHERNET_TLS_SESSION":
       return TLS_SESSION_FILTER_FIELDS
     case "ETHERNET_TLS_CERTIFICATE":

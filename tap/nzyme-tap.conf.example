@@ -7,6 +7,8 @@ accept_insecure_certs = false
 active = false
 networks = [
   { cidr = "192.168.0.0/24", dns_servers = [ "192.168.0.1:53" ], injection_interface = "enp6s0" }
+  # An IPv6 network. The DNS server can be reached over IPv4 or IPv6: "[2001:db8:1200:34::53]:53" works as well.
+  # { cidr = "2001:db8:1200:34::/64", dns_servers = [ "192.168.0.1:53" ], injection_interface = "enp6s0" }
 ]
 
 # To configure official Nzyme Sona interfaces, please follow the documentation at:
@@ -55,6 +57,8 @@ mac = "AE:3F:99:DF:3D:F5"
 interval_minutes = 1
 control_urls = ["http://detectportal.firefox.com/"]
 max_redirects = 10
+# Also run every check over IPv6, with an address from the router advertisements of the network.
+ipv6 = false
 
 [performance]
 ethernet_brokers = 1
@@ -106,13 +110,22 @@ pipeline_size = 512
 [protocols.vpn]
 pipeline_size = 256
 
+[protocols.ipv6_transition]
+pipeline_size = 1024
+
 [protocols.icmp]
+pipeline_size = 1024
+
+[protocols.ndp]
 pipeline_size = 1024
 
 [protocols.arp]
 pipeline_size = 1024
 
 [protocols.dhcpv4]
+pipeline_size = 1024
+
+[protocols.dhcpv6]
 pipeline_size = 1024
 
 [protocols.uav_remote_id]
@@ -131,3 +144,8 @@ panic_log_file_path = "/var/log/nzyme-tap/panic.log"
 # Treats addresses of the CGNAT range 100.64.0.0/10 as internal, for example on overlay networks like Tailscale.
 # Set it to the same value as the setting of the TCP/UDP section in the Nzyme web interface.
 cgnat_is_internal = false
+
+# Networks that are internal in addition to the private, unique local and link-local ranges, for example the global
+# IPv6 prefix of this site: [ "2001:db8:1200::/48" ]. Set it to the same value as the setting of the TCP/UDP section
+# in the Nzyme web interface.
+internal_networks = []

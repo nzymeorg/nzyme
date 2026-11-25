@@ -6,7 +6,7 @@ use log::{debug, error};
 use crate::metrics::Metrics;
 use crate::wireless::bluetooth::bluetooth_device_advertisement::BluetoothDeviceAdvertisement;
 use crate::configuration::Configuration;
-use crate::wired::packets::{Dhcpv4Packet, NtpPacket, RtspStream, SocksTunnel, SshSession, IcmpPacket, VpnTunnel};
+use crate::wired::packets::{Dhcpv4Packet, Dhcpv6Packet, NtpPacket, RtspStream, SocksTunnel, SshSession, IcmpPacket, Ipv6TransitionObservation, NdpPacket, VpnTunnel};
 use crate::messagebus::channel_names::{BluetoothChannelName, Dot11ChannelName, GenericChannelName, WiredChannelName};
 use crate::protocols::detection::taggers::remoteid::messages::UavRemoteIdMessage;
 use crate::protocols::parsers::stun_tagger::StunFlow;
@@ -34,6 +34,7 @@ pub struct Bus {
 
     pub arp_pipeline: NzymeChannel<ArpPacket>,
     pub icmp_pipeline: NzymeChannel<IcmpPacket>,
+    pub ndp_pipeline: NzymeChannel<NdpPacket>,
     pub tcp_pipeline: NzymeChannel<TcpSegment>,
     pub udp_pipeline: NzymeChannel<Datagram>,
     pub dns_pipeline: NzymeChannel<DNSPacket>,
@@ -41,11 +42,13 @@ pub struct Bus {
     pub tls_pipeline: NzymeChannel<TlsSession>,
     pub socks_pipeline: NzymeChannel<SocksTunnel>,
     pub dhcpv4_pipeline: NzymeChannel<Dhcpv4Packet>,
+    pub dhcpv6_pipeline: NzymeChannel<Dhcpv6Packet>,
     pub ntp_pipeline: NzymeChannel<NtpPacket>,
     pub rtsp_pipeline: NzymeChannel<RtspStream>,
     pub stun_pipeline: NzymeChannel<StunFlow>,
     pub webrtc_pipeline: NzymeChannel<WebRtcConversation>,
     pub vpn_pipeline: NzymeChannel<VpnTunnel>,
+    pub ipv6_transition_pipeline: NzymeChannel<Ipv6TransitionObservation>,
 
     pub uav_remote_id_pipeline: NzymeChannel<UavRemoteIdMessage>
 }
@@ -108,6 +111,8 @@ impl Bus<> {
             bounded(configuration.protocols.arp.pipeline_size as usize);
         let (icmp_pipeline_sender, icmp_pipeline_receiver) =
             bounded(configuration.protocols.icmp.pipeline_size as usize);
+        let (ndp_pipeline_sender, ndp_pipeline_receiver) =
+            bounded(configuration.protocols.ndp.pipeline_size as usize);
         let (tcp_pipeline_sender, tcp_pipeline_receiver) = 
             bounded(configuration.protocols.tcp.pipeline_size as usize);
         let (udp_pipeline_sender, udp_pipeline_receiver) = 
@@ -122,6 +127,8 @@ impl Bus<> {
             bounded(configuration.protocols.tls.pipeline_size as usize);
         let (dhcpv4_pipeline_sender, dhcpv4_pipeline_receiver) =
             bounded(configuration.protocols.dhcpv4.pipeline_size as usize);
+        let (dhcpv6_pipeline_sender, dhcpv6_pipeline_receiver) =
+            bounded(configuration.protocols.dhcpv6.pipeline_size as usize);
         let (ntp_pipeline_sender, ntp_pipeline_receiver) =
             bounded(configuration.protocols.ntp.pipeline_size as usize);
         let (rtsp_pipeline_sender, rtsp_pipeline_receiver) =
@@ -132,6 +139,8 @@ impl Bus<> {
             bounded(configuration.protocols.webrtc.pipeline_size as usize);
         let (vpn_pipeline_sender, vpn_pipeline_receiver) =
             bounded(configuration.protocols.vpn.pipeline_size as usize);
+        let (ipv6_transition_pipeline_sender, ipv6_transition_pipeline_receiver) =
+            bounded(configuration.protocols.ipv6_transition.pipeline_size as usize);
 
         let (uav_remote_id_sender, uav_remote_id_receiver) =
             bounded(configuration.protocols.uav_remote_id.pipeline_size as usize);
@@ -185,6 +194,14 @@ impl Bus<> {
                     name: WiredChannelName::IcmpPipeline.to_string()
                 }),
                 receiver: Arc::new(icmp_pipeline_receiver),
+            },
+            ndp_pipeline: NzymeChannel {
+                sender: Mutex::new(NzymeChannelSender {
+                    metrics: metrics.clone(),
+                    sender: ndp_pipeline_sender,
+                    name: WiredChannelName::NdpPipeline.to_string()
+                }),
+                receiver: Arc::new(ndp_pipeline_receiver),
             },
             tcp_pipeline: NzymeChannel {
                 sender: Mutex::new(NzymeChannelSender {
@@ -242,6 +259,14 @@ impl Bus<> {
                 }),
                 receiver: Arc::new(dhcpv4_pipeline_receiver),
             },
+            dhcpv6_pipeline: NzymeChannel {
+                sender: Mutex::new(NzymeChannelSender {
+                    metrics: metrics.clone(),
+                    sender: dhcpv6_pipeline_sender,
+                    name: WiredChannelName::Dhcpv6Pipeline.to_string()
+                }),
+                receiver: Arc::new(dhcpv6_pipeline_receiver),
+            },
             ntp_pipeline: NzymeChannel {
                 sender: Mutex::new(NzymeChannelSender {
                     metrics: metrics.clone(),
@@ -281,6 +306,14 @@ impl Bus<> {
                     name: WiredChannelName::VpnPipeline.to_string()
                 }),
                 receiver: Arc::new(vpn_pipeline_receiver),
+            },
+            ipv6_transition_pipeline: NzymeChannel {
+                sender: Mutex::new(NzymeChannelSender {
+                    metrics: metrics.clone(),
+                    sender: ipv6_transition_pipeline_sender,
+                    name: WiredChannelName::Ipv6TransitionPipeline.to_string()
+                }),
+                receiver: Arc::new(ipv6_transition_pipeline_receiver),
             },
             uav_remote_id_pipeline: NzymeChannel {
                 sender: Mutex::new(NzymeChannelSender {

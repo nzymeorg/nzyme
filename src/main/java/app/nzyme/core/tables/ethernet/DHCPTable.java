@@ -1,5 +1,7 @@
 package app.nzyme.core.tables.ethernet;
 
+import app.nzyme.core.util.Tools;
+import com.google.common.net.InetAddresses;
 import com.google.common.base.Joiner;
 
 import app.nzyme.core.assets.AssetManager;
@@ -17,6 +19,7 @@ import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponseEntry;
 import app.nzyme.core.ethernet.dhcp.db.DHCPServerResponses;
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.Dhcpv4TransactionReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.Dhcpv6TransactionReport;
 import app.nzyme.core.tables.DataTable;
 import app.nzyme.core.tables.TablesService;
 import app.nzyme.core.taps.Tap;
@@ -34,6 +37,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.PreparedBatch;
+import org.jdbi.v3.core.statement.Update;
 import org.joda.time.DateTime;
 
 import java.sql.Types;
@@ -43,8 +47,19 @@ public class DHCPTable implements DataTable {
 
     private static final Logger LOG = LogManager.getLogger(DHCPTable.class);
 
+    // What a tap reports at most.
+    private static final int MAX_TRANSACTIONS_PER_REPORT = 20_000;
+    private static final int MAX_LIST_ENTRIES = 64;
+    // A DUID has at most 130 bytes and is reported as hex.
+    private static final int MAX_DUID_LENGTH = 260;
+
+    private static final Set<String> V6_TRANSACTION_TYPES = Set.of(
+            "Initial", "Renew", "Rebind", "Confirm", "Release", "Decline", "Inform"
+    );
+
     private final Timer totalReportTimer;
     private final Timer transactionsV4ReportTimer;
+    private final Timer transactionsV6ReportTimer;
     private final Timer assetRegistrationTimer;
 
     private final TablesService tablesService;
@@ -58,6 +73,8 @@ public class DHCPTable implements DataTable {
                 .timer(MetricNames.DHCP_TOTAL_REPORT_PROCESSING_TIMER);
         this.transactionsV4ReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DHCP_TRANSACTIONS_FOUR_REPORT_PROCESSING_TIMER);
+        this.transactionsV6ReportTimer = tablesService.getNzyme().getMetrics()
+                .timer(MetricNames.DHCP_TRANSACTIONS_SIX_REPORT_PROCESSING_TIMER);
         this.assetRegistrationTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DHCP_ASSET_REGISTRATION_PROCESSING_TIMER);
 
@@ -75,15 +92,24 @@ public class DHCPTable implements DataTable {
                     throw new RuntimeException("Reporting tap [" + tapUuid + "] not found. Not processing report.");
                 }
 
+                List<Dhcpv4TransactionReport> four = report.four().size() > MAX_TRANSACTIONS_PER_REPORT
+                        ? report.four().subList(0, MAX_TRANSACTIONS_PER_REPORT) : report.four();
+
                 try (Timer.Context ignored2 = transactionsV4ReportTimer.time()) {
-                    writeV4Transactions(handle, tap.get(), report.four());
+                    writeV4Transactions(handle, tap.get(), four);
+                }
+
+                try (Timer.Context ignored2 = transactionsV6ReportTimer.time()) {
+                    writeV6Transactions(handle, tap.get(), report.six());
                 }
 
                 try (Timer.Context ignored3 = assetRegistrationTimer.time()) {
-                    registerAssets(handle, tap.get(), report.four());
+                    registerAssets(handle, tap.get(), four);
+                    registerV6Assets(handle, tap.get(), report.six());
                 }
 
-                writeAssetProfiles(handle, tap.get(), report.four());
+                writeAssetProfiles(handle, tap.get(), four);
+                writeV6AssetProfiles(handle, tap.get(), report.six());
             }
         });
     }
@@ -103,18 +129,18 @@ public class DHCPTable implements DataTable {
             String parameterRequestList;
 
             try {
-                additionalClientMacs = om.writeValueAsString(tx.additionalClientMacs());
-                additionalServerMacs = om.writeValueAsString(tx.additionalServerMacs());
-                offeredIpAddresses = om.writeValueAsString(tx.offeredIpAddresses());
+                additionalClientMacs = om.writeValueAsString(limited(tx.additionalClientMacs()));
+                additionalServerMacs = om.writeValueAsString(limited(tx.additionalServerMacs()));
+                offeredIpAddresses = om.writeValueAsString(limited(tx.offeredIpAddresses()));
                 options = om.writeValueAsString(tx.options());
-                additionalOptions = om.writeValueAsString(tx.additionalOptions());
+                additionalOptions = om.writeValueAsString(limited(tx.additionalOptions()));
                 timestamps = om.writeValueAsString(tx.timestamps());
                 additionalFingerprints = "[]";
                 additionalVendorClasses = om.writeValueAsString(tx.additionalVendorClasses());
                 notes = om.writeValueAsString(tx.notes());
                 parameterRequestList = tx.parameterRequestList() == null
                         ? null : om.writeValueAsString(tx.parameterRequestList());
-                serverResponses = DHCPServerResponses.toJson(tx.serverResponses().stream()
+                serverResponses = DHCPServerResponses.toJson(limited(tx.serverResponses()).stream()
                         .map(r -> DHCPServerResponseEntry.create(r.messageType(), r.serverMac(), r.serverAddress(),
                                 r.serverIdentifier(), r.offeredAddress(), r.subnetMask(), r.routers(), r.dnsServers(),
                                 r.domainName(), r.leaseTimeSeconds(), r.count(), r.firstSeen(), r.lastSeen()))
@@ -130,7 +156,7 @@ public class DHCPTable implements DataTable {
             try {
                 existingTx = handle.createQuery("SELECT id FROM dhcp_transactions " +
                                 "WHERE transaction_id = :transaction_id AND first_packet = :first_packet " +
-                                "AND tap_uuid = :tap_uuid AND is_complete = :is_complete")
+                                "AND tap_uuid = :tap_uuid AND ip_version = 4 AND is_complete = :is_complete")
                         .bind("transaction_id", tx.transactionId())
                         .bind("first_packet", tx.firstPacket())
                         .bind("tap_uuid", tap.uuid())
@@ -236,6 +262,135 @@ public class DHCPTable implements DataTable {
                         .execute();
             }
         }
+    }
+
+    // A server response is stored in the shape of a DHCPv4 one: the DUID as server identifier, the first address as
+    // offered address and its lifetime as lease time.
+    private void writeV6Transactions(Handle handle, Tap tap, List<Dhcpv6TransactionReport> txs) {
+        int written = 0;
+        for (Dhcpv6TransactionReport tx : txs) {
+            if (written >= MAX_TRANSACTIONS_PER_REPORT) {
+                LOG.warn("DHCP report of tap [{}] has more than {} DHCPv6 transactions. Skipping the rest.",
+                        tap.uuid(), MAX_TRANSACTIONS_PER_REPORT);
+                break;
+            }
+
+            if (!V6_TRANSACTION_TYPES.contains(tx.transactionType()) || !Tools.isValidMacAddress(tx.clientMac())) {
+                continue;
+            }
+
+            String serverResponses = DHCPServerResponses.toJson(tx.serverResponses().stream()
+                    .limit(MAX_LIST_ENTRIES)
+                    .map(r -> DHCPServerResponseEntry.create(
+                            r.messageType(),
+                            r.serverMac(),
+                            address(r.serverAddress()),
+                            r.serverDuid(),
+                            r.addresses().isEmpty() ? null : address(r.addresses().get(0).address()),
+                            null,
+                            List.of(),
+                            limited(r.dnsServers()).stream().filter(InetAddresses::isInetAddress).toList(),
+                            r.domainSearchList().isEmpty() ? null : String.join(", ", limited(r.domainSearchList())),
+                            r.addresses().isEmpty() ? null : r.addresses().get(0).validLifetime(),
+                            r.count(),
+                            r.firstSeen(),
+                            r.lastSeen()))
+                    .toList());
+
+            Optional<String> fingerprint = new DHCPFingerprint(tx.optionRequestList(), tx.vendorClass()).generate();
+
+            Optional<Long> existingTx;
+            try {
+                existingTx = handle.createQuery("SELECT id FROM dhcp_transactions " +
+                                "WHERE transaction_id = :transaction_id AND first_packet = :first_packet " +
+                                "AND tap_uuid = :tap_uuid AND ip_version = 6 AND is_complete = false")
+                        .bind("transaction_id", tx.transactionId())
+                        .bind("first_packet", tx.firstPacket())
+                        .bind("tap_uuid", tap.uuid())
+                        .mapTo(Long.class)
+                        .findOne();
+            } catch (IllegalStateException e) {
+                LOG.error("Multiple existing DHCPv6 transactions with transaction ID <{}> found. Skipping.",
+                        tx.transactionId());
+                continue;
+            }
+
+            String sql = existingTx.isEmpty()
+                    ? "INSERT INTO dhcp_transactions(uuid, tap_uuid, ip_version, transaction_id, transaction_type, " +
+                    "client_mac, additional_client_macs, server_mac, additional_server_macs, client_duid, " +
+                    "server_duid, offered_ip_addresses, requested_ip_address, addresses, prefixes, options, " +
+                    "additional_options, fingerprint, additional_fingerprints, vendor_class, " +
+                    "additional_vendor_classes, timestamps, first_packet, latest_packet, notes, server_responses, " +
+                    "selected_server_address, parameter_request_list, fqdn, is_successful, is_complete, updated_at, " +
+                    "created_at) VALUES(:uuid, :tap_uuid, 6, :transaction_id, :transaction_type, :client_mac, " +
+                    ":additional_client_macs::jsonb, :server_mac, :additional_server_macs::jsonb, :client_duid, " +
+                    ":server_duid, :offered_ip_addresses::jsonb, :requested_ip_address::inet, :addresses::jsonb, " +
+                    ":prefixes::jsonb, :options::jsonb, '[]'::jsonb, :fingerprint, '[]'::jsonb, :vendor_class, " +
+                    "'[]'::jsonb, :timestamps::jsonb, :first_packet, :latest_packet, :notes::jsonb, " +
+                    ":server_responses::jsonb, :selected_server_address::inet, :parameter_request_list::jsonb, " +
+                    ":fqdn, :is_successful, :is_complete, NOW(), NOW())"
+                    : "UPDATE dhcp_transactions SET additional_client_macs = :additional_client_macs::jsonb, " +
+                    "server_mac = :server_mac, additional_server_macs = :additional_server_macs::jsonb, " +
+                    "server_duid = :server_duid, offered_ip_addresses = :offered_ip_addresses::jsonb, " +
+                    "requested_ip_address = :requested_ip_address::inet, addresses = :addresses::jsonb, " +
+                    "prefixes = :prefixes::jsonb, timestamps = :timestamps::jsonb, " +
+                    "latest_packet = :latest_packet, notes = :notes::jsonb, " +
+                    "server_responses = :server_responses::jsonb, " +
+                    "selected_server_address = :selected_server_address::inet, " +
+                    "fqdn = COALESCE(:fqdn, fqdn), is_complete = :is_complete, is_successful = :is_successful, " +
+                    "updated_at = NOW() WHERE id = :id";
+
+            Update update = handle.createUpdate(sql)
+                    .bind("additional_client_macs", om.writeValueAsString(limited(tx.additionalClientMacs())))
+                    .bind("server_mac", tx.serverMac())
+                    .bind("additional_server_macs", om.writeValueAsString(limited(tx.additionalServerMacs())))
+                    .bind("server_duid", tx.serverDuid())
+                    .bind("offered_ip_addresses", om.writeValueAsString(limited(tx.offeredIpAddresses())))
+                    .bind("requested_ip_address", address(tx.requestedIpAddress()))
+                    .bind("addresses", om.writeValueAsString(limited(tx.addresses())))
+                    .bind("prefixes", om.writeValueAsString(limited(tx.prefixes())))
+                    .bind("timestamps", om.writeValueAsString(tx.timestamps()))
+                    .bind("latest_packet", tx.latestPacket())
+                    .bind("notes", om.writeValueAsString(limited(tx.notes())))
+                    .bind("server_responses", serverResponses)
+                    .bind("selected_server_address", address(tx.selectedServerAddress()))
+                    .bind("fqdn", tx.fqdn())
+                    .bind("is_successful", tx.successful())
+                    .bind("is_complete", tx.complete());
+
+            if (existingTx.isEmpty()) {
+                update.bind("uuid", UUID.randomUUID())
+                        .bind("tap_uuid", tap.uuid())
+                        .bind("transaction_id", tx.transactionId())
+                        .bind("transaction_type", tx.transactionType())
+                        .bind("client_mac", tx.clientMac())
+                        .bind("client_duid", tx.clientDuid())
+                        .bind("options", om.writeValueAsString(limited(tx.options())))
+                        .bind("fingerprint", fingerprint)
+                        .bind("vendor_class", tx.vendorClass())
+                        .bind("first_packet", tx.firstPacket())
+                        .bind("parameter_request_list", om.writeValueAsString(limited(tx.optionRequestList())));
+            } else {
+                update.bind("id", existingTx.get());
+            }
+
+            update.execute();
+            written++;
+        }
+    }
+
+    // Cast to an address in SQL, where anything else would fail the whole report.
+    @Nullable
+    private static String address(@Nullable String address) {
+        return address != null && InetAddresses.isInetAddress(address) ? address : null;
+    }
+
+    private static <T> Collection<T> limited(Collection<T> values) {
+        if (values == null) {
+            return List.of();
+        }
+
+        return values.size() > MAX_LIST_ENTRIES ? values.stream().limit(MAX_LIST_ENTRIES).toList() : values;
     }
 
     private void registerAssets(Handle handle, Tap tap, List<Dhcpv4TransactionReport> txs) {
@@ -392,6 +547,87 @@ public class DHCPTable implements DataTable {
             profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER, tx.clientIdentifier(), timestamp);
 
             String server = tx.selectedServerAddress() != null ? tx.selectedServerAddress() : tx.serverMac();
+            profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_SERVER, server, timestamp);
+
+            if (AssetProfileBatch.isUsableMac(tx.serverMac())) {
+                profile.activity(tx.serverMac(), timestamp, AssetProfileBatch.ActivityKind.DHCP, 1, 0, 0);
+                profile.tap(tx.serverMac(), timestamp, 1);
+                profile.attribute(tx.serverMac(), AssetAttributeDimension.ROLE, AssetRole.DHCP_SERVER.name(), timestamp);
+            }
+        }
+
+        profile.flush(handle);
+    }
+
+    // Behind a relay, the MAC address of the frame is the relay's.
+    private static boolean isFromClientItself(Dhcpv6TransactionReport tx) {
+        return V6_TRANSACTION_TYPES.contains(tx.transactionType()) && Tools.isValidMacAddress(tx.clientMac())
+                && !tx.clientMac().equals("00:00:00:00:00:00") && !tx.notes().contains("Relayed");
+    }
+
+    private void registerV6Assets(Handle handle, Tap tap, List<Dhcpv6TransactionReport> txs) {
+        Map<String, DateTime[]> clients = new LinkedHashMap<>();
+
+        int count = 0;
+        for (Dhcpv6TransactionReport tx : txs) {
+            if (count++ >= MAX_TRANSACTIONS_PER_REPORT) {
+                break;
+            }
+
+            if (!isFromClientItself(tx)) {
+                continue;
+            }
+
+            DateTime first = tx.firstPacket() != null ? tx.firstPacket() : tx.latestPacket();
+            DateTime latest = tx.latestPacket() != null ? tx.latestPacket() : tx.firstPacket();
+            if (first == null || latest == null) {
+                continue;
+            }
+
+            DateTime[] seen = clients.get(tx.clientMac());
+            if (seen == null) {
+                clients.put(tx.clientMac(), new DateTime[]{first, latest});
+            } else {
+                if (first.isBefore(seen[0])) {
+                    seen[0] = first;
+                }
+                if (latest.isAfter(seen[1])) {
+                    seen[1] = latest;
+                }
+            }
+        }
+
+        for (Map.Entry<String, DateTime[]> client : clients.entrySet()) {
+            tablesService.getNzyme().getAssetsManager().registerSeen(
+                    handle, tap, client.getKey(), client.getValue()[0], client.getValue()[1], AssetManager.SeenBy.DHCP);
+        }
+    }
+
+    private void writeV6AssetProfiles(Handle handle, Tap tap, List<Dhcpv6TransactionReport> txs) {
+        AssetProfileBatch profile = new AssetProfileBatch(tap);
+
+        int count = 0;
+        for (Dhcpv6TransactionReport tx : txs) {
+            if (count++ >= MAX_TRANSACTIONS_PER_REPORT) {
+                break;
+            }
+
+            if (!isFromClientItself(tx)) {
+                continue;
+            }
+
+            DateTime timestamp = tx.latestPacket() != null ? tx.latestPacket() : tx.firstPacket();
+
+            profile.activity(tx.clientMac(), timestamp, AssetProfileBatch.ActivityKind.DHCP, 1, 0, 0);
+            profile.tap(tx.clientMac(), timestamp, 1);
+
+            new DHCPFingerprint(tx.optionRequestList(), tx.vendorClass()).generate().ifPresent(fp ->
+                    profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP6_FINGERPRINT, fp, timestamp));
+            if (tx.clientDuid() != null && tx.clientDuid().length() <= MAX_DUID_LENGTH) {
+                profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP6_CLIENT_DUID, tx.clientDuid(), timestamp);
+            }
+
+            String server = address(tx.selectedServerAddress()) != null ? tx.selectedServerAddress() : tx.serverMac();
             profile.attribute(tx.clientMac(), AssetAttributeDimension.DHCP_SERVER, server, timestamp);
 
             if (AssetProfileBatch.isUsableMac(tx.serverMac())) {

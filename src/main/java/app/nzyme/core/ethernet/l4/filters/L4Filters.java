@@ -69,6 +69,8 @@ public class L4Filters implements SqlFilterProvider  {
                 return GeneratedSql.create("", numericMatch(bindId, "(EXTRACT(EPOCH FROM (MAX(most_recent_segment_time) - MIN(start_time))) * 1000)", operator));
             case "tags":
                 return GeneratedSql.create(jsonbStringMatch(bindId, "tags", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, "family(source_address)", operator), "");
             case "source_is_internal":
                 return GeneratedSql.create(booleanMatch(bindId, "source_address_is_site_local", operator), "");
             case "destination_is_internal":
@@ -109,6 +111,8 @@ public class L4Filters implements SqlFilterProvider  {
                 return FilterOperator.IN_CIDR;
             case IS_NOT_CGNAT:
                 return FilterOperator.IS_CGNAT;
+            case IS_NOT_LINK_LOCAL:
+                return FilterOperator.IS_LINK_LOCAL;
             case NOT_CONTAINS:
                 return FilterOperator.CONTAINS;
             default:

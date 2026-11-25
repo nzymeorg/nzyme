@@ -29,6 +29,8 @@ public class IcmpUnreachableFilters implements SqlFilterProvider {
                 return GeneratedSql.create(protocolMatch(bindId, prefix + "quoted_protocol", operator), "");
             case "port":
                 return GeneratedSql.create(numericMatch(bindId, prefix + "quoted_destination_port", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, prefix + "ip_version", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

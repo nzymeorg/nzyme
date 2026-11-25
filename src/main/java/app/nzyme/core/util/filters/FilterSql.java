@@ -9,6 +9,9 @@ import java.util.UUID;
 
 public class FilterSql {
 
+    private static final String ASSET_TAG_SCOPE_ORGANIZATION = "asset_tag_scope_organization";
+    private static final String ASSET_TAG_SCOPE_TENANT = "asset_tag_scope_tenant";
+
     public static FilterSqlFragment generate(Filters filters, SqlFilterProvider filterProvider) {
         String whereSql;
         String havingSql;
@@ -54,6 +57,11 @@ public class FilterSql {
                 havingSql = generated.sql();
                 bindings.putAll(generated.bindings());
             }
+        }
+
+        if (whereSql.contains(ASSET_TAG_SCOPE_ORGANIZATION) || havingSql.contains(ASSET_TAG_SCOPE_ORGANIZATION)) {
+            bindings.put(ASSET_TAG_SCOPE_ORGANIZATION, filters.scope().organizationId());
+            bindings.put(ASSET_TAG_SCOPE_TENANT, filters.scope().tenantId());
         }
 
         return FilterSqlFragment.create(whereSql, havingSql, bindings);
@@ -276,7 +284,9 @@ public class FilterSql {
         String tagged = "SELECT tag_asset.mac FROM assets AS tag_asset " +
                 "JOIN assets_tag_assignments AS tag_assignment ON tag_assignment.asset_id = tag_asset.id " +
                 "JOIN assets_tags AS tag_definition ON tag_definition.id = tag_assignment.tag_id " +
-                "WHERE tag_definition.uuid::text = lower(:" + bindId + ")";
+                "WHERE tag_definition.uuid::text = lower(:" + bindId + ") " +
+                "AND :" + ASSET_TAG_SCOPE_ORGANIZATION + " IN ('" + FilterScope.ANY + "', tag_definition.organization_id::text) " +
+                "AND :" + ASSET_TAG_SCOPE_TENANT + " IN ('" + FilterScope.ANY + "', tag_definition.tenant_id::text)";
 
         switch (operator) {
             case EQUALS:
@@ -332,15 +342,25 @@ public class FilterSql {
             case IS_PRIVATE:
                 return "(" + fieldName + " <<= '10.0.0.0/8'::cidr OR "
                         + fieldName + " <<= '172.16.0.0/12'::cidr OR "
-                        + fieldName + " <<= '192.168.0.0/16'::cidr)";
+                        + fieldName + " <<= '192.168.0.0/16'::cidr OR "
+                        + fieldName + " <<= 'fc00::/7'::cidr)";
             case IS_NOT_PRIVATE:
                 return "NOT (" + fieldName + " <<= '10.0.0.0/8'::cidr OR "
                         + fieldName + " <<= '172.16.0.0/12'::cidr OR "
-                        + fieldName + " <<= '192.168.0.0/16'::cidr)";
+                        + fieldName + " <<= '192.168.0.0/16'::cidr OR "
+                        + fieldName + " <<= 'fc00::/7'::cidr)";
             case IS_CGNAT:
                 return fieldName + " <<= '100.64.0.0/10'::cidr";
             case IS_NOT_CGNAT:
                 return "NOT (" + fieldName + " <<= '100.64.0.0/10'::cidr)";
+            case IS_LINK_LOCAL:
+                return "(" + fieldName + " <<= '169.254.0.0/16'::cidr OR " + fieldName + " <<= 'fe80::/10'::cidr)";
+            case IS_NOT_LINK_LOCAL:
+                return "NOT (" + fieldName + " <<= '169.254.0.0/16'::cidr OR " + fieldName + " <<= 'fe80::/10'::cidr)";
+            case IS_IPV4:
+                return "family(" + fieldName + ") = 4";
+            case IS_IPV6:
+                return "family(" + fieldName + ") = 6";
             case IS_NULL:
                 return fieldName + " IS NULL";
             case IS_NOT_NULL:
@@ -408,9 +428,14 @@ public class FilterSql {
             case IS_PRIVATE:
             case IS_NOT_PRIVATE:
             case IS_CGNAT:
+            case IS_LINK_LOCAL:
+            case IS_IPV4:
+            case IS_IPV6:
                 return anyRowMatches(ipAddressMatch(bindId, fieldName, operator));
             case IS_NOT_CGNAT:
                 return noRowMatches(ipAddressMatch(bindId, fieldName, FilterOperator.IS_CGNAT));
+            case IS_NOT_LINK_LOCAL:
+                return noRowMatches(ipAddressMatch(bindId, fieldName, FilterOperator.IS_LINK_LOCAL));
             case IS_EMPTY:
                 return "count(" + fieldName + ") = 0";
             case IS_NOT_EMPTY:
@@ -431,9 +456,14 @@ public class FilterSql {
             case IS_PRIVATE:
             case IS_NOT_PRIVATE:
             case IS_CGNAT:
+            case IS_LINK_LOCAL:
+            case IS_IPV4:
+            case IS_IPV6:
                 return anyElementMatches(fieldName, ipAddressMatch(bindId, ip, operator));
             case IS_NOT_CGNAT:
                 return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.IS_CGNAT));
+            case IS_NOT_LINK_LOCAL:
+                return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.IS_LINK_LOCAL));
             case NOT_EQUALS:
                 return noElementMatches(fieldName, ipAddressMatch(bindId, ip, FilterOperator.EQUALS));
             case NOT_REGEX_MATCH:

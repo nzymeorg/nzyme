@@ -340,10 +340,7 @@ public class TLS {
                 "NULL::text AS key_address_geo_country_code, " +
                 "NULL::float AS key_address_geo_latitude, " +
                 "NULL::float AS key_address_geo_longitude, " +
-                "(" + a + " <<= '10.0.0.0/8'::cidr OR " + a + " <<= '172.16.0.0/12'::cidr OR " +
-                a + " <<= '192.168.0.0/16'::cidr OR " + a + " <<= 'fc00::/7'::cidr" +
-                (internalAddresses.cgnatIsInternal() ? " OR " + a + " <<= '" + InternalAddresses.CGNAT_NETWORK + "'::cidr" : "") +
-                ") AS key_address_is_site_local, " +
+                "(" + internalAddresses.sqlCondition(a) + ") AS key_address_is_site_local, " +
                 "(" + a + " <<= '127.0.0.0/8'::cidr OR " + a + " = '::1'::inet) AS key_address_is_loopback, " +
                 "(" + a + " <<= '224.0.0.0/4'::cidr OR " + a + " <<= 'ff00::/8'::cidr) AS key_address_is_multicast, ";
     }

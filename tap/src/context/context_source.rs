@@ -5,6 +5,7 @@ pub enum ContextSource {
     PtrDns,
     Dhcp,
     Arp,
+    Ndp,
     Tcp,
     Udp
 }

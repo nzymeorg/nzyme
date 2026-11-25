@@ -29,6 +29,8 @@ public class IcmpRedirectFilters implements SqlFilterProvider {
                 return GeneratedSql.create(assetTagMatch(bindId, "target_mac", operator), "");
             case "packet_count":
                 return GeneratedSql.create(numericMatch(bindId, "packet_count", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, "family(sender_address)", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

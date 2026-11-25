@@ -183,6 +183,7 @@ fn main() {
     wired::interfaces::print_devices();
 
     protocols::tools::ip_tools::set_cgnat_is_internal(configuration.misc.cgnat_is_internal.unwrap_or(false));
+    protocols::tools::ip_tools::set_internal_networks(&configuration.misc.internal_networks);
 
     // Install panic logger.
     logging::install_panic_logger(configuration.misc.panic_log_file_path.clone()

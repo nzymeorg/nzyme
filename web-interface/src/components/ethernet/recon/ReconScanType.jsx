@@ -7,6 +7,7 @@ export const reconScanTypeToName = (type) => {
     case "UDP_PORT_SCAN": return "UDP Port Scan";
     case "UDP_HOST_SWEEP": return "UDP Host Sweep";
     case "ARP_SWEEP": return "ARP Sweep";
+    case "NDP_SWEEP": return "NDP Sweep";
     case "ICMP_SWEEP": return "Ping Sweep";
     case "DNS_REVERSE_SWEEP": return "Reverse DNS Sweep";
     case "SLOW_SCAN": return "Slow Scan";

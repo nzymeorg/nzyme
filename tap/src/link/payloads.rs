@@ -54,7 +54,8 @@ pub struct ConfigurationReportMisc {
     pub context_mac_ip_retention_hours: i32,
     pub context_mac_hostname_retention_hours: i32,
     pub panic_log_file_path: Option<String>,
-    pub cgnat_is_internal: bool
+    pub cgnat_is_internal: bool,
+    pub internal_networks: Vec<String>
 }
 
 #[derive(Serialize)]
@@ -143,7 +144,8 @@ impl TryFrom<Configuration> for ConfigurationReport {
                 context_mac_ip_retention_hours: c.misc.context_mac_ip_retention_hours,
                 context_mac_hostname_retention_hours: c.misc.context_mac_hostname_retention_hours,
                 panic_log_file_path: c.misc.panic_log_file_path,
-                cgnat_is_internal: c.misc.cgnat_is_internal.unwrap_or(false)
+                cgnat_is_internal: c.misc.cgnat_is_internal.unwrap_or(false),
+                internal_networks: c.misc.internal_networks
             },
             protocols: ConfigurationReportProtocols {
                 wifi: ConfigurationReportProtocolsWifi {

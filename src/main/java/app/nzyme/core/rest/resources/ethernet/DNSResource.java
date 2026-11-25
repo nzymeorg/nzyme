@@ -14,6 +14,7 @@ import app.nzyme.core.util.filters.FilterFrontendParameter;
 import app.nzyme.core.util.filters.FilterFrontendParametersBuilder;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -38,7 +39,6 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import java.util.*;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/dns")
 @Produces(MediaType.APPLICATION_JSON)
@@ -195,7 +195,7 @@ public class DNSResource extends TapDataHandlingResource {
                             HistogramValueType.DNS_TRANSACTION_LOG_LINK,
                             Map.of("filter_parameters", requestCountFilterParameters)
                     ),
-                    ps.server().address() + ":" + ps.server().port()
+                    Tools.addressWithPort(ps.server().address(), ps.server().port())
             ));
         }
 
@@ -225,7 +225,7 @@ public class DNSResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         long total = nzyme.getEthernet().dns().countAllQueries(timeRange, filters, taps);
 
@@ -302,7 +302,7 @@ public class DNSResource extends TapDataHandlingResource {
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Map<DateTime, Long> response = Maps.newHashMap();
         for (DateTimeNumberAggregationResult r : nzyme.getEthernet().dns()

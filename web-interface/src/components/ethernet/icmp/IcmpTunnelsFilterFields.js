@@ -7,5 +7,6 @@ export const ICMP_TUNNELS_FILTER_FIELDS = {
   source_tag: { title: "Source Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   destination_address: { title: "Peer", type: FILTER_TYPE.IP_ADDRESS },
   max_payload_bytes: { title: "Max Payload (Bytes)", type: FILTER_TYPE.NUMERIC },
-  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC }
+  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC },
+  ip_version: { title: "IP Version", type: FILTER_TYPE.NUMERIC }
 }

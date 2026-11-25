@@ -12,6 +12,7 @@ import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import FullCopyShortenedId from "../../shared/FullCopyShortenedId";
 import DhcpSpoofingFindingType from "./DhcpSpoofingFindingType";
 import {DhcpOfferedValue} from "./DhcpOfferedParameters";
+import {dhcpSpoofingProtocolToName} from "./DhcpSpoofingProtocol";
 
 export default function DhcpSpoofingTable({findings, page, setPage, perPage, orderColumn, setOrderColumn,
                                            orderDirection, setOrderDirection, filterFields, setFilters}) {
@@ -35,7 +36,7 @@ export default function DhcpSpoofingTable({findings, page, setPage, perPage, ord
   if (findings.findings.length === 0) {
     return <div className="alert alert-info mb-0">
       No DHCP spoofing matches the current filters and time range. A finding appears here once an untrusted server
-      answers clients, or a trusted server hands out a changed configuration.
+      or router answers clients, or a trusted one hands out a changed configuration.
     </div>
   }
 
@@ -46,6 +47,7 @@ export default function DhcpSpoofingTable({findings, page, setPage, perPage, ord
         <tr>
           <th>ID</th>
           <th>Type {columnSorting("type")}</th>
+          <th>Protocol</th>
           <th>Server {columnSorting("server_address")}</th>
           <th>Server MAC {columnSorting("server_mac")}</th>
           <th>Gateway</th>
@@ -74,6 +76,7 @@ export default function DhcpSpoofingTable({findings, page, setPage, perPage, ord
                   </span> : null}
               </td>
               <td><DhcpSpoofingFindingType type={f.type} /> {filterIcon("type", f.type)}</td>
+              <td className="text-nowrap">{dhcpSpoofingProtocolToName(f.protocol)} {filterIcon("protocol", f.protocol)}</td>
               <td>
                 {f.server_address_data ?
                   <L4Address address={f.server_address_data} hidePort={true} withAssetName

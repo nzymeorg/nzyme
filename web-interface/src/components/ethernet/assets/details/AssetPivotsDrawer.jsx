@@ -23,6 +23,8 @@ const pivotGroups = (mac) => [
       {title: "DNS Responses Served", to: filteredLink(ApiRoutes.ETHERNET.DNS.TRANSACTION_LOGS, macFilter("server_mac", mac))},
       {title: "DHCP Transactions", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX, macFilter("client_mac", mac))},
       {title: "ARP Packets Sent", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.ARP.INDEX, macFilter("arp_sender_mac", mac))},
+      {title: "NDP Messages Sent", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.NDP.INDEX, macFilter("source_mac", mac))},
+      {title: "Router Advertisements Sent", to: filteredLink(ApiRoutes.ETHERNET.ASSETS.NDP.ROUTER_ADVERTISEMENTS, macFilter("source_mac", mac))},
       {title: "NTP Requests", to: filteredLink(ApiRoutes.ETHERNET.TIME.NTP.INDEX, macFilter("client_mac", mac))},
       {title: "NTP Responses Served", to: filteredLink(ApiRoutes.ETHERNET.TIME.NTP.INDEX, macFilter("server_mac", mac))}
     ]
@@ -36,6 +38,8 @@ const pivotGroups = (mac) => [
       {title: "Inbound SOCKS Tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX, macFilter("server_mac", mac))},
       {title: "Outbound VPN Connections", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX, macFilter("client_mac", mac))},
       {title: "Inbound VPN Connections", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX, macFilter("server_mac", mac))},
+      {title: "Outbound IPv6 Transition Tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX, macFilter("client_mac", mac))},
+      {title: "Inbound IPv6 Transition Tunnels", to: filteredLink(ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX, macFilter("server_mac", mac))},
       {title: "RTSP Streams", to: filteredLink(ApiRoutes.ETHERNET.STREAMS.RTSP.INDEX, macFilter("stream_source_mac", mac))},
       {title: "WebRTC Sessions", to: filteredLink(ApiRoutes.ETHERNET.STREAMS.WEBRTC.INDEX, macFilter("source_mac", mac))},
       {title: "STUN Connections", to: filteredLink(ApiRoutes.ETHERNET.NAT.TRAVERSAL.STUN_CONNECTIONS.INDEX, macFilter("source_mac", mac))}
@@ -49,7 +53,7 @@ const pivotGroups = (mac) => [
       {title: "DNS Tunnels", to: filteredLink(ApiRoutes.ETHERNET.DNS.TUNNELS.INDEX, macFilter("client_mac", mac))},
       {title: "ICMP Tunnels", to: filteredLink(ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX, macFilter("source_mac", mac))},
       {title: "Traceroutes", to: filteredLink(ApiRoutes.ETHERNET.ICMP.TRACEROUTES.INDEX, macFilter("source_mac", mac))},
-      {title: "ARP Spoofing", to: filteredLink(ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX, macFilter("spoofer_mac", mac))},
+      {title: "ARP and NDP Spoofing", to: filteredLink(ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX, macFilter("spoofer_mac", mac))},
       {title: "DNS Spoofing", to: filteredLink(ApiRoutes.ETHERNET.SPOOFING.DNS.INDEX, macFilter("spoofer_mac", mac))},
       {title: "Name Resolution Spoofing", to: filteredLink(ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.INDEX, macFilter("responder_mac", mac))},
       {title: "Beacons", to: ApiRoutes.ETHERNET.BEACONS.INDEX}

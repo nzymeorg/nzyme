@@ -49,7 +49,7 @@ export default function ReconScanTargetBreakdown({scan, summary}) {
   }
 
   const networks = summary.networks || [];
-  const isArp = scan.type === "ARP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "DNS_REVERSE_SWEEP"
+  const isArp = scan.type === "ARP_SWEEP" || scan.type === "NDP_SWEEP" || scan.type === "ICMP_SWEEP" || scan.type === "DNS_REVERSE_SWEEP"
     || scan.type === "OS_FINGERPRINTING";
 
   if (networks.length === 0) {

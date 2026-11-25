@@ -37,6 +37,7 @@ public class FilterFactory {
             case "spoofing_type_equals":
             case "disco_type_equals":
             case "dhcp_spoofing_finding_type_equals":
+            case "dhcp_spoofing_protocol_equals":
             case "recon_target_outcome_equals":
             case "icmp_type_equals":
             case "protocol_equals":
@@ -64,6 +65,7 @@ public class FilterFactory {
             case "spoofing_type_not_equals":
             case "disco_type_not_equals":
             case "dhcp_spoofing_finding_type_not_equals":
+            case "dhcp_spoofing_protocol_not_equals":
             case "recon_target_outcome_not_equals":
             case "icmp_type_not_equals":
             case "protocol_not_equals":
@@ -142,6 +144,22 @@ public class FilterFactory {
             case "is_not_cgnat":
                 return Filter.create(
                         parameter.field(), FilterOperator.IS_NOT_CGNAT, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "is_link_local":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_LINK_LOCAL, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "is_not_link_local":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_NOT_LINK_LOCAL, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "is_ipv4":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_IPV4, optionallyTransformedValue(parameter), parameter.value()
+                );
+            case "is_ipv6":
+                return Filter.create(
+                        parameter.field(), FilterOperator.IS_IPV6, optionallyTransformedValue(parameter), parameter.value()
                 );
             case "contains":
             case "tls_alert_contains":

@@ -19,7 +19,7 @@ const spoofingService = new SpoofingService();
 
 export default function ArpSpoofingPage() {
 
-  usePageTitle("Ethernet ARP Poisoning");
+  usePageTitle("Ethernet ARP and NDP Spoofing");
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -103,13 +103,13 @@ export default function ArpSpoofingPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Active ARP Poisoning"
+              <CardTitleWithControls title="Active ARP and NDP Spoofing"
                                      refreshAction={() => setRevision(new Date())} />
 
               <ActiveSpoofingFindingsHistogram histogram={histogram}
                                                timeRange={timeRange}
                                                setTimeRange={applyTimeRange}
-                                               emptyMessage="No ARP poisoning in the selected time range." />
+                                               emptyMessage="No ARP or NDP spoofing in the selected time range." />
             </div>
           </div>
         </div>
@@ -119,12 +119,13 @@ export default function ArpSpoofingPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="ARP Poisoning"
+              <CardTitleWithControls title="ARP and NDP Spoofing"
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
                 Addresses that a device claimed with its own MAC address while the legitimate owner was still
-                claiming them as well. The spoofer is the device that showed up second. Victims are the devices
+                claiming them as well. IPv4 addresses are claimed with ARP and IPv6 addresses with NDP. The spoofer
+                is the device that showed up second. Victims are the devices
                 that received the spoofer&apos;s replies and may now send their traffic for the address to the
                 spoofer. The list covers findings that were active at any point in the selected time range.
               </p>

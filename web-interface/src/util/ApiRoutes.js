@@ -214,6 +214,10 @@ const ApiRoutes = {
       ARP: {
         INDEX: '/ethernet/assets/arp'
       },
+      NDP: {
+        INDEX: '/ethernet/assets/ndp',
+        ROUTER_ADVERTISEMENTS: '/ethernet/assets/ndp/router-advertisements'
+      },
       IDENTITY: {
         INDEX: '/ethernet/assets/identity/duplicates',
         TAB: tab => `/ethernet/assets/identity/${tab}`,
@@ -261,6 +265,10 @@ const ApiRoutes = {
         INDEX: '/ethernet/tunnels/vpn',
         TUNNEL_DETAILS: sessionId => `/ethernet/tunnels/vpn/tunnels/show/${sessionId}`,
         SETTINGS: '/ethernet/tunnels/vpn/settings'
+      },
+      IPV6_TRANSITION: {
+        INDEX: '/ethernet/tunnels/ipv6',
+        TUNNEL_DETAILS: sessionId => `/ethernet/tunnels/ipv6/tunnels/show/${sessionId}`
       }
     },
     REMOTE: {

@@ -4,7 +4,6 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.DataCategory;
 import app.nzyme.core.database.DataTableInformation;
 import app.nzyme.core.database.DatabaseImpl;
-import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.distributed.tasksqueue.ReceivedTask;
 import app.nzyme.plugin.distributed.tasksqueue.TaskHandler;
 import app.nzyme.plugin.distributed.tasksqueue.TaskProcessingResult;
@@ -29,7 +28,7 @@ public class OrganizationPurgeCategoryTaskHandler extends PurgeTask implements T
         DateTime since = DateTime.parse((String) task.parametersMap().get("since"));
 
         UUID organizationId = UUID.fromString((String) task.parametersMap().get("organization_id"));
-        List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, null);
+        List<UUID> tapUuids = nzyme.getTapManager().findAllTapUuidsIncludingDeleted(organizationId, null);
 
         return purge(nzyme, tapUuids, organizationId, null, tables, since);
     }

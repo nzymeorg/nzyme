@@ -17,12 +17,20 @@
 
 package app.nzyme.core.rest;
 
+import app.nzyme.core.rest.authentication.DisplaySecured;
 import app.nzyme.core.rest.authentication.PreMFASecured;
-import com.google.common.collect.ImmutableList;
-import app.nzyme.plugin.rest.security.RESTSecured;
 import app.nzyme.core.rest.authentication.PrometheusBasicAuthSecured;
 import app.nzyme.core.rest.authentication.TapSecured;
+import app.nzyme.plugin.rest.security.RESTSecured;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.PATCH;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
@@ -30,46 +38,49 @@ import org.reflections.util.ClasspathHelper;
 import org.reflections.util.ConfigurationBuilder;
 import org.testng.annotations.Test;
 
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.Path;
-
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.testng.Assert.fail;
 
 public class ResourcesRequireAuthenticationTest {
 
-    private final List<String> WHITELIST = ImmutableList.of(
+    private static final List<Class<? extends Annotation>> HTTP_METHODS = ImmutableList.of(
+            GET.class, POST.class, PUT.class, DELETE.class, PATCH.class
+    );
+
+    private static final List<Class<? extends Annotation>> SECURED = ImmutableList.of(
+            RESTSecured.class, PreMFASecured.class, TapSecured.class, DisplaySecured.class,
+            PrometheusBasicAuthSecured.class
+    );
+
+    private static final List<String> NOT_AUTHENTICATED = ImmutableList.of(
             "WebInterfaceAssetsResource.getIndex",
             "WebInterfaceAssetsResource.get",
             "PingResource.ping",
+            "ApiDocsResource.spec",
             "InitialUserResource.createInitialUser",
-            "AuthenticationResource.createSession",
-            "TrackerWebHIDAssetsResource.getPage",
-            "TrackerWebHIDAssetsResource.getFavicon",
-            "TrackerWebHIDAssetsResource.getCSS",
-            "TrackerWebHIDAssetsResource.getFont",
-            "TrackerWebHIDAssetsResource.getPNG",
-            "TrackerWebHIDAssetsResource.getJS"
+            "AuthenticationResource.createSession"
     );
 
-    private final List<String> PREMFA_AUTHENTICATED = ImmutableList.of(
+    private static final List<String> PREMFA_AUTHENTICATED = ImmutableList.of(
             "AuthenticationResource.getSessionInformation",
+            "AuthenticationResource.touchSession",
             "AuthenticationResource.initializeMfaSetup",
+            "AuthenticationResource.verifyMfaSetup",
             "AuthenticationResource.completeMfaSetup",
             "AuthenticationResource.verifyMfa",
             "AuthenticationResource.mfaRecoveryCodeValidation"
     );
 
-    private final List<String> TAP_SECRET_AUTHENTICATED = ImmutableList.of(
-            "StatusResource.status",
-            "TablesResource.report"
-    );
-
-    private final List<String> PROMETHEUS_BASIC_AUTHENTICATED = ImmutableList.of(
-            "PrometheusResource.metrics"
+    private static final Map<String, Class<? extends Annotation>> NOT_USER_AUTHENTICATED = ImmutableMap.of(
+            "StatusResource", TapSecured.class,
+            "TablesResource", TapSecured.class,
+            "DisplayResource", DisplaySecured.class,
+            "PrometheusResource.metrics", PrometheusBasicAuthSecured.class
     );
 
     @Test
@@ -79,46 +90,64 @@ public class ResourcesRequireAuthenticationTest {
                 .setScanners(new SubTypesScanner(), new TypeAnnotationsScanner())
         );
 
-        int checked = 0;
+        Set<String> seen = Sets.newHashSet();
         for (Class<?> clazz : r.getTypesAnnotatedWith(Path.class)) {
             for (Method method : clazz.getMethods()) {
-                String id = method.getDeclaringClass().getSimpleName() + "." + method.getName();
-
-                if (!method.isAnnotationPresent(GET.class) && !method.isAnnotationPresent(POST.class)
-                    && !method.isAnnotationPresent(PUT.class)) {
-                    // Don't compare non-REST resources.
+                if (HTTP_METHODS.stream().noneMatch(method::isAnnotationPresent)) {
                     continue;
                 }
 
-                if (WHITELIST.contains(id)) {
+                String resource = method.getDeclaringClass().getSimpleName();
+                String id = resource + "." + method.getName();
+                seen.add(id);
+                seen.add(resource);
+
+                if (NOT_AUTHENTICATED.contains(id)) {
+                    for (Class<? extends Annotation> secured : SECURED) {
+                        if (has(method, clazz, secured)) {
+                            fail("REST resource " + id + " is listed as not authenticated but is annotated with @"
+                                    + secured.getSimpleName() + ".");
+                        }
+                    }
+
                     continue;
                 }
 
-                if (TAP_SECRET_AUTHENTICATED.contains(id)) {
-                    if (!method.isAnnotationPresent(TapSecured.class) && !clazz.isAnnotationPresent(TapSecured.class)) {
-                        fail("REST resource " + id + " is not annotated with @TapSecured.");
-                    }
-                } else if (PREMFA_AUTHENTICATED.contains(id)) {
-                    if (!method.isAnnotationPresent(PreMFASecured.class) && !clazz.isAnnotationPresent(PreMFASecured.class)) {
-                        fail("REST resource " + id + " is not annotated with @PreMFASecured.");
-                    }
-                } else if (PROMETHEUS_BASIC_AUTHENTICATED.contains(id)) {
-                    if (!method.isAnnotationPresent(PrometheusBasicAuthSecured.class) && !clazz.isAnnotationPresent(PrometheusBasicAuthSecured.class)) {
-                        fail("REST resource " + id + " is not annotated with @PrometheusBasicAuthSecured.");
-                    }
-                } else {
-                    if (!method.isAnnotationPresent(RESTSecured.class) && !clazz.isAnnotationPresent(RESTSecured.class)) {
-                        fail("REST resource " + id + " is not annotated with @RESTSecured.");
-                    }
+                Class<? extends Annotation> expected = PREMFA_AUTHENTICATED.contains(id)
+                        ? PreMFASecured.class
+                        : NOT_USER_AUTHENTICATED.getOrDefault(id,
+                                NOT_USER_AUTHENTICATED.getOrDefault(resource, RESTSecured.class));
+
+                if (!has(method, clazz, expected)) {
+                    fail("REST resource " + id + " is not annotated with @" + expected.getSimpleName() + ".");
                 }
 
-                checked++;
+                // A second annotation would add a second way in.
+                for (Class<? extends Annotation> secured : SECURED) {
+                    if (secured != expected && has(method, clazz, secured)) {
+                        fail("REST resource " + id + " is annotated with @" + secured.getSimpleName()
+                                + " but should only be annotated with @" + expected.getSimpleName() + ".");
+                    }
+                }
             }
         }
 
-        if (checked == 0) {
+        if (seen.isEmpty()) {
             fail("Did not check any resources. Wrong package name?");
         }
+
+        // An entry for an endpoint that is gone would exempt the next one of that name.
+        for (String listed : Sets.union(
+                Sets.union(Sets.newHashSet(NOT_AUTHENTICATED), Sets.newHashSet(PREMFA_AUTHENTICATED)),
+                NOT_USER_AUTHENTICATED.keySet())) {
+            if (!seen.contains(listed)) {
+                fail("Listed REST resource " + listed + " does not exist.");
+            }
+        }
+    }
+
+    private static boolean has(Method method, Class<?> clazz, Class<? extends Annotation> annotation) {
+        return method.isAnnotationPresent(annotation) || clazz.isAnnotationPresent(annotation);
     }
 
 }

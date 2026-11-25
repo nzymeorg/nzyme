@@ -3,8 +3,8 @@ use chrono::Utc;
 use log::{debug, error, info, trace, warn};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
-use crate::protocols::parsers::ipv4_parser;
-use crate::protocols::tools::ip_tools::route_ipv4_packet;
+use crate::protocols::parsers::{ipv4_parser, ipv6_parser};
+use crate::protocols::tools::ip_tools::route_ip_packet;
 use crate::wired::types::EtherType;
 
 pub struct Capture {
@@ -75,11 +75,22 @@ impl Capture {
                         Ok(x) => x,
                         Err(err) => {
                             warn!("Could not parse IPv4 packet: {}", err);
-                            return;
+                            continue;
                         }
                     };
 
-                    route_ipv4_packet(ipv4, &self.bus);
+                    route_ip_packet(ipv4, &self.bus);
+                },
+                EtherType::IPv6 => {
+                    let ipv6 = match ipv6_parser::parse_raw(&packet, Utc::now()) {
+                        Ok(x) => x,
+                        Err(err) => {
+                            debug!("Could not parse IPv6 packet: {}", err);
+                            continue;
+                        }
+                    };
+
+                    route_ip_packet(ipv6, &self.bus);
                 },
                 _ => {
                     trace!("Raw IP type [{}] is not implemented.", packet.data[0]);

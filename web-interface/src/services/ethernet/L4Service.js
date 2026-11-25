@@ -17,6 +17,11 @@ export default class L4Service {
         {change: newConfig}, successCallback, errorCallback);
   }
 
+  updateInternalNetworks(networks, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/ethernet/l4/organization/${organizationId}/tenant/${tenantId}/configuration/internal-networks`,
+        {networks: networks}, successCallback, errorCallback);
+  }
+
   findAllSessions(organizationId, tenantId, taps, filters, timeRange, orderColumn, orderDirection, limit, offset, setSessions) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
@@ -67,6 +72,15 @@ export default class L4Service {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
     RESTClient.get("/ethernet/l4/sessions/histograms/durations",
+        { taps: tapsList, filters: filters, time_range: timeRange },
+        (response) => setData(response.data)
+    )
+  }
+
+  getIpVersionHistogram(taps, filters, timeRange, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/ethernet/l4/sessions/histograms/ip-versions",
         { taps: tapsList, filters: filters, time_range: timeRange },
         (response) => setData(response.data)
     )

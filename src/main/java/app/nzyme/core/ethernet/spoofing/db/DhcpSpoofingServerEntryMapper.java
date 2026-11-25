@@ -20,6 +20,7 @@ public class DhcpSpoofingServerEntryMapper implements RowMapper<DhcpSpoofingServ
                 java.util.UUID.fromString(rs.getString("uuid")),
                 java.util.UUID.fromString(rs.getString("organization_id")),
                 java.util.UUID.fromString(rs.getString("tenant_id")),
+                rs.getString("protocol"),
                 rs.getString("mac"),
                 rs.getString("address"),
                 rs.getString("server_identifier"),

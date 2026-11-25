@@ -234,23 +234,23 @@ const AlertActionDefinitions = {
 
   DHCP_TRUST_SERVER: {
     kind: "call",
-    title: "Trust DHCP Server",
-    description: (t) => <span>Trust DHCP server {value(t.server_address)}. A trusted server raises no rogue server
+    title: "Trust Server",
+    description: (t) => <span>Trust {value(t.server_address)}. A trusted server or router raises no rogue server
       findings.</span>,
-    doneDescription: (t) => <span>DHCP server {value(t.server_address)} is trusted.</span>,
-    confirmation: () => "Trust this DHCP server? It will no longer raise rogue server findings, and the "
+    doneDescription: (t) => <span>{value(t.server_address)} is trusted.</span>,
+    confirmation: () => "Trust this server or router? It will no longer raise rogue server findings, and the "
       + "configuration it hands out right now becomes its expected configuration.",
-    success: "Server is now trusted.",
+    success: "Now trusted.",
     run: (t, alert, onSuccess, onError) => spoofingService.setDhcpServerTrusted(
       t.server_uuid, alert.organization_id, alert.tenant_id, true, onSuccess, onError)
   },
 
   DHCP_ACCEPT_CONFIGURATION: {
     kind: "call",
-    title: "Accept DHCP Configuration",
-    description: (t) => <span>Accept the configuration DHCP server {value(t.server_address)} hands out now as its
-      expected configuration.</span>,
-    doneDescription: (t) => <span>DHCP server {value(t.server_address)} hands out its expected configuration.</span>,
+    title: "Accept Configuration",
+    description: (t) => <span>Accept the configuration {value(t.server_address)} hands out now as its expected
+      configuration.</span>,
+    doneDescription: (t) => <span>{value(t.server_address)} hands out its expected configuration.</span>,
     confirmation: () => "Accept the configuration this server hands out right now as its expected configuration?",
     success: "Configuration accepted.",
     run: (t, alert, onSuccess, onError) => spoofingService.acceptDhcpServerConfiguration(

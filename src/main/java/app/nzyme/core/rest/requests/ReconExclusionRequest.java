@@ -44,7 +44,7 @@ public abstract class ReconExclusionRequest {
                                                @JsonProperty("description") String description,
                                                @Schema(description = "Whether the exclusion is active. Defaults to true.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                @JsonProperty("enabled") Boolean enabled,
-                                               @Schema(description = "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP. Omit or pass an empty list to match all types.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+                                               @Schema(description = "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP, NDP_SWEEP. Omit or pass an empty list to match all types.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                @JsonProperty("scan_types") List<String> scanTypes,
                                                @Schema(description = "IP address or CIDR network of the scanning device, like 10.0.0.5 or 10.0.0.0/24.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
                                                @JsonProperty("source_cidr") String sourceCidr,

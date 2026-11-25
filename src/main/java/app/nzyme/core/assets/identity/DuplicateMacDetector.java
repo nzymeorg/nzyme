@@ -50,7 +50,8 @@ public class DuplicateMacDetector {
         this.identity = nzyme.getAssetsManager().identity();
     }
 
-    private record StackRow(String mac, String fingerprint, long sessions, DateTime firstSeen, DateTime lastSeen,
+    private record StackRow(String mac, String fingerprint, int ipVersion, long sessions, DateTime firstSeen,
+                            DateTime lastSeen,
                             List<String> taps, List<String> sourceAddresses,
                             List<DuplicateMacDestination> destinations, long destinationCount,
                             int sourcePortMin, int sourcePortMax,
@@ -97,11 +98,9 @@ public class DuplicateMacDetector {
 
             for (Map.Entry<String, List<StackRow>> entry : byMac.entrySet()) {
                 String mac = entry.getKey();
-                List<StackRow> stacks = entry.getValue();
+                List<StackRow> stacks = conflicting(entry.getValue(), config.duplicateRequireStrongDifference());
 
-                if (!AssetProfileBatch.isUsableMac(mac) || !hasDifferentStacks(
-                        stacks.stream().map(StackRow::fingerprint).collect(Collectors.toList()),
-                        config.duplicateRequireStrongDifference())) {
+                if (!AssetProfileBatch.isUsableMac(mac) || stacks.isEmpty()) {
                     continue;
                 }
 
@@ -133,8 +132,12 @@ public class DuplicateMacDetector {
                         }
                     } else {
                         // Rebuilt over the whole lifetime of the finding so counts keep growing.
-                        List<StackRow> lifetime = readStacks(handle, taps, finding.firstSeen(), until, config.duplicateMinimumSessions(), mac).get(mac);
-                        if (lifetime == null || lifetime.isEmpty()) {
+                        List<StackRow> lifetime = conflicting(
+                                readStacks(handle, taps, finding.firstSeen(), until, config.duplicateMinimumSessions(), mac)
+                                        .getOrDefault(mac, List.of()),
+                                config.duplicateRequireStrongDifference()
+                        );
+                        if (lifetime.isEmpty()) {
                             lifetime = stacks;
                         }
 
@@ -173,6 +176,37 @@ public class DuplicateMacDetector {
         });
     }
 
+    // A device has a different stack per IP version, so stacks are only compared within one.
+    private static List<StackRow> conflicting(List<StackRow> stacks, boolean requireStrongDifference) {
+        Map<Integer, List<StackRow>> byVersion = Maps.newTreeMap();
+        for (StackRow stack : stacks) {
+            byVersion.computeIfAbsent(stack.ipVersion, k -> Lists.newArrayList()).add(stack);
+        }
+
+        Map<Integer, List<String>> fingerprints = Maps.newTreeMap();
+        byVersion.forEach((version, rows) -> fingerprints.put(version,
+                rows.stream().map(StackRow::fingerprint).collect(Collectors.toList())));
+
+        List<StackRow> result = Lists.newArrayList();
+        for (Integer version : versionsWithDifferentStacks(fingerprints, requireStrongDifference)) {
+            result.addAll(byVersion.get(version));
+        }
+
+        return result;
+    }
+
+    public static Set<Integer> versionsWithDifferentStacks(Map<Integer, List<String>> fingerprintsByVersion,
+                                                           boolean requireStrongDifference) {
+        Set<Integer> result = Sets.newTreeSet();
+        fingerprintsByVersion.forEach((version, fingerprints) -> {
+            if (hasDifferentStacks(fingerprints, requireStrongDifference)) {
+                result.add(version);
+            }
+        });
+
+        return result;
+    }
+
     public static String strongPart(String fingerprint) {
         return TcpSignature.comparisonKey(fingerprint);
     }
@@ -199,13 +233,15 @@ public class DuplicateMacDetector {
 
         // A session seen by several taps is one row per tap with different session keys, because the key includes
         // the start time each tap observed. The untimed key is addresses and ports only.
-        handle.createQuery("SELECT source_mac AS mac, fingerprint, COUNT(DISTINCT untimed_session_key) AS sessions, " +
+        handle.createQuery("SELECT source_mac AS mac, fingerprint, ip_version, " +
+                        "COUNT(DISTINCT untimed_session_key) AS sessions, " +
                         "MIN(start_time) AS first_seen, MAX(most_recent_segment_time) AS last_seen, " +
                         "array_agg(DISTINCT tap_uuid::text) AS taps, " +
                         "(SELECT array_agg(a.address) FROM (SELECT DISTINCT host(a2.source_address) AS address " +
                         "FROM l4_sessions a2 WHERE a2.tap_uuid IN (<taps>) AND a2.l4_type = 'TCP' " +
-                        "AND a2.ip_hop_distance = 0 AND a2.source_mac = l4_sessions.source_mac " +
-                        "AND a2.fingerprint = l4_sessions.fingerprint " +
+                        "AND a2.ip_hop_distance = 0 AND family(a2.source_address) = o.ip_version " +
+                        "AND a2.source_mac = o.source_mac " +
+                        "AND a2.fingerprint = o.fingerprint " +
                         "AND a2.start_time >= :since AND a2.start_time <= :until LIMIT :maximum_samples) a) AS source_addresses, " +
                         // The innermost query collapses the per-tap rows of a session so bytes are not counted once per tap.
                         "(SELECT COALESCE(jsonb_agg(jsonb_build_object('address', host(d.destination_address), " +
@@ -214,8 +250,9 @@ public class DuplicateMacDetector {
                         "SUM(s.bytes) AS bytes FROM (SELECT d2.untimed_session_key, d2.destination_address, " +
                         "d2.destination_port, MAX(COALESCE(d2.bytes_rx_count, 0) + COALESCE(d2.bytes_tx_count, 0)) AS bytes " +
                         "FROM l4_sessions d2 WHERE d2.tap_uuid IN (<taps>) AND d2.l4_type = 'TCP' " +
-                        "AND d2.ip_hop_distance = 0 AND d2.source_mac = l4_sessions.source_mac " +
-                        "AND d2.fingerprint = l4_sessions.fingerprint " +
+                        "AND d2.ip_hop_distance = 0 AND family(d2.source_address) = o.ip_version " +
+                        "AND d2.source_mac = o.source_mac " +
+                        "AND d2.fingerprint = o.fingerprint " +
                         "AND d2.start_time >= :since AND d2.start_time <= :until " +
                         "GROUP BY d2.untimed_session_key, d2.destination_address, d2.destination_port) s " +
                         "GROUP BY s.destination_address, s.destination_port " +
@@ -224,14 +261,18 @@ public class DuplicateMacDetector {
                         "MIN(source_port) AS source_port_min, MAX(source_port) AS source_port_max, " +
                         "(SELECT array_agg(g.signature) FROM (SELECT DISTINCT g2.signature FROM l4_sessions g2 " +
                         "WHERE g2.tap_uuid IN (<taps>) AND g2.l4_type = 'TCP' AND g2.ip_hop_distance = 0 " +
-                        "AND g2.source_mac = l4_sessions.source_mac AND g2.fingerprint = l4_sessions.fingerprint " +
+                        "AND family(g2.source_address) = o.ip_version " +
+                        "AND g2.source_mac = o.source_mac AND g2.fingerprint = o.fingerprint " +
                         "AND g2.start_time >= :since AND g2.start_time <= :until AND g2.signature IS NOT NULL " +
                         "LIMIT :maximum_samples) g) AS signatures " +
-                        "FROM l4_sessions WHERE tap_uuid IN (<taps>) AND l4_type = 'TCP' " +
+                        // The IP version is a column of its own here: a subquery cannot refer to a grouping expression.
+                        "FROM (SELECT *, family(source_address) AS ip_version FROM l4_sessions " +
+                        "WHERE tap_uuid IN (<taps>) AND l4_type = 'TCP' " +
                         "AND source_mac IS NOT NULL AND fingerprint IS NOT NULL AND ip_hop_distance = 0 " +
                         "AND start_time >= :since AND start_time <= :until " +
                         (mac == null ? "" : "AND source_mac = :mac ") +
-                        "GROUP BY source_mac, fingerprint HAVING COUNT(DISTINCT untimed_session_key) >= :minimum_sessions")
+                        ") AS o GROUP BY source_mac, fingerprint, ip_version " +
+                        "HAVING COUNT(DISTINCT untimed_session_key) >= :minimum_sessions")
                 .bindList("taps", taps)
                 .bind("since", since)
                 .bind("until", until)
@@ -242,6 +283,7 @@ public class DuplicateMacDetector {
                 .map((rs, ctx) -> new StackRow(
                         rs.getString("mac"),
                         rs.getString("fingerprint"),
+                        rs.getInt("ip_version"),
                         rs.getLong("sessions"),
                         new DateTime(rs.getTimestamp("first_seen")),
                         new DateTime(rs.getTimestamp("last_seen")),

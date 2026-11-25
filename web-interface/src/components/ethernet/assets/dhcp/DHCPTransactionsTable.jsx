@@ -15,6 +15,7 @@ import L4Address from "../../shared/L4Address";
 import FullCopyShortenedId from "../../../shared/FullCopyShortenedId";
 import FilterValueIcon from "../../../shared/filtering/FilterValueIcon";
 import {DHCP_FILTER_FIELDS} from "./DHCPFilterFields";
+import IPAddress from "../../shared/IPAddress";
 
 export default function DHCPTransactionsTable(props) {
 
@@ -54,6 +55,7 @@ export default function DHCPTransactionsTable(props) {
           <thead>
           <tr>
             <th style={{width: 200}}>Initiated At {columnSorting("initiated_at")}</th>
+            <th>Protocol</th>
             <th>Type {columnSorting("transaction_type")}</th>
             <th>Client MAC {columnSorting("client_mac")}</th>
             <th>Server MAC {columnSorting("server_mac")}</th>
@@ -73,6 +75,14 @@ export default function DHCPTransactionsTable(props) {
                     <Link to={ApiRoutes.ETHERNET.ASSETS.DHCP.TRANSACTION_DETAILS(t.transaction_id) + "?transaction_time=" + encodeURIComponent(t.first_packet)}>
                       {moment(t.first_packet).format()}
                     </Link>
+                  </td>
+                  <td>
+                    {t.ip_version === 6 ? "DHCPv6" : "DHCP"}
+
+                    <FilterValueIcon setFilters={setFilters}
+                                     fields={DHCP_FILTER_FIELDS}
+                                     field="ip_version"
+                                     value={t.ip_version} />
                   </td>
                   <td>
                     {t.transaction_type}
@@ -100,7 +110,7 @@ export default function DHCPTransactionsTable(props) {
                                           withAssetName withAssetLink />
                       : <span className="text-muted">n/a</span>}</td>
                   <td>
-                    {t.requested_ip_address ? t.requested_ip_address.address : <span className="text-muted">n/a</span>}
+                    <IPAddress ip={t.requested_ip_address ? t.requested_ip_address.address : null} />
                   </td>
                   <td className="hide-narrow">
                     <FullCopyShortenedId value={t.fingerprint} />

@@ -1,5 +1,8 @@
 package app.nzyme.core.rest;
 
+import app.nzyme.core.util.filters.FilterParser;
+import app.nzyme.core.util.filters.FilterScope;
+import app.nzyme.core.util.filters.Filters;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.dot11.db.monitoring.MonitoredSSID;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
@@ -33,6 +36,10 @@ public class UserAuthenticatedResource extends RestResource {
 
     protected AuthenticatedUser getAuthenticatedUser(SecurityContext sc) {
         return (AuthenticatedUser) sc.getUserPrincipal();
+    }
+
+    protected Filters parseFilters(String filters, SecurityContext sc) {
+        return FilterParser.parseFiltersQueryParameter(filters, FilterScope.of(getAuthenticatedUser(sc)));
     }
 
     /*

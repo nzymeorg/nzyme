@@ -18,13 +18,14 @@ import ActiveSpoofingFindingsHistogram from "./ActiveSpoofingFindingsHistogram";
 import {Presets} from "../../shared/timerange/TimeRange";
 import {UserContext} from "../../../App";
 import {userHasPermission} from "../../../util/Tools";
+import {dhcpSpoofingProtocolToName, dhcpSpoofingServerNoun} from "./DhcpSpoofingProtocol";
 
 const spoofingService = new SpoofingService();
 
 
 export default function DhcpSpoofingPage() {
 
-  usePageTitle("Ethernet DHCP Spoofing");
+  usePageTitle("Ethernet DHCP and Router Spoofing");
 
   const [organizationId, tenantId] = useSelectedTenant();
   const user = useContext(UserContext);
@@ -106,26 +107,27 @@ export default function DhcpSpoofingPage() {
 
   const learningPeriodStatus = () => {
     if (!servers.learning_period_start) {
-      return <span className="text-muted">Not started. It starts when the first server is seen.</span>
+      return <span className="text-muted">Not started.</span>
     }
 
     if (servers.learning_period_active) {
       return <span title={moment(servers.learning_period_end).format()}>
-        Active, ends {moment(servers.learning_period_end).fromNow()}. Servers answering now are trusted.
+        Active for {servers.learning_protocols.map(dhcpSpoofingProtocolToName).join(", ")}, ends{' '}
+        {moment(servers.learning_period_end).fromNow()}. What is seen of these now is trusted.
       </span>
     }
 
     return <span title={moment(servers.learning_period_end).format()}>
       Ended {servers.learning_period_ended_by_user ? "by a user " : ""}{moment(servers.learning_period_end).fromNow()}.
-      New servers are not trusted.
+      New servers and routers are not trusted.
     </span>
   }
 
   const onEndLearningPeriod = (e) => {
     e.preventDefault();
 
-    if (!confirm("End the learning period now? Servers that answer clients from now on are not trusted " +
-        "automatically. Do this once every server you expect is listed.")) {
+    if (!confirm("End the learning period now? Servers and routers that show up from now on are not trusted " +
+        "automatically. Do this once every server and router you expect is listed.")) {
       return;
     }
 
@@ -138,9 +140,9 @@ export default function DhcpSpoofingPage() {
   const onRestartLearningPeriod = (e) => {
     e.preventDefault();
 
-    if (!confirm("Restart the learning period? Every server that answers clients during the learning period from " +
-        "now on is trusted automatically, including servers that are currently untrusted. Only do this if you are " +
-        "sure no rogue server is active right now. Trusted servers and existing findings are kept.")) {
+    if (!confirm("Restart the learning period? Every server and router seen during the learning period from " +
+        "now on is trusted automatically, including the ones that are currently untrusted. Only do this if you are " +
+        "sure no rogue server or router is active right now. Trusted ones and existing findings are kept.")) {
       return;
     }
 
@@ -185,13 +187,13 @@ export default function DhcpSpoofingPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Active DHCP Spoofing"
+              <CardTitleWithControls title="Active DHCP and Router Spoofing"
                                      refreshAction={() => setRevision(new Date())} />
 
               <ActiveSpoofingFindingsHistogram histogram={histogram}
                                                timeRange={timeRange}
                                                setTimeRange={applyTimeRange}
-                                               emptyMessage="No DHCP spoofing in the selected time range." />
+                                               emptyMessage="No DHCP or router spoofing in the selected time range." />
             </div>
           </div>
         </div>
@@ -201,15 +203,16 @@ export default function DhcpSpoofingPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="DHCP Spoofing"
+              <CardTitleWithControls title="DHCP and Router Spoofing"
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                A <em>rogue server</em> finding is a DHCP server that answered clients while it is not trusted.
-                A <em>configuration changed</em> finding is a trusted server that handed out a gateway, DNS server,
-                domain or subnet mask different from what it handed out before. Victims are the clients that
-                accepted a lease from the server or chose its offer. The list covers findings that were active at
-                any point in the selected time range.
+                A <em>rogue server</em> finding is a DHCP server, DHCPv6 server or IPv6 router that answered
+                clients or advertised itself while it is not trusted. A <em>configuration changed</em> finding is a
+                trusted one that handed out a gateway, DNS server, domain, subnet mask or prefix different from what
+                it handed out before. Victims are the clients that accepted a lease from the server or chose its
+                offer. A router advertisement goes to every host of the network, so it has no list of victims. The
+                list covers findings that were active at any point in the selected time range.
               </p>
 
               {findings ? <p className="mb-3"><strong>Total:</strong> {numeral(findings.total).format("0,0")}</p> : null}
@@ -233,16 +236,30 @@ export default function DhcpSpoofingPage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="DHCP Servers"
+              <CardTitleWithControls title="DHCP Servers and IPv6 Routers"
                                      refreshAction={() => setServersRevision(new Date())} />
 
               <p className="text-muted">
-                Every DHCP server that answered clients on the taps of this tenant, regardless of time range.
-                Servers seen during the learning period are trusted automatically; later ones are not until you
-                trust them. A trusted server is held to the configuration it handed out when it was trusted, and
-                values that differ from it are highlighted. Accept the current configuration after an intended
-                change to stop configuration changed findings.
+                Every DHCP server and DHCPv6 server that answered clients and every IPv6 router that sent router
+                advertisements, regardless of time range. DHCP, DHCPv6 and router advertisements each have a
+                learning period. For DHCP it starts when the first server is seen. For DHCPv6 and router
+                advertisements it starts when Nzyme first looks for them, so a server or router that appears later
+                on a network without IPv6 is not trusted. Servers and routers seen during their learning period are
+                trusted automatically. Later ones are not until you trust them. A trusted one is held to the
+                configuration it handed out when it was trusted, and values that differ from it are highlighted.
+                Accept the current configuration after an intended change to stop configuration changed findings.
+                The prefixes that trusted routers advertise are treated as internal networks.
+                {servers ? " At most " + numeral(servers.untrusted_limit).format("0,0") + " untrusted DHCP " +
+                  "servers, DHCPv6 servers and routers each are kept." : null}
               </p>
+
+              {servers && servers.untrusted_limit_reached_protocols.length > 0 ?
+                <div className="alert alert-warning">
+                  The limit of {numeral(servers.untrusted_limit).format("0,0")} untrusted entries is reached
+                  for: {servers.untrusted_limit_reached_protocols.map(dhcpSpoofingServerNoun).join(", ")}. New
+                  untrusted ones are not recorded and raise no finding until existing ones are trusted or deleted.
+                  A flood of forged advertisements or replies fills the list like this.
+                </div> : null}
 
               {servers ?
                 <p className="mb-3">

@@ -74,7 +74,7 @@ export default function SOCKSTunnelDetails({sessionId}) {
 
                 <dl className="mb-0">
                   <dt>Client Address</dt>
-                  <dd><L4Address address={tunnel.client} /></dd>
+                  <dd><L4Address full={true} address={tunnel.client} /></dd>
                   <dt>Client Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper

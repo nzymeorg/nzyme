@@ -48,7 +48,8 @@ export default function AssetsConfiguration({organizationId, tenantId}) {
                                 dbUpdateCallback={assetsService.updateAssetsConfiguration} />
           </td>
         </tr>
-        {["activity_retention_time_days", "attributes_retention_time_days", "communication_retention_time_days"].map((key) =>
+        {["activity_retention_time_days", "attributes_retention_time_days", "communication_retention_time_days",
+          "ip_addresses_retention_time_days"].map((key) =>
           <tr key={key}>
             <td>{config[key].key_human_readable}</td>
             <td>

@@ -52,6 +52,8 @@ public class FindingFilters implements SqlFilterProvider {
                 return none(ipAddressMatch(bindId, TARGET_ADDRESS, FilterOperator.IS_PRIVATE));
             case IS_NOT_CGNAT:
                 return none(ipAddressMatch(bindId, TARGET_ADDRESS, FilterOperator.IS_CGNAT));
+            case IS_NOT_LINK_LOCAL:
+                return none(ipAddressMatch(bindId, TARGET_ADDRESS, FilterOperator.IS_LINK_LOCAL));
             case IS_NULL:
                 return "NOT EXISTS (" + TARGETS + "TRUE)";
             case IS_NOT_NULL:

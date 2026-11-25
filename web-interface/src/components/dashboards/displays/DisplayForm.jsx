@@ -317,7 +317,7 @@ export default function DisplayForm({organizationId, tenantId, initialValues = u
         <div className="col-md-6 mb-3">
           <label htmlFor="display-networks" className="form-label">Allowed Networks <small>Optional</small></label>
           <textarea className="form-control font-monospace" id="display-networks" rows={3}
-                    placeholder="10.0.0.0/8"
+                    placeholder={"10.0.0.0/8\n2001:db8::/32"}
                     value={values.allowed_networks} onChange={update("allowed_networks")} />
           <div className="form-text">
             IP addresses or CIDR networks the display may connect from, one per line.

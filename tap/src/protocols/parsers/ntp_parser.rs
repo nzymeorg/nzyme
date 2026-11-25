@@ -100,7 +100,7 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<NtpPacket> {
 
     // Reference ID.
     let reference_id_raw: [u8; 4] = payload[12..16].try_into().unwrap();
-    let reference_id = decode_reference_id(stratum, version, reference_id_raw);
+    let reference_id = decode_reference_id(stratum, version, reference_id_raw, udp.source_address.is_ipv6());
 
     let reference_ts = read_ntp_timestamp(&payload[16..24]);
     let origin_ts = read_ntp_timestamp(&payload[24..32]);
@@ -261,7 +261,7 @@ fn is_refclock_pseudo_addr(raw: [u8; 4]) -> bool {
     raw[0] == 127 && raw[1] == 127
 }
 
-fn decode_reference_id(stratum: u8, _version: u8, raw: [u8; 4]) -> NtpReferenceId {
+fn decode_reference_id(stratum: u8, _version: u8, raw: [u8; 4], over_ipv6: bool) -> NtpReferenceId {
     // Stratum 0: Kiss-of-Death code (typically 4 ASCII chars).
     if stratum == 0 {
         if let Some(code) = bytes_to_ascii_if_printable(raw).or_else(|| bytes_to_ascii_nul_padded(raw)) {
@@ -286,6 +286,12 @@ fn decode_reference_id(stratum: u8, _version: u8, raw: [u8; 4]) -> NtpReferenceI
                 unit: raw[3],
                 raw,
             };
+        }
+
+        // A server synchronized over IPv6 sends four bytes of a hash of the upstream address instead. A reply does
+        // not say which of the two it is, so the bytes are only read as an address when it came over IPv4.
+        if over_ipv6 {
+            return NtpReferenceId::Opaque { raw };
         }
 
         let addr = Ipv4Addr::new(raw[0], raw[1], raw[2], raw[3]);

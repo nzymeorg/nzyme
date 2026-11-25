@@ -6,6 +6,7 @@ import app.nzyme.core.ethernet.l4.tcp.TcpSignature;
 import app.nzyme.core.integrations.geoip.GeoIpLookupResult;
 import app.nzyme.core.taps.Tap;
 import com.google.common.base.Strings;
+import com.google.common.net.InetAddresses;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
@@ -30,13 +31,16 @@ public class AssetProfileBatch {
             AssetAttributeDimension.TCP_SIGNATURE.name(), AssetAttributeDimension.TCP_FINGERPRINT_FORWARDED.name(),
             AssetAttributeDimension.TCP_SERVER_FINGERPRINT.name(), AssetAttributeDimension.TCP_SERVER_SIGNATURE.name(),
             AssetAttributeDimension.DHCP_PARAMETER_REQUEST_LIST.name(), AssetAttributeDimension.DHCP_CLIENT_IDENTIFIER.name(),
-            AssetAttributeDimension.JA4.name()
+            AssetAttributeDimension.DHCP6_CLIENT_DUID.name(), AssetAttributeDimension.JA4.name()
     );
     private static final int MAX_VALUES_PER_DIMENSION = 1000;
     private static final int MAX_PORTS_PER_EDGE = 64;
     public static final String BROADCAST_MAC = "FF:FF:FF:FF:FF:FF";
 
-    public enum ActivityKind { ARP, DHCP, DNS, TCP, UDP }
+    public enum ActivityKind { ARP, DHCP, DNS, TCP, UDP, NDP }
+
+    // An activity row is one counter per kind, then bytes received, bytes sent and the bucket.
+    private static final int KINDS = ActivityKind.values().length;
 
     public record TcpIdentity(@Nullable TcpSignature client,
                               int sourcePort,
@@ -85,11 +89,14 @@ public class AssetProfileBatch {
         DateTime bucket = timestamp.withZone(DateTimeZone.UTC).hourOfDay().roundFloorCopy();
         String key = mac + "|" + bucket.getMillis();
 
-        // Columns: arp, dhcp, dns, tcp, udp, bytes_rx, bytes_tx, bucket millis.
-        long[] counters = activity.computeIfAbsent(key, k -> new long[]{0, 0, 0, 0, 0, 0, 0, bucket.getMillis()});
+        long[] counters = activity.computeIfAbsent(key, k -> {
+            long[] row = new long[KINDS + 3];
+            row[KINDS + 2] = bucket.getMillis();
+            return row;
+        });
         counters[kind.ordinal()] += count;
-        counters[5] += bytesRx;
-        counters[6] += bytesTx;
+        counters[KINDS] += bytesRx;
+        counters[KINDS + 1] += bytesTx;
     }
 
     public void attribute(@Nullable String mac, AssetAttributeDimension dimension, @Nullable String value,
@@ -223,9 +230,8 @@ public class AssetProfileBatch {
                 && !destinationAddress.isMulticastAddress()
                 && !destinationAddress.isLoopbackAddress()
                 && !isBroadcast(destinationMac, destinationAddress);
-        boolean destinationInternal = internalAddresses.isSiteLocal(destinationAddress)
-                || destinationAddress.isLinkLocalAddress();
-        boolean sourceInternal = internalAddresses.isSiteLocal(sourceAddress) || sourceAddress.isLinkLocalAddress();
+        boolean destinationInternal = internalAddresses.isSiteLocal(destinationAddress);
+        boolean sourceInternal = internalAddresses.isSiteLocal(sourceAddress);
 
         if (sourceUsable) {
             activity(sourceMac, timestamp, activityKind, sessionCount, bytesRxIncremental, bytesTxIncremental);
@@ -268,8 +274,8 @@ public class AssetProfileBatch {
 
             if (destinationInternal) {
                 communication(sourceMac, Direction.OUTBOUND, l4Type, PeerType.INTERNAL,
-                        destinationAddress.getHostAddress(), isUsableMac(destinationMac) ? destinationMac : null,
-                        destinationAddress.getHostAddress(), null, null, null, null, null, null, destinationPort,
+                        InetAddresses.toAddrString(destinationAddress), isUsableMac(destinationMac) ? destinationMac : null,
+                        InetAddresses.toAddrString(destinationAddress), null, null, null, null, null, null, destinationPort,
                         protocol, timestamp, sessionCount, bytesRxIncremental, bytesTxIncremental);
             } else {
                 Integer asnNumber = destinationGeo.map(g -> g.asn() == null ? null : g.asn().number()).orElse(null);
@@ -333,8 +339,8 @@ public class AssetProfileBatch {
 
             if (sourceInternal) {
                 communication(destinationMac, Direction.INBOUND, l4Type, PeerType.INTERNAL,
-                        sourceAddress.getHostAddress(), sourceUsable ? sourceMac : null,
-                        sourceAddress.getHostAddress(), null, null, null, null, null, null, destinationPort,
+                        InetAddresses.toAddrString(sourceAddress), sourceUsable ? sourceMac : null,
+                        InetAddresses.toAddrString(sourceAddress), null, null, null, null, null, null, destinationPort,
                         protocol, timestamp, sessionCount, bytesTxIncremental, bytesRxIncremental);
             } else if (!sourceAddress.isLoopbackAddress() && !sourceAddress.isMulticastAddress()) {
                 Integer asnNumber = sourceGeo.map(g -> g.asn() == null ? null : g.asn().number()).orElse(null);
@@ -437,11 +443,12 @@ public class AssetProfileBatch {
         }
 
         PreparedBatch batch = handle.prepareBatch("INSERT INTO assets_activity(organization_id, tenant_id, mac, " +
-                "tap_uuid, bucket, arp_packets, dhcp_transactions, dns_queries, tcp_sessions, udp_sessions, " +
+                "tap_uuid, bucket, arp_packets, ndp_messages, dhcp_transactions, dns_queries, tcp_sessions, udp_sessions, " +
                 "bytes_rx, bytes_tx) VALUES(:organization_id, :tenant_id, :mac, :tap_uuid, :bucket, :arp_packets, " +
-                ":dhcp_transactions, :dns_queries, :tcp_sessions, :udp_sessions, :bytes_rx, :bytes_tx) " +
+                ":ndp_messages, :dhcp_transactions, :dns_queries, :tcp_sessions, :udp_sessions, :bytes_rx, :bytes_tx) " +
                 "ON CONFLICT (organization_id, tenant_id, mac, tap_uuid, bucket) DO UPDATE SET " +
                 "arp_packets = assets_activity.arp_packets + EXCLUDED.arp_packets, " +
+                "ndp_messages = assets_activity.ndp_messages + EXCLUDED.ndp_messages, " +
                 "dhcp_transactions = assets_activity.dhcp_transactions + EXCLUDED.dhcp_transactions, " +
                 "dns_queries = assets_activity.dns_queries + EXCLUDED.dns_queries, " +
                 "tcp_sessions = assets_activity.tcp_sessions + EXCLUDED.tcp_sessions, " +
@@ -456,14 +463,15 @@ public class AssetProfileBatch {
                     .bind("tenant_id", tenantId)
                     .bind("mac", mac)
                     .bind("tap_uuid", tapUuid)
-                    .bind("bucket", new DateTime(c[7], DateTimeZone.UTC))
-                    .bind("arp_packets", c[0])
-                    .bind("dhcp_transactions", c[1])
-                    .bind("dns_queries", c[2])
-                    .bind("tcp_sessions", c[3])
-                    .bind("udp_sessions", c[4])
-                    .bind("bytes_rx", c[5])
-                    .bind("bytes_tx", c[6])
+                    .bind("bucket", new DateTime(c[KINDS + 2], DateTimeZone.UTC))
+                    .bind("arp_packets", c[ActivityKind.ARP.ordinal()])
+                    .bind("ndp_messages", c[ActivityKind.NDP.ordinal()])
+                    .bind("dhcp_transactions", c[ActivityKind.DHCP.ordinal()])
+                    .bind("dns_queries", c[ActivityKind.DNS.ordinal()])
+                    .bind("tcp_sessions", c[ActivityKind.TCP.ordinal()])
+                    .bind("udp_sessions", c[ActivityKind.UDP.ordinal()])
+                    .bind("bytes_rx", c[KINDS])
+                    .bind("bytes_tx", c[KINDS + 1])
                     .add();
         }
 

@@ -32,7 +32,8 @@ public abstract class TcpSessionReport {
     public abstract long bytesCountTxIncremental();
     public abstract int synIpTtl();
     public abstract int synIpTos();
-    public abstract boolean synIpDf();
+    @Nullable
+    public abstract Boolean synIpDf();
     public abstract boolean synCwr();
     public abstract boolean synEce();
     public abstract int synWindowSize();
@@ -84,7 +85,7 @@ public abstract class TcpSessionReport {
                                           @JsonProperty("bytes_count_tx_incremental") long bytesCountTxIncremental,
                                           @JsonProperty("syn_ip_ttl") int synIpTtl,
                                           @JsonProperty("syn_ip_tos") int synIpTos,
-                                          @JsonProperty("syn_ip_df") boolean synIpDf,
+                                          @JsonProperty("syn_ip_df") Boolean synIpDf,
                                           @JsonProperty("syn_cwr") boolean synCwr,
                                           @JsonProperty("syn_ece") boolean synEce,
                                           @JsonProperty("syn_window_size") int synWindowSize,
@@ -182,7 +183,7 @@ public abstract class TcpSessionReport {
 
         public abstract Builder synIpTos(int synIpTos);
 
-        public abstract Builder synIpDf(boolean synIpDf);
+        public abstract Builder synIpDf(Boolean synIpDf);
 
         public abstract Builder synCwr(boolean synCwr);
 

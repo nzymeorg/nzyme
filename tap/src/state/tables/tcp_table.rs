@@ -67,7 +67,7 @@ pub struct TcpProbeKey {
     pub options: Vec<u8>,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool
+    pub ip_df: Option<bool>
 }
 
 #[derive(Debug, Clone)]
@@ -121,7 +121,7 @@ pub struct TcpSession {
     pub segments_server_to_client: BTreeMap<u32, Vec<u8>>,
     pub syn_ip_ttl: u8,
     pub syn_ip_tos: u8,
-    pub syn_ip_df: bool,
+    pub syn_ip_df: Option<bool>,
     pub syn_cwr: bool,
     pub syn_ece: bool,
     pub syn_window_size: u16,
@@ -129,7 +129,7 @@ pub struct TcpSession {
     pub syn_window_scale_multiplier: Option<u8>,
     pub syn_options: Vec<u8>,
     pub syn_options_truncated: bool,
-    pub syn_ip_id: u16,
+    pub syn_ip_id: Option<u16>,
     pub syn_timestamp_value: Option<u32>,
     pub syn_timestamp_echo: Option<u32>,
     pub latest_client_timestamp_value: Option<u32>,
@@ -149,8 +149,8 @@ pub struct TcpSession {
 pub struct TcpSynAck {
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
-    pub ip_id: u16,
+    pub ip_df: Option<bool>,
+    pub ip_id: Option<u16>,
     pub cwr: bool,
     pub ece: bool,
     pub window_size: u16,
@@ -264,7 +264,7 @@ impl TcpTable {
                         match segment.determine_direction(session) {
                             TrafficDirection::ClientToServer => {
                                 session.segments_count_client_to_server += 1;
-                                session.latest_client_ip_id = Some(segment.ip_id);
+                                session.latest_client_ip_id = segment.ip_id;
 
                                 if segment.timestamp_value.is_some() {
                                     session.latest_client_timestamp_value = segment.timestamp_value;
@@ -354,7 +354,7 @@ impl TcpTable {
                                 syn_timestamp_echo: segment.timestamp_echo,
                                 latest_client_timestamp_value: segment.timestamp_value,
                                 latest_client_timestamp_time: segment.timestamp_value.map(|_| segment.timestamp),
-                                latest_client_ip_id: Some(segment.ip_id),
+                                latest_client_ip_id: segment.ip_id,
                                 segments_count_client_to_server: 1,
                                 syn_ack: None,
                                 tags: HashSet::new(),
@@ -896,7 +896,7 @@ mod tests {
             segments_server_to_client: BTreeMap::new(),
             syn_ip_ttl: 64,
             syn_ip_tos: 0,
-            syn_ip_df: true,
+            syn_ip_df: Some(true),
             syn_cwr: false,
             syn_ece: false,
             syn_window_size: 1024,
@@ -904,7 +904,7 @@ mod tests {
             syn_window_scale_multiplier: None,
             syn_options: Vec::new(),
             syn_options_truncated: false,
-            syn_ip_id: 0,
+            syn_ip_id: Some(0),
             syn_timestamp_value: None,
             syn_timestamp_echo: None,
             latest_client_timestamp_value: None,
@@ -944,8 +944,8 @@ mod tests {
             payload: Vec::new(),
             ip_ttl: 64,
             ip_tos: 0,
-            ip_df: true,
-            ip_id: 0,
+            ip_df: Some(true),
+            ip_id: Some(0),
             window_size: 1024,
             maximum_segment_size: None,
             window_scale_multiplier: None,

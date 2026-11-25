@@ -506,7 +506,7 @@ fn parse_xor_address(value: &[u8], transaction_id: &[u8]) -> Option<SocketAddr> 
             for i in 0..16 {
                 octets[i] = x_addr[i] ^ key[i];
             }
-            Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::from(octets)), port))
+            Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::from(octets)).to_canonical(), port))
         }
         _ => None,
     }

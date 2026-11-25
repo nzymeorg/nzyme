@@ -27,6 +27,8 @@ public class IcmpFilters implements SqlFilterProvider {
                 return GeneratedSql.create(icmpTypeMatch(bindId, operator), "");
             case "icmp_code":
                 return GeneratedSql.create(numericMatch(bindId, "icmp_code", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, "ip_version", operator), "");
             case "packet_count":
                 return GeneratedSql.create(numericMatch(bindId, "packet_count", operator), "");
             case "redirect_gateway":
@@ -41,9 +43,9 @@ public class IcmpFilters implements SqlFilterProvider {
     private static String icmpTypeMatch(String bindId, FilterOperator operator) {
         switch (operator) {
             case EQUALS:
-                return "icmp_type = :" + bindId + "::integer";
+                return IcmpSql.typeKey("") + " = :" + bindId;
             case NOT_EQUALS:
-                return "icmp_type <> :" + bindId + "::integer";
+                return IcmpSql.typeKey("") + " <> :" + bindId;
             default:
                 throw new RuntimeException("Invalid operator [" + operator + "] for ICMP type field.");
         }

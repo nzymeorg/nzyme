@@ -68,7 +68,7 @@ const SECTIONS = [
   {path: ["Ethernet", "DNS"], show: subsystem("ethernet"), items: DNS_MENU_ITEMS, keywords: "names resolution"},
   {path: ["Ethernet", "Remote Access"], show: subsystem("ethernet"), items: REMOTE_ACCESS_MENU_ITEMS},
   {path: ["Ethernet", "TLS"], show: subsystem("ethernet"), items: TLS_MENU_ITEMS, keywords: "ssl https"},
-  {path: ["Ethernet", "Tunnels"], show: subsystem("ethernet"), items: TUNNELS_MENU_ITEMS, keywords: "wireguard openvpn tailscale proxy"},
+  {path: ["Ethernet", "Tunnels"], show: subsystem("ethernet"), items: TUNNELS_MENU_ITEMS, keywords: "wireguard openvpn tailscale proxy teredo 6in4 6to4 isatap"},
   {path: ["Ethernet", "NAT"], show: subsystem("ethernet"), items: NAT_MENU_ITEMS},
   {path: ["Ethernet", "Streams"], show: subsystem("ethernet"), items: STREAMS_MENU_ITEMS, keywords: "video camera"},
   {path: ["Ethernet", "Time"], show: subsystem("ethernet"), items: TIME_MENU_ITEMS, keywords: "clock"},

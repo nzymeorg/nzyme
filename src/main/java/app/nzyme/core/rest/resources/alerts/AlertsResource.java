@@ -72,7 +72,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static app.nzyme.core.rest.RestTools.buildAlertDetailsResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/alerts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -127,7 +126,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         DetectionAlertService.OrderColumn orderColumn = DetectionAlertService.OrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -178,7 +177,7 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         return histogramResponse(nzyme.getDetectionAlertService()
                 .getActiveAlertsHistogram(organizationId, tenantId, timeRange, bucketing, filters), bucketing);
@@ -204,7 +203,7 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         return histogramResponse(nzyme.getDetectionAlertService()
                 .getNewAlertsHistogram(organizationId, tenantId, timeRange, bucketing, filters), bucketing);
@@ -352,7 +351,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         }
 
         nzyme.getDetectionAlertService().markAlertsAsResolved(organizationId, tenantId,
-                parseTimeRangeQueryParameter(timeRangeParameter), parseFiltersQueryParameter(filtersParameter));
+                parseTimeRangeQueryParameter(timeRangeParameter), parseFilters(filtersParameter, sc));
 
         return Response.ok().build();
     }
@@ -376,7 +375,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         }
 
         nzyme.getDetectionAlertService().deleteAlerts(organizationId, tenantId,
-                parseTimeRangeQueryParameter(timeRangeParameter), parseFiltersQueryParameter(filtersParameter));
+                parseTimeRangeQueryParameter(timeRangeParameter), parseFilters(filtersParameter, sc));
 
         return Response.ok().build();
     }
@@ -407,7 +406,7 @@ public class AlertsResource extends UserAuthenticatedResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         TwoColumnHistogramOrderColumn orderColumn = TwoColumnHistogramOrderColumn.VALUE;
         OrderDirection orderDirection = OrderDirection.DESC;

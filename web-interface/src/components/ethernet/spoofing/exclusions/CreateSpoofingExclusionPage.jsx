@@ -1,3 +1,4 @@
+import {dhcpSpoofingServerNoun} from "../DhcpSpoofingProtocol";
 import React, {useEffect, useState} from "react";
 import {Link, Navigate, useLocation} from "react-router-dom";
 import {toast} from "react-toastify";
@@ -15,7 +16,8 @@ const prefillFromFinding = (details) => {
 
   return {
     name: "Exclude " + finding.address + " claimed by " + finding.spoofer_mac,
-    description: "Created from ARP poisoning finding of " + finding.address + " by " + finding.spoofer_mac + ".",
+    description: "Created from " + (String(finding.address).includes(":") ? "NDP" : "ARP") + " poisoning finding of "
+      + finding.address + " by " + finding.spoofer_mac + ".",
     types: ["ARP"],
     address_cidr: finding.address,
     mac: finding.spoofer_mac
@@ -26,9 +28,10 @@ const prefillFromDhcpFinding = (details) => {
   const finding = details.finding;
 
   return {
-    name: "Exclude DHCP server " + finding.server_address + " (" + finding.server_mac + ")",
-    description: "Created from DHCP spoofing finding of server " + finding.server_address + " with MAC address "
-      + finding.server_mac + ".",
+    name: "Exclude " + dhcpSpoofingServerNoun(finding.protocol) + " " + finding.server_address
+      + " (" + finding.server_mac + ")",
+    description: "Created from finding of " + dhcpSpoofingServerNoun(finding.protocol) + " " + finding.server_address
+      + " with MAC address " + finding.server_mac + ".",
     types: ["DHCP"],
     address_cidr: finding.server_address,
     mac: finding.server_mac

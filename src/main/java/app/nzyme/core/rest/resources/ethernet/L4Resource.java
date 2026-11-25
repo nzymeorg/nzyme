@@ -9,6 +9,7 @@ import app.nzyme.core.database.generic.L4AddressDataAddressNumberNumberAggregati
 import app.nzyme.core.database.generic.NumberNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.StringNumberNumberAggregationResult;
 import app.nzyme.core.database.generic.ThreeColumnWithKeyHistogramOrderColumn;
+import app.nzyme.core.ethernet.CIDR;
 import app.nzyme.core.ethernet.EthernetRegistryKeys;
 import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.ethernet.L4Type;
@@ -20,6 +21,7 @@ import app.nzyme.core.ethernet.l4.db.L4StatisticsBucket;
 import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.rest.RestHelpers;
 import app.nzyme.core.rest.requests.GenericConfigurationUpdateRequest;
+import app.nzyme.core.rest.requests.InternalNetworksUpdateRequest;
 import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.responses.ethernet.*;
 import app.nzyme.core.rest.responses.ethernet.l4.L4ConfigurationResponse;
@@ -30,6 +32,7 @@ import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsListResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineBucketResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4SessionsTimelineResponse;
 import app.nzyme.core.rest.responses.ethernet.l4.L4StatisticsBucketResponse;
+import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.rest.responses.shared.*;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
@@ -63,10 +66,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/l4")
 @Produces(MediaType.APPLICATION_JSON)
@@ -77,7 +80,8 @@ import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParamete
 public class L4Resource extends TapDataHandlingResource  {
 
     private static final RegistryKey[] CONFIGURATION_KEYS = {
-            EthernetRegistryKeys.CGNAT_IS_INTERNAL
+            EthernetRegistryKeys.CGNAT_IS_INTERNAL,
+            EthernetRegistryKeys.LEARN_INTERNAL_NETWORKS
     };
 
     @Inject
@@ -88,7 +92,11 @@ public class L4Resource extends TapDataHandlingResource  {
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "findL4Configuration", summary = "Get the TCP/UDP configuration of a tenant",
             description = "Returns whether addresses of the carrier-grade NAT range 100.64.0.0/10 are recorded as "
-                    + "internal addresses. Requires organization administrator permissions.")
+                    + "internal addresses, and the networks that are recorded as internal in addition to the "
+                    + "private, unique local and link-local ranges: the configured ones, and the IPv6 prefixes "
+                    + "that were learned from the advertisements of trusted routers, up to the returned limit. "
+                    + "Requires organization "
+                    + "administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Configuration found.",
             content = @Content(schema = @Schema(implementation = L4ConfigurationResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -100,20 +108,35 @@ public class L4Resource extends TapDataHandlingResource  {
         }
 
         RegistryKey key = EthernetRegistryKeys.CGNAT_IS_INTERNAL;
-        boolean cgnatIsInternal = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId)
-                .cgnatIsInternal();
+        RegistryKey learn = EthernetRegistryKeys.LEARN_INTERNAL_NETWORKS;
+        InternalAddresses.Rules rules = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId);
 
         return Response.ok(L4ConfigurationResponse.create(
                 ConfigurationEntryResponse.create(
                         key.key(),
                         "Treat CGNAT addresses (" + InternalAddresses.CGNAT_NETWORK + ") as internal",
-                        cgnatIsInternal,
+                        rules.cgnatIsInternal(),
                         ConfigurationEntryValueType.BOOLEAN,
                         key.defaultValue().orElse(null),
                         key.requiresRestart(),
                         key.constraints().orElse(Collections.emptyList()),
                         "ethernet-l4-config"
-                )
+                ),
+                networkStrings(rules.internalNetworks()),
+                InternalAddresses.MAX_INTERNAL_NETWORKS,
+                ConfigurationEntryResponse.create(
+                        learn.key(),
+                        "Learn internal IPv6 networks from trusted routers",
+                        nzyme.getEthernet().internalAddresses().learnsNetworks(organizationId, tenantId),
+                        ConfigurationEntryValueType.BOOLEAN,
+                        learn.defaultValue().orElse(null),
+                        learn.requiresRestart(),
+                        learn.constraints().orElse(Collections.emptyList()),
+                        "ethernet-l4-config"
+                ),
+                networkStrings(rules.learnedNetworks()),
+                InternalAddresses.MAX_LEARNED_NETWORKS,
+                nzyme.getEthernet().internalAddressRewrites().countPending(organizationId, tenantId)
         )).build();
     }
 
@@ -121,11 +144,11 @@ public class L4Resource extends TapDataHandlingResource  {
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration/taps")
     @Operation(operationId = "findL4TapSettings", summary = "List taps of a tenant that are configured differently",
-            description = "Taps have a cgnat_is_internal option of their own, which should have the value of the "
-                    + "tenant. Returns the taps of the tenant that reported another value, the value of the "
-                    + "tenant and the number of taps that were compared. A tap that reports no value counts with "
-                    + "the default, false. Deleted taps are left out. Requires organization administrator "
-                    + "permissions.")
+            description = "Taps have cgnat_is_internal and internal_networks options of their own, which should "
+                    + "have the values of the tenant. Returns the taps of the tenant that reported another value "
+                    + "for one of them, the values of the tenant and the number of taps that were compared. A tap "
+                    + "that reports no value counts with the default, false and no networks. Deleted taps are "
+                    + "left out. Requires organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Taps compared.",
             content = @Content(schema = @Schema(implementation = L4TapSettingsResponse.class)))
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -136,19 +159,72 @@ public class L4Resource extends TapDataHandlingResource  {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        boolean cgnatIsInternal = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId)
-                .cgnatIsInternal();
+        InternalAddresses.Rules rules = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId);
+        Set<CIDR> networks = Set.copyOf(rules.internalNetworks());
 
         List<Tap> taps = nzyme.getTapManager().findAllTapsOfTenant(organizationId, tenantId);
         List<L4TapSettingsResponse.TapSetting> different = Lists.newArrayList();
         for (Tap tap : taps) {
-            boolean tapSetting = InternalAddresses.tapSetting(tap.configuration());
-            if (tapSetting != cgnatIsInternal) {
-                different.add(L4TapSettingsResponse.TapSetting.create(tap.uuid(), tap.name(), tapSetting));
+            InternalAddresses.Rules tapRules = InternalAddresses.tapSettings(tap.configuration());
+            boolean cgnatDiffers = tapRules.cgnatIsInternal() != rules.cgnatIsInternal();
+            boolean networksDiffer = !Set.copyOf(tapRules.internalNetworks()).equals(networks);
+
+            if (cgnatDiffers || networksDiffer) {
+                different.add(L4TapSettingsResponse.TapSetting.create(
+                        tap.uuid(),
+                        tap.name(),
+                        tapRules.cgnatIsInternal(),
+                        cgnatDiffers,
+                        networkStrings(tapRules.internalNetworks()),
+                        networksDiffer
+                ));
             }
         }
 
-        return Response.ok(L4TapSettingsResponse.create(cgnatIsInternal, taps.size(), different)).build();
+        return Response.ok(L4TapSettingsResponse.create(
+                rules.cgnatIsInternal(), networkStrings(rules.internalNetworks()), taps.size(), different
+        )).build();
+    }
+
+    @PUT
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration/internal-networks")
+    @Operation(operationId = "updateL4InternalNetworks", summary = "Replace the internal networks of a tenant",
+            description = "Sets the networks that are recorded as internal in addition to the private, unique "
+                    + "local and link-local ranges, for example the global IPv6 prefix of a site. The list replaces "
+                    + "the current one. A change also applies to stored records, which are updated in the background. Requires organization "
+                    + "administrator permissions.")
+    @ApiResponse(responseCode = "200", description = "Internal networks replaced.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = "A network is not in CIDR notation, has host bits set or is too wide, or there are too many networks.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    public Response setInternalNetworks(@Parameter(hidden = true) @Context SecurityContext sc,
+                                        @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
+                                        @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
+                                        @Valid InternalNetworksUpdateRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        List<CIDR> networks;
+        try {
+            networks = InternalAddresses.validateNetworks(req == null ? null : req.networks());
+        } catch (IllegalArgumentException e) {
+            return Response.status(422).entity(ErrorResponse.create(e.getMessage())).build();
+        }
+
+        InternalAddresses.Rules before = nzyme.getEthernet().internalAddresses().read(organizationId, tenantId);
+
+        nzyme.getDatabaseCoreRegistry().setValue(
+                EthernetRegistryKeys.INTERNAL_NETWORKS.key(),
+                InternalAddresses.serializeNetworks(networks),
+                organizationId,
+                tenantId
+        );
+
+        nzyme.getEthernet().internalAddresses().applyChange(before, organizationId, tenantId);
+
+        return Response.ok().build();
     }
 
     @PUT
@@ -156,7 +232,7 @@ public class L4Resource extends TapDataHandlingResource  {
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "updateL4Configuration", summary = "Update the TCP/UDP configuration of a tenant",
             description = "Updates one or more TCP/UDP settings of the tenant. Accepted keys are the keys returned "
-                    + "by the configuration endpoint. A change applies to data recorded from then on. Requires "
+                    + "by the configuration endpoint. A change also applies to stored records, which are updated in the background. Requires "
                     + "organization administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
@@ -188,16 +264,14 @@ public class L4Resource extends TapDataHandlingResource  {
             nzyme.getDatabaseCoreRegistry().setValue(c.key(), c.value(), organizationId, tenantId);
         }
 
-        if (!before.equals(internalAddresses.read(organizationId, tenantId))) {
-            internalAddresses.invalidate(organizationId, tenantId);
-
-            // Segmentation keeps what is internal with its flows and has to follow the change.
-            nzyme.getEthernet().segmentation().invalidateResolver(organizationId, tenantId);
-            nzyme.getDatabase().useHandle(handle ->
-                    nzyme.getEthernet().segmentation().requestRestamp(handle, organizationId, tenantId));
-        }
+        internalAddresses.syncLearnedNetworks(organizationId, tenantId);
+        internalAddresses.applyChange(before, organizationId, tenantId);
 
         return Response.ok().build();
+    }
+
+    private static List<String> networkStrings(List<CIDR> networks) {
+        return networks.stream().map(CIDR::toString).toList();
     }
 
     @GET
@@ -223,7 +297,7 @@ public class L4Resource extends TapDataHandlingResource  {
                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -360,7 +434,7 @@ public class L4Resource extends TapDataHandlingResource  {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Map<DateTime, L4SessionsTimelineBucketResponse> buckets = Maps.newHashMap();
         for (L4SessionsTimelineBucket b : nzyme.getEthernet().l4()
@@ -392,7 +466,7 @@ public class L4Resource extends TapDataHandlingResource  {
                                      @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         long[] sessions = new long[DURATION_BUCKET_NAMES.length];
         long[] bytes = new long[DURATION_BUCKET_NAMES.length];
@@ -423,6 +497,50 @@ public class L4Resource extends TapDataHandlingResource  {
         return Response.ok(ThreeColumnTableHistogramResponse.create(values.size(), true, values)).build();
     }
 
+    private static final int[] IP_VERSIONS = {4, 6};
+
+    @GET
+    @Path("/sessions/histograms/ip-versions")
+    @Operation(operationId = "findL4SessionIpVersions", summary = "Get session count per IP version",
+            description = "Returns the number of sessions and their total bytes for IPv4 and for IPv6, limited to "
+                    + "the sessions matching the filters. Both versions are returned, IPv4 first, also when one "
+                    + "has no sessions. The metadata of each version carries the value that an ip_version filter "
+                    + "can be built from.")
+    @ApiResponse(responseCode = "200", description = "Histogram found.",
+            content = @Content(schema = @Schema(implementation = ThreeColumnTableHistogramResponse.class)))
+    public Response sessionIpVersions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                      @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                      @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
+                                      @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+        List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
+
+        Map<Long, NumberNumberNumberAggregationResult> byVersion = Maps.newHashMap();
+        for (NumberNumberNumberAggregationResult version : nzyme.getEthernet().l4()
+                .getIpVersionHistogram(timeRange, filters, taps)) {
+            byVersion.put(version.key(), version);
+        }
+
+        List<ThreeColumnTableHistogramValueResponse> values = Lists.newArrayList();
+        for (int version : IP_VERSIONS) {
+            NumberNumberNumberAggregationResult result = byVersion.get((long) version);
+            String name = "IPv" + version;
+
+            Map<String, Object> metadata = Maps.newHashMap();
+            metadata.put("filter_value", version);
+
+            values.add(ThreeColumnTableHistogramValueResponse.create(
+                    HistogramValueStructureResponse.create(name, HistogramValueType.GENERIC, metadata),
+                    HistogramValueStructureResponse.create(result == null ? 0 : result.value1(), HistogramValueType.INTEGER, null),
+                    HistogramValueStructureResponse.create(result == null ? 0 : result.value2(), HistogramValueType.BYTES, null),
+                    name
+            ));
+        }
+
+        return Response.ok(ThreeColumnTableHistogramResponse.create(values.size(), true, values)).build();
+    }
+
     @GET
     @Path("/sessions/histograms/sources/fanout/top")
     @Operation(operationId = "findL4SourceFanOut", summary = "List source addresses by fan-out",
@@ -446,7 +564,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -504,7 +622,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -563,7 +681,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -612,7 +730,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -671,7 +789,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -716,7 +834,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         L4.AggregationPage<NumberNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
                 .getTopDestinationPorts(timeRange, filters, limit, offset, taps);
@@ -751,7 +869,7 @@ public class L4Resource extends TapDataHandlingResource  {
 
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         L4.AggregationPage<NumberNumberNumberAggregationResult> page = nzyme.getEthernet().l4()
                 .getLeastCommonNonEphemeralDestinationPorts(timeRange, filters, limit, offset, taps);

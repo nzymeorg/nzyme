@@ -24,6 +24,10 @@ public class DHCPFilters implements SqlFilterProvider {
                 return GeneratedSql.create(ipAddressMatch(bindId, "requested_ip_address", operator), "");
             case "fingerprint":
                 return GeneratedSql.create(stringMatch(bindId, "fingerprint", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, "ip_version", operator), "");
+            case "client_duid":
+                return GeneratedSql.create(stringMatch(bindId, "client_duid", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

@@ -16,6 +16,7 @@ const signatureName = (signature) => {
     case "ECHO_NONZERO_CODE": return "Echo, non-zero code";
     case "ECHO_TOS_4": return "Echo, TOS 4";
     case "INFORMATION_REQUEST": return "Information request";
+    case "NODE_INFORMATION_QUERY": return "Node information query";
     case "TIMESTAMP_REQUEST": return "Timestamp request";
     case "ADDRESS_MASK_REQUEST": return "Address mask request";
     case "TCP_SEQ_PROBES": return "TCP SYN sequence";

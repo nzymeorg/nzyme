@@ -10,6 +10,7 @@ import com.codahale.metrics.Gauge;
 import com.codahale.metrics.Timer;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.net.InetAddresses;
 import com.google.common.cache.LoadingCache;
 import jakarta.annotation.Nullable;
 import org.jdbi.v3.core.Handle;
@@ -410,7 +411,7 @@ public class ContextService {
                                     "ORDER BY masklen(network) DESC")
                             .bind("organization_id", organizationId)
                             .bind("tenant_id", tenantId)
-                            .bind("address", address.getHostAddress())
+                            .bind("address", InetAddresses.toAddrString(address))
                             .mapTo(NetworkContextEntry.class)
                             .list()
             );

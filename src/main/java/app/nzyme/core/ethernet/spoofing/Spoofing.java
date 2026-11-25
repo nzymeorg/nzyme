@@ -18,6 +18,7 @@ import app.nzyme.core.util.filters.FilterSql;
 import app.nzyme.core.util.filters.FilterSqlFragment;
 import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.RegistryKey;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import jakarta.annotation.Nullable;
 import org.jdbi.v3.core.Handle;
@@ -25,7 +26,6 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 import tools.jackson.databind.ObjectMapper;
 
-import java.sql.Timestamp;
 import java.util.*;
 
 public class Spoofing {
@@ -422,6 +422,28 @@ public class Spoofing {
             return Collections.emptyList();
         }
 
+        if (finding.address().contains(":")) {
+            return nzyme.getDatabase().withHandle(handle ->
+                    handle.createQuery("WITH messages AS (" + ArpSpoofingDetector.NDP_CLAIMS + ") " +
+                                    "SELECT date_trunc(:date_trunc, last_seen) AS bucket, mac, " +
+                                    "SUM(packet_count) AS count FROM messages WHERE address = :address::inet " +
+                                    "AND mac IN (:spoofer_mac, :owner_mac) GROUP BY bucket, mac ORDER BY bucket ASC")
+                            .bindList("taps", taps)
+                            .bind("address", finding.address())
+                            .bind("spoofer_mac", finding.spooferMac())
+                            .bind("owner_mac", finding.ownerMac())
+                            .bind("after", from.minusMillis(1))
+                            .bind("until", to)
+                            .bind("date_trunc", bucketing.type().getDateTruncName())
+                            .map((rs, ctx) -> new ClaimTimelineBucket(
+                                    new DateTime(rs.getTimestamp("bucket")),
+                                    rs.getString("mac"),
+                                    rs.getLong("count")
+                            ))
+                            .list()
+            );
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT date_trunc(:date_trunc, timestamp) AS bucket, arp_sender_mac AS mac, " +
                                 "COUNT(*) AS count FROM arp_packets WHERE tap_uuid IN (<taps>) " +
@@ -603,6 +625,7 @@ public class Spoofing {
                                                       UUID organizationId,
                                                       UUID tenantId,
                                                       DhcpSpoofingFindingType type,
+                                                      String protocol,
                                                       String serverMac,
                                                       String serverAddress,
                                                       @Nullable String serverIdentifier,
@@ -611,16 +634,17 @@ public class Spoofing {
                                                       DateTime firstSeen,
                                                       DateTime lastSeen) {
         return handle.createQuery("INSERT INTO spoofing_dhcp_findings(uuid, organization_id, tenant_id, type, " +
-                        "server_mac, server_address, server_identifier, offered, expected, response_count, " +
+                        "protocol, server_mac, server_address, server_identifier, offered, expected, response_count, " +
                         "offer_count, ack_count, transaction_count, victim_count, tap_uuids, first_seen, " +
                         "last_seen, created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :type, " +
-                        ":server_mac, :server_address::inet, :server_identifier::inet, :offered::jsonb, " +
+                        ":protocol, :server_mac, :server_address::inet, :server_identifier::inet, :offered::jsonb, " +
                         ":expected::jsonb, 0, 0, 0, 0, 0, '[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) " +
                         "RETURNING *")
                 .bind("uuid", UUID.randomUUID())
                 .bind("organization_id", organizationId)
                 .bind("tenant_id", tenantId)
                 .bind("type", type.name())
+                .bind("protocol", protocol)
                 .bind("server_mac", serverMac)
                 .bind("server_address", serverAddress)
                 .bind("server_identifier", serverIdentifier)
@@ -746,6 +770,31 @@ public class Spoofing {
         });
     }
 
+    public List<String> findDhcpLearningProtocols(UUID organizationId, UUID tenantId, int learningPeriodHours) {
+        if (learningPeriodHours <= 0) {
+            return List.of();
+        }
+
+        return findDhcpLearningPeriods(organizationId, tenantId, learningPeriodHours).entrySet().stream()
+                .filter(e -> e.getValue().end().isAfterNow())
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    public List<String> findDhcpProtocolsAtUntrustedLimit(UUID organizationId, UUID tenantId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT protocol FROM spoofing_dhcp_servers " +
+                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                "AND NOT trusted GROUP BY protocol " +
+                                "HAVING COUNT(*) >= :limit ORDER BY protocol")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("limit", DhcpSpoofingDetector.MAX_UNTRUSTED_SERVERS)
+                        .mapTo(String.class)
+                        .list()
+        );
+    }
+
     public long countDhcpServers(Filters filters, UUID organizationId, UUID tenantId) {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new DhcpSpoofingServerFilters());
 
@@ -809,14 +858,16 @@ public class Spoofing {
         );
     }
 
-    public Optional<DhcpSpoofingServerEntry> findDhcpServerByIdentity(String mac,
+    public Optional<DhcpSpoofingServerEntry> findDhcpServerByIdentity(String protocol,
+                                                                      String mac,
                                                                       String address,
                                                                       UUID organizationId,
                                                                       UUID tenantId) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT * FROM spoofing_dhcp_servers WHERE mac = :mac " +
-                                "AND address = :address::inet AND organization_id = :organization_id " +
-                                "AND tenant_id = :tenant_id")
+                                "AND address = :address::inet AND protocol = :protocol " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id")
+                        .bind("protocol", protocol)
                         .bind("mac", mac)
                         .bind("address", address)
                         .bind("organization_id", organizationId)
@@ -836,6 +887,7 @@ public class Spoofing {
     public DhcpSpoofingServerEntry createDhcpServer(Handle handle,
                                                     UUID organizationId,
                                                     UUID tenantId,
+                                                    String protocol,
                                                     String mac,
                                                     String address,
                                                     @Nullable String serverIdentifier,
@@ -844,16 +896,17 @@ public class Spoofing {
                                                     @Nullable DhcpOfferedParameters baseline,
                                                     DateTime firstSeen,
                                                     DateTime lastSeen) {
-        return handle.createQuery("INSERT INTO spoofing_dhcp_servers(uuid, organization_id, tenant_id, mac, " +
+        return handle.createQuery("INSERT INTO spoofing_dhcp_servers(uuid, organization_id, tenant_id, protocol, mac, " +
                         "address, server_identifier, trusted, trust_source, baseline, baseline_updated_at, latest, " +
                         "response_count, offer_count, ack_count, transaction_count, tap_uuids, first_seen, " +
-                        "last_seen, created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :mac, " +
+                        "last_seen, created_at, updated_at) VALUES(:uuid, :organization_id, :tenant_id, :protocol, :mac, " +
                         ":address::inet, :server_identifier::inet, :trusted, :trust_source, :baseline::jsonb, " +
                         "CASE WHEN :baseline::jsonb IS NULL THEN NULL ELSE NOW() END, NULL, 0, 0, 0, 0, " +
                         "'[]'::jsonb, :first_seen, :last_seen, NOW(), NOW()) RETURNING *")
                 .bind("uuid", UUID.randomUUID())
                 .bind("organization_id", organizationId)
                 .bind("tenant_id", tenantId)
+                .bind("protocol", protocol)
                 .bind("mac", mac)
                 .bind("address", address)
                 .bind("server_identifier", serverIdentifier)
@@ -966,18 +1019,93 @@ public class Spoofing {
         return nzyme.getDatabase().withHandle(handle -> findDhcpLearningStartedAt(handle, organizationId, tenantId));
     }
 
-    public Optional<DateTime> findEarliestDhcpServerFirstSeen(UUID organizationId, UUID tenantId) {
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT MIN(first_seen) AS first_seen FROM spoofing_dhcp_servers " +
-                                "WHERE organization_id = :organization_id AND tenant_id = :tenant_id")
-                        .bind("organization_id", organizationId)
-                        .bind("tenant_id", tenantId)
-                        .map((rs, ctx) -> {
-                            Timestamp ts = rs.getTimestamp("first_seen");
-                            return ts == null ? null : new DateTime(ts);
-                        })
-                        .findOne()
-        );
+    public record DhcpLearningPeriod(DateTime start, DateTime end, boolean endedByUser) { }
+
+    // DHCPv6 servers and IPv6 routers learn from the first detection run that knows them, not from their first
+    // server: on a network without IPv6, that first router is the attacker's.
+    @Nullable
+    public static DateTime dhcpLearningStart(String protocol,
+                                             @Nullable DateTime firstOfProtocol,
+                                             @Nullable DateTime ipv6LearningStartedAt) {
+        if (DhcpSpoofingDetector.PROTOCOL_DHCP.equals(protocol) || ipv6LearningStartedAt == null) {
+            return firstOfProtocol;
+        }
+
+        return firstOfProtocol != null && firstOfProtocol.isBefore(ipv6LearningStartedAt)
+                ? firstOfProtocol : ipv6LearningStartedAt;
+    }
+
+    public DateTime ipv6LearningStartedAt(Handle handle, UUID organizationId, UUID tenantId) {
+        return handle.createQuery("INSERT INTO spoofing_dhcp_detection_state(organization_id, tenant_id, " +
+                        "processed_until, ipv6_learning_started_at) " +
+                        "VALUES(:organization_id, :tenant_id, NOW() - INTERVAL '24 hours', NOW()) " +
+                        "ON CONFLICT (organization_id, tenant_id) DO UPDATE SET ipv6_learning_started_at = " +
+                        "COALESCE(spoofing_dhcp_detection_state.ipv6_learning_started_at, NOW()) " +
+                        "RETURNING ipv6_learning_started_at")
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .map((rs, ctx) -> new DateTime(rs.getTimestamp("ipv6_learning_started_at")))
+                .one();
+    }
+
+    public static DhcpLearningPeriod dhcpLearningPeriod(DateTime firstOfProtocol,
+                                                        @Nullable DateTime restartedAt,
+                                                        @Nullable DateTime endedAt,
+                                                        int learningPeriodHours) {
+        DateTime start = restartedAt != null && restartedAt.isAfter(firstOfProtocol) ? restartedAt : firstOfProtocol;
+        DateTime end = start.plusHours(learningPeriodHours);
+        boolean endedByUser = endedAt != null && !endedAt.isBefore(start) && endedAt.isBefore(end);
+
+        return new DhcpLearningPeriod(start, endedByUser ? endedAt : end, endedByUser);
+    }
+
+    public Map<String, DhcpLearningPeriod> findDhcpLearningPeriods(UUID organizationId,
+                                                                   UUID tenantId,
+                                                                   int learningPeriodHours) {
+        return nzyme.getDatabase().withHandle(handle -> {
+            DateTime restartedAt = findDhcpLearningStartedAt(handle, organizationId, tenantId).orElse(null);
+            DateTime endedAt = findDhcpLearningEndedAt(handle, organizationId, tenantId).orElse(null);
+
+            DateTime ipv6StartedAt = handle.createQuery("SELECT ipv6_learning_started_at " +
+                            "FROM spoofing_dhcp_detection_state WHERE organization_id = :organization_id " +
+                            "AND tenant_id = :tenant_id AND ipv6_learning_started_at IS NOT NULL")
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .map((rs, ctx) -> new DateTime(rs.getTimestamp("ipv6_learning_started_at")))
+                    .findOne()
+                    .orElse(null);
+
+            Map<String, DateTime> firstOfProtocol = Maps.newHashMap();
+            handle.createQuery("SELECT protocol, MIN(first_seen) AS first_seen " +
+                            "FROM spoofing_dhcp_servers WHERE organization_id = :organization_id " +
+                            "AND tenant_id = :tenant_id GROUP BY protocol")
+                    .bind("organization_id", organizationId)
+                    .bind("tenant_id", tenantId)
+                    .map((rs, ctx) -> Map.entry(rs.getString("protocol"), new DateTime(rs.getTimestamp("first_seen"))))
+                    .forEach(e -> firstOfProtocol.put(e.getKey(), e.getValue()));
+
+            Map<String, DhcpLearningPeriod> periods = Maps.newLinkedHashMap();
+            for (String protocol : DhcpSpoofingDetector.PROTOCOLS) {
+                DateTime start = dhcpLearningStart(protocol, firstOfProtocol.get(protocol), ipv6StartedAt);
+
+                if (start == null) {
+                    start = restartedAt;
+                }
+
+                if (start != null) {
+                    periods.put(protocol, dhcpLearningPeriod(start, restartedAt, endedAt, learningPeriodHours));
+                }
+            }
+
+            return periods;
+        });
+    }
+
+    public Optional<DhcpLearningPeriod> findDhcpLearningPeriod(UUID organizationId,
+                                                               UUID tenantId,
+                                                               int learningPeriodHours) {
+        return findDhcpLearningPeriods(organizationId, tenantId, learningPeriodHours).values().stream()
+                .max(Comparator.comparing(DhcpLearningPeriod::end));
     }
 
     public Optional<DateTime> findDhcpLearningEndedAt(Handle handle, UUID organizationId, UUID tenantId) {

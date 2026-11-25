@@ -1,4 +1,5 @@
 import React from "react";
+import {addressWithPort} from "../../../../../../util/Tools";
 
 export default function SyslogActionDetails(props) {
 
@@ -21,7 +22,7 @@ export default function SyslogActionDetails(props) {
           <dt>Syslog Hostname:</dt>
           <dd>{config.syslog_hostname}</dd>
           <dt>Destination</dt>
-          <dd><span className="machine-data">{config.host}:{config.port}</span></dd>
+          <dd><span className="machine-data">{addressWithPort(config.host, config.port)}</span></dd>
         </dl>
       </React.Fragment>
   )

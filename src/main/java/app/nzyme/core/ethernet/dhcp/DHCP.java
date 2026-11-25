@@ -68,7 +68,7 @@ public class DHCP {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new DHCPFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(DISTINCT transaction_id) FROM dhcp_transactions " +
+                handle.createQuery("SELECT COUNT(DISTINCT (transaction_id, ip_version)) FROM dhcp_transactions " +
                                 "WHERE latest_packet >= :tr_from AND latest_packet <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql())
                         .bindList("taps", taps)
@@ -112,11 +112,14 @@ public class DHCP {
                                 "MAX(latest_packet) AS latest_packet, MIN(notes::text)::jsonb AS notes, " +
                                 "jsonb_agg(server_responses) AS server_responses, " +
                                 "MIN(selected_server_address) AS selected_server_address, " +
+                                "MIN(ip_version) AS ip_version, MIN(client_duid) AS client_duid, " +
+                                "MIN(server_duid) AS server_duid, MIN(addresses::text)::jsonb AS addresses, " +
+                                "MIN(prefixes::text)::jsonb AS prefixes, " +
                                 "BOOL_OR(is_successful) AS is_successful, BOOL_OR(is_complete) AS is_complete " +
                                 "FROM dhcp_transactions " +
                                 "WHERE latest_packet >= :tr_from AND latest_packet <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
-                                "GROUP BY transaction_id, time_bucket " +
+                                "GROUP BY transaction_id, time_bucket, ip_version " +
                                 "ORDER BY <order_column> <order_direction> " +
                                 "LIMIT :limit OFFSET :offset")
                         .bindList("taps", taps)
@@ -155,13 +158,16 @@ public class DHCP {
                                 "MAX(latest_packet) AS latest_packet, MIN(notes::text)::jsonb AS notes, " +
                                 "jsonb_agg(server_responses) AS server_responses, " +
                                 "MIN(selected_server_address) AS selected_server_address, " +
+                                "MIN(ip_version) AS ip_version, MIN(client_duid) AS client_duid, " +
+                                "MIN(server_duid) AS server_duid, MIN(addresses::text)::jsonb AS addresses, " +
+                                "MIN(prefixes::text)::jsonb AS prefixes, " +
                                 "BOOL_OR(is_successful) AS is_successful, BOOL_OR(is_complete) AS is_complete " +
                                 "FROM dhcp_transactions " +
                                 "WHERE transaction_id = :transaction_id " +
                                 "AND (first_packet BETWEEN (:transaction_time::timestamptz - INTERVAL '10 seconds') " +
                                 "AND (:transaction_time::timestamptz + INTERVAL '10 seconds'))" +
                                 "AND tap_uuid IN (<taps>) " +
-                                "GROUP BY transaction_id " +
+                                "GROUP BY transaction_id, ip_version " +
                                 "ORDER BY latest_packet DESC LIMIT 1")
                         .bind("transaction_id", transactionId)
                         .bind("transaction_time", transactionTime)
@@ -206,7 +212,8 @@ public class DHCP {
                 "MIN(fingerprint) AS fingerprint, MIN(first_packet) AS first_packet, " +
                 "MAX(latest_packet) AS latest_packet " +
                 "FROM dhcp_transactions " +
-                "WHERE fingerprint IS NOT NULL " +
+                // A DHCPv6 fingerprint is built from other options and is not comparable.
+                "WHERE fingerprint IS NOT NULL AND ip_version = 4 " +
                 "AND latest_packet >= :tr_from AND latest_packet <= :tr_to " +
                 "AND tap_uuid IN (<taps>) " +
                 "GROUP BY transaction_id, FLOOR(EXTRACT(EPOCH FROM first_packet)::numeric / 10)" +

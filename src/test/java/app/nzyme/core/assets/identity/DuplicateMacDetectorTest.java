@@ -58,4 +58,20 @@ public class DuplicateMacDetectorTest {
         assertEquals(prefix.matches("AA:BB:CC:00:11:22", AssetIdentityType.DUPLICATE_MAC), false);
     }
 
+    @Test
+    public void testStacksAreOnlyComparedWithinAnIpVersion() {
+        String v4 = "64:1:0:mss,sok,ts,nop,ws:-:1460:7";
+        String v6 = "64:-:0:mss,sok,ts,nop,ws:-:1440:7";
+        String otherV4 = "128:1:0:mss,nop,ws,nop,nop,sok:-:1460:8";
+        String otherV6 = "128:-:0:mss,nop,ws,nop,nop,sok:-:1440:8";
+
+        assertTrue(DuplicateMacDetector.versionsWithDifferentStacks(
+                java.util.Map.of(4, List.of(v4), 6, List.of(v6)), true).isEmpty());
+
+        assertEquals(DuplicateMacDetector.versionsWithDifferentStacks(
+                java.util.Map.of(4, List.of(v4, otherV4), 6, List.of(v6)), true), java.util.Set.of(4));
+        assertEquals(DuplicateMacDetector.versionsWithDifferentStacks(
+                java.util.Map.of(4, List.of(v4), 6, List.of(v6, otherV6)), true), java.util.Set.of(6));
+    }
+
 }

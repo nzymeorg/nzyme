@@ -9,6 +9,7 @@ import app.nzyme.core.ethernet.beacons.db.BeaconExclusionEntry;
 import app.nzyme.core.ethernet.beacons.db.BeaconSourceEntry;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.MetricNames;
+import app.nzyme.core.util.Tools;
 import com.codahale.metrics.Timer;
 import app.nzyme.plugin.Subsystem;
 import tools.jackson.core.JacksonException;
@@ -37,7 +38,7 @@ public class BeaconDetector {
     private static final Logger LOG = LogManager.getLogger(BeaconDetector.class);
 
     private static final List<String> EXCLUDED_L4_TAGS = List.of(
-            "TLS", "SOCKS", "DNS", "NTP", "STUN", "TURN", "DHCP4", "RTP", "WebRTC", "DTLS", "WireGuard", "OpenVPN", "DERP"
+            "TLS", "SOCKS", "DNS", "NTP", "STUN", "TURN", "DHCP4", "DHCP6", "RTP", "WebRTC", "DTLS", "WireGuard", "OpenVPN", "DERP", "Teredo"
     );
 
     private static final Duration MAXIMUM_COLLAPSE_WINDOW = Duration.standardSeconds(5);
@@ -1067,7 +1068,7 @@ public class BeaconDetector {
             return host;
         }
 
-        return host + ":" + beacon.destinationPort();
+        return Tools.addressWithPort(host, beacon.destinationPort());
     }
 
     static boolean isMoreSpecificType(BeaconType candidateType, String existingType) {
@@ -1168,8 +1169,7 @@ public class BeaconDetector {
 
         try {
             InetAddress a = InetAddress.getByName(address);
-            return internalAddresses.isSiteLocal(a) || a.isLoopbackAddress() || a.isLinkLocalAddress()
-                    || a.isAnyLocalAddress();
+            return internalAddresses.isSiteLocal(a) || a.isLoopbackAddress() || a.isAnyLocalAddress();
         } catch (UnknownHostException e) {
             return false;
         }

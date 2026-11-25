@@ -44,6 +44,15 @@ public class AssetRegistryKeys {
             false
     );
 
+    public static final RegistryKey ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS = RegistryKey.create(
+            "assets_ip_addresses_retention_time_days",
+            Optional.of(new ArrayList<>() {{
+                add(ConfigurationEntryConstraint.createNumberRangeConstraint(1, Integer.MAX_VALUE));
+            }}),
+            Optional.of("365"),
+            false
+    );
+
     public static final RegistryKey DHCP_FINGERPRINT_MONITORING_ENABLED = RegistryKey.create(
             "assets_dhcp_fingerprint_monitoring_enabled",
             Optional.of(new ArrayList<>() {{

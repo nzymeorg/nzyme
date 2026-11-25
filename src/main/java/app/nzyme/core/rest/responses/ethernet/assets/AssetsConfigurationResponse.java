@@ -19,6 +19,9 @@ public abstract class AssetsConfigurationResponse {
     @JsonProperty("communication_retention_time_days")
     public abstract ConfigurationEntryResponse communicationRetentionTimeDays();
 
+    @JsonProperty("ip_addresses_retention_time_days")
+    public abstract ConfigurationEntryResponse ipAddressesRetentionTimeDays();
+
     @JsonProperty("dhcp_fingerprint_monitoring_enabled")
     public abstract ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled();
 
@@ -26,12 +29,14 @@ public abstract class AssetsConfigurationResponse {
                                                      ConfigurationEntryResponse activityRetentionTimeDays,
                                                      ConfigurationEntryResponse attributesRetentionTimeDays,
                                                      ConfigurationEntryResponse communicationRetentionTimeDays,
+                                                     ConfigurationEntryResponse ipAddressesRetentionTimeDays,
                                                      ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled) {
         return builder()
                 .statisticsRetentionTimeDays(statisticsRetentionTimeDays)
                 .activityRetentionTimeDays(activityRetentionTimeDays)
                 .attributesRetentionTimeDays(attributesRetentionTimeDays)
                 .communicationRetentionTimeDays(communicationRetentionTimeDays)
+                .ipAddressesRetentionTimeDays(ipAddressesRetentionTimeDays)
                 .dhcpFingerprintMonitoringEnabled(dhcpFingerprintMonitoringEnabled)
                 .build();
     }
@@ -47,6 +52,7 @@ public abstract class AssetsConfigurationResponse {
         public abstract Builder activityRetentionTimeDays(ConfigurationEntryResponse activityRetentionTimeDays);
         public abstract Builder attributesRetentionTimeDays(ConfigurationEntryResponse attributesRetentionTimeDays);
         public abstract Builder communicationRetentionTimeDays(ConfigurationEntryResponse communicationRetentionTimeDays);
+        public abstract Builder ipAddressesRetentionTimeDays(ConfigurationEntryResponse ipAddressesRetentionTimeDays);
         public abstract Builder dhcpFingerprintMonitoringEnabled(ConfigurationEntryResponse dhcpFingerprintMonitoringEnabled);
 
         public abstract AssetsConfigurationResponse build();

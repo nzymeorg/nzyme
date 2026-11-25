@@ -6,6 +6,7 @@ import ApiRoutes from "../../../../util/ApiRoutes";
 export default function ArpSpoofingAlertDetails({alert}) {
 
   const a = alert.attributes;
+  const ndp = alert.detection_type === "SPOOFING_NDP_NEW";
 
   return (
     <React.Fragment>
@@ -18,7 +19,7 @@ export default function ArpSpoofingAlertDetails({alert}) {
                 <dt>Finding</dt>
                 <dd>
                   <Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.DETAILS(a.finding_uuid)}>
-                    ARP poisoning of {a.address} by {a.spoofer_mac}
+                    {ndp ? "NDP spoofing" : "ARP poisoning"} of {a.address} by {a.spoofer_mac}
                   </Link>
                 </dd>
                 <dt>Poisoned Address</dt>
@@ -30,7 +31,7 @@ export default function ArpSpoofingAlertDetails({alert}) {
                 <dt>At Time of Alert</dt>
                 <dd>
                   {numeral(a.claim_count).format("0,0")} claims, {numeral(a.unsolicited_count).format("0,0")} unsolicited
-                  replies, {numeral(a.victim_count).format("0,0")} {a.victim_count === "1" ? "device" : "devices"} affected
+                  {ndp ? " advertisements" : " replies"}, {numeral(a.victim_count).format("0,0")} {a.victim_count === "1" ? "device" : "devices"} affected
                 </dd>
 
                 <p className="mb-0 mt-3">
@@ -59,6 +60,10 @@ export default function ArpSpoofingAlertDetails({alert}) {
                 <li>Failover clusters and load balancers that take over an address on purpose.</li>
                 <li>Virtual machines or containers migrating between hosts while the old host still answers.</li>
                 <li>A device that was cloned or misconfigured with an address that is still in use.</li>
+                {ndp ?
+                  <li>A tap that sees several VLANs on which routers use the same link-local address, like
+                    {' '}<span className="machine-data">fe80::1</span>, with different MAC addresses. Add an
+                    exclusion for the address.</li> : null}
               </ul>
             </div>
           </div>

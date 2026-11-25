@@ -245,7 +245,7 @@ export default function TLSSessionDetails({ sessionKey }) {
 
                 <dl className="mb-0">
                   <dt>Client Address</dt>
-                  <dd><L4Address address={session.client} hidePort={true}/></dd>
+                  <dd><L4Address full={true} address={session.client} hidePort={true}/></dd>
                   <dt>Client Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper
@@ -255,7 +255,7 @@ export default function TLSSessionDetails({ sessionKey }) {
                             : null } />
                   </dd>
                   <dt>Server Address</dt>
-                  <dd><L4Address address={session.server} /></dd>
+                  <dd><L4Address full={true} address={session.server} /></dd>
                   <dt>Server Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper

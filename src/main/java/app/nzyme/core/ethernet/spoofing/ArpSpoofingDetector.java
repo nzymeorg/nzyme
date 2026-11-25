@@ -18,12 +18,15 @@ import org.apache.logging.log4j.Logger;
 import org.jdbi.v3.core.Handle;
 import org.joda.time.DateTime;
 
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class ArpSpoofingDetector {
 
     private static final Logger LOG = LogManager.getLogger(ArpSpoofingDetector.class);
+
+    private static final int MAX_NDP_CONFLICTS_PER_RUN = 500;
 
     // A reply counts as solicited when the victim asked for the address this many seconds before it.
     private static final int SOLICITATION_WINDOW_SECONDS = 5;
@@ -42,8 +45,32 @@ public class ArpSpoofingDetector {
         this.runTimer = nzyme.getMetrics().timer(MetricNames.SPOOFING_ARP_DETECTION_RUN_TIMER);
     }
 
+    // A link-local IPv6 address is only unique on its link, so its conflict belongs to one tap.
     private record Conflict(String address, String spooferMac, String ownerMac, DateTime spooferFirstSeen,
-                            DateTime spooferLastSeen) { }
+                            DateTime spooferLastSeen, boolean ndp, @Nullable UUID linkTap) { }
+
+    private static final String ALL_NODES_ADDRESS = "ff02::1";
+
+    // Messages that did not arrive with a hop limit of 255 are ignored, as hosts do.
+    static final String NDP_CLAIMS =
+            "SELECT tap_uuid, first_seen, last_seen, packet_count, " +
+                    "CASE WHEN message_type = 'NEIGHBOR_ADVERTISEMENT' THEN target_address " +
+                    "ELSE source_address END AS address, " +
+                    "CASE WHEN message_type = 'NEIGHBOR_ADVERTISEMENT' " +
+                    "THEN COALESCE(target_link_layer_address, source_mac) " +
+                    "ELSE COALESCE(source_link_layer_address, source_mac) END AS mac, " +
+                    "message_type = 'NEIGHBOR_ADVERTISEMENT' AS reply, COALESCE(solicited, false) AS solicited, " +
+                    "destination_mac AS target_mac, destination_address AS target_address " +
+                    "FROM ndp_messages WHERE tap_uuid IN (<taps>) AND hop_limit = 255 " +
+                    "AND last_seen > :after AND last_seen <= :until";
+
+    // An advertisement was asked for when it says so and the receiver asked for the address around that time.
+    private static final String NDP_UNSOLICITED =
+            "(NOT p.solicited OR NOT EXISTS (SELECT 1 FROM ndp_messages r WHERE r.tap_uuid IN (<taps>) " +
+                    "AND r.message_type = 'NEIGHBOR_SOLICITATION' AND r.target_address = p.address " +
+                    "AND r.source_mac = p.target_mac " +
+                    "AND r.last_seen >= p.first_seen - :solicitation_window::interval " +
+                    "AND r.first_seen <= p.last_seen))";
 
     private record Increment(long claimCount, long replyCount, long unsolicitedCount, long broadcastCount,
                              long ownerClaimCount, Set<UUID> taps, @Nullable DateTime lastSeen) { }
@@ -85,8 +112,16 @@ public class ArpSpoofingDetector {
                 }
 
                 List<Conflict> conflicts = readConflicts(handle, taps, config, since, until, lookbackSince);
+                List<Conflict> ndpConflicts = readNdpConflicts(handle, taps, config, since, until, lookbackSince);
+                if (ndpConflicts.size() > MAX_NDP_CONFLICTS_PER_RUN) {
+                    LOG.warn("Tenant [{}/{}] has [{}] conflicting NDP claims in one run. Judging the first {}. "
+                                    + "This is what a flood of made-up neighbor advertisements looks like.",
+                            organizationId, tenantId, ndpConflicts.size(), MAX_NDP_CONFLICTS_PER_RUN);
+                    ndpConflicts = ndpConflicts.subList(0, MAX_NDP_CONFLICTS_PER_RUN);
+                }
+                conflicts.addAll(ndpConflicts);
 
-                LOG.debug("Analyzing [{}] ARP conflicts of tenant [{}/{}].", conflicts.size(), organizationId, tenantId);
+                LOG.debug("Analyzing [{}] ARP and NDP conflicts of tenant [{}/{}].", conflicts.size(), organizationId, tenantId);
 
                 processConflicts(handle, conflicts, config, taps, since, until, lookbackSince, organizationId, tenantId);
             });
@@ -130,10 +165,52 @@ public class ArpSpoofingDetector {
                         (String) row.get("spoofer_mac"),
                         (String) row.get("owner_mac"),
                         new DateTime(row.get("spoofer_first_seen")),
-                        new DateTime(row.get("spoofer_last_seen"))
+                        new DateTime(row.get("spoofer_last_seen")),
+                        false,
+                        null
                 )));
 
         return result;
+    }
+
+    private List<Conflict> readNdpConflicts(Handle handle,
+                                            List<UUID> taps,
+                                            SpoofingConfiguration config,
+                                            DateTime since,
+                                            DateTime until,
+                                            DateTime lookbackSince) {
+        return handle.createQuery("WITH messages AS (" + NDP_CLAIMS + "), " +
+                        "claims AS (SELECT address, mac, " +
+                        "CASE WHEN address <<= 'fe80::/10'::inet THEN tap_uuid::text ELSE '' END AS link, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE last_seen >= :since), 0) AS window_claim_count, " +
+                        "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+                        "FROM messages WHERE address IS NOT NULL AND mac IS NOT NULL AND address <> '::'::inet " +
+                        "AND mac NOT IN (:null_mac, :broadcast_mac) GROUP BY address, mac, link), " +
+                        "owners AS (SELECT DISTINCT ON (address, link) address, link, mac, first_seen, last_seen " +
+                        "FROM claims ORDER BY address, link, first_seen ASC, mac ASC) " +
+                        "SELECT host(c.address) AS address, c.link, c.mac AS spoofer_mac, o.mac AS owner_mac, " +
+                        "c.first_seen AS spoofer_first_seen, c.last_seen AS spoofer_last_seen " +
+                        "FROM claims c JOIN owners o ON o.address = c.address AND o.link = c.link AND o.mac <> c.mac " +
+                        "WHERE c.last_seen >= :since AND o.last_seen >= :since " +
+                        "AND o.last_seen > c.first_seen AND c.window_claim_count >= :minimum_claims " +
+                        "ORDER BY c.address, c.first_seen")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("after", lookbackSince.minusMillis(1))
+                .bind("until", until)
+                .bind("null_mac", NULL_MAC)
+                .bind("broadcast_mac", BROADCAST_MAC)
+                .bind("minimum_claims", config.arpMinimumClaims())
+                .map((rs, ctx) -> new Conflict(
+                        rs.getString("address"),
+                        rs.getString("spoofer_mac"),
+                        rs.getString("owner_mac"),
+                        new DateTime(rs.getTimestamp("spoofer_first_seen")),
+                        new DateTime(rs.getTimestamp("spoofer_last_seen")),
+                        true,
+                        rs.getString("link").isEmpty() ? null : UUID.fromString(rs.getString("link"))
+                ))
+                .list();
     }
 
     private void processConflicts(Handle handle,
@@ -190,8 +267,13 @@ public class ArpSpoofingDetector {
                     countAfter = finding.lastSeen();
                 }
 
-                Increment increment = readIncrement(handle, taps, conflict, finding, countAfter, until);
-                List<Spoofing.VictimRecord> victims = readVictims(handle, taps, conflict, countAfter, until);
+                List<UUID> conflictTaps = conflict.linkTap == null ? taps : List.of(conflict.linkTap);
+                Increment increment = conflict.ndp
+                        ? readNdpIncrement(handle, conflictTaps, conflict, finding, countAfter, until)
+                        : readIncrement(handle, taps, conflict, finding, countAfter, until);
+                List<Spoofing.VictimRecord> victims = conflict.ndp
+                        ? readNdpVictims(handle, conflictTaps, conflict, countAfter, until)
+                        : readVictims(handle, taps, conflict, countAfter, until);
 
                 spoofing.upsertArpVictims(handle, finding.id(), victims);
                 spoofing.addArpFindingCounts(
@@ -260,7 +342,7 @@ public class ArpSpoofingDetector {
                 .bind("after", after)
                 .bind("until", until)
                 .map((rs, ctx) -> {
-                    java.sql.Timestamp lastSeen = rs.getTimestamp("last_seen");
+                    Timestamp lastSeen = rs.getTimestamp("last_seen");
                     return new Increment(
                             rs.getLong("claim_count"),
                             rs.getLong("reply_count"),
@@ -317,6 +399,79 @@ public class ArpSpoofingDetector {
                 .list();
     }
 
+    private Increment readNdpIncrement(Handle handle,
+                                       List<UUID> taps,
+                                       Conflict conflict,
+                                       ArpSpoofingFindingEntry finding,
+                                       DateTime after,
+                                       DateTime until) {
+        String spoofer = "p.mac = :spoofer_mac";
+
+        return handle.createQuery("WITH messages AS (" + NDP_CLAIMS + ") " +
+                        "SELECT COALESCE(SUM(packet_count) FILTER (WHERE " + spoofer + "), 0) AS claim_count, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE " + spoofer + " AND p.reply), 0) AS reply_count, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE " + spoofer + " AND p.reply " +
+                        "AND p.target_address <> :all_nodes::inet AND " + NDP_UNSOLICITED + "), 0) AS unsolicited_count, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE " + spoofer + " AND p.reply " +
+                        "AND p.target_address = :all_nodes::inet), 0) AS broadcast_count, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE p.mac = :owner_mac), 0) AS owner_claim_count, " +
+                        "string_agg(DISTINCT tap_uuid::text, ',') FILTER (WHERE " + spoofer + ") AS taps, " +
+                        "MAX(last_seen) FILTER (WHERE " + spoofer + ") AS last_seen " +
+                        "FROM messages p WHERE p.address = :address::inet AND p.mac IN (:spoofer_mac, :owner_mac)")
+                .bindList("taps", taps)
+                .bind("address", conflict.address)
+                .bind("spoofer_mac", conflict.spooferMac)
+                .bind("owner_mac", finding.ownerMac())
+                .bind("all_nodes", ALL_NODES_ADDRESS)
+                .bind("solicitation_window", SOLICITATION_WINDOW_SECONDS + " seconds")
+                .bind("after", after)
+                .bind("until", until)
+                .map((rs, ctx) -> {
+                    Timestamp lastSeen = rs.getTimestamp("last_seen");
+                    return new Increment(
+                            rs.getLong("claim_count"),
+                            rs.getLong("reply_count"),
+                            rs.getLong("unsolicited_count"),
+                            rs.getLong("broadcast_count"),
+                            rs.getLong("owner_claim_count"),
+                            parseTaps(rs.getString("taps")),
+                            lastSeen == null ? null : new DateTime(lastSeen)
+                    );
+                })
+                .one();
+    }
+
+    private List<Spoofing.VictimRecord> readNdpVictims(Handle handle,
+                                                       List<UUID> taps,
+                                                       Conflict conflict,
+                                                       DateTime after,
+                                                       DateTime until) {
+        return handle.createQuery("WITH messages AS (" + NDP_CLAIMS + ") " +
+                        "SELECT p.target_mac AS mac, " +
+                        "mode() WITHIN GROUP (ORDER BY host(p.target_address)) AS address, " +
+                        "SUM(packet_count) AS packet_count, " +
+                        "COALESCE(SUM(packet_count) FILTER (WHERE " + NDP_UNSOLICITED + "), 0) AS unsolicited_count, " +
+                        "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen " +
+                        "FROM messages p WHERE p.reply AND p.address = :address::inet AND p.mac = :spoofer_mac " +
+                        "AND p.target_mac IS NOT NULL AND NOT p.target_address <<= 'ff00::/8'::inet " +
+                        "GROUP BY p.target_mac")
+                .bindList("taps", taps)
+                .bind("address", conflict.address)
+                .bind("spoofer_mac", conflict.spooferMac)
+                .bind("solicitation_window", SOLICITATION_WINDOW_SECONDS + " seconds")
+                .bind("after", after)
+                .bind("until", until)
+                .map((rs, ctx) -> new Spoofing.VictimRecord(
+                        rs.getString("mac"),
+                        rs.getString("address"),
+                        rs.getLong("packet_count"),
+                        rs.getLong("unsolicited_count"),
+                        new DateTime(rs.getTimestamp("first_seen")),
+                        new DateTime(rs.getTimestamp("last_seen"))
+                ))
+                .list();
+    }
+
     @Nullable
     private static SpoofingExclusionEntry findMatchingExclusion(Map<SpoofingExclusionEntry, SpoofingExclusionMatcher> exclusions,
                                                                 Conflict conflict) {
@@ -342,15 +497,17 @@ public class ArpSpoofingDetector {
         attributes.put("unsolicited_count", String.valueOf(finding.unsolicitedCount()));
         attributes.put("victim_count", String.valueOf(finding.victimCount()));
 
+        boolean ndp = finding.address().contains(":");
+
         nzyme.getDetectionAlertService().raiseAlert(
                 organizationId,
                 tenantId,
                 null,
                 AlertOrigin.taps(finding.tapUuids()).excludingLocationsOf(alertedTaps),
-                DetectionType.SPOOFING_ARP_NEW,
+                ndp ? DetectionType.SPOOFING_NDP_NEW : DetectionType.SPOOFING_ARP_NEW,
                 Subsystem.ETHERNET,
-                "ARP poisoning of [" + finding.address() + "] by [" + finding.spooferMac() + "] detected. " +
-                        "The address belongs to [" + finding.ownerMac() + "].",
+                (ndp ? "NDP spoofing of [" : "ARP poisoning of [") + finding.address() + "] by ["
+                        + finding.spooferMac() + "] detected. The address belongs to [" + finding.ownerMac() + "].",
                 attributes,
                 Set.of("finding_uuid")
         );

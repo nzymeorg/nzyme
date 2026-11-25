@@ -14,6 +14,8 @@ public abstract class AssetActivityDayResponse {
     public abstract long bytes();
     @JsonProperty("arp_packets")
     public abstract long arpPackets();
+    @JsonProperty("ndp_messages")
+    public abstract long ndpMessages();
     @JsonProperty("dhcp_transactions")
     public abstract long dhcpTransactions();
     @JsonProperty("dns_queries")
@@ -23,12 +25,13 @@ public abstract class AssetActivityDayResponse {
     @JsonProperty("udp_sessions")
     public abstract long udpSessions();
 
-    public static AssetActivityDayResponse create(String day, long events, long bytes, long arpPackets, long dhcpTransactions, long dnsQueries, long tcpSessions, long udpSessions) {
+    public static AssetActivityDayResponse create(String day, long events, long bytes, long arpPackets, long ndpMessages, long dhcpTransactions, long dnsQueries, long tcpSessions, long udpSessions) {
         return builder()
                 .day(day)
                 .events(events)
                 .bytes(bytes)
                 .arpPackets(arpPackets)
+                .ndpMessages(ndpMessages)
                 .dhcpTransactions(dhcpTransactions)
                 .dnsQueries(dnsQueries)
                 .tcpSessions(tcpSessions)
@@ -46,6 +49,7 @@ public abstract class AssetActivityDayResponse {
         public abstract Builder events(long events);
         public abstract Builder bytes(long bytes);
         public abstract Builder arpPackets(long arpPackets);
+        public abstract Builder ndpMessages(long ndpMessages);
         public abstract Builder dhcpTransactions(long dhcpTransactions);
         public abstract Builder dnsQueries(long dnsQueries);
         public abstract Builder tcpSessions(long tcpSessions);

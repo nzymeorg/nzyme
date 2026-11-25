@@ -136,6 +136,8 @@ import BluetoothDevicesPage from "./components/bluetooth/devices/BluetoothDevice
 import SOCKSTunnelDetailsPage from "./components/ethernet/tunnels/socks/SOCKSTunnelDetailsPage";
 import VPNTunnelDetailsPage from "./components/ethernet/tunnels/vpn/VPNTunnelDetailsPage";
 import VPNSettingsPage from "./components/ethernet/tunnels/vpn/VPNSettingsPage";
+import Ipv6TransitionTunnelsPage from "./components/ethernet/tunnels/ipv6transition/Ipv6TransitionTunnelsPage";
+import Ipv6TransitionTunnelDetailsPage from "./components/ethernet/tunnels/ipv6transition/Ipv6TransitionTunnelDetailsPage";
 import DnsTunnelsPage from "./components/ethernet/dns/tunnels/DnsTunnelsPage";
 import DnsTunnelFindingDetailsPage from "./components/ethernet/dns/tunnels/DnsTunnelFindingDetailsPage";
 import DnsTunnelSettingsPage from "./components/ethernet/dns/tunnels/DnsTunnelSettingsPage";
@@ -184,6 +186,8 @@ import DHCPTransactionDetailsPage from "./components/ethernet/assets/dhcp/DHCPTr
 import GlobalTenantSelectorForm from "./components/system/tenantselector/GlobalTenantSelectorForm";
 import AssetDetailsPage from "./components/ethernet/assets/AssetDetailsPage";
 import ARPPacketsPage from "./components/ethernet/assets/arp/ARPPacketsPage";
+import NDPMessagesPage from "./components/ethernet/assets/ndp/NDPMessagesPage";
+import NDPRouterAdvertisementsPage from "./components/ethernet/assets/ndp/NDPRouterAdvertisementsPage";
 import ReconScansPage from "./components/ethernet/recon/ReconScansPage";
 import ReconScanDetailsPage from "./components/ethernet/recon/ReconScanDetailsPage";
 import ReconSettingsPage from "./components/ethernet/recon/ReconSettingsPage";
@@ -727,6 +731,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.DETAILS(':uuid')} element={<DHCPFingerprintExclusionDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.EDIT(':uuid')} element={<EditDHCPFingerprintExclusionPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.ARP.INDEX} element={<ARPPacketsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.NDP.INDEX} element={<NDPMessagesPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.ASSETS.NDP.ROUTER_ADVERTISEMENTS} element={<NDPRouterAdvertisementsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES} element={<AssetIdentityPage key="duplicates" tab="duplicates" />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES} element={<AssetIdentityPage key="changes" tab="changes" />}/>
                                 <Route path={ApiRoutes.ETHERNET.ASSETS.IDENTITY.LINKS} element={<AssetIdentityPage key="links" tab="links" />}/>
@@ -762,6 +768,8 @@ function App() {
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX} element={<VPNTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.TUNNEL_DETAILS(':sessionId')} element={<VPNTunnelDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.TUNNELS.VPN.SETTINGS} element={<VPNSettingsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX} element={<Ipv6TransitionTunnelsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.TUNNEL_DETAILS(':sessionId')} element={<Ipv6TransitionTunnelDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.INDEX} element={<DnsTunnelsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.DETAILS(':uuid')} element={<DnsTunnelFindingDetailsPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.DNS.TUNNELS.SETTINGS} element={<DnsTunnelSettingsPage />}/>

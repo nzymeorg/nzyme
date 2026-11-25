@@ -701,7 +701,7 @@ public class Topology {
     }
 
     // Assets are known per tenant, not per tap. An address that more than one asset used in the range gets none.
-    // Only an asset that claimed the address counts, see AssetManager.IP_ADDRESS_CLAIM_SOURCE.
+    // Only an asset that claimed the address counts, see AssetManager.IP_ADDRESS_CLAIM_SOURCES_SQL.
     public Map<String, AddressAsset> findAssetsOfAddresses(UUID organizationId, UUID tenantId, TimeRange timeRange,
                                                            Collection<String> addresses) {
         if (addresses.isEmpty()) {
@@ -718,14 +718,13 @@ public class Topology {
                                 "FROM assets_ip_addresses AS i JOIN assets AS o ON o.id = i.asset_id " +
                                 "WHERE o.organization_id = :organization_id AND o.tenant_id = :tenant_id " +
                                 "AND i.address = ANY(string_to_array(:addresses, ',')::inet[]) " +
-                                "GROUP BY i.address, i.asset_id HAVING bool_or(i.source = :claim_source) " +
+                                "GROUP BY i.address, i.asset_id HAVING bool_or(i.source IN " + AssetManager.IP_ADDRESS_CLAIM_SOURCES_SQL + ") " +
                                 "AND bool_or(i.first_seen <= :tr_to AND i.last_seen >= :tr_from)" +
                                 ") AS users GROUP BY users.address HAVING COUNT(*) = 1" +
                                 ") AS used JOIN assets AS a ON a.id = used.asset_id")
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("addresses", String.join(",", addresses))
-                        .bind("claim_source", AssetManager.IP_ADDRESS_CLAIM_SOURCE)
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .map((rs, ctx) -> new AddressAsset(rs.getString("address"),

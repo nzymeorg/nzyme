@@ -1,11 +1,11 @@
 use std::net::{IpAddr, Ipv4Addr};
 use anyhow::{bail, Result};
 use byteorder::{BigEndian, ByteOrder};
-use crate::wired::packets::{IcmpPacket, IcmpQuotedHeader, IPv4Packet};
+use crate::wired::packets::{IcmpPacket, IcmpQuotedHeader, IpPacket};
 
 const HEADER_LENGTH: usize = 8;
 
-pub fn parse(ip4: IPv4Packet) -> Result<IcmpPacket> {
+pub fn parse(ip4: IpPacket) -> Result<IcmpPacket> {
     if ip4.payload.len() < HEADER_LENGTH {
         bail!("Payload too short for ICMP packet.");
     }
@@ -34,14 +34,15 @@ pub fn parse(ip4: IPv4Packet) -> Result<IcmpPacket> {
         _ => None
     };
 
-    // Body + ICMP header + IPv4 header (20) + Ethernet (14).
-    let size = (ip4.payload.len() + 34) as u32;
+    // Body + ICMP header + IP header + Ethernet (14).
+    let size = (ip4.payload.len() + ip4.header_length + 14) as u32;
 
     Ok(IcmpPacket {
         source_mac: ip4.source_mac,
         destination_mac: ip4.destination_mac,
         source_address: ip4.source_address,
         destination_address: ip4.destination_address,
+        ip_version: 4,
         ip_ttl: ip4.ttl,
         ip_tos: ip4.ip_tos,
         ip_df: ip4.df,
@@ -88,10 +89,10 @@ fn parse_quoted_header(body: &[u8]) -> Option<IcmpQuotedHeader> {
     };
 
     Some(IcmpQuotedHeader {
-        protocol,
+        protocol: Some(protocol),
         source_address,
         destination_address,
-        ttl,
+        ttl: Some(ttl),
         source_port,
         destination_port
     })
@@ -102,8 +103,8 @@ mod tests {
     use super::*;
     use chrono::Utc;
 
-    fn ip4(payload: Vec<u8>) -> IPv4Packet {
-        IPv4Packet {
+    fn ip4(payload: Vec<u8>) -> IpPacket {
+        IpPacket {
             source_mac: None,
             destination_mac: None,
             header_length: 20,
@@ -112,10 +113,10 @@ mod tests {
             destination_address: "10.0.0.2".parse().unwrap(),
             ttl: 64,
             ip_tos: 0,
-            df: false,
+            df: Some(false),
             more_fragments: false,
             fragment_offset: 0,
-            identification: 0,
+            identification: Some(0),
             protocol: 1,
             payload,
             size: 0,
@@ -148,12 +149,12 @@ mod tests {
         let p = parse(ip4(payload)).unwrap();
         assert!(p.is_error());
         let q = p.quoted.unwrap();
-        assert_eq!(q.protocol, 17);
+        assert_eq!(q.protocol, Some(17));
         assert_eq!(q.source_address.to_string(), "10.0.0.2");
         assert_eq!(q.destination_address.to_string(), "10.0.0.9");
         assert_eq!(q.source_port, Some(40000));
         assert_eq!(q.destination_port, Some(4444));
-        assert_eq!(q.ttl, 64);
+        assert_eq!(q.ttl, Some(64));
     }
 
     #[test]

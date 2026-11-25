@@ -23,6 +23,7 @@ import L4SessionsTimelineSessionsChart from "./L4SessionsTimelineSessionsChart";
 import L4SessionsTimelineBytesChart from "./L4SessionsTimelineBytesChart";
 import L4SessionsDurationHistogram from "./L4SessionsDurationHistogram";
 import L4SessionsSourceFanOutHistogram from "./L4SessionsSourceFanOutHistogram";
+import L4SessionsIpVersionHistogram from "./L4SessionsIpVersionHistogram";
 import L4SessionsTopologyCard from "./L4SessionsTopologyCard";
 
 const l4Service = new L4Service();
@@ -229,6 +230,23 @@ export default function L4SessionsPage() {
                                                    setFilters={setFilters}
                                                    timeRange={timeRange}
                                                    revision={revision} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="row mt-3">
+            <div className="col-md-12">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="IP Versions"
+                                         timeRange={timeRange}
+                                         refreshAction={() => setRevision(new Date())} />
+
+                  <L4SessionsIpVersionHistogram filters={filters}
+                                                setFilters={setFilters}
+                                                timeRange={timeRange}
+                                                revision={revision} />
                 </div>
               </div>
             </div>

@@ -2,7 +2,8 @@
 export const TRACEROUTE_PROTOCOL_OPTIONS = [
   {value: "1", name: "ICMP (1)"},
   {value: "6", name: "TCP (6)"},
-  {value: "17", name: "UDP (17)"}
+  {value: "17", name: "UDP (17)"},
+  {value: "58", name: "ICMPv6 (58)"}
 ];
 
 export const ALLOWED_TRACEROUTE_PROTOCOL_VALUES = TRACEROUTE_PROTOCOL_OPTIONS.map((o) => o.value);

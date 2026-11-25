@@ -63,7 +63,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.*;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/beacons")
 @Produces(MediaType.APPLICATION_JSON)
@@ -109,7 +108,7 @@ public class BeaconsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Beacons.OrderColumn orderColumn = Beacons.OrderColumn.LAST_SEEN;
@@ -157,7 +156,7 @@ public class BeaconsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
@@ -430,7 +429,7 @@ public class BeaconsResource extends TapDataHandlingResource {
 
         final int limit = 10000;
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Beacons beacons = nzyme.getEthernet().beacons();
 
@@ -494,7 +493,7 @@ public class BeaconsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Beacons beacons = nzyme.getEthernet().beacons();
 
@@ -779,7 +778,7 @@ public class BeaconsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = timeRangeParameter == null || timeRangeParameter.isEmpty()
                 ? TimeRangeFactory.allTime() : parseTimeRangeQueryParameter(timeRangeParameter);
 

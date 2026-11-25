@@ -22,6 +22,8 @@ public enum AssetAttributeDimension {
     DHCP_PARAMETER_REQUEST_LIST,
     // Option 61 as colon-separated hex bytes.
     DHCP_CLIENT_IDENTIFIER,
+    DHCP6_FINGERPRINT,
+    DHCP6_CLIENT_DUID,
     NTP_CLIENT_VERSION,
     TLS_VERSION,
 

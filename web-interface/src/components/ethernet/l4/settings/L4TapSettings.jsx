@@ -20,7 +20,7 @@ export default function L4TapSettings({organizationId, tenantId, revision}) {
   }
 
   if (settings.taps_different.length === 0) {
-    return <div className="alert alert-info mb-0">All taps have the same value as the setting.</div>
+    return <div className="alert alert-info mb-0">All taps have the same values as the settings.</div>
   }
 
   return (
@@ -35,7 +35,12 @@ export default function L4TapSettings({organizationId, tenantId, revision}) {
       {settings.taps_different.map((tap) => (
         <tr key={tap.uuid}>
           <td><Link to={ApiRoutes.SYSTEM.TAPS.DETAILS(tap.uuid)}>{tap.name}</Link></td>
-          <td><code>cgnat_is_internal = {String(tap.cgnat_is_internal)}</code></td>
+          <td>
+            {tap.cgnat_is_internal_differs
+              ? <div><code>cgnat_is_internal = {String(tap.cgnat_is_internal)}</code></div> : null}
+            {tap.internal_networks_differ
+              ? <div><code>internal_networks = {JSON.stringify(tap.internal_networks)}</code></div> : null}
+          </td>
         </tr>
       ))}
       </tbody>

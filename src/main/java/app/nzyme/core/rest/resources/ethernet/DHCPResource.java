@@ -52,14 +52,15 @@ import org.joda.time.Duration;
 import java.util.*;
 
 import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/dhcp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
-@Tag(name = "DHCP", description = "DHCP transactions that taps recorded on the Ethernet network, including "
-        + "client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. Nzyme "
-        + "also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.")
+@Tag(name = "DHCP", description = "DHCP and DHCPv6 transactions that taps recorded on the Ethernet network, "
+        + "including client and server addresses, offered and requested IP addresses, DHCP fingerprints and "
+        + "timelines. A DHCPv6 transaction has an ip_version of 6 and carries the DUIDs of client and server and "
+        + "the addresses and delegated prefixes the client holds. Nzyme also uses DHCP traffic to enrich the asset "
+        + "inventory, and its fingerprints help to detect spoofing.")
 public class DHCPResource extends TapDataHandlingResource {
 
     @Inject
@@ -68,7 +69,7 @@ public class DHCPResource extends TapDataHandlingResource {
     @GET
     @Path("/transactions")
     @Operation(operationId = "findDhcpTransactions", summary = "List DHCP transactions",
-            description = "Returns all DHCP transactions in the time range, newest first by default. Each "
+            description = "Returns all DHCP and DHCPv6 transactions in the time range, newest first by default. Each "
                     + "transaction bundles the packets of one DHCP exchange and carries the client and server MAC "
                     + "addresses, offered and requested IP addresses, DHCP options, fingerprints and a timeline of "
                     + "all steps. Results are paginated.")
@@ -88,7 +89,7 @@ public class DHCPResource extends TapDataHandlingResource {
                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
         List<UUID> taps = parseAndValidateTapIds(getAuthenticatedUser(sc), nzyme, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -132,7 +133,7 @@ public class DHCPResource extends TapDataHandlingResource {
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Map<DateTime, DHCPStatisticsBucketResponse> statistics = Maps.newHashMap();
         for (DHCPStatisticsBucket s : nzyme.getEthernet().dhcp().getStatistics(timeRange, bucketing, filters, taps)) {
@@ -314,7 +315,12 @@ public class DHCPResource extends TapDataHandlingResource {
                         r.firstSeen(),
                         r.lastSeen()
                 )).toList(),
-                tx.selectedServerAddress()
+                tx.selectedServerAddress(),
+                tx.ipVersion(),
+                tx.clientDuid(),
+                tx.serverDuid(),
+                tx.addresses(),
+                tx.prefixes()
         );
     }
 

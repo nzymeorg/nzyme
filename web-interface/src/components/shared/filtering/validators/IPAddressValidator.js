@@ -1,13 +1,11 @@
+import {isValidCIDR} from "../../../../util/Tools";
+
 export default function validateIPAddressValid(value) {
-  return value && (isValidIPv4(value.trim()) || isValidIPv6(value.trim()));
-}
+  if (!value) {
+    return false;
+  }
 
-function isValidIPv4(address) {
-  const ipv4Pattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-  return ipv4Pattern.test(address);
-}
+  const address = value.trim();
 
-function isValidIPv6(address) {
-  const ipv6Pattern = /^(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}$|^(?:[a-fA-F0-9]{1,4}:){1,7}:$|^(?:[a-fA-F0-9]{1,4}:){1,6}:[a-fA-F0-9]{1,4}$|^(?:[a-fA-F0-9]{1,4}:){1,5}(?::[a-fA-F0-9]{1,4}){1,2}$|^(?:[a-fA-F0-9]{1,4}:){1,4}(?::[a-fA-F0-9]{1,4}){1,3}$|^(?:[a-fA-F0-9]{1,4}:){1,3}(?::[a-fA-F0-9]{1,4}){1,4}$|^(?:[a-fA-F0-9]{1,4}:){1,2}(?::[a-fA-F0-9]{1,4}){1,5}$|^[a-fA-F0-9]{1,4}:(?:(?::[a-fA-F0-9]{1,4}){1,6})$|^:(?:(?::[a-fA-F0-9]{1,4}){1,7}|:)$|^(?:[a-fA-F0-9]{1,4}:){1,7}:(?:[a-fA-F0-9]{1,4}){1,4}(?::(?:[a-fA-F0-9]{1,4}){1,2})$|^(?:[a-fA-F0-9]{1,4}:){1,4}:(?:[a-fA-F0-9]{1,4}){1,5}$|^(?:[a-fA-F0-9]{1,4}:){1,3}:(?:[a-fA-F0-9]{1,4}){1,6}$|^(?:[a-fA-F0-9]{1,4}:){1,2}:(?:[a-fA-F0-9]{1,4}){1,7}$|^[a-fA-F0-9]{1,4}:(?:[a-fA-F0-9]{1,4}:){1,7}$|^:((?:[a-fA-F0-9]{1,4}:){1,7}|:)$|^(?:(?:[a-fA-F0-9]{1,4}:){1,4}|:(?::[a-fA-F0-9]{1,4}){1,5}|::(?:[a-fA-F0-9]{1,4}){1,6})$/i;
-  return ipv6Pattern.test(address);
+  return !address.includes("/") && isValidCIDR(address);
 }

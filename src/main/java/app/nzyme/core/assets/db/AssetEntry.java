@@ -25,6 +25,7 @@ public abstract class AssetEntry {
     @Nullable
     public abstract String dhcpFingerprintRebind();
     public abstract boolean seenArp();
+    public abstract boolean seenNdp();
     public abstract boolean seenDhcp();
     public abstract boolean seenTcp();
     public abstract boolean seenUdp();
@@ -35,7 +36,7 @@ public abstract class AssetEntry {
     public abstract DateTime updatedAt();
     public abstract DateTime createdAt();
 
-    public static AssetEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String mac, boolean isActive, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, List<String> hostnames, List<String> ipAddresses, DateTime firstSeen, DateTime lastSeen, DateTime updatedAt, DateTime createdAt) {
+    public static AssetEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, String mac, boolean isActive, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenNdp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, List<String> hostnames, List<String> ipAddresses, DateTime firstSeen, DateTime lastSeen, DateTime updatedAt, DateTime createdAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -48,6 +49,7 @@ public abstract class AssetEntry {
                 .dhcpFingerprintReboot(dhcpFingerprintReboot)
                 .dhcpFingerprintRebind(dhcpFingerprintRebind)
                 .seenArp(seenArp)
+                .seenNdp(seenNdp)
                 .seenDhcp(seenDhcp)
                 .seenTcp(seenTcp)
                 .seenUdp(seenUdp)
@@ -87,6 +89,7 @@ public abstract class AssetEntry {
         public abstract Builder dhcpFingerprintRebind(String dhcpFingerprintRebind);
 
         public abstract Builder seenArp(boolean seenArp);
+        public abstract Builder seenNdp(boolean seenNdp);
 
         public abstract Builder seenDhcp(boolean seenDhcp);
 

@@ -54,7 +54,7 @@ export default function NTPTransactionDetails({ transactionId }) {
 
               <dl className="mb-0">
                 <dt>Client Address</dt>
-                <dd><L4Address address={transaction.client} /></dd>
+                <dd><L4Address full={true} address={transaction.client} /></dd>
                 <dt>Client Asset</dt>
                 <dd>
                   <InternalAddressOnlyWrapper
@@ -64,7 +64,7 @@ export default function NTPTransactionDetails({ transactionId }) {
                       : null } />
                 </dd>
                 <dt>Server Address</dt>
-                <dd><L4Address address={transaction.server} /></dd>
+                <dd><L4Address full={true} address={transaction.server} /></dd>
                 <dt>Server Asset</dt>
                 <dd>
                   <InternalAddressOnlyWrapper

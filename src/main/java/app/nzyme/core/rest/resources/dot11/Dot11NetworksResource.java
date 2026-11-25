@@ -47,7 +47,6 @@ import org.joda.time.DateTime;
 
 import java.util.*;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/dot11/networks")
 @Produces(MediaType.APPLICATION_JSON)
@@ -87,7 +86,7 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Dot11.BssidOrderColumn orderColumn = Dot11.BssidOrderColumn.SIGNAL_STRENGTH_AVERAGE;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -421,7 +420,7 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 

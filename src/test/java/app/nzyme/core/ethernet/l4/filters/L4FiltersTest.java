@@ -52,6 +52,27 @@ public class L4FiltersTest {
     }
 
     @Test
+    public void testPrivateIncludesUniqueLocalAddresses() {
+        assertEquals(where("source_address", FilterOperator.IS_PRIVATE), "(source_address <<= '10.0.0.0/8'::cidr OR "
+                + "source_address <<= '172.16.0.0/12'::cidr OR source_address <<= '192.168.0.0/16'::cidr OR "
+                + "source_address <<= 'fc00::/7'::cidr)");
+    }
+
+    @Test
+    public void testLinkLocalAndVersionOperators() {
+        assertEquals(where("source_address", FilterOperator.IS_LINK_LOCAL),
+                "(source_address <<= '169.254.0.0/16'::cidr OR source_address <<= 'fe80::/10'::cidr)");
+        assertEquals(where("address", FilterOperator.IS_NOT_LINK_LOCAL),
+                "((((source_address <<= '169.254.0.0/16'::cidr OR source_address <<= 'fe80::/10'::cidr)) OR "
+                        + "((destination_address <<= '169.254.0.0/16'::cidr OR destination_address <<= 'fe80::/10'::cidr))) "
+                        + "IS NOT TRUE)");
+        assertEquals(where("source_address", FilterOperator.IS_IPV6), "family(source_address) = 6");
+        assertEquals(where("ip_version", FilterOperator.EQUALS_NUMERIC), "family(source_address) = :b");
+        assertEquals(where("address", FilterOperator.IS_IPV4),
+                "((family(source_address) = 4) OR (family(destination_address) = 4))");
+    }
+
+    @Test
     public void testInternalFieldsReadTheStoredFlags() {
         assertEquals(where("source_is_internal", FilterOperator.BOOLEAN), "source_address_is_site_local = :b");
         assertEquals(where("destination_is_internal", FilterOperator.BOOLEAN),

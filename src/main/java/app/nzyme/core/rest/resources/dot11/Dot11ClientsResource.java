@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/dot11/clients")
 @Produces(MediaType.APPLICATION_JSON)
@@ -81,7 +80,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Dot11.ClientOrderColumn orderColumn = Dot11.ClientOrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -170,7 +169,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Dot11.ClientOrderColumn orderColumn = Dot11.ClientOrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -235,7 +234,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
@@ -266,7 +265,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 

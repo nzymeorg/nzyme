@@ -15,6 +15,7 @@ public abstract class IcmpErrorReport {
     public abstract String destinationMac();
     public abstract String sourceAddress();
     public abstract String destinationAddress();
+    public abstract int ipVersion();
     public abstract int icmpType();
     public abstract int icmpCode();
     public abstract int ipTtl();
@@ -39,6 +40,7 @@ public abstract class IcmpErrorReport {
                                          @JsonProperty("destination_mac") String destinationMac,
                                          @JsonProperty("source_address") String sourceAddress,
                                          @JsonProperty("destination_address") String destinationAddress,
+                                         @JsonProperty("ip_version") int ipVersion,
                                          @JsonProperty("icmp_type") int icmpType,
                                          @JsonProperty("icmp_code") int icmpCode,
                                          @JsonProperty("ip_ttl") int ipTtl,
@@ -55,6 +57,7 @@ public abstract class IcmpErrorReport {
                 .destinationMac(destinationMac)
                 .sourceAddress(sourceAddress)
                 .destinationAddress(destinationAddress)
+                .ipVersion(ipVersion)
                 .icmpType(icmpType)
                 .icmpCode(icmpCode)
                 .ipTtl(ipTtl)
@@ -79,6 +82,7 @@ public abstract class IcmpErrorReport {
         public abstract Builder destinationMac(String destinationMac);
         public abstract Builder sourceAddress(String sourceAddress);
         public abstract Builder destinationAddress(String destinationAddress);
+        public abstract Builder ipVersion(int ipVersion);
         public abstract Builder icmpType(int icmpType);
         public abstract Builder icmpCode(int icmpCode);
         public abstract Builder ipTtl(int ipTtl);

@@ -84,6 +84,11 @@ public class NameResolutionSpoofingDetector {
                 organizationId, tenantId, DateTime.now().minusDays(config.nameresRetentionTimeDays())
         );
 
+        spoofing.retentionCleanNameResolutionResponses(
+                nzyme.getTapManager().findAllTapUuidsIncludingDeleted(organizationId, tenantId),
+                DateTime.now().minusDays(config.nameresResponsesRetentionTimeDays())
+        );
+
         List<UUID> taps = nzyme.getTapManager().findAllTapsOfTenant(organizationId, tenantId)
                 .stream().map(Tap::uuid).collect(Collectors.toList());
 
@@ -91,10 +96,6 @@ public class NameResolutionSpoofingDetector {
             LOG.debug("Tenant [{}/{}] has no taps. Skipping name resolution spoofing detection.", organizationId, tenantId);
             return;
         }
-
-        spoofing.retentionCleanNameResolutionResponses(
-                taps, DateTime.now().minusDays(config.nameresResponsesRetentionTimeDays())
-        );
 
         if (!config.nameresDetectionEnabled()) {
             LOG.debug("Name resolution spoofing detection disabled for tenant [{}/{}]. Skipping.", organizationId, tenantId);

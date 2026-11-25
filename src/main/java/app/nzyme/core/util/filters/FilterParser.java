@@ -25,9 +25,9 @@ public class FilterParser {
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    public static Filters parseFiltersQueryParameter(String query) {
+    public static Filters parseFiltersQueryParameter(String query, FilterScope scope) {
         if (query == null || query.isEmpty()) {
-            return Filters.create(Maps.newHashMap());
+            return Filters.create(Maps.newHashMap(), scope);
         }
 
         Map<String, List<FiltersParameter>> param;
@@ -52,7 +52,7 @@ public class FilterParser {
             }
         }
 
-        return Filters.create(filters);
+        return Filters.create(filters, scope);
     }
 
 }

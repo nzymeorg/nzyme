@@ -91,7 +91,9 @@ pub fn to_ipv6_address(bytes: &[u8]) -> IpAddr {
     assert_eq!(bytes.len(), 16);
 
     let arr: [u8; 16] = bytes.try_into().unwrap();
-    return IpAddr::from(Ipv6Addr::from(arr));
+
+    // An IPv4-mapped address (::ffff:a.b.c.d) is reported as the IPv4 address it stands for.
+    return IpAddr::from(Ipv6Addr::from(arr)).to_canonical();
 }
 
 pub fn is_mac_address_multicast(mac: &String) -> bool {
@@ -242,4 +244,38 @@ pub fn ip_in_cidr(ip: IpAddr, cidr_str: &str) -> bool {
             }
         }
     }
+}
+
+// Uncompressed DNS names, one after the other, padded with zeros.
+pub fn parse_domain_names(data: &[u8]) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut labels: Vec<String> = Vec::new();
+    let mut cursor = 0;
+
+    while cursor < data.len() {
+        let length = data[cursor] as usize;
+        cursor += 1;
+
+        if length == 0 {
+            if !labels.is_empty() {
+                names.push(labels.join("."));
+                labels.clear();
+            }
+            continue;
+        }
+
+        if length > 63 || cursor + length > data.len() {
+            break;
+        }
+
+        let label = &data[cursor..cursor + length];
+        if !label.iter().all(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_') {
+            break;
+        }
+
+        labels.push(String::from_utf8_lossy(label).to_string());
+        cursor += length;
+    }
+
+    names
 }

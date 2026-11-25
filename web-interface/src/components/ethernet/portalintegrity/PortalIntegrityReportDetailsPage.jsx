@@ -167,6 +167,8 @@ export default function PortalIntegrityReportDetailsPage() {
                 <dd className="machine-data">{report.probe_interface}</dd>
                 <dt>Probe MAC Address</dt>
                 <dd className="machine-data">{report.probe_mac}</dd>
+                <dt>IP Version</dt>
+                <dd>{String(report.assigned_address).includes(":") ? "IPv6" : "IPv4"}</dd>
                 <dt>IP Address</dt>
                 <dd className="machine-data">{report.assigned_address}</dd>
                 <dt>Gateway Address</dt>
@@ -177,7 +179,11 @@ export default function PortalIntegrityReportDetailsPage() {
                 <dt>DHCP Server Address</dt>
                 <dd className="machine-data">
                   {report.dhcp_server_address ? report.dhcp_server_address :
-                    <span className="text-muted">n/a</span>}
+                    <span className="text-muted"
+                          title={String(report.assigned_address).includes(":")
+                            ? "The probe took its address and DNS servers from a router advertisement." : undefined}>
+                      n/a
+                    </span>}
                 </dd>
                 <dt>DNS Servers</dt>
                 <dd className="machine-data">

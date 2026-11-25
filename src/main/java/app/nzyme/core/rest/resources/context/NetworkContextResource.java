@@ -142,6 +142,7 @@ public class NetworkContextResource extends UserAuthenticatedResource  {
                     asset.dhcpFingerprintReboot(),
                     asset.dhcpFingerprintRebind(),
                     asset.seenArp(),
+                    asset.seenNdp(),
                     asset.seenDhcp(),
                     asset.seenTcp(),
                     asset.seenUdp(),

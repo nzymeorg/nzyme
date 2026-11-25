@@ -2,7 +2,7 @@ import React, {useEffect, useMemo, useRef, useState} from "react";
 import Store from "../../../util/Store";
 import {colorsForMode, FONT_FAMILY, GRID_SPACING, tooltipStyle, trafficRampForMode} from "../../shared/viz/VizTheme";
 import {formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {noDataText, pairIdOf} from "./TopologyData";
+import {noDataText, pairIdOf, truncateLabel as truncate} from "./TopologyData";
 
 const LEFT = 204;
 const TOP = 132;
@@ -10,7 +10,6 @@ const LEGEND = 44;
 const MIN_CELL = 9;
 const MAX_CELL = 22;
 
-const truncate = (s, max) => (s && s.length > max ? s.substring(0, Math.max(1, max - 1)) + "…" : s);
 
 const compareLabels = (a, b) => a.label.localeCompare(b.label, undefined, {numeric: true, sensitivity: "base"});
 
@@ -217,7 +216,7 @@ export default function TopologyMatrix({model, order = "traffic", selection = nu
                       {glyph(n, LEFT - 9, TOP + i * cell + cell / 2, Math.min(8, cell - 3))}
                       <text x={LEFT - 18} y={TOP + i * cell + cell / 2} textAnchor="end" dominantBaseline="middle"
                             fontSize={labelSize} fontWeight={fontWeight(lit)} fill={lit ? colors.text : colors.muted}>
-                        {truncate(n.name || n.detail ? n.label + " " + (n.name || n.detail) : n.label, 30)}
+                        {truncate(n.name || n.detail ? truncate(n.label, 19) + " " + (n.name || n.detail) : n.label, 30)}
                       </text>
                     </g>
                 );

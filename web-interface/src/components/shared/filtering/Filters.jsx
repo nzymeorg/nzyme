@@ -65,6 +65,10 @@ import {
   DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS
 } from "./validators/DhcpSpoofingFindingTypeValidator";
 import {
+  ALLOWED_DHCP_SPOOFING_PROTOCOL_VALUES,
+  DHCP_SPOOFING_PROTOCOL_SELECT_OPTIONS
+} from "./validators/DhcpSpoofingProtocolValidator";
+import {
   ALLOWED_RECON_TARGET_OUTCOME_VALUES,
   RECON_TARGET_OUTCOME_SELECT_OPTIONS
 } from "./validators/ReconTargetOutcomeValidator";
@@ -272,6 +276,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_DHCP_SPOOFING_FINDING_TYPE_VALUES, value)
     ],
     placeholder: "ROGUE_SERVER"
+  },
+  DHCP_SPOOFING_PROTOCOL: {
+    name: "dhcp_spoofing_protocol",
+    validators: [
+      (value) => validateEnum(ALLOWED_DHCP_SPOOFING_PROTOCOL_VALUES, value)
+    ],
+    placeholder: "DHCP"
   },
   RECON_TARGET_OUTCOME: {
     name: "recon_target_outcome",
@@ -511,6 +522,38 @@ export const OPERATORS = {
   IS_NOT_CGNAT: {
     name: "is_not_cgnat",
     sign: "IS NOT CGNAT",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_LINK_LOCAL: {
+    name: "is_link_local",
+    sign: "IS LINK-LOCAL",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_NOT_LINK_LOCAL: {
+    name: "is_not_link_local",
+    sign: "IS NOT LINK-LOCAL",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_IPV4: {
+    name: "is_ipv4",
+    sign: "IS IPV4",
+    placeholder: null,
+    no_value: true,
+    validators: [() => { return true; }],
+    field_type: FIELD_TYPE.NO_VALUE
+  },
+  IS_IPV6: {
+    name: "is_ipv6",
+    sign: "IS IPV6",
     placeholder: null,
     no_value: true,
     validators: [() => { return true; }],
@@ -756,6 +799,24 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DHCP_SPOOFING_PROTOCOL_EQUALS: {
+    name: "dhcp_spoofing_protocol_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DHCP_SPOOFING_PROTOCOL_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DHCP_SPOOFING_PROTOCOL_NOT_EQUALS: {
+    name: "dhcp_spoofing_protocol_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DHCP_SPOOFING_PROTOCOL_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   RECON_TARGET_OUTCOME_EQUALS: {
@@ -1187,6 +1248,10 @@ export default function Filters(props) {
             OPERATORS.IS_NOT_PRIVATE,
             OPERATORS.IS_CGNAT,
             OPERATORS.IS_NOT_CGNAT,
+            OPERATORS.IS_LINK_LOCAL,
+            OPERATORS.IS_NOT_LINK_LOCAL,
+            OPERATORS.IS_IPV4,
+            OPERATORS.IS_IPV6,
             OPERATORS.IS_NULL,
             OPERATORS.IS_NOT_NULL
           ]);
@@ -1317,6 +1382,12 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.DHCP_SPOOFING_FINDING_TYPE_EQUALS,
             OPERATORS.DHCP_SPOOFING_FINDING_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.DHCP_SPOOFING_PROTOCOL:
+          setAllowedOperators([
+            OPERATORS.DHCP_SPOOFING_PROTOCOL_EQUALS,
+            OPERATORS.DHCP_SPOOFING_PROTOCOL_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.RECON_TARGET_OUTCOME:

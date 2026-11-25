@@ -90,7 +90,7 @@ public class ICMP {
 
     public record TopAddress(String address, @Nullable String mac, long packetCount) { }
 
-    public record TypeCount(int type, long packetCount) { }
+    public record TypeCount(int ipVersion, int type, long packetCount) { }
 
     private final NzymeNode nzyme;
     private final IcmpExclusions exclusions;
@@ -197,12 +197,14 @@ public class ICMP {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT date_trunc(:date_trunc, last_seen) AS bucket, " +
                                 "SUM(packet_count) AS total, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type = 8) AS echo_requests, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type = 0) AS echo_replies, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type = 3) AS unreachable, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type = 11) AS time_exceeded, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type = 5) AS redirects, " +
-                                "SUM(packet_count) FILTER (WHERE icmp_type NOT IN (0, 3, 5, 8, 11)) AS other " +
+                                "SUM(packet_count) FILTER (WHERE " + IcmpSql.echoRequest("") + ") AS echo_requests, " +
+                                "SUM(packet_count) FILTER (WHERE " + IcmpSql.echoReply("") + ") AS echo_replies, " +
+                                "SUM(packet_count) FILTER (WHERE " + IcmpSql.unreachable("") + ") AS unreachable, " +
+                                "SUM(packet_count) FILTER (WHERE " + IcmpSql.timeExceeded("") + ") AS time_exceeded, " +
+                                "SUM(packet_count) FILTER (WHERE " + IcmpSql.redirect("") + ") AS redirects, " +
+                                "SUM(packet_count) FILTER (WHERE NOT (" + IcmpSql.echoRequest("") + " OR " +
+                                IcmpSql.echoReply("") + " OR " + IcmpSql.unreachable("") + " OR " +
+                                IcmpSql.timeExceeded("") + " OR " + IcmpSql.redirect("") + ")) AS other " +
                                 "FROM icmp_packets WHERE last_seen >= :tr_from AND last_seen <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() +
                                 "GROUP BY bucket ORDER BY bucket DESC")
@@ -300,7 +302,7 @@ public class ICMP {
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new IcmpFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT COUNT(DISTINCT icmp_type) FROM icmp_packets " +
+                handle.createQuery("SELECT COUNT(DISTINCT (ip_version, icmp_type)) FROM icmp_packets " +
                                 "WHERE last_seen >= :tr_from AND last_seen <= :tr_to AND tap_uuid IN (<taps>) " +
                                 filterFragment.whereSql())
                         .bind("tr_from", timeRange.from())
@@ -323,13 +325,14 @@ public class ICMP {
             return Collections.emptyList();
         }
 
-        String order = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "icmp_type" : "packet_count";
+        String order = orderColumn == TwoColumnHistogramOrderColumn.KEY
+                ? "ip_version " + orderDirection + ", icmp_type" : "packet_count";
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new IcmpFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT icmp_type, SUM(packet_count) AS packet_count FROM icmp_packets " +
+                handle.createQuery("SELECT ip_version, icmp_type, SUM(packet_count) AS packet_count FROM icmp_packets " +
                                 "WHERE last_seen >= :tr_from AND last_seen <= :tr_to AND tap_uuid IN (<taps>) " +
-                                filterFragment.whereSql() + "GROUP BY icmp_type " +
+                                filterFragment.whereSql() + "GROUP BY ip_version, icmp_type " +
                                 "ORDER BY <order_column> <order_direction> LIMIT :limit OFFSET :offset")
                         .define("order_column", order)
                         .define("order_direction", orderDirection)
@@ -339,7 +342,7 @@ public class ICMP {
                         .bindMap(filterFragment.bindings())
                         .bind("limit", limit)
                         .bind("offset", offset)
-                        .map((rs, ctx) -> new TypeCount(rs.getInt("icmp_type"), rs.getLong("packet_count")))
+                        .map((rs, ctx) -> new TypeCount(rs.getInt("ip_version"), rs.getInt("icmp_type"), rs.getLong("packet_count")))
                         .list()
         );
     }
@@ -377,7 +380,7 @@ public class ICMP {
 
     private static final String UNREACHABLE_WHERE =
             "tap_uuid IN (<taps>) AND last_seen >= :tr_from AND last_seen <= :tr_to " +
-            "AND icmp_type = 3 AND icmp_code = 3 AND quoted_destination_port IS NOT NULL ";
+            "AND " + IcmpSql.portUnreachable("") + " AND quoted_destination_port IS NOT NULL ";
 
     public long countUnreachables(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
@@ -462,7 +465,7 @@ public class ICMP {
                                 ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
                                 "LEFT JOIN icmp_packets p ON p.tap_uuid IN (<taps>) " +
                                 "AND p.last_seen >= b.bucket AND p.last_seen < b.bucket + :step::interval " +
-                                "AND p.icmp_type = 3 AND p.icmp_code = 3 AND p.quoted_destination_port IS NOT NULL " +
+                                "AND " + IcmpSql.portUnreachable("p.") + " AND p.quoted_destination_port IS NOT NULL " +
                                 filterFragment.whereSql() +
                                 "GROUP BY b.bucket ORDER BY b.bucket DESC")
                         .bindList("taps", taps)
@@ -649,7 +652,7 @@ public class ICMP {
         SOURCE("destination_address"),
         UNREACHABLE_HOST("quoted_destination_address"),
         PROTOCOL("quoted_protocol"),
-        REASON("icmp_code"),
+        REASON("code"),
         PACKET_COUNT("packet_count"),
         FIRST_SEEN("first_seen"),
         LAST_SEEN("last_seen");
@@ -671,7 +674,7 @@ public class ICMP {
 
     private static final String UNREACHABLE_HOST_WHERE =
             "tap_uuid IN (<taps>) AND last_seen >= :tr_from AND last_seen <= :tr_to " +
-            "AND icmp_type = 3 AND icmp_code IN (0, 1) AND quoted_destination_address IS NOT NULL ";
+            "AND " + IcmpSql.hostUnreachable("") + " AND quoted_destination_address IS NOT NULL ";
 
     public long countUnreachableHostEvents(TimeRange timeRange, Filters filters, List<UUID> taps) {
         if (taps.isEmpty()) {
@@ -682,7 +685,8 @@ public class ICMP {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM icmp_packets WHERE " + UNREACHABLE_HOST_WHERE +
                                 filterFragment.whereSql() +
-                                "GROUP BY destination_address, quoted_destination_address, quoted_protocol, icmp_code) x")
+                                "GROUP BY destination_address, quoted_destination_address, quoted_protocol, " +
+                                IcmpSql.hostUnreachableCode("") + ") x")
                         .bindList("taps", taps)
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
@@ -708,13 +712,14 @@ public class ICMP {
                 handle.createQuery("SELECT host(destination_address) AS src_addr, " +
                                 "mode() WITHIN GROUP (ORDER BY destination_mac) AS src_mac, " +
                                 "host(quoted_destination_address) AS unreach_host, " +
-                                "quoted_protocol AS protocol, icmp_code AS code, " +
+                                "quoted_protocol AS protocol, " + IcmpSql.hostUnreachableCode("") + " AS code, " +
                                 "mode() WITHIN GROUP (ORDER BY host(source_address)) AS router_addr, " +
                                 "mode() WITHIN GROUP (ORDER BY source_mac) AS router_mac, " +
                                 "SUM(packet_count) AS packet_count, MIN(first_seen) AS first_seen, " +
                                 "MAX(last_seen) AS last_seen FROM icmp_packets WHERE " + UNREACHABLE_HOST_WHERE +
                                 filterFragment.whereSql() +
-                                "GROUP BY destination_address, quoted_destination_address, quoted_protocol, icmp_code " +
+                                "GROUP BY destination_address, quoted_destination_address, quoted_protocol, " +
+                                IcmpSql.hostUnreachableCode("") + " " +
                                 "ORDER BY <order_column> <order_direction> NULLS LAST, last_seen DESC " +
                                 "LIMIT :limit OFFSET :offset")
                         .define("order_column", orderColumn.getColumnName())
@@ -758,7 +763,7 @@ public class ICMP {
                                 ":tr_to::timestamptz, :step::interval) AS b(bucket) " +
                                 "LEFT JOIN icmp_packets p ON p.tap_uuid IN (<taps>) " +
                                 "AND p.last_seen >= b.bucket AND p.last_seen < b.bucket + :step::interval " +
-                                "AND p.icmp_type = 3 AND p.icmp_code IN (0, 1) AND p.quoted_destination_address IS NOT NULL " +
+                                "AND " + IcmpSql.hostUnreachable("p.") + " AND p.quoted_destination_address IS NOT NULL " +
                                 filterFragment.whereSql() +
                                 "GROUP BY b.bucket ORDER BY b.bucket DESC")
                         .bindList("taps", taps)

@@ -1,6 +1,7 @@
 pub mod dns_table;
 pub mod socks_table;
 pub mod vpn_table;
+pub mod ipv6_transition_table;
 pub mod ssh_table;
 pub mod tcp_table;
 pub mod udp_table;
@@ -11,6 +12,7 @@ pub mod uav_table;
 pub mod dhcp_table;
 pub mod arp_table;
 pub mod icmp_table;
+pub mod ndp_table;
 pub mod ntp_table;
 pub mod rtsp_table;
 pub mod stun_table;

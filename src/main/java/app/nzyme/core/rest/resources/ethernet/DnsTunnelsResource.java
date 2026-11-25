@@ -48,7 +48,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/dns/tunnels")
 @Produces(MediaType.APPLICATION_JSON)
@@ -99,7 +98,7 @@ public class DnsTunnelsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         DnsTunnels.OrderColumn orderColumn = DnsTunnels.OrderColumn.LAST_SEEN;
@@ -147,7 +146,7 @@ public class DnsTunnelsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 

@@ -82,9 +82,12 @@ function AlertDetails(props) {
     case "RECON_FINGERPRINTING_NEW":
       return <ReconScanAlertDetails alert={alert} />
     case "SPOOFING_ARP_NEW":
+    case "SPOOFING_NDP_NEW":
       return <ArpSpoofingAlertDetails alert={alert} />
     case "SPOOFING_DHCP_ROGUE_SERVER":
     case "SPOOFING_DHCP_PARAMETERS_CHANGED":
+    case "SPOOFING_RA_ROGUE_ROUTER":
+    case "SPOOFING_RA_PARAMETERS_CHANGED":
       return <DhcpSpoofingAlertDetails alert={alert} />
     case "SPOOFING_NAME_RESOLUTION_POISONING":
       return <NameResolutionSpoofingAlertDetails alert={alert} />

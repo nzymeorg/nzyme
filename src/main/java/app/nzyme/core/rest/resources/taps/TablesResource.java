@@ -7,6 +7,7 @@ import app.nzyme.core.rest.authentication.TapSecured;
 import app.nzyme.core.rest.resources.taps.reports.tables.arp.ArpPacketsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.nameres.NameResolutionResponsesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.icmp.IcmpReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.ndp.NdpReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.bluetooth.BluetoothDevicesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dhcp.DhcpTransactionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.dns.DnsTablesReport;
@@ -17,6 +18,7 @@ import app.nzyme.core.rest.resources.taps.reports.tables.portalintegrity.PortalI
 import app.nzyme.core.rest.resources.taps.reports.tables.rtsp.RtspStreamsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.socks.SocksTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.vpn.VpnTunnelsReport;
+import app.nzyme.core.rest.resources.taps.reports.tables.ipv6transition.Ipv6TransitionTunnelsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.ssh.SshSessionsReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpProbesReport;
 import app.nzyme.core.rest.resources.taps.reports.tables.tcp.TcpSessionsReport;
@@ -200,6 +202,22 @@ public class TablesResource {
     }
 
     @POST
+    @Path("/ipv6transition/tunnels")
+    public Response ipv6TransitionTunnels(@Context SecurityContext sc, Ipv6TransitionTunnelsReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting IPv6 transition tunnels report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received IPv6 transition tunnels report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().ipv6Transition().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
     @Path("/vpn/tunnels")
     public Response vpnTunnels(@Context SecurityContext sc, VpnTunnelsReport report) {
         AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
@@ -291,6 +309,22 @@ public class TablesResource {
 
         LOG.debug("Received ICMP report from tap [{}]: {}", tap.getUuid(), report);
         nzyme.getTablesService().icmp().handleReport(tap.getUuid(), DateTime.now(), report);
+
+        return Response.status(Response.Status.CREATED).build();
+    }
+
+    @POST
+    @Path("/ndp/messages")
+    public Response ndpMessages(@Context SecurityContext sc, NdpReport report) {
+        AuthenticatedTap tap = ((AuthenticatedTap) sc.getUserPrincipal());
+
+        if (!nzyme.getSubsystems().isEnabled(Subsystem.ETHERNET, tap.getOrganizationId(), tap.getTenantId())) {
+            LOG.debug("Rejecting NDP report from tap [{}]: Subsystem is disabled.", tap.getUuid());
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        LOG.debug("Received NDP report from tap [{}]: {}", tap.getUuid(), report);
+        nzyme.getTablesService().ndp().handleReport(tap.getUuid(), DateTime.now(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

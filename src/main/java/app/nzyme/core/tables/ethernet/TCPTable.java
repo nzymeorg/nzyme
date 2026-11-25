@@ -31,6 +31,7 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.util.*;
 
@@ -342,12 +343,14 @@ public class TCPTable implements DataTable {
                     throw new RuntimeException("Could not serialize SYN options: " + session.synOptions(), e);
                 }
 
-                // Older taps send no IP ID. -1 keeps the zero-ID quirk off in that case.
+                boolean ipv4 = sourceAddress instanceof Inet4Address;
+
+                // IPv6 has no IP ID. -1 keeps the zero-ID quirk off in that case.
                 int synIpId = session.synIpId() == null ? -1 : session.synIpId();
                 TcpSignature client = new TcpSignature(
                         session.synIpTtl(),
                         session.synIpTos(),
-                        session.synIpDf(),
+                        ipv4 ? Boolean.TRUE.equals(session.synIpDf()) : null,
                         synIpId,
                         session.synCwr(),
                         session.synEce(),
@@ -367,8 +370,8 @@ public class TCPTable implements DataTable {
                     server = new TcpSignature(
                             synAck.ipTtl(),
                             synAck.ipTos(),
-                            synAck.ipDf(),
-                            synAck.ipId(),
+                            ipv4 ? Boolean.TRUE.equals(synAck.ipDf()) : null,
+                            synAck.ipId() == null ? -1 : synAck.ipId(),
                             synAck.cwr(),
                             synAck.ece(),
                             synAck.windowSize(),

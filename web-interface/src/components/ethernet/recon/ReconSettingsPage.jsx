@@ -61,8 +61,8 @@ export default function ReconSettingsPage() {
               <ul className="text-muted">
                 <li><strong>Port scanning:</strong> it probed at least the minimum number of ports on one host.</li>
                 <li><strong>Host sweeping:</strong> it probed at least the minimum number of hosts.</li>
-                <li><strong>ARP sweeps:</strong> it asked for at least the minimum number of addresses. ARP sweeps
-                  are always local.</li>
+                <li><strong>ARP and NDP sweeps:</strong> it asked for at least the minimum number of addresses.
+                  These sweeps are always local.</li>
               </ul>
               <p className="text-muted mb-0">
                 All detections also require that at least the minimum share of probes got no answer or was refused,
@@ -91,7 +91,8 @@ export default function ReconSettingsPage() {
                 <li><strong>UDP conversations</strong> only reveal whether a target answered. Because one-way UDP
                   is common in normal traffic, probes to the dynamic port range and probes carrying DNS, NTP, STUN
                   and similar payloads are never counted.</li>
-                <li><strong>ARP requests</strong> reveal sweeps of the local network segment.</li>
+                <li><strong>ARP requests and neighbor solicitations</strong> reveal sweeps of the local network
+                  segment.</li>
               </ul>
 
               <ReconConfiguration organizationId={organizationId} tenantId={tenantId} section="sources" />

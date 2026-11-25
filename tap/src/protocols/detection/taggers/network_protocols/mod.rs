@@ -3,6 +3,7 @@ pub mod socks_tagger;
 pub mod openvpn_tagger;
 pub mod wireguard_tagger;
 pub mod derp_tagger;
+pub mod teredo_tagger;
 pub mod vpn_handshake_observer;
 pub mod vpn_tagger_tools;
 pub mod ssh_tagger;

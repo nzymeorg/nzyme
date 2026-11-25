@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/recon/hosts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -74,7 +73,7 @@ public class ReconProbedHostsResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Recon.ProbedHostOrderColumn orderColumn = Recon.ProbedHostOrderColumn.FAILED_PORT_COUNT;
         OrderDirection orderDirection = OrderDirection.DESC;

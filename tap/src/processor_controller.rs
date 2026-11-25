@@ -8,7 +8,9 @@ use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::protocols::processors::arp_processor::ARPProcessor;
 use crate::protocols::processors::icmp_processor::IcmpProcessor;
+use crate::protocols::processors::ndp_processor::NdpProcessor;
 use crate::protocols::processors::dhcpv4_processor::Dhcpv4Processor;
+use crate::protocols::processors::dhcpv6_processor::Dhcpv6Processor;
 use crate::protocols::processors::dns_processor::DnsProcessor;
 use crate::protocols::processors::dot11::dot11_frame_processor::Dot11FrameProcessor;
 use crate::protocols::processors::socks_processor::SocksProcessor;
@@ -25,6 +27,7 @@ use crate::protocols::processors::rtsp_processor::RtspProcessor;
 use crate::protocols::processors::stun_processor::StunProcessor;
 use crate::protocols::processors::webrtc_processor::WebRtcProcessor;
 use crate::protocols::processors::vpn_processor::VpnProcessor;
+use crate::protocols::processors::ipv6_transition_processor::Ipv6TransitionProcessor;
 
 const DEFAULT_WIFI_PROCESSORS: i32 = 1;
 const DEFAULT_TCP_PROCESSORS: i32 = 2;
@@ -165,7 +168,9 @@ impl ProcessorController {
 
             let mut arp_processor = ARPProcessor::new(self.tables.clone(), self.state.clone(), self.context.clone());
             let mut icmp_processor = IcmpProcessor::new(self.tables.icmp.clone());
+            let mut ndp_processor = NdpProcessor::new(self.tables.ndp.clone(), self.state.clone(), self.context.clone());
             let mut dhcp4_processor = Dhcpv4Processor::new(self.state.clone(), self.tables.dhcp.clone(), self.context.clone());
+            let mut dhcp6_processor = Dhcpv6Processor::new(self.tables.dhcp.clone(), self.context.clone());
             let mut dns_processor = DnsProcessor::new(
                 self.state.clone(),
                 self.context.clone(),
@@ -180,6 +185,7 @@ impl ProcessorController {
             let mut stun_processor = StunProcessor::new(self.tables.stun.clone());
             let mut webrtc_processor = WebRtcProcessor::new(self.tables.webrtc.clone());
             let mut vpn_processor = VpnProcessor::new(self.tables.vpn.clone());
+            let mut ipv6_transition_processor = Ipv6TransitionProcessor::new(self.tables.ipv6_transition.clone());
 
             thread::spawn(move || {
                 loop {
@@ -223,12 +229,32 @@ impl ProcessorController {
                                 }
                             }
                         }
+
+                        recv(ethernet_bus.ndp_pipeline.receiver) -> msg => {
+                            match msg {
+                                Ok(packet) => ndp_processor.process(packet),
+                                Err(e) => {
+                                    error!("NDP receiver disconnected: {}", e);
+                                    break;
+                                }
+                            }
+                        }
                         
                         recv(ethernet_bus.dhcpv4_pipeline.receiver) -> msg => {
                             match msg {
                                 Ok(packet) => dhcp4_processor.process(packet),
                                 Err(e) => {
                                     error!("DHCP receiver disconnected: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+
+                        recv(ethernet_bus.dhcpv6_pipeline.receiver) -> msg => {
+                            match msg {
+                                Ok(packet) => dhcp6_processor.process(packet),
+                                Err(e) => {
+                                    error!("DHCPv6 receiver disconnected: {}", e);
                                     break;
                                 }
                             }
@@ -319,6 +345,16 @@ impl ProcessorController {
                                 Ok(tunnel) => vpn_processor.process(tunnel),
                                 Err(e) => {
                                     error!("VPN receiver disconnected: {}", e);
+                                    break;
+                                }
+                            }
+                        }
+
+                        recv(ethernet_bus.ipv6_transition_pipeline.receiver) -> msg => {
+                            match msg {
+                                Ok(observation) => ipv6_transition_processor.process(observation),
+                                Err(e) => {
+                                    error!("IPv6 transition tunnels receiver disconnected: {}", e);
                                     break;
                                 }
                             }

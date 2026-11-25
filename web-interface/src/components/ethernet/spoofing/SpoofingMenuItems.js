@@ -1,8 +1,8 @@
 import ApiRoutes from "../../../util/ApiRoutes";
 
 export const SPOOFING_MENU_ITEMS = [
-  {name: "ARP", href: ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX},
-  {name: "DHCP", href: ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX},
+  {name: "ARP and NDP", href: ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX},
+  {name: "DHCP and Routers", href: ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX},
   {name: "Name Resolution", href: ApiRoutes.ETHERNET.SPOOFING.NAME_RESOLUTION.INDEX},
   {name: "DNS", href: ApiRoutes.ETHERNET.SPOOFING.DNS.INDEX},
   {name: "Exclusions", href: ApiRoutes.ETHERNET.SPOOFING.EXCLUSIONS.INDEX},

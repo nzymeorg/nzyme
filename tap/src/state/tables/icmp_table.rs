@@ -24,6 +24,7 @@ pub struct IcmpSummaryKey {
     pub destination_mac: Option<String>,
     pub source_address: IpAddr,
     pub destination_address: IpAddr,
+    pub ip_version: u8,
     pub icmp_type: u8,
     pub icmp_code: u8
 }
@@ -35,7 +36,7 @@ pub struct IcmpSummary {
     pub bytes_max: u32,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
+    pub ip_df: Option<bool>,
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>
 }
@@ -66,6 +67,7 @@ impl IcmpTable {
             destination_mac: packet.destination_mac.clone(),
             source_address: packet.source_address,
             destination_address: packet.destination_address,
+            ip_version: packet.ip_version,
             icmp_type: packet.icmp_type,
             icmp_code: packet.icmp_code
         };
@@ -79,7 +81,7 @@ impl IcmpTable {
                         summary.bytes_max = summary.bytes_max.max(packet.payload_size);
                         summary.ip_ttl = packet.ip_ttl;
                         summary.ip_tos = packet.ip_tos;
-                        summary.ip_df = summary.ip_df || packet.ip_df;
+                        summary.ip_df = summary.ip_df.zip(packet.ip_df).map(|(a, b)| a || b);
                         if packet.timestamp < summary.first_seen {
                             summary.first_seen = packet.timestamp;
                         }

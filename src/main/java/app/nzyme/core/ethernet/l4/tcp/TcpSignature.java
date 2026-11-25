@@ -10,6 +10,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Function;
 
 /*
  * TCP stack signature format. Each form is a prefix of the next:
@@ -18,6 +20,9 @@ import java.util.Set;
  *   signature    fingerprint:window:tos       (application)
  * Quirks: ts0 zero timestamp value, ecr non-zero timestamp echo in the opening segment, id0 zero IP ID
  * with DF set, bad options could not be read to the end.
+ *
+ * IPv6 has no DF bit and no IP ID. The df field of a stack seen over IPv6 is "-", which also keeps it from ever
+ * being equal to a stack seen over IPv4: the same device has one stack per IP version.
  *
  * The option layout leaves out TCP Fast Open (kind 34 and the experimental kind 254), Multipath TCP (kind 30) and
  * the padding after the last real option. A stack only adds them on some connections, which would otherwise make
@@ -30,6 +35,7 @@ public class TcpSignature {
     private static final Set<Integer> IGNORED_OPTIONS = Set.of(30, 34, 254);
 
     private static final int STACK_FIELDS = 5;
+    private static final int DF_FIELD = 1;
     private static final int ECN_FIELD = 2;
     private static final int OPTIONS_FIELD = 3;
     private static final int QUIRKS_FIELD = 4;
@@ -46,7 +52,8 @@ public class TcpSignature {
 
     private final int initialTtl;
     private final int hopDistance;
-    private final boolean df;
+    @Nullable
+    private final Boolean df;
     private final int mss;
     @Nullable
     private final Integer windowScale;
@@ -58,7 +65,7 @@ public class TcpSignature {
 
     public TcpSignature(int ttl,
                         int tos,
-                        boolean df,
+                        @Nullable Boolean df,
                         int ipId,
                         boolean cwr,
                         boolean ece,
@@ -86,7 +93,7 @@ public class TcpSignature {
         if (timestampEcho != null && timestampEcho != 0) {
             q.add("ecr");
         }
-        if (df && ipId == 0) {
+        if (Boolean.TRUE.equals(df) && ipId == 0) {
             q.add("id0");
         }
         if (optionsTruncated) {
@@ -117,6 +124,21 @@ public class TcpSignature {
         }
 
         return String.join(":", Arrays.copyOfRange(parts, 0, STACK_FIELDS));
+    }
+
+    public static int ipVersion(String value) {
+        String[] parts = value.split(":", -1);
+
+        return parts.length > DF_FIELD && parts[DF_FIELD].equals("-") ? 6 : 4;
+    }
+
+    public static <T> Map<Integer, List<T>> byIpVersion(Iterable<T> values, Function<T, String> signature) {
+        Map<Integer, List<T>> result = new TreeMap<>();
+        for (T value : values) {
+            result.computeIfAbsent(ipVersion(signature.apply(value)), k -> new ArrayList<>()).add(value);
+        }
+
+        return result;
     }
 
     public static boolean hasTimestamps(String value) {
@@ -212,7 +234,8 @@ public class TcpSignature {
     }
 
     public String stack() {
-        return initialTtl + ":" + (df ? "1" : "0") + ":" + (ecn ? "1" : "0") + ":" + optionLayout() + ":"
+        return initialTtl + ":" + (df == null ? "-" : df ? "1" : "0") + ":" + (ecn ? "1" : "0") + ":"
+                + optionLayout() + ":"
                 + (quirks.isEmpty() ? "-" : String.join(",", quirks));
     }
 

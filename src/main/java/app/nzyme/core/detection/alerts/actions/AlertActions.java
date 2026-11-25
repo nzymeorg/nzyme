@@ -92,8 +92,9 @@ public class AlertActions {
                 }
             }
             case BEACON_NEW, BEACON_NEW_SOURCE, BEACON_ACTIVITY_SUSPICIOUS, BEACON_ACTIVITY_MALICIOUS,
-                 RECON_SCAN_NEW, RECON_FINGERPRINTING_NEW, SPOOFING_ARP_NEW, SPOOFING_DHCP_ROGUE_SERVER,
-                 SPOOFING_DHCP_PARAMETERS_CHANGED, SPOOFING_NAME_RESOLUTION_POISONING, SPOOFING_DNS_NEW,
+                 RECON_SCAN_NEW, RECON_FINGERPRINTING_NEW, SPOOFING_ARP_NEW, SPOOFING_NDP_NEW,
+                 SPOOFING_DHCP_ROGUE_SERVER, SPOOFING_DHCP_PARAMETERS_CHANGED, SPOOFING_RA_ROGUE_ROUTER,
+                 SPOOFING_RA_PARAMETERS_CHANGED, SPOOFING_NAME_RESOLUTION_POISONING, SPOOFING_DNS_NEW,
                  DNS_TUNNEL, ICMP_REDIRECT, ICMP_TRACEROUTE, ICMP_TUNNEL -> {
                 if (allowed(scope, ETHERNET_PERMISSION, Subsystem.ETHERNET)) {
                     ethernetMonitoring(type, scope, actions);
@@ -335,7 +336,7 @@ public class AlertActions {
                     actions.add(AlertAction.available(RECON_CREATE_EXCLUSION, "scan_uuid", uuid.toString()));
                 }
             }
-            case SPOOFING_ARP_NEW -> {
+            case SPOOFING_ARP_NEW, SPOOFING_NDP_NEW -> {
                 UUID uuid = scope.uuidAttribute("finding_uuid");
                 if (uuid != null && nzyme.getEthernet().spoofing().findArpFinding(uuid, org, tenant).isPresent()) {
                     actions.add(spoofingExclusion("finding", uuid));
@@ -354,7 +355,8 @@ public class AlertActions {
                     actions.add(spoofingExclusion("dns_finding", uuid));
                 }
             }
-            case SPOOFING_DHCP_ROGUE_SERVER, SPOOFING_DHCP_PARAMETERS_CHANGED -> dhcpSpoofing(scope, actions);
+            case SPOOFING_DHCP_ROGUE_SERVER, SPOOFING_DHCP_PARAMETERS_CHANGED, SPOOFING_RA_ROGUE_ROUTER,
+                 SPOOFING_RA_PARAMETERS_CHANGED -> dhcpSpoofing(scope, actions);
             case DNS_TUNNEL -> {
                 UUID uuid = scope.uuidAttribute("finding_uuid");
                 if (uuid != null && nzyme.getEthernet().dnsTunnels().findFinding(uuid, org, tenant).isPresent()) {
@@ -392,7 +394,7 @@ public class AlertActions {
         }
 
         Optional<DhcpSpoofingServerEntry> server = nzyme.getEthernet().spoofing().findDhcpServerByIdentity(
-                finding.get().serverMac(), finding.get().serverAddress(), scope.organizationId(), scope.tenantId());
+                finding.get().protocol(), finding.get().serverMac(), finding.get().serverAddress(), scope.organizationId(), scope.tenantId());
 
         if (server.isPresent()) {
             String serverUuid = server.get().uuid().toString();

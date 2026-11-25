@@ -276,7 +276,7 @@ public class NATTable implements DataTable  {
                 InetAddress address = stringtoInetAddress(mapped.address());
                 GeoData geoData;
                 if (internalAddresses.isSiteLocal(address) || address.isLoopbackAddress()
-                        || address.isAnyLocalAddress() || address.isLinkLocalAddress()) {
+                        || address.isAnyLocalAddress()) {
                     geoData = GeoData.create(null, null, null, null, null, null, null);
                 } else {
                     Optional<GeoIpLookupResult> geo = geoIp.lookup(address);

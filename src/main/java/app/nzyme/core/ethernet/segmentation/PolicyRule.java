@@ -16,8 +16,8 @@ public record PolicyRule(@JsonProperty("sources") @Nullable List<Selector> sourc
 
     // Only what the taps actually tag, which is less than the L7Tag enum of the tap knows: a policy about a protocol
     // that nothing tags would look like it holds. A tagger that is added to the tap has to be added here.
-    public static final List<String> PROTOCOLS = List.of("DERP", "DHCP4", "DNS", "DTLS", "HTTP", "NTP", "OpenVPN",
-            "RTP", "RTSP", "SOCKS", "SSH", "STUN", "TLS", "TURN", "WebRTC", "WireGuard");
+    public static final List<String> PROTOCOLS = List.of("DERP", "DHCP4", "DHCP6", "DNS", "DTLS", "HTTP", "NTP", "OpenVPN",
+            "RTP", "RTSP", "SOCKS", "SSH", "STUN", "Teredo", "TLS", "TURN", "WebRTC", "WireGuard");
 
     public static boolean isKnownProtocol(@Nullable String protocol) {
         if (protocol == null) {

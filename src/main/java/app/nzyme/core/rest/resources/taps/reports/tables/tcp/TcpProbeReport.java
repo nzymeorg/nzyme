@@ -39,7 +39,8 @@ public abstract class TcpProbeReport {
     public abstract List<Integer> options();
     public abstract int ipTtl();
     public abstract int ipTos();
-    public abstract boolean ipDf();
+    @Nullable
+    public abstract Boolean ipDf();
     public abstract long packetCount();
     public abstract DateTime firstSeen();
     public abstract DateTime lastSeen();
@@ -64,7 +65,7 @@ public abstract class TcpProbeReport {
                                         @JsonProperty("options") List<Integer> options,
                                         @JsonProperty("ip_ttl") int ipTtl,
                                         @JsonProperty("ip_tos") int ipTos,
-                                        @JsonProperty("ip_df") boolean ipDf,
+                                        @JsonProperty("ip_df") Boolean ipDf,
                                         @JsonProperty("packet_count") long packetCount,
                                         @JsonProperty("first_seen") DateTime firstSeen,
                                         @JsonProperty("last_seen") DateTime lastSeen) {
@@ -120,7 +121,7 @@ public abstract class TcpProbeReport {
         public abstract Builder options(List<Integer> options);
         public abstract Builder ipTtl(int ipTtl);
         public abstract Builder ipTos(int ipTos);
-        public abstract Builder ipDf(boolean ipDf);
+        public abstract Builder ipDf(Boolean ipDf);
         public abstract Builder packetCount(long packetCount);
         public abstract Builder firstSeen(DateTime firstSeen);
         public abstract Builder lastSeen(DateTime lastSeen);

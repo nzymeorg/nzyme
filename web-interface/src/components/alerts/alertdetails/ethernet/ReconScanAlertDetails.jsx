@@ -36,7 +36,7 @@ export default function ReconScanAlertDetails({alert}) {
                 <dd>
                   {numeral(a.probe_count).format("0,0")} probes against{' '}
                   {numeral(a.host_count).format("0,0")} {a.host_count === "1" ? "host" : "hosts"}
-                  {a.scan_type !== "ARP_SWEEP" ? <span> and {numeral(a.port_count).format("0,0")} ports</span> : null},{' '}
+                  {a.scan_type !== "ARP_SWEEP" && a.scan_type !== "NDP_SWEEP" ? <span> and {numeral(a.port_count).format("0,0")} ports</span> : null},{' '}
                   {numeral(a.open_count).format("0,0")} answered
                 </dd>
 

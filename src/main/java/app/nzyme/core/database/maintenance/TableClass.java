@@ -12,7 +12,7 @@ public enum TableClass {
                     "space on every page for updates.",
             1, 1000, 2, 85, true,
             List.of("l4_sessions", "tls_sessions", "nat_traversal_discoveries", "nat_stun_negotiation_flows",
-                    "vpn_tunnels", "ssh_sessions", "socks_tunnels", "rtsp_streams", "dhcp_transactions",
+                    "vpn_tunnels", "ipv6_transition_tunnels", "ssh_sessions", "socks_tunnels", "rtsp_streams", "dhcp_transactions",
                     "webrtc_conversations", "tcp_probes", "assets_attributes", "assets_communication",
                     "assets_activity", "beacon_checkins", "tasks_queue", "recon_probe_history", "segmentation_flows",
                     "segmentation_crossings")
@@ -23,7 +23,8 @@ public enum TableClass {
             "Time series tables",
             "Inserted, never updated, and deleted in bulk when they age out. Pages are filled completely.",
             5, 1000, 2, 100, false,
-            List.of("arp_packets", "icmp_packets", "dns_log", "dns_pairs", "dns_statistics", "l4_statistics",
+            List.of("arp_packets", "icmp_packets", "ndp_messages", "ndp_router_advertisements", "dns_log",
+                    "dns_pairs", "dns_statistics", "l4_statistics",
                     "ntp_transactions", "name_resolution_responses", "portal_integrity_reports",
                     "portal_integrity_hops", "portal_integrity_dhcp_leases", "assets_statistics", "dot11_ssids",
                     "dot11_bssids", "dot11_channels", "dot11_channel_histograms", "dot11_bssid_clients",

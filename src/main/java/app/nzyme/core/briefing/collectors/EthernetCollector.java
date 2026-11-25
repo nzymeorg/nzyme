@@ -1,5 +1,7 @@
 package app.nzyme.core.briefing.collectors;
 
+import java.util.ArrayList;
+import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.assets.identity.AssetIdentityConfiguration;
 import app.nzyme.core.briefing.*;
 import app.nzyme.core.ethernet.beacons.BeaconsConfiguration;
@@ -18,7 +20,6 @@ import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static app.nzyme.core.briefing.BriefingItems.plural;
 
@@ -43,6 +44,7 @@ public class EthernetCollector {
     private boolean dhcpDetectionEnabled;
     private DateTime dhcpLearningEnd;
     private boolean dhcpLearningActive;
+    private String dhcpLearningWhat;
     private long dhcpServersTrusted;
     private long dhcpServersUntrusted;
 
@@ -124,8 +126,8 @@ public class EthernetCollector {
 
         method("beacons", beacons.detectionEnabled());
         method("recon scans", recon.detectionEnabled());
-        method("ARP spoofing", spoofing.arpDetectionEnabled());
-        method("rogue DHCP servers", spoofing.dhcpDetectionEnabled());
+        method("ARP and NDP spoofing", spoofing.arpDetectionEnabled());
+        method("rogue DHCP servers and routers", spoofing.dhcpDetectionEnabled());
         method("DNS spoofing", spoofing.dnsDetectionEnabled());
         method("name resolution spoofing", spoofing.nameresDetectionEnabled());
         method("DNS tunnels", dnsTunnels.detectionEnabled());
@@ -142,16 +144,34 @@ public class EthernetCollector {
         macChangeDetectionEnabled = identity.successorDetectionEnabled();
 
         Spoofing spoofingService = ctx.nzyme().getEthernet().spoofing();
-        DateTime learningStart = spoofingService.findDhcpLearningStartedAt(ctx.organizationId(), ctx.tenantId())
-                .or(() -> spoofingService.findEarliestDhcpServerFirstSeen(ctx.organizationId(), ctx.tenantId()))
+        dhcpLearningEnd = spoofingService
+                .findDhcpLearningPeriod(ctx.organizationId(), ctx.tenantId(), spoofing.dhcpLearningPeriodHours())
+                .map(Spoofing.DhcpLearningPeriod::end)
                 .orElse(null);
-        Optional<DateTime> learningEndedAt = spoofingService.findDhcpLearningEndedAt(ctx.organizationId(), ctx.tenantId());
-        dhcpLearningEnd = learningStart == null ? null : learningStart.plusHours(spoofing.dhcpLearningPeriodHours());
-        if (dhcpLearningEnd != null && learningEndedAt.isPresent() && learningEndedAt.get().isBefore(dhcpLearningEnd)) {
-            dhcpLearningEnd = learningEndedAt.get();
-        }
         dhcpLearningActive = dhcpLearningEnd != null && spoofing.dhcpLearningPeriodHours() > 0
                 && dhcpLearningEnd.isAfterNow();
+        dhcpLearningWhat = learnedNames(spoofingService.findDhcpLearningProtocols(
+                ctx.organizationId(), ctx.tenantId(), spoofing.dhcpLearningPeriodHours()));
+    }
+
+    private static String learnedNames(List<String> protocols) {
+        List<String> names = new ArrayList<>();
+        if (protocols.contains(DhcpSpoofingDetector.PROTOCOL_DHCP)) {
+            names.add("DHCP servers");
+        }
+        if (protocols.contains(DhcpSpoofingDetector.PROTOCOL_DHCP6)) {
+            names.add("DHCPv6 servers");
+        }
+        if (protocols.contains(DhcpSpoofingDetector.PROTOCOL_ROUTER_ADVERTISEMENT)) {
+            names.add("IPv6 routers");
+        }
+
+        return switch (names.size()) {
+            case 0 -> "servers";
+            case 1 -> names.get(0);
+            case 2 -> names.get(0) + " and " + names.get(1);
+            default -> names.get(0) + ", " + names.get(1) + " and " + names.get(2);
+        };
     }
 
     private static String describeRemaining(DateTime until) {
@@ -235,23 +255,26 @@ public class EthernetCollector {
 
         if (dhcpDetectionEnabled) {
             if (dhcpLearningActive) {
-                checks.add(BriefingItems.warn("dhcp_learning", "DHCP server learning period ends in "
+                checks.add(BriefingItems.warn("dhcp_learning", "Learning period for " + dhcpLearningWhat + " ends in "
                                 + describeRemaining(dhcpLearningEnd),
-                        "Every DHCP server that answers clients until then is trusted automatically, including rogue ones. "
-                                + dhcpServersTrusted + " " + plural(dhcpServersTrusted, "server", "servers") + " trusted so far.",
+                        "New " + dhcpLearningWhat + " seen until then are trusted automatically, including rogue ones. "
+                                + dhcpServersTrusted + " trusted so far.",
                         BriefingLinks.to("SPOOFING_DHCP")));
             } else if (dhcpServersTrusted + dhcpServersUntrusted == 0) {
-                checks.add(BriefingItems.info("dhcp_learning", "No DHCP servers observed yet",
-                        "Rogue server detection has nothing to compare against until a DHCP server answers a client.",
+                checks.add(BriefingItems.info("dhcp_learning", "No DHCP servers or IPv6 routers observed yet",
+                        "Rogue server detection has nothing to compare against until a DHCP server answers a client "
+                                + "or a router advertises itself.",
                         BriefingLinks.to("SPOOFING_DHCP")));
             } else if (dhcpServersUntrusted > 0) {
                 checks.add(BriefingItems.warn("dhcp_learning", dhcpServersUntrusted + " untrusted DHCP "
-                                + plural(dhcpServersUntrusted, "server", "servers") + " next to " + dhcpServersTrusted + " trusted",
-                        "Learning is complete. Trust the untrusted servers if they are yours, otherwise they are rogue.",
+                                + plural(dhcpServersUntrusted, "server or IPv6 router", "servers and IPv6 routers")
+                                + " next to " + dhcpServersTrusted + " trusted",
+                        "Learning is complete. Trust the untrusted ones if they are yours, otherwise they are rogue.",
                         BriefingLinks.to("SPOOFING_DHCP")));
             } else {
                 checks.add(BriefingItems.ok("dhcp_learning", dhcpServersTrusted + " trusted DHCP "
-                                + plural(dhcpServersTrusted, "server", "servers") + ", learning complete",
+                                + plural(dhcpServersTrusted, "server or IPv6 router", "servers and IPv6 routers")
+                                + ", learning complete",
                         null, BriefingLinks.to("SPOOFING_DHCP")));
             }
         }

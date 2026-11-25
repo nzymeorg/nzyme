@@ -105,7 +105,7 @@ public class ObservedConditionTest {
 
     @Test
     public void cgnatNetworksCanBeExternalUnlessTheyAreRecordedAsInternal() {
-        InternalAddresses.Rules cgnatIsInternal = new InternalAddresses.Rules(true);
+        InternalAddresses.Rules cgnatIsInternal = new InternalAddresses.Rules(true, List.of());
 
         assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.64.0.0/10"), List.of(), InternalAddresses.Rules.DEFAULT));
         assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.100.1.0/24"), List.of(), InternalAddresses.Rules.DEFAULT));
@@ -114,6 +114,18 @@ public class ObservedConditionTest {
         assertFalse(SegmentationViews.canBeExternal(CIDR.parse("100.100.1.0/24"), List.of(), cgnatIsInternal));
         assertTrue(SegmentationViews.canBeExternal(CIDR.parse("100.0.0.0/8"), List.of(), cgnatIsInternal));
         assertTrue(SegmentationViews.canBeExternal(CIDR.parse("203.0.113.0/24"), List.of(), cgnatIsInternal));
+    }
+
+    @Test
+    public void internalIpv6NetworksCannotBeExternal() {
+        InternalAddresses.Rules rules = new InternalAddresses.Rules(false, List.of(CIDR.parse("2001:db8:1200::/48")));
+
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("fd00:1::/64"), List.of(), InternalAddresses.Rules.DEFAULT));
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("fe80::/64"), List.of(), InternalAddresses.Rules.DEFAULT));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("2001:db8:1200:7::/64"), List.of(), InternalAddresses.Rules.DEFAULT));
+
+        assertFalse(SegmentationViews.canBeExternal(CIDR.parse("2001:db8:1200:7::/64"), List.of(), rules));
+        assertTrue(SegmentationViews.canBeExternal(CIDR.parse("2001:db8::/32"), List.of(), rules));
     }
 
     @Test

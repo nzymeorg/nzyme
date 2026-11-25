@@ -1,11 +1,11 @@
 use anyhow::{Result, bail};
 use byteorder::{BigEndian, ByteOrder};
 use chrono::Utc;
-use crate::wired::packets::{IPv4Packet, TcpFlags, TcpSegment};
+use crate::wired::packets::{IpPacket, TcpFlags, TcpSegment};
 use crate::protocols::parsers::l4_key::L4Key;
 
 #[allow(clippy::cast_possible_truncation)]
-pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
+pub fn parse(packet: IpPacket) -> Result<TcpSegment> {
     if packet.payload.len() < 20 {
         bail!("Payload too short for TCP packet.");
     }
@@ -118,8 +118,8 @@ pub fn parse(packet: IPv4Packet) -> Result<TcpSegment> {
 
     let payload = packet.payload[header_length..].to_vec();
 
-    // This payload + this header + IPv4 (20) + ethernet (14)
-    let size = (payload.len() + header_length + 34) as u32;
+    // This payload + this header + IP header + ethernet (14)
+    let size = (payload.len() + header_length + packet.header_length + 14) as u32;
 
     Ok(TcpSegment {
         ip_ttl: packet.ttl,

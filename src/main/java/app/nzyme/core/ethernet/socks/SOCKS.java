@@ -22,7 +22,7 @@ public class SOCKS {
 
     public enum OrderColumn {
 
-        TUNNEL_ID("MIN(socks.uuid)"),
+        TUNNEL_ID("MIN(socks.uuid::text)"),
         CLIENT_ADDRESS("MIN(tcp.source_address)"),
         CLIENT_MAC("MIN(tcp.source_mac)"),
         SERVER_ADDRESS("MIN(tcp.destination_address)"),

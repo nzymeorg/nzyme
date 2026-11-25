@@ -17,6 +17,7 @@ use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::state::tables::arp_table::ArpTable;
 use crate::state::tables::icmp_table::IcmpTable;
+use crate::state::tables::ndp_table::NdpTable;
 use crate::state::tables::dhcp_table::DhcpTable;
 use crate::state::tables::name_resolution_table::NameResolutionTable;
 use crate::state::tables::ntp_table::NtpTable;
@@ -25,6 +26,7 @@ use crate::state::tables::stun_table::StunTable;
 use crate::state::tables::uav_table::UavTable;
 use crate::state::tables::webrtc_table::WebRtcTable;
 use crate::state::tables::vpn_table::VpnTable;
+use crate::state::tables::ipv6_transition_table::Ipv6TransitionTable;
 use crate::wireless::dot11::engagement::engagement_control::EngagementControl;
 
 pub struct Tables {
@@ -32,6 +34,7 @@ pub struct Tables {
     pub bluetooth: Arc<Mutex<BluetoothTable>>,
     pub arp: Arc<Mutex<ArpTable>>,
     pub icmp: Arc<Mutex<IcmpTable>>,
+    pub ndp: Arc<Mutex<NdpTable>>,
     pub dhcp: Arc<Mutex<DhcpTable>>,
     pub tcp: Arc<Mutex<TcpTable>>,
     pub udp: Arc<Mutex<UdpTable>>,
@@ -45,6 +48,7 @@ pub struct Tables {
     pub stun: Arc<Mutex<StunTable>>,
     pub webrtc: Arc<Mutex<WebRtcTable>>,
     pub vpn: Arc<Mutex<VpnTable>>,
+    pub ipv6_transition: Arc<Mutex<Ipv6TransitionTable>>,
     pub uav: Arc<Mutex<UavTable>>,
     has_ethernet: bool,
     has_dot11: bool,
@@ -75,6 +79,7 @@ impl Tables {
             bluetooth: Arc::new(Mutex::new(BluetoothTable::new(leaderlink.clone(), metrics.clone()))),
             arp: Arc::new(Mutex::new(ArpTable::new(leaderlink.clone(), metrics.clone()))),
             icmp: Arc::new(Mutex::new(IcmpTable::new(leaderlink.clone(), metrics.clone()))),
+            ndp: Arc::new(Mutex::new(NdpTable::new(leaderlink.clone(), metrics.clone()))),
             dhcp: Arc::new(Mutex::new(DhcpTable::new(leaderlink.clone(), metrics.clone()))),
             dns: Arc::new(Mutex::new(DnsTable::new(leaderlink.clone(), metrics.clone()))),
             nameres: Arc::new(Mutex::new(NameResolutionTable::new(leaderlink.clone(), metrics.clone()))),
@@ -96,6 +101,7 @@ impl Tables {
             stun: Arc::new(Mutex::new(StunTable::new(leaderlink.clone(), metrics.clone()))),
             webrtc: Arc::new(Mutex::new(WebRtcTable::new(leaderlink.clone(), metrics.clone()))),
             vpn: Arc::new(Mutex::new(VpnTable::new(leaderlink.clone(), metrics.clone()))),
+            ipv6_transition: Arc::new(Mutex::new(Ipv6TransitionTable::new(leaderlink.clone(), metrics.clone()))),
             uav: Arc::new(Mutex::new(UavTable::new(leaderlink.clone(), metrics.clone(), engagement_control))),
             has_ethernet,
             has_dot11,
@@ -143,6 +149,14 @@ impl Tables {
                         icmp.process_report();
                     },
                     Err(e) => error!("Could not acquire ICMP table lock for report processing: {}", e)
+                });
+
+                timed(&mut cycle, "ndp", || match self.ndp.lock() {
+                    Ok(ndp) => {
+                        ndp.calculate_metrics();
+                        ndp.process_report();
+                    },
+                    Err(e) => error!("Could not acquire NDP table lock for report processing: {}", e)
                 });
 
                 timed(&mut cycle, "dhcp", || match self.dhcp.lock() {
@@ -247,6 +261,14 @@ impl Tables {
                         vpn.process_report();
                     },
                     Err(e) => error!("Could not acquire VPN table lock for report processing: {}", e)
+                });
+
+                timed(&mut cycle, "ipv6_transition", || match self.ipv6_transition.lock() {
+                    Ok(ipv6_transition) => {
+                        ipv6_transition.calculate_metrics();
+                        ipv6_transition.process_report();
+                    },
+                    Err(e) => error!("Could not acquire IPv6 transition tunnels table lock for report processing: {}", e)
                 });
             }
 

@@ -19,6 +19,7 @@ import L4AddressList from "../../../shared/L4AddressList";
 import FullCopyShortenedId from "../../../../shared/FullCopyShortenedId";
 import WebRTCSessionsTableRow from "../../../streams/webrtc/WebRTCSessionsTableRow";
 import WebRTCSessionsTableHead from "../../../streams/webrtc/WebRTCSessionsTableHead";
+import {addressWithPort} from "../../../../../util/Tools";
 
 const natService = new NATService();
 
@@ -78,7 +79,7 @@ export default function STUNConnectionDetailsPage() {
     }
 
     const pathEndpoints = mapped
-      .map(a => `${a.address}:${a.port}`)
+      .map(a => addressWithPort(a.address, a.port))
       .slice(0, 2);
 
     const pathType = classifyPath(entry, mapped);

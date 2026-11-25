@@ -51,6 +51,7 @@ public class TablesService {
                 .put("uav", new UAVTable(this))
                 .put("arp", new ARPTable(this))
                 .put("icmp", new ICMPTable(this))
+                .put("ndp", new NDPTable(this))
                 .put("dhcp", new DHCPTable(this))
                 .put("tcp", new TCPTable(this))
                 .put("udp", new UDPTable(this))
@@ -60,6 +61,7 @@ public class TablesService {
                 .put("tls", new TLSTable(this))
                 .put("socks", new SOCKSTable(this))
                 .put("vpn", new VPNTable(this))
+                .put("ipv6transition", new Ipv6TransitionTable(this))
                 .put("ntp", new NTPTable(this))
                 .put("rtsp", new RTSPTable(this))
                 .put("nat", new NATTable(this))
@@ -103,6 +105,10 @@ public class TablesService {
         return (ICMPTable) tables.get("icmp");
     }
 
+    public NDPTable ndp() {
+        return (NDPTable) tables.get("ndp");
+    }
+
     public ARPTable arp() {
         return (ARPTable) tables.get("arp");
     }
@@ -139,6 +145,10 @@ public class TablesService {
 
     public VPNTable vpn() {
         return (VPNTable) tables.get("vpn");
+    }
+
+    public Ipv6TransitionTable ipv6Transition() {
+        return (Ipv6TransitionTable) tables.get("ipv6transition");
     }
 
     public NTPTable ntp() {

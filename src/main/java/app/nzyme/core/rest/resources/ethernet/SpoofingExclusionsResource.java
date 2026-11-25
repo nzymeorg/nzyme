@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/spoofing/exclusions")
 @Produces(MediaType.APPLICATION_JSON)
@@ -74,7 +73,7 @@ public class SpoofingExclusionsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         SpoofingExclusions.OrderColumn orderColumn = SpoofingExclusions.OrderColumn.NAME;
         OrderDirection orderDirection = OrderDirection.ASC;

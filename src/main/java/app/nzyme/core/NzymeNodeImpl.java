@@ -20,6 +20,7 @@ package app.nzyme.core;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import app.nzyme.core.assets.AssetManager;
 import app.nzyme.core.assets.AssetMonitor;
+import app.nzyme.core.ethernet.InternalAddressRewriteThread;
 import app.nzyme.core.assets.identity.AssetIdentityThread;
 import app.nzyme.core.bluetooth.Bluetooth;
 import app.nzyme.core.bluetooth.sig.BluetoothSigService;
@@ -396,6 +397,7 @@ public class NzymeNodeImpl implements NzymeNode {
         periodicalManager.scheduleAtFixedRate(new SpoofingThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new DnsTunnelThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new SegmentationThread(this), 1, 1, TimeUnit.MINUTES);
+        periodicalManager.scheduleAtFixedRate(new InternalAddressRewriteThread(this), 30, 30, TimeUnit.SECONDS);
         periodicalManager.scheduleAtFixedRate(new IcmpThread(this), 1, 1, TimeUnit.MINUTES);
         periodicalManager.scheduleAtFixedRate(new TimelinesThread(this), 0, EVENT_HORIZON_MINUTES, TimeUnit.MINUTES);
         if (configuration.versionchecksEnabled()) {

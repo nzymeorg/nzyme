@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::mem;
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Mutex;
 use chrono::{DateTime, Utc, TimeZone};
 use strum_macros::Display;
@@ -46,10 +46,10 @@ pub struct ArpPacket {
 
 #[derive(Debug, Clone)]
 pub struct IcmpQuotedHeader {
-    pub protocol: u8,
+    pub protocol: Option<u8>,
     pub source_address: IpAddr,
     pub destination_address: IpAddr,
-    pub ttl: u8,
+    pub ttl: Option<u8>,
     pub source_port: Option<u16>,
     pub destination_port: Option<u16>
 }
@@ -60,9 +60,11 @@ pub struct IcmpPacket {
     pub destination_mac: Option<String>,
     pub source_address: IpAddr,
     pub destination_address: IpAddr,
+    // 4 for ICMP, 6 for ICMPv6. The type numbers of the two overlap.
+    pub ip_version: u8,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
+    pub ip_df: Option<bool>,
     pub icmp_type: u8,
     pub icmp_code: u8,
     // Echo, timestamp, information and address mask messages carry these. Errors do not.
@@ -78,12 +80,82 @@ pub struct IcmpPacket {
 
 impl IcmpPacket {
     pub fn is_error(&self) -> bool {
-        matches!(self.icmp_type, 3 | 4 | 5 | 11 | 12)
+        if self.ip_version == 6 {
+            matches!(self.icmp_type, 1 | 2 | 3 | 4 | 137)
+        } else {
+            matches!(self.icmp_type, 3 | 4 | 5 | 11 | 12)
+        }
     }
 }
 
+#[derive(Debug, Display, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum NdpMessageType {
+    #[strum(serialize = "ROUTER_SOLICITATION")]
+    RouterSolicitation,
+    #[strum(serialize = "ROUTER_ADVERTISEMENT")]
+    RouterAdvertisement,
+    #[strum(serialize = "NEIGHBOR_SOLICITATION")]
+    NeighborSolicitation,
+    #[strum(serialize = "NEIGHBOR_ADVERTISEMENT")]
+    NeighborAdvertisement
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct NdpPrefix {
+    pub prefix: IpAddr,
+    pub prefix_length: u8,
+    pub on_link: bool,
+    pub autonomous: bool,
+    pub valid_lifetime: u32,
+    pub preferred_lifetime: u32
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct NdpRoute {
+    pub prefix: IpAddr,
+    pub prefix_length: u8,
+    pub preference: String,
+    pub lifetime: u32
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct NdpRouterAdvertisement {
+    pub current_hop_limit: u8,
+    pub managed: bool,
+    pub other_configuration: bool,
+    pub preference: String,
+    pub router_lifetime: u16,
+    pub reachable_time: u32,
+    pub retransmit_timer: u32,
+    pub mtu: Option<u32>,
+    pub prefixes: Vec<NdpPrefix>,
+    pub routes: Vec<NdpRoute>,
+    pub dns_servers: Vec<IpAddr>,
+    pub dns_servers_lifetime: Option<u32>,
+    pub dns_search_list: Vec<String>
+}
+
+#[derive(Debug, Clone)]
+pub struct NdpPacket {
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub hop_limit: u8,
+    pub message_type: NdpMessageType,
+    pub target_address: Option<IpAddr>,
+    pub source_link_layer_address: Option<String>,
+    pub target_link_layer_address: Option<String>,
+    pub router: Option<bool>,
+    pub solicited: Option<bool>,
+    pub overrides: Option<bool>,
+    pub router_advertisement: Option<NdpRouterAdvertisement>,
+    pub size: u32,
+    pub timestamp: DateTime<Utc>
+}
+
 #[derive(Debug)]
-pub struct IPv4Packet {
+pub struct IpPacket {
     pub source_mac: Option<String>,
     pub destination_mac: Option<String>,
     pub header_length: usize,
@@ -92,10 +164,10 @@ pub struct IPv4Packet {
     pub destination_address: IpAddr,
     pub ttl: u8,
     pub ip_tos: u8,
-    pub df: bool,
+    pub df: Option<bool>,
     pub more_fragments: bool,
     pub fragment_offset: u16,
-    pub identification: u16,
+    pub identification: Option<u16>,
     pub protocol: u8,
     pub payload: Vec<u8>,
     pub size: u32,
@@ -117,8 +189,8 @@ pub struct TcpSegment {
     pub payload: Vec<u8>,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
-    pub ip_id: u16,
+    pub ip_df: Option<bool>,
+    pub ip_id: Option<u16>,
     pub window_size: u16,
     pub maximum_segment_size: Option<u16>,
     pub window_scale_multiplier: Option<u8>,
@@ -229,9 +301,6 @@ pub struct DNSData {
     pub value_etld: Option<String>,
     pub ttl: Option<u32>
 }
-
-#[derive(Debug)]
-pub struct IPv6Packet { }
 
 #[derive(Debug, Display, Clone)]
 pub enum SocksType {
@@ -719,12 +788,15 @@ pub struct Dhcpv4Transaction {
 }
 
 impl Dhcpv4Transaction {
+    pub const MAX_SET_ENTRIES: usize = Dhcpv6Transaction::MAX_SET_ENTRIES;
+
     pub fn record_server_response(&mut self, dhcp: &Dhcpv4Packet) {
         let server_mac = match &dhcp.source_mac {
             Some(mac) if mac != "FF:FF:FF:FF:FF:FF" => Some(mac.clone()),
             _ => None
         };
 
+        let full = self.server_responses.len() >= Self::MAX_SET_ENTRIES;
         let existing = self.server_responses.iter_mut().find(|r|
             r.message_type == dhcp.message_type
                 && r.server_mac == server_mac
@@ -743,6 +815,7 @@ impl Dhcpv4Transaction {
                 r.domain_name = dhcp.domain_name.clone();
                 r.lease_time_seconds = dhcp.lease_time_seconds;
             },
+            None if full => {},
             None => {
                 self.server_responses.push(Dhcpv4ServerResponse {
                     message_type: dhcp.message_type.clone(),
@@ -779,7 +852,7 @@ impl Dhcpv4Transaction {
             // We already have one, and we got a new, different one.
             (Some(existing), Some(mac)) if existing != &mac => {
                 // Avoid duplicates in the “additional” list
-                if !self.additional_server_macs.iter().any(|m| m == &mac) {
+                if self.additional_server_macs.len() < Self::MAX_SET_ENTRIES {
                     self.additional_server_macs.insert(mac);
                 }
 
@@ -799,7 +872,9 @@ impl Dhcpv4Transaction {
         }
 
         if !self.client_mac.eq(new_mac.as_ref().unwrap()) {
-            self.additional_client_macs.insert(new_mac.unwrap());
+            if self.additional_client_macs.len() < Self::MAX_SET_ENTRIES {
+                self.additional_client_macs.insert(new_mac.unwrap());
+            }
             self.notes.insert(Dhcpv4TransactionNote::ClientMacChanged);
         } else {
             self.client_mac = new_mac.unwrap();
@@ -820,7 +895,9 @@ impl Dhcpv4Transaction {
             false => {
                 if !self.options.eq(&new_options) {
                     // Options changed.
-                    self.additional_options.insert(new_options.clone());
+                    if self.additional_options.len() < Self::MAX_SET_ENTRIES {
+                        self.additional_options.insert(new_options.clone());
+                    }
                     self.notes.insert(Dhcpv4TransactionNote::OptionsChanged);
                 }
             },
@@ -828,10 +905,10 @@ impl Dhcpv4Transaction {
     }
 
     pub fn record_timestamp(&mut self, msg_type: Dhcpv4MessageType, time: DateTime<Utc>) {
-        self.timestamps
-            .entry(msg_type)
-            .or_default()
-            .push(time);
+        let timestamps = self.timestamps.entry(msg_type).or_default();
+        if timestamps.len() < Dhcpv6Transaction::MAX_TIMESTAMPS {
+            timestamps.push(time);
+        }
     }
 
     // The first value seen wins.
@@ -862,6 +939,215 @@ pub enum Dhcpv4TransactionNote {
     ServerMacChanged,
     OptionsChanged,
     VendorClassChanged
+}
+
+#[derive(Debug, Display, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum Dhcpv6MessageType {
+    Solicit,
+    Advertise,
+    Request,
+    Confirm,
+    Renew,
+    Rebind,
+    Reply,
+    Release,
+    Decline,
+    Reconfigure,
+    InformationRequest
+}
+
+impl Dhcpv6MessageType {
+    pub fn from_code(code: u8) -> Option<Self> {
+        match code {
+            1 => Some(Self::Solicit),
+            2 => Some(Self::Advertise),
+            3 => Some(Self::Request),
+            4 => Some(Self::Confirm),
+            5 => Some(Self::Renew),
+            6 => Some(Self::Rebind),
+            7 => Some(Self::Reply),
+            8 => Some(Self::Release),
+            9 => Some(Self::Decline),
+            10 => Some(Self::Reconfigure),
+            11 => Some(Self::InformationRequest),
+            _ => None
+        }
+    }
+
+    pub fn is_from_client(&self) -> bool {
+        !matches!(self, Self::Advertise | Self::Reply | Self::Reconfigure)
+    }
+}
+
+#[derive(Debug, Display, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum Dhcp6TransactionType {
+    Initial,
+    Renew,
+    Rebind,
+    Confirm,
+    Release,
+    Decline,
+    Inform
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Dhcpv6Address {
+    pub address: IpAddr,
+    pub preferred_lifetime: u32,
+    pub valid_lifetime: u32
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Dhcpv6Prefix {
+    pub prefix: IpAddr,
+    pub prefix_length: u8,
+    pub preferred_lifetime: u32,
+    pub valid_lifetime: u32
+}
+
+#[derive(Debug, Clone)]
+pub struct Dhcpv6Packet {
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub message_type: Dhcpv6MessageType,
+    pub transaction_id: u32,
+    // Unwrapped from a relay message. The MAC addresses of the frame are then those of relay and server.
+    pub relayed: bool,
+    pub client_duid: Option<String>,
+    pub server_duid: Option<String>,
+    pub client_link_layer_address: Option<String>,
+    pub addresses: Vec<Dhcpv6Address>,
+    pub prefixes: Vec<Dhcpv6Prefix>,
+    pub options: Vec<u16>,
+    pub option_request_list: Vec<u16>,
+    pub vendor_class: Option<String>,
+    pub fqdn: Option<String>,
+    pub dns_servers: Vec<IpAddr>,
+    pub domain_search_list: Vec<String>,
+    pub preference: Option<u8>,
+    pub rapid_commit: bool,
+    pub status_code: Option<u16>,
+    pub size: u32,
+    pub timestamp: DateTime<Utc>
+}
+
+#[derive(Debug, Clone)]
+pub struct Dhcpv6ServerResponse {
+    pub message_type: Dhcpv6MessageType,
+    pub server_mac: Option<String>,
+    pub server_address: IpAddr,
+    pub server_duid: Option<String>,
+    pub addresses: Vec<Dhcpv6Address>,
+    pub prefixes: Vec<Dhcpv6Prefix>,
+    pub dns_servers: Vec<IpAddr>,
+    pub domain_search_list: Vec<String>,
+    pub preference: Option<u8>,
+    pub status_code: Option<u16>,
+    pub count: u32,
+    pub first_seen: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>
+}
+
+#[derive(Debug)]
+pub struct Dhcpv6Transaction {
+    pub transaction_type: Dhcp6TransactionType,
+    // Of the first message. A request that follows a solicitation has an ID of its own.
+    pub transaction_id: u32,
+    pub transaction_ids: HashSet<u32>,
+    pub client_key: String,
+    pub client_mac: String,
+    pub additional_client_macs: HashSet<String>,
+    pub server_mac: Option<String>,
+    pub additional_server_macs: HashSet<String>,
+    pub client_duid: Option<String>,
+    pub server_duid: Option<String>,
+    pub offered_ip_addresses: HashSet<IpAddr>,
+    pub requested_ip_address: Option<IpAddr>,
+    pub addresses: Vec<Dhcpv6Address>,
+    pub prefixes: Vec<Dhcpv6Prefix>,
+    pub timestamps: HashMap<Dhcpv6MessageType, Vec<DateTime<Utc>>>,
+    pub first_packet: DateTime<Utc>,
+    pub latest_packet: DateTime<Utc>,
+    pub notes: HashSet<String>,
+    pub options: Vec<u16>,
+    pub option_request_list: Vec<u16>,
+    pub vendor_class: Option<String>,
+    pub fqdn: Option<String>,
+    pub server_responses: Vec<Dhcpv6ServerResponse>,
+    pub selected_server_address: Option<IpAddr>,
+    pub successful: Option<bool>,
+    pub complete: bool
+}
+
+impl Dhcpv6Transaction {
+    pub const MAX_SET_ENTRIES: usize = 64;
+
+    pub const MAX_TIMESTAMPS: usize = 32;
+
+    pub fn record_timestamp(&mut self, message_type: Dhcpv6MessageType, timestamp: DateTime<Utc>) {
+        let timestamps = self.timestamps.entry(message_type).or_default();
+        if timestamps.len() < Self::MAX_TIMESTAMPS {
+            timestamps.push(timestamp);
+        }
+
+        if timestamp > self.latest_packet {
+            self.latest_packet = timestamp;
+        }
+    }
+
+    pub fn record_server_response(&mut self, dhcp: &Dhcpv6Packet) {
+        let existing = self.server_responses.iter_mut().find(|r|
+            r.message_type == dhcp.message_type
+                && r.server_mac == dhcp.source_mac
+                && r.server_address == dhcp.source_address
+                && r.server_duid == dhcp.server_duid
+                && r.addresses == dhcp.addresses
+                && r.prefixes == dhcp.prefixes
+        );
+
+        match existing {
+            Some(r) => {
+                r.count += 1;
+                r.last_seen = dhcp.timestamp;
+            },
+            None => {
+                // Every server on the link answers a solicitation. More than a few is a flood.
+                if self.server_responses.len() >= 16 {
+                    return;
+                }
+
+                self.server_responses.push(Dhcpv6ServerResponse {
+                    message_type: dhcp.message_type,
+                    server_mac: dhcp.source_mac.clone(),
+                    server_address: dhcp.source_address,
+                    server_duid: dhcp.server_duid.clone(),
+                    addresses: dhcp.addresses.clone(),
+                    prefixes: dhcp.prefixes.clone(),
+                    dns_servers: dhcp.dns_servers.clone(),
+                    domain_search_list: dhcp.domain_search_list.clone(),
+                    preference: dhcp.preference,
+                    status_code: dhcp.status_code,
+                    count: 1,
+                    first_seen: dhcp.timestamp,
+                    last_seen: dhcp.timestamp
+                });
+            }
+        }
+    }
+
+    pub fn record_server_mac(&mut self, mac: &Option<String>) {
+        let Some(mac) = mac else { return; };
+
+        match &self.server_mac {
+            None => self.server_mac = Some(mac.clone()),
+            Some(known) if known != mac && self.additional_server_macs.len() < Self::MAX_SET_ENTRIES => {
+                self.additional_server_macs.insert(mac.clone());
+            },
+            _ => {}
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1029,6 +1315,115 @@ impl NameResolutionPacket {
             queries,
             answers,
             timestamp: dns.timestamp
+        }
+    }
+
+}
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+pub enum Ipv6TransitionTunnelType {
+    Teredo,
+    #[strum(to_string = "6in4")]
+    SixInFour,
+    #[strum(to_string = "6to4")]
+    SixToFour,
+    #[strum(to_string = "ISATAP")]
+    Isatap
+}
+
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq)]
+pub enum Ipv6TransitionTransport {
+    UDP,
+    IP
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TeredoMessage {
+    RouterSolicitation,
+    RouterAdvertisement,
+    Bubble,
+    Data
+}
+
+impl TeredoMessage {
+    pub fn name(&self) -> &'static str {
+        match self {
+            TeredoMessage::RouterSolicitation => "Router solicitation",
+            TeredoMessage::RouterAdvertisement => "Router advertisement",
+            TeredoMessage::Bubble => "Bubble",
+            TeredoMessage::Data => "Data"
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum TeredoQualification {
+    NotObserved,
+    Partial,
+    Complete
+}
+
+impl TeredoQualification {
+    pub fn name(&self) -> &'static str {
+        match self {
+            TeredoQualification::NotObserved => "Not observed",
+            TeredoQualification::Partial => "Partial",
+            TeredoQualification::Complete => "Complete"
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TeredoConversation {
+    pub session_key: L4Key,
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: IpAddr,
+    pub destination_address: IpAddr,
+    pub source_port: u16,
+    pub destination_port: u16,
+    pub messages: Vec<TeredoMessage>,
+    pub qualification: TeredoQualification,
+    pub start_time: DateTime<Utc>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub most_recent_segment_time: DateTime<Utc>,
+    pub bytes: u64
+}
+
+#[derive(Debug, Clone)]
+pub struct Ipv6InIpv4Packet {
+    pub source_mac: Option<String>,
+    pub destination_mac: Option<String>,
+    pub source_address: Ipv4Addr,
+    pub destination_address: Ipv4Addr,
+    // Source and destination of the tunneled packet. None for a fragment that does not start with its header.
+    pub tunneled_addresses: Option<(Ipv6Addr, Ipv6Addr)>,
+    pub tunneled_bytes: u32,
+    pub size: u32,
+    pub timestamp: DateTime<Utc>
+}
+
+#[derive(Debug, Clone)]
+pub enum Ipv6TransitionObservation {
+    Teredo(TeredoConversation),
+    Ipv6InIpv4(Ipv6InIpv4Packet)
+}
+
+impl Ipv6TransitionObservation {
+
+    pub fn estimate_struct_size(&self) -> u32 {
+        match self {
+            Ipv6TransitionObservation::Teredo(c) => {
+                mem::size_of::<TeredoConversation>() as u32
+                    + (c.messages.len() * mem::size_of::<TeredoMessage>()) as u32
+                    + c.source_mac.as_ref().map_or(0, |m| m.len() as u32)
+                    + c.destination_mac.as_ref().map_or(0, |m| m.len() as u32)
+            },
+            Ipv6TransitionObservation::Ipv6InIpv4(p) => {
+                mem::size_of::<Ipv6InIpv4Packet>() as u32
+                    + p.source_mac.as_ref().map_or(0, |m| m.len() as u32)
+                    + p.destination_mac.as_ref().map_or(0, |m| m.len() as u32)
+            }
         }
     }
 

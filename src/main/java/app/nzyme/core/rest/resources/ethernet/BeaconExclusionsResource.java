@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/beacons/exclusions")
 @Produces(MediaType.APPLICATION_JSON)
@@ -73,7 +72,7 @@ public class BeaconExclusionsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         BeaconExclusions.OrderColumn orderColumn = BeaconExclusions.OrderColumn.NAME;
         OrderDirection orderDirection = OrderDirection.ASC;

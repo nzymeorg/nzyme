@@ -10,6 +10,7 @@ import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import SpoofingService from "../../../services/ethernet/SpoofingService";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import {DhcpOfferedValue} from "./DhcpOfferedParameters";
+import {dhcpSpoofingProtocolToName, dhcpSpoofingServerNoun, isRouterAdvertisement} from "./DhcpSpoofingProtocol";
 
 const spoofingService = new SpoofingService();
 
@@ -33,17 +34,21 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
   const setTrusted = (server, trusted) => (e) => {
     e.preventDefault();
 
+    const noun = dhcpSpoofingServerNoun(server.protocol);
     const question = trusted
-      ? "Trust this DHCP server? It will no longer raise rogue server findings, and the configuration it hands " +
+      ? "Trust this " + noun + "? It will no longer raise rogue server findings, and the configuration it hands " +
         "out right now becomes its expected configuration."
-      : "Untrust this DHCP server? Its next answer to a client raises a rogue server finding.";
+      : "Untrust this " + noun + "? " + (isRouterAdvertisement(server.protocol)
+        ? "Its next advertisement raises a rogue server finding, and the prefixes it advertises are no longer " +
+          "learned as internal networks."
+        : "Its next answer to a client raises a rogue server finding.");
 
     if (!confirm(question)) {
       return;
     }
 
     spoofingService.setDhcpServerTrusted(server.uuid, organizationId, tenantId, trusted, () => {
-      toast.success(trusted ? "Server is now trusted." : "Server is no longer trusted.");
+      toast.success(trusted ? "Now trusted." : "No longer trusted.");
       onChange();
     });
   }
@@ -64,21 +69,21 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
   const forget = (server) => (e) => {
     e.preventDefault();
 
-    if (!confirm("Forget this DHCP server? It is learned again if it answers clients, and trusted only if that " +
-        "still falls inside the learning period. Existing findings are kept.")) {
+    if (!confirm("Forget this " + dhcpSpoofingServerNoun(server.protocol) + "? It is learned again when it is seen " +
+        "again, and trusted only if that still falls inside the learning period. Existing findings are kept.")) {
       return;
     }
 
     spoofingService.deleteDhcpServer(server.uuid, organizationId, tenantId, () => {
-      toast.success("Server forgotten.");
+      toast.success("Forgotten.");
       onChange();
     });
   }
 
   if (servers.servers.length === 0) {
     return <div className="alert alert-info mb-0">
-      No DHCP server has been seen yet. Servers appear here once a tap records a DHCP transaction that a server
-      answered.
+      No DHCP server or IPv6 router has been seen yet. They appear here once a tap records a DHCP transaction
+      that a server answered, or a router advertisement.
     </div>
   }
 
@@ -87,6 +92,7 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
       <table className="table table-sm table-hover table-striped">
         <thead>
         <tr>
+          <th>Protocol</th>
           <th>Server {columnSorting("address")}</th>
           <th>MAC Address {columnSorting("mac")}</th>
           <th>Status {columnSorting("trusted")}</th>
@@ -104,6 +110,7 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
         {servers.servers.map((s) => {
           return (
             <tr key={s.uuid}>
+              <td className="text-nowrap">{dhcpSpoofingProtocolToName(s.protocol)}</td>
               <td>
                 {s.address_data ?
                   <L4Address address={s.address_data} hidePort={true} withAssetName />
@@ -134,7 +141,8 @@ export default function DhcpSpoofingServersTable({servers, page, setPage, perPag
               <td><DhcpOfferedValue parameters={s.latest} field="routers" compareTo={s.trusted ? s.baseline : undefined} /></td>
               <td><DhcpOfferedValue parameters={s.latest} field="dns_servers" compareTo={s.trusted ? s.baseline : undefined} /></td>
               <td><DhcpOfferedValue parameters={s.latest} field="domain_name" compareTo={s.trusted ? s.baseline : undefined} /></td>
-              <td title={numeral(s.offer_count).format("0,0") + " offers, " + numeral(s.ack_count).format("0,0") + " acknowledgements"}>
+              <td title={isRouterAdvertisement(s.protocol) ? "Router advertisements"
+                  : numeral(s.offer_count).format("0,0") + " offers, " + numeral(s.ack_count).format("0,0") + " acknowledgements"}>
                 {numeral(s.response_count).format("0,0")}
               </td>
               <td>{numeral(s.transaction_count).format("0,0")}</td>

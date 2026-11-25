@@ -11,7 +11,7 @@ use crate::helpers::timer::{record_timer, Timer};
 use crate::messagebus::bus::Bus;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::metrics::Metrics;
-use crate::protocols::detection::taggers::network_protocols::{derp_tagger, http_tagger, openvpn_tagger, rtsp_tagger, socks_tagger, ssh_tagger, tls_tagger, vpn_tagger_tools, wireguard_tagger};
+use crate::protocols::detection::taggers::network_protocols::{derp_tagger, http_tagger, openvpn_tagger, rtsp_tagger, socks_tagger, ssh_tagger, teredo_tagger, tls_tagger, vpn_tagger_tools, wireguard_tagger};
 use crate::protocols::detection::taggers::tunnel_payload::TunnelPayload;
 use crate::protocols::detection::taggers::tagger_command::TaggerCommand;
 use crate::protocols::parsers::{dtls_tagger, rtp_tagger, stun_tagger};
@@ -20,7 +20,7 @@ use crate::state::tables::udp_table::UdpConversation;
 use crate::to_pipeline;
 use crate::wired::ethernet::types::tls_session::TlsSession;
 use crate::wired::ethernet::types::webrtc_conversation::WebRtcConversation;
-use crate::wired::packets::VpnType;
+use crate::wired::packets::{Ipv6TransitionObservation, VpnType};
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Display, PartialEq, Clone, Hash, Eq)]
@@ -38,6 +38,7 @@ pub enum L7Tag {
     RTSP,
     SOCKS,
     DHCP4,
+    DHCP6,
     NTP,
     STUN,
     TURN,
@@ -46,7 +47,8 @@ pub enum L7Tag {
     WebRTC,
     WireGuard,
     OpenVPN,
-    DERP
+    DERP,
+    Teredo
 }
 
 /*
@@ -443,6 +445,7 @@ fn tag_all_udp(client_to_server: &[u8],
                      "tables.udp.timer.sessions.tagging.stun.untagged", metrics);
 
         tag_vpn_udp(conversation, bus, metrics, &mut tags, &mut commands);
+        tag_teredo(conversation, bus, &mut tags);
     }
 
     // Taggers on conversations with recent buffer enabled.
@@ -518,6 +521,25 @@ fn tag_all_udp(client_to_server: &[u8],
     }
 
     (tags, commands)
+}
+
+fn tag_teredo(conversation: &UdpConversation, bus: &Arc<Bus>, tags: &mut HashSet<L7Tag>) {
+    if !tags.is_empty() || conversation.tags.iter().any(|t| *t != L7Tag::Teredo) {
+        return;
+    }
+
+    if let Some(teredo) = teredo_tagger::tag_udp(conversation) {
+        tags.insert(L7Tag::Teredo);
+
+        let observation = Ipv6TransitionObservation::Teredo(teredo);
+        let len = observation.estimate_struct_size();
+        to_pipeline!(
+            WiredChannelName::Ipv6TransitionPipeline,
+            bus.ipv6_transition_pipeline.sender,
+            Arc::new(observation),
+            len
+        );
+    }
 }
 
 fn tag_vpn_udp(conversation: &UdpConversation,

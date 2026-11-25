@@ -76,4 +76,29 @@ public class DhcpOfferedParametersTest {
         assertEquals(p.mergedWith(null), p);
     }
 
+    @Test
+    public void testRouterAdvertisementFlagsAreCompared() {
+        DhcpOfferedParameters router = DhcpOfferedParameters.create("2001:db8:1200:34::/64", List.of("fe80::1"),
+                List.of("2001:db8::53"), null, 1800L, "SLAAC, default router, medium preference");
+        DhcpOfferedParameters withdrawn = DhcpOfferedParameters.create("2001:db8:1200:34::/64", List.of(),
+                List.of("2001:db8::53"), null, 0L, "SLAAC, no default router, medium preference");
+
+        assertFalse(router.deviatesFrom(router));
+        assertTrue(withdrawn.deviatesFrom(router));
+        assertNotEquals(withdrawn.configurationKey(), router.configurationKey());
+        assertEquals(DhcpOfferedParameters.fromJson(router.toJson()), router);
+    }
+
+    @Test
+    public void testParametersStoredWithoutFlagsStillRead() {
+        DhcpOfferedParameters stored = DhcpOfferedParameters.fromJson(
+                "{\"subnet_mask\":\"255.255.255.0\",\"routers\":[\"192.168.0.1\"],\"dns_servers\":[],"
+                        + "\"domain_name\":null,\"lease_time_seconds\":3600}");
+
+        assertNull(stored.flags());
+        assertEquals(stored.configurationKey(),
+                DhcpOfferedParameters.create("255.255.255.0", List.of("192.168.0.1"), List.of(), null, 3600L)
+                        .configurationKey());
+    }
+
 }

@@ -423,8 +423,7 @@ public class SearchService {
         if (parsed.isMulticastAddress()) {
             return "Multicast address";
         }
-        if (nzyme.getEthernet().internalAddresses().of(scope.organizationId(), scope.tenantId()).isSiteLocal(parsed)
-                || parsed.isLinkLocalAddress()) {
+        if (nzyme.getEthernet().internalAddresses().of(scope.organizationId(), scope.tenantId()).isSiteLocal(parsed)) {
             return "Internal address";
         }
 

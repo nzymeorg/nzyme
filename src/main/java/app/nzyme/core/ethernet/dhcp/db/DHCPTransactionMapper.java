@@ -1,5 +1,7 @@
 package app.nzyme.core.ethernet.dhcp.db;
 
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Address;
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Prefix;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -36,6 +38,8 @@ public class DHCPTransactionMapper implements RowMapper<DHCPTransactionEntry> {
         List<String> additionalVendorClasses;
         List<String> notes;
         Map<String, List<String>> timestamps;
+        List<Dhcpv6Address> addresses;
+        List<Dhcpv6Prefix> prefixes;
 
         try {
             additionalClientMacs = om.readValue(rs.getString("additional_client_macs"), new TypeReference<>() {});
@@ -47,6 +51,10 @@ public class DHCPTransactionMapper implements RowMapper<DHCPTransactionEntry> {
             additionalVendorClasses = om.readValue(rs.getString("additional_vendor_classes"), new TypeReference<>() {});
             notes = om.readValue(rs.getString("notes"), new TypeReference<>() {});
             timestamps = om.readValue(rs.getString("timestamps"), new TypeReference<>() {});
+            addresses = rs.getString("addresses") == null
+                    ? List.of() : om.readValue(rs.getString("addresses"), new TypeReference<>() {});
+            prefixes = rs.getString("prefixes") == null
+                    ? List.of() : om.readValue(rs.getString("prefixes"), new TypeReference<>() {});
         } catch (JacksonException e) {
             throw new RuntimeException("Failed to parse JSON from DHCP transaction database object.", e);
         }
@@ -73,7 +81,12 @@ public class DHCPTransactionMapper implements RowMapper<DHCPTransactionEntry> {
                 DHCPServerResponses.fromJson(rs.getString("server_responses")),
                 rs.getString("selected_server_address"),
                 rs.getBoolean("is_successful"),
-                rs.getBoolean("is_complete")
+                rs.getBoolean("is_complete"),
+                rs.getInt("ip_version"),
+                rs.getString("client_duid"),
+                rs.getString("server_duid"),
+                addresses,
+                prefixes
         );
     }
 

@@ -9,10 +9,19 @@ import java.sql.SQLException;
 public class L4MapperTools {
 
     public static L4AddressData fieldsToAddressData(String prefix, ResultSet rs) throws SQLException  {
+        return fieldsToAddressData(prefix, rs, rs.getInt(prefix + "_port"));
+    }
+
+    public static L4AddressData fieldsToAddressDataNullablePort(String prefix, ResultSet rs) throws SQLException  {
+        int port = rs.getInt(prefix + "_port");
+        return fieldsToAddressData(prefix, rs, rs.wasNull() ? null : port);
+    }
+
+    private static L4AddressData fieldsToAddressData(String prefix, ResultSet rs, Integer port) throws SQLException  {
         return L4AddressData.create(
                 rs.getString(prefix + "_mac"),
                 rs.getString(prefix + "_address"),
-                rs.getInt(prefix + "_port"),
+                port,
                 GeoData.create(
                         rs.getInt(prefix + "_address_geo_asn_number"),
                         rs.getString(prefix + "_address_geo_asn_name"),

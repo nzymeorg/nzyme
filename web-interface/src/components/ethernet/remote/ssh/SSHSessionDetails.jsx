@@ -70,7 +70,7 @@ export default function SSHSessionDetails({ sessionId }) {
 
                 <dl className="mb-0">
                   <dt>Client Address</dt>
-                  <dd><L4Address address={session.client} hidePort={true}/></dd>
+                  <dd><L4Address full={true} address={session.client} hidePort={true}/></dd>
                   <dt>Client Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper
@@ -80,7 +80,7 @@ export default function SSHSessionDetails({ sessionId }) {
                             : null } />
                   </dd>
                   <dt>Server Address</dt>
-                  <dd><L4Address address={session.server} hidePort={true}/></dd>
+                  <dd><L4Address full={true} address={session.server} hidePort={true}/></dd>
                   <dt>Server Asset</dt>
                   <dd>
                     <InternalAddressOnlyWrapper

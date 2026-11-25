@@ -1,13 +1,16 @@
 pub mod dot11;
 pub mod arp_processor;
 pub mod icmp_processor;
+pub mod ndp_processor;
 pub mod tcp_processor;
 pub mod udp_processor;
 pub mod dns_processor;
 pub mod socks_processor;
 pub mod vpn_processor;
+pub mod ipv6_transition_processor;
 pub mod ssh_processor;
 pub mod dhcpv4_processor;
+pub mod dhcpv6_processor;
 pub mod uav_remote_id_processor;
 pub mod bluetooth_device_processor;
 pub mod ntp_processor;

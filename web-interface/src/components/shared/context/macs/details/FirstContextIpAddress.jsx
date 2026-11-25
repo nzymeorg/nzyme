@@ -11,7 +11,7 @@ export default function FirstContextIpAddress(props) {
   }
 
   return (
-      <span>{truncate(addresses[0].ip_address, 20)} ({numeral(addresses.length).format("0,0")} total)</span>
+      <span>{truncate(addresses[0].ip_address, 39)} ({numeral(addresses.length).format("0,0")} total)</span>
   )
 
 }

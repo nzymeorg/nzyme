@@ -14,6 +14,10 @@ pub fn parse(udp: &Arc<Datagram>) -> Option<NameResolutionPacket> {
         return None;
     }
 
+    if !udp.source_address.is_ipv4() {
+        return None;
+    }
+
     let p = &udp.payload;
     if p.len() < 12 {
         tracemark!("NBT-NS");

@@ -62,6 +62,10 @@ public class DatabaseTools {
                 key = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.key();
                 defaultValue = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
             }
+            case ASSET_IP_ADDRESSES -> {
+                key = AssetRegistryKeys.ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS.key();
+                defaultValue = AssetRegistryKeys.ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");
+            }
             case ASSET_STATISTICS -> {
                 key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
                 defaultValue = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.defaultValue().orElse("MISSING");

@@ -69,6 +69,14 @@ export function isValidMACAddress(mac) {
   return /^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$/.test(mac.trim());
 }
 
+export function addressWithPort(address, port) {
+  if (port === undefined || port === null || port === "") {
+    return address;
+  }
+
+  return (String(address).includes(":") ? "[" + address + "]" : address) + ":" + port;
+}
+
 export function isValidUUID(uuid) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid);
 }
@@ -135,7 +143,7 @@ function parseIPv4(s) {
   return bytes;
 }
 
-function parseIPv6(s) {
+export function parseIPv6(s) {
   const halves = s.split("::");
   if (halves.length > 2) {
     return null;
@@ -390,6 +398,8 @@ export function humanReadableDatabaseCategoryName(category) {
       return "Assets: Activity"
     case "ASSET_ATTRIBUTES":
       return "Assets: Attributes"
+    case "ASSET_IP_ADDRESSES":
+      return "Assets: IP Addresses"
     case "ASSET_COMMUNICATION":
       return "Assets: Communication"
     case "ASSET_STATISTICS":

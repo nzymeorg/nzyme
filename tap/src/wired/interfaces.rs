@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use log::{error, info};
 use pcap::Device;
 use pnet::datalink;
@@ -14,6 +14,21 @@ pub fn get_first_ipv4_address_of_interface(interface_name: &str) -> Option<Ipv4A
                     _ => None,  // Ignore Ipv6 addresses
                 })
         })
+}
+
+// A global address if there is one: a DNS server off the link cannot answer a link-local address.
+pub fn get_first_ipv6_address_of_interface(interface_name: &str) -> Option<Ipv6Addr> {
+    let addresses: Vec<Ipv6Addr> = get_interface(interface_name)?.ips.iter()
+        .filter_map(|ip_network| match ip_network.ip() {
+            IpAddr::V6(ipv6) => Some(ipv6),
+            _ => None
+        })
+        .collect();
+
+    addresses.iter()
+        .find(|address| !address.is_unicast_link_local())
+        .or_else(|| addresses.first())
+        .copied()
 }
 
 pub fn get_mac_address_of_interface(interface_name: &str) -> Option<MacAddr> {

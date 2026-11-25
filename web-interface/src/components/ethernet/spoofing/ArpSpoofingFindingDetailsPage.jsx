@@ -30,7 +30,8 @@ export default function ArpSpoofingFindingDetailsPage() {
   const [redirect, setRedirect] = useState(false);
   const [revision, setRevision] = useState(new Date());
 
-  usePageTitle(details ? `ARP Poisoning: ${details.finding.address}` : "Ethernet ARP Poisoning Details");
+  usePageTitle(details ? `${details.finding.address.includes(":") ? "NDP Spoofing" : "ARP Poisoning"}: ${details.finding.address}`
+    : "Ethernet ARP and NDP Spoofing Details");
 
   useEffect(() => {
     setDetails(null);
@@ -58,7 +59,7 @@ export default function ArpSpoofingFindingDetailsPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Finding not found. <Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}>Back to ARP Poisoning</Link>
+        Finding not found. <Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}>Back to ARP and NDP Spoofing</Link>
       </div>
     )
   }
@@ -69,9 +70,16 @@ export default function ArpSpoofingFindingDetailsPage() {
 
   const f = details.finding;
 
-  const arpPacketsLink = ApiRoutes.ETHERNET.ASSETS.ARP.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({
-    arp_sender_address: [{field: "arp_sender_address", operator: "equals", value: f.address}]
-  }));
+  const ndp = f.address.includes(":");
+  const packets = ndp ? "NDP messages" : "ARP packets";
+
+  const arpPacketsLink = ndp
+    ? ApiRoutes.ETHERNET.ASSETS.NDP.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({
+      target_address: [{field: "target_address", operator: "equals", value: f.address}]
+    }))
+    : ApiRoutes.ETHERNET.ASSETS.ARP.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({
+      arp_sender_address: [{field: "arp_sender_address", operator: "equals", value: f.address}]
+    }));
 
   const share = (count) => {
     if (!f.reply_count) {
@@ -89,7 +97,7 @@ export default function ArpSpoofingFindingDetailsPage() {
             <ol className="breadcrumb">
               <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.OVERVIEW}>Ethernet</Link></li>
               <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}>Spoofing</Link></li>
-              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}>ARP</Link></li>
+              <li className="breadcrumb-item"><Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX}>ARP and NDP</Link></li>
               <li className="breadcrumb-item active" aria-current="page">
                 {f.address} claimed by {f.spoofer_mac}
               </li>
@@ -101,7 +109,7 @@ export default function ArpSpoofingFindingDetailsPage() {
       <div className="row mt-3">
         <div className="col-8">
           <h1>
-            ARP Poisoning of <span className="machine-data">{f.address}</span>
+            {ndp ? "NDP Spoofing" : "ARP Poisoning"} of <span className="machine-data">{f.address}</span>
             {' '}by <span className="machine-data">{f.spoofer_mac}</span>
           </h1>
         </div>
@@ -116,7 +124,7 @@ export default function ArpSpoofingFindingDetailsPage() {
               </Link>
               <a href="#" className="btn btn-danger me-1" onClick={onDelete}>Delete Finding</a>
             </React.Fragment> : null}
-          <Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX} className="btn btn-primary">Back to ARP Poisoning</Link>
+          <Link to={ApiRoutes.ETHERNET.SPOOFING.ARP.INDEX} className="btn btn-primary">Back to ARP and NDP Spoofing</Link>
         </div>
       </div>
 
@@ -156,15 +164,17 @@ export default function ArpSpoofingFindingDetailsPage() {
                     : <span className="machine-data">{f.spoofer_mac}</span>}
                 </dd>
                 <dt>Claims</dt>
-                <dd>{numeral(f.claim_count).format("0,0")} ARP packets claiming the address</dd>
-                <dt>Replies</dt>
+                <dd>{numeral(f.claim_count).format("0,0")} {packets} claiming the address</dd>
+                <dt>{ndp ? "Neighbor Advertisements" : "Replies"}</dt>
                 <dd>{numeral(f.reply_count).format("0,0")}</dd>
-                <dt>Unsolicited Replies</dt>
-                <dd title="Replies that no device had asked for in the seconds before">
+                <dt>{ndp ? "Unsolicited Advertisements" : "Unsolicited Replies"}</dt>
+                <dd title={ndp ? "Advertisements that no device had asked for in the seconds before"
+                  : "Replies that no device had asked for in the seconds before"}>
                   {numeral(f.unsolicited_count).format("0,0")}{share(f.unsolicited_count)}
                 </dd>
-                <dt>Broadcast Replies</dt>
-                <dd className="mb-0" title="Gratuitous replies sent to every device on the segment">
+                <dt>{ndp ? "Advertisements to All Nodes" : "Broadcast Replies"}</dt>
+                <dd className="mb-0" title={ndp ? "Advertisements sent to every device on the segment"
+                  : "Gratuitous replies sent to every device on the segment"}>
                   {numeral(f.broadcast_count).format("0,0")}{share(f.broadcast_count)}
                 </dd>
               </dl>
@@ -195,7 +205,7 @@ export default function ArpSpoofingFindingDetailsPage() {
                     : <span className="machine-data">{f.owner_mac}</span>}
                 </dd>
                 <dt>Claims</dt>
-                <dd className="mb-0">{numeral(f.owner_claim_count).format("0,0")} ARP packets claiming the address</dd>
+                <dd className="mb-0">{numeral(f.owner_claim_count).format("0,0")} {packets} claiming the address</dd>
               </dl>
             </div>
           </div>
@@ -227,7 +237,7 @@ export default function ArpSpoofingFindingDetailsPage() {
                 </dd>
                 <dt>Raw Packets</dt>
                 <dd className="mb-0">
-                  <Link to={arpPacketsLink}>ARP packets of this address</Link>
+                  <Link to={arpPacketsLink}>{packets} of this address</Link>
                 </dd>
               </dl>
             </div>
@@ -256,7 +266,7 @@ export default function ArpSpoofingFindingDetailsPage() {
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Devices that received the spoofer&apos;s replies for the address. Their ARP cache may now point at
+                Devices that received the spoofer&apos;s replies for the address. Their {ndp ? "neighbor" : "ARP"} cache may now point at
                 the spoofer, which means their traffic for the address goes to the spoofer first. These are the
                 devices to check. A man-in-the-middle attack poisons both directions and produces one finding per
                 address, so the device listed here is usually the spoofer&apos;s other victim in a second finding.

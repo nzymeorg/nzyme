@@ -9,5 +9,6 @@ export const ICMP_TRACEROUTES_FILTER_FIELDS = {
   protocol: { title: "Probe Protocol", type: FILTER_TYPE.TRACEROUTE_PROTOCOL },
   destination_reached: { title: "Destination Reached", type: FILTER_TYPE.BOOLEAN },
   router_count: { title: "Routers Answering", type: FILTER_TYPE.NUMERIC },
-  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC }
+  packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC },
+  ip_version: { title: "IP Version", type: FILTER_TYPE.NUMERIC }
 }

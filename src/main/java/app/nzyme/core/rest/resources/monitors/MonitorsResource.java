@@ -51,7 +51,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/monitors")
 @Produces(MediaType.APPLICATION_JSON)
@@ -225,7 +224,7 @@ public class MonitorsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.FORBIDDEN).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Monitors.OrderColumn orderColumn = Monitors.OrderColumn.NAME;
         OrderDirection orderDirection = OrderDirection.ASC;
@@ -370,7 +369,7 @@ public class MonitorsResource extends TapDataHandlingResource {
                 req.triggerCondition(),
                 req.interval(),
                 req.lookback(),
-                parseFiltersQueryParameter(req.filters()),
+                parseFilters(req.filters(), sc),
                 req.organizationId(),
                 req.tenantId()
         );
@@ -451,7 +450,7 @@ public class MonitorsResource extends TapDataHandlingResource {
             }
 
             nzyme.getMonitors().updateMonitorFilterInformation(
-                    monitor.get().uuid(), tapUuids, parseFiltersQueryParameter(req.filters())
+                    monitor.get().uuid(), tapUuids, parseFilters(req.filters(), sc)
             );
         }
 

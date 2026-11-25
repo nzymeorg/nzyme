@@ -18,6 +18,8 @@ import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant"
 import L4Address from "../../shared/L4Address";
 import usePageTitle from "../../../../util/UsePageTitle";
 import DHCPServerResponses from "./DHCPServerResponses";
+import DHCPv6Leases from "./DHCPv6Leases";
+import IPAddress from "../../shared/IPAddress";
 
 const useQuery = () => {
   return new URLSearchParams(useLocation().search);
@@ -90,6 +92,8 @@ export default function DHCPTransactionDetailsPage() {
                 <dl>
                   <dt>ID</dt>
                   <dd>{tx.transaction_id}</dd>
+                  <dt>Protocol</dt>
+                  <dd>{tx.ip_version === 6 ? "DHCPv6" : "DHCP"}</dd>
                   <dt>Type</dt>
                   <dd>{tx.transaction_type}</dd>
                   <dt>Complete</dt>
@@ -117,6 +121,15 @@ export default function DHCPTransactionDetailsPage() {
                     {tx.server_mac ? <EthernetMacAddress addressWithContext={tx.server_mac} withAssetLink withAssetName />
                         : <span className="text-muted">n/a</span>}
                   </dd>
+                  {tx.ip_version === 6 ?
+                    <React.Fragment>
+                      <dt>Client DUID</dt>
+                      <dd>{tx.client_duid ? <span className="machine-data">{tx.client_duid}</span>
+                          : <span className="text-muted">n/a</span>}</dd>
+                      <dt>Server DUID</dt>
+                      <dd>{tx.server_duid ? <span className="machine-data">{tx.server_duid}</span>
+                          : <span className="text-muted">n/a</span>}</dd>
+                    </React.Fragment> : null}
                 </dl>
               </div>
             </div>
@@ -190,11 +203,32 @@ export default function DHCPTransactionDetailsPage() {
                   a rogue server. The spoofing detection on the <em>Spoofing</em> page keeps track of this.
                 </p>
 
-                <DHCPServerResponses responses={tx.server_responses} selectedServerAddress={tx.selected_server_address} />
+                <DHCPServerResponses responses={tx.server_responses}
+                                     selectedServerAddress={tx.selected_server_address}
+                                     ipVersion={tx.ip_version} />
               </div>
             </div>
           </div>
         </div>
+
+        {tx.ip_version === 6 ?
+          <div className="row mt-3">
+            <div className="col-md-12">
+              <div className="card">
+                <div className="card-body">
+                  <CardTitleWithControls title="Leases" />
+
+                  <p className="text-muted">
+                    The addresses and delegated prefixes the client holds after this transaction. A delegated prefix
+                    is a network the client may hand out itself, as a router does. Up to 16 addresses and 16
+                    prefixes are recorded.
+                  </p>
+
+                  <DHCPv6Leases addresses={tx.addresses} prefixes={tx.prefixes} />
+                </div>
+              </div>
+            </div>
+          </div> : null}
 
         <div className="row mt-3">
           <div className="col-md-12">
@@ -204,10 +238,14 @@ export default function DHCPTransactionDetailsPage() {
 
                 <dl>
                   <dt>Offered IP Addresses</dt>
-                  <dd><DHCPOfferedIpAddresses ips={tx.offered_ip_addresses} /></dd>
+                  <dd>
+                    <DHCPOfferedIpAddresses ips={tx.offered_ip_addresses} />
+                    {tx.ip_version === 6 && tx.offered_ip_addresses && tx.offered_ip_addresses.length >= 64 ?
+                      <span className="text-muted"> The first 64 are recorded.</span> : null}
+                  </dd>
                   <dt>Requested IP Address</dt>
                   <dd>
-                    {tx.requested_ip_address ? tx.requested_ip_address.address : <span className="text-muted">n/a</span>}
+                    <IPAddress ip={tx.requested_ip_address ? tx.requested_ip_address.address : null} full />
                   </dd>
                 </dl>
 

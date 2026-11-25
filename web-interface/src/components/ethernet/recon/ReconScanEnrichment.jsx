@@ -6,6 +6,7 @@ const signatureName = (signature) => {
     case "ECHO_NONZERO_CODE": return "Echo request with non-zero code";
     case "ECHO_TOS_4": return "Echo request with type of service 4";
     case "INFORMATION_REQUEST": return "Information request";
+    case "NODE_INFORMATION_QUERY": return "Node information query";
     case "TIMESTAMP_REQUEST": return "Timestamp request";
     case "ADDRESS_MASK_REQUEST": return "Address mask request";
     case "TCP_SEQ_PROBES": return "TCP SYN sequence probes (window 1, 63, 4, 4, 16, 512)";
@@ -107,10 +108,25 @@ export default function ReconScanEnrichment({scan}) {
           {e.query_count !== undefined ? <React.Fragment><dt>Queries</dt><dd>{numeral(e.query_count).format("0,0")}</dd></React.Fragment> : null}
           {row("Resolver", e.resolver)}
           {e.resolver_count !== undefined && e.resolver_count > 1 ? row("Resolvers Used", e.resolver_count) : null}
-          {e.network_count !== undefined ? row("Networks (/24)", e.network_count) : null}
+          {e.network_count !== undefined ? row("Networks (/24 or /64)", e.network_count) : null}
           {e.range_coverage_percent !== undefined ? row("Range Coverage", e.range_coverage_percent + "%") : null}
         </dl>
       </React.Fragment>
+    )
+  }
+
+  if (scan.type === "NDP_SWEEP") {
+    if (e.request_count === undefined || e.request_count === null) {
+      return NO_DATA;
+    }
+
+    return (
+      <dl className="mb-0">
+        <dt>Neighbor Solicitations</dt>
+        <dd>{numeral(e.request_count || 0).format("0,0")}</dd>
+        <dt>Networks (/64)</dt>
+        <dd className="mb-0">{numeral(e.network_count || 0).format("0,0")}</dd>
+      </dl>
     )
   }
 

@@ -123,7 +123,7 @@
     "description" : "Exclusions keep assets with known flaky DHCP fingerprints from raising the \"new DHCP fingerprint\" alert. An exclusion is a MAC address or a vendor prefix, optionally limited to certain DHCP transaction types. Nzyme keeps updating the fingerprints of excluded assets, it only stops alerting on changes. Use them for devices that legitimately alternate between DHCP clients, like dual-boot machines, or for device classes whose firmware randomizes DHCP options.",
     "name" : "DHCP Fingerprint Exclusions"
   }, {
-    "description" : "DHCP transactions that taps recorded on the Ethernet network, including client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. Nzyme also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.",
+    "description" : "DHCP and DHCPv6 transactions that taps recorded on the Ethernet network, including client and server addresses, offered and requested IP addresses, DHCP fingerprints and timelines. A DHCPv6 transaction has an ip_version of 6 and carries the DUIDs of client and server and the addresses and delegated prefixes the client holds. Nzyme also uses DHCP traffic to enrich the asset inventory, and its fingerprints help to detect spoofing.",
     "name" : "DHCP"
   }, {
     "description" : "DNS queries and responses that taps recorded on the Ethernet network, with traffic statistics and client and server pairs.",
@@ -149,11 +149,17 @@
     "description" : "ICMP traffic the taps recorded. Queries and replies like echo (ping) are aggregated per source, destination and message type within each tap report period. Error messages like destination unreachable, time exceeded and redirect are kept per packet together with the header of the packet that caused them. Redirects and traceroutes are detected from the error messages.",
     "name" : "ICMP"
   }, {
+    "description" : "Tunnels that carry IPv6 over an IPv4 network, as Nzyme taps observed them: Teredo over UDP, and 6in4, 6to4 and ISATAP directly in IP. They are no VPNs: nothing is encrypted. Each tunnel carries its endpoints, the transport and the tunneled bytes. A tunnel that is carried directly in IP has the transport IP and no ports.",
+    "name" : "IPv6 Transition Tunnels"
+  }, {
     "description" : "Layer 4 traffic that taps recorded on the Ethernet network. Nzyme reassembles TCP sessions and groups UDP traffic into conversations, and reports both as sessions with traffic statistics and histograms of the busiest addresses, MAC addresses and ports.",
     "name" : "L4"
   }, {
     "description" : "NAT traversal activity that taps recorded on the Ethernet network. Nzyme reports it in two views: STUN discoveries, where a device asks a public STUN server what its own public address looks like, and STUN connections, where two peers negotiate a direct or TURN relayed path to each other.",
     "name" : "NAT"
+  }, {
+    "description" : "IPv6 neighbor discovery that taps recorded on the Ethernet network: neighbor and router solicitations, neighbor advertisements and router advertisements. It is what ARP is for IPv4. Identical messages are counted together per report of a tap.",
+    "name" : "NDP"
   }, {
     "description" : "Portal integrity reports record what a tap received when it probed a control URL, including every redirect hop and a verdict with the reasons behind it. Use them to detect captive portals, redirects and tampered responses on a network.",
     "name" : "Portal Integrity"
@@ -167,7 +173,7 @@
     "description" : "The hosts of a tenant that received connection attempts, seen from the host's side: which ports were probed, how many of them never answered, and how many distinct devices probed them. Built from the probe history that scan detection keeps for the slow scan memory period, across all sources, so a scan spread over many devices shows up here even when no single device crosses a scan threshold. Probes from devices that were already attributed to a detected scan are left out unless requested.",
     "name" : "Recon Probed Hosts"
   }, {
-    "description" : "A scan is a device probing the network: a port scan tries many ports of one host, a host sweep tries many hosts, an ARP sweep asks for many addresses on the local segment. Nzyme detects scans passively from the TCP, UDP and ARP traffic the taps report, merges observations of several taps and keeps a scan open while the device continues probing. Each scan carries the targets it probed and whether they answered. Scans are retention cleaned.",
+    "description" : "A scan is a device probing the network: a port scan tries many ports of one host, a host sweep tries many hosts, an ARP or NDP sweep asks for many addresses on the local segment. Nzyme detects scans passively from the TCP, UDP and ARP traffic the taps report, merges observations of several taps and keeps a scan open while the device continues probing. Each scan carries the targets it probed and whether they answered. Scans are retention cleaned.",
     "name" : "Recon Scans"
   }, {
     "description" : "SSH sessions that Nzyme taps observed on the network, including the client and server software versions exchanged during the initial unencrypted handshake. Each session is tracked over its lifetime and keyed by its underlying TCP session.",
@@ -187,10 +193,10 @@
     },
     "name" : "SOCKS"
   }, {
-    "description" : "ARP poisoning findings of a tenant. A finding is one address that a device (the spoofer) claimed with its own MAC address while the legitimate owner of the address was still claiming it as well. It carries the devices that received the spoofer's replies, which are the devices whose ARP cache may now point at the spoofer. Findings are built from the ARP packets of all taps of the tenant.",
+    "description" : "ARP poisoning and NDP spoofing findings of a tenant. A finding is one address that a device (the spoofer) claimed with its own MAC address while the legitimate owner of the address was still claiming it as well. It carries the devices that received the spoofer's replies, which are the devices whose ARP or neighbor cache may now point at the spoofer. Findings of IPv4 addresses are built from the ARP packets and findings of IPv6 addresses from the NDP messages of all taps of the tenant.",
     "name" : "Spoofing: ARP"
   }, {
-    "description" : "DHCP spoofing findings and the DHCP servers of a tenant. Every server that answers clients is learned with the configuration it hands out. A server that answers while it is not trusted is a rogue server finding. A trusted server that hands out a gateway, DNS server, domain or subnet mask different from its baseline is a changed configuration finding. Findings carry the clients that accepted a lease from the server. Built from the DHCP transactions of all taps of the tenant.",
+    "description" : "DHCP spoofing findings and the DHCP servers, DHCPv6 servers and IPv6 routers of a tenant, by protocol (DHCP, DHCP6, RA). Each is learned with the configuration it hands out. One that answers while it is not trusted is a rogue server finding. A trusted one that hands out a configuration different from its baseline is a changed configuration finding. For a router, subnet_mask holds the advertised prefixes. Built from the DHCP transactions and router advertisements of all taps of the tenant.",
     "name" : "Spoofing: DHCP"
   }, {
     "description" : "DNS spoofing findings of a tenant. A finding is one device (the spoofer) that answered DNS queries sent to a resolver with forged replies carrying the resolver's address, while the device that legitimately delivers the resolver's replies (the owner) was still answering. It carries the names that were spoofed, the addresses they were pointed at, how many forged replies arrived before the real one, and the clients that received them. Findings are built from the DNS transactions recorded by all taps of the tenant.",
@@ -11071,7 +11077,7 @@
         "tags" : [ "Assets" ]
       },
       "put" : {
-        "description" : "Updates the asset settings of the tenant. Accepted keys are assets_statistics_retention_time_days, the number of days asset statistics are kept, assets_activity_retention_time_days, assets_attributes_retention_time_days and assets_communication_retention_time_days, the retention of the long-term asset activity, attribute and communication data, and assets_dhcp_fingerprint_monitoring_enabled, which controls whether a changed DHCP fingerprint of an asset raises an alert. Requires the ethernet_assets_manage feature permission.",
+        "description" : "Updates the asset settings of the tenant. Accepted keys are assets_statistics_retention_time_days, the number of days asset statistics are kept, assets_activity_retention_time_days, assets_attributes_retention_time_days and assets_communication_retention_time_days, the retention of the long-term asset activity, attribute and communication data, assets_ip_addresses_retention_time_days, the number of days an address stays with an asset after it was last seen, and assets_dhcp_fingerprint_monitoring_enabled, which controls whether a changed DHCP fingerprint of an asset raises an alert. Requires the ethernet_assets_manage feature permission.",
         "externalDocs" : {
           "description" : "Asset configuration in the Nzyme documentation",
           "url" : "https://go.nzyme.org/assets-config"
@@ -15413,7 +15419,7 @@
     },
     "/api/ethernet/dhcp/transactions" : {
       "get" : {
-        "description" : "Returns all DHCP transactions in the time range, newest first by default. Each transaction bundles the packets of one DHCP exchange and carries the client and server MAC addresses, offered and requested IP addresses, DHCP options, fingerprints and a timeline of all steps. Results are paginated.",
+        "description" : "Returns all DHCP and DHCPv6 transactions in the time range, newest first by default. Each transaction bundles the packets of one DHCP exchange and carries the client and server MAC addresses, offered and requested IP addresses, DHCP options, fingerprints and a timeline of all steps. Results are paginated.",
         "operationId" : "findDhcpTransactions",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -19270,9 +19276,488 @@
         "tags" : [ "IP Addresses" ]
       }
     },
+    "/api/ethernet/ipv6transition/tunnels" : {
+      "get" : {
+        "description" : "Returns all IPv6 transition tunnels observed in the time range, newest established first by default. Each tunnel carries its type and the transport.",
+        "operationId" : "findIpv6TransitionTunnels",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Ipv6TransitionTunnelsListResponse"
+                }
+              }
+            },
+            "description" : "Tunnels found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List IPv6 transition tunnels",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
+    "/api/ethernet/ipv6transition/tunnels/active/histogram" : {
+      "get" : {
+        "description" : "Returns the number of IPv6 transition tunnels that were active in each bucket of the time range. The bucket size is chosen automatically based on the length of the time range.",
+        "operationId" : "findIpv6TransitionActiveTunnelsHistogram",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NumericHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          }
+        },
+        "summary" : "Get histogram of active IPv6 transition tunnels",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
+    "/api/ethernet/ipv6transition/tunnels/clients/top/histogram" : {
+      "get" : {
+        "description" : "Returns the client addresses with the most IPv6 transition tunnels in the time range, together with the tunnel count and the number of tunneled bytes.",
+        "operationId" : "findIpv6TransitionTopClients",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top clients of IPv6 transition tunnels",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
+    "/api/ethernet/ipv6transition/tunnels/l4/{l4_type}/{session_key}" : {
+      "get" : {
+        "description" : "Returns the Teredo tunnel that a UDP conversation belongs to. A tunnel is keyed by its first underlying conversation, but is usually carried by a chain of conversations between the same endpoints. Later conversations are matched by endpoints and time overlap. Tunnels that are carried directly in IP have no session.",
+        "operationId" : "findIpv6TransitionTunnelOfL4Session",
+        "parameters" : [ {
+          "description" : "L4 type of the session, TCP or UDP.",
+          "in" : "path",
+          "name" : "l4_type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Session key of the L4 session.",
+          "in" : "path",
+          "name" : "session_key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Start time of the L4 session in ISO 8601 format.",
+          "in" : "query",
+          "name" : "start_time",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Ipv6TransitionTunnelDetailsResponse"
+                }
+              }
+            },
+            "description" : "Tunnel found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The L4 type or start time is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tunnel not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the IPv6 transition tunnel of an L4 session",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
+    "/api/ethernet/ipv6transition/tunnels/servers/top/histogram" : {
+      "get" : {
+        "description" : "Returns the server addresses with the most IPv6 transition tunnels in the time range, together with the tunnel count and the number of tunneled bytes.",
+        "operationId" : "findIpv6TransitionTopServers",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Must be passed together with the sorting direction.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The sorting column or direction is not valid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top servers of IPv6 transition tunnels",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
+    "/api/ethernet/ipv6transition/tunnels/show/{session_key}" : {
+      "get" : {
+        "description" : "Returns a single IPv6 transition tunnel by its session key.",
+        "operationId" : "findIpv6TransitionTunnel",
+        "parameters" : [ {
+          "description" : "Session key of the tunnel.",
+          "in" : "path",
+          "name" : "session_key",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Ipv6TransitionTunnelDetailsResponse"
+                }
+              }
+            },
+            "description" : "Tunnel found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Tunnel not found, or organization or tenant not accessible by the calling user."
+          }
+        },
+        "summary" : "Get an IPv6 transition tunnel",
+        "tags" : [ "IPv6 Transition Tunnels" ]
+      }
+    },
     "/api/ethernet/l4/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
       "get" : {
-        "description" : "Returns whether addresses of the carrier-grade NAT range 100.64.0.0/10 are recorded as internal addresses. Requires organization administrator permissions.",
+        "description" : "Returns whether addresses of the carrier-grade NAT range 100.64.0.0/10 are recorded as internal addresses, and the networks that are recorded as internal in addition to the private, unique local and link-local ranges: the configured ones, and the IPv6 prefixes that were learned from the advertisements of trusted routers, up to the returned limit. Requires organization administrator permissions.",
         "operationId" : "findL4Configuration",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -19315,7 +19800,7 @@
         "tags" : [ "L4" ]
       },
       "put" : {
-        "description" : "Updates one or more TCP/UDP settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. A change applies to data recorded from then on. Requires organization administrator permissions.",
+        "description" : "Updates one or more TCP/UDP settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. A change also applies to stored records, which are updated in the background. Requires organization administrator permissions.",
         "operationId" : "updateL4Configuration",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -19369,9 +19854,69 @@
         "tags" : [ "L4" ]
       }
     },
+    "/api/ethernet/l4/organization/{organization_id}/tenant/{tenant_id}/configuration/internal-networks" : {
+      "put" : {
+        "description" : "Sets the networks that are recorded as internal in addition to the private, unique local and link-local ranges, for example the global IPv6 prefix of a site. The list replaces the current one. A change also applies to stored records, which are updated in the background. Requires organization administrator permissions.",
+        "operationId" : "updateL4InternalNetworks",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "*/*" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InternalNetworksUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Internal networks replaced."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "A network is not in CIDR notation, has host bits set or is too wide, or there are too many networks."
+          }
+        },
+        "summary" : "Replace the internal networks of a tenant",
+        "tags" : [ "L4" ]
+      }
+    },
     "/api/ethernet/l4/organization/{organization_id}/tenant/{tenant_id}/configuration/taps" : {
       "get" : {
-        "description" : "Taps have a cgnat_is_internal option of their own, which should have the value of the tenant. Returns the taps of the tenant that reported another value, the value of the tenant and the number of taps that were compared. A tap that reports no value counts with the default, false. Deleted taps are left out. Requires organization administrator permissions.",
+        "description" : "Taps have cgnat_is_internal and internal_networks options of their own, which should have the values of the tenant. Returns the taps of the tenant that reported another value for one of them, the values of the tenant and the number of taps that were compared. A tap that reports no value counts with the default, false and no networks. Deleted taps are left out. Requires organization administrator permissions.",
         "operationId" : "findL4TapSettings",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -19713,6 +20258,48 @@
           }
         },
         "summary" : "Get session count per duration bucket",
+        "tags" : [ "L4" ]
+      }
+    },
+    "/api/ethernet/l4/sessions/histograms/ip-versions" : {
+      "get" : {
+        "description" : "Returns the number of sessions and their total bytes for IPv4 and for IPv6, limited to the sessions matching the filters. Both versions are returned, IPv4 first, also when one has no sessions. The metadata of each version carries the value that an ip_version filter can be built from.",
+        "operationId" : "findL4SessionIpVersions",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThreeColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          }
+        },
+        "summary" : "Get session count per IP version",
         "tags" : [ "L4" ]
       }
     },
@@ -21049,6 +21636,248 @@
         },
         "summary" : "List top STUN discovery servers",
         "tags" : [ "NAT" ]
+      }
+    },
+    "/api/ethernet/ndp/messages" : {
+      "get" : {
+        "description" : "Returns neighbor solicitations, neighbor advertisements and router solicitations in the time range, most recently seen first by default. Identical messages that a tap recorded within one report are one entry with a packet count. The source and target addresses are enriched with asset, OUI and context information. A hop limit other than 255 means the message was not sent from the local link. Results are paginated.",
+        "operationId" : "findNdpMessages",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Defaults to the time a message was last seen.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NdpMessagesListResponse"
+                }
+              }
+            },
+            "description" : "Messages found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List NDP solicitations and neighbor advertisements",
+        "tags" : [ "NDP" ]
+      }
+    },
+    "/api/ethernet/ndp/messages/statistics" : {
+      "get" : {
+        "description" : "Returns packet counts per time bucket for neighbor solicitations, neighbor advertisements and router solicitations, limited to the messages matching the filters. The response is an object that maps each bucket timestamp to its values. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findNdpStatistics",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Statistics found."
+          }
+        },
+        "summary" : "Get NDP message statistics",
+        "tags" : [ "NDP" ]
+      }
+    },
+    "/api/ethernet/ndp/router-advertisements" : {
+      "get" : {
+        "description" : "Returns router advertisements in the time range, most recently seen first by default, with the prefixes, routes and DNS servers they announce. Identical advertisements that a tap recorded within one report are one entry with a packet count. Each list of an advertisement holds at most 32 entries. Results are paginated.",
+        "operationId" : "findNdpRouterAdvertisements",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Defaults to the time an advertisement was last seen.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. 25 if not set, 250 at most.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NdpRouterAdvertisementsListResponse"
+                }
+              }
+            },
+            "description" : "Router advertisements found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List NDP router advertisements",
+        "tags" : [ "NDP" ]
       }
     },
     "/api/ethernet/portalintegrity/reports" : {
@@ -26292,7 +27121,7 @@
     },
     "/api/ethernet/spoofing/dhcp/servers" : {
       "get" : {
-        "description" : "Returns every DHCP server that answered clients on the taps of the tenant, with whether it is trusted, the configuration it hands out (latest) and the configuration it is expected to hand out (baseline). Results are paginated.",
+        "description" : "Returns every DHCP server, DHCPv6 server and IPv6 router seen on the taps of the tenant, with whether it is trusted, the configuration it hands out (latest) and the configuration it is expected to hand out (baseline). At most 200 untrusted ones are kept per protocol. New ones are not recorded while a protocol is at that limit, which the response states. Results are paginated.",
         "operationId" : "findDhcpServers",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -32391,7 +33220,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         }, {
           "description" : "Organization UUID.",
@@ -32465,7 +33294,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         } ],
         "requestBody" : {
@@ -41710,6 +42539,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "ndp_messages" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "tcp_sessions" : {
             "type" : "integer",
             "format" : "int64"
@@ -41743,6 +42576,10 @@
             "format" : "int64"
           },
           "events" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ndp_messages" : {
             "type" : "integer",
             "format" : "int64"
           },
@@ -42059,6 +42896,9 @@
             "type" : "boolean"
           },
           "seen_dhcp" : {
+            "type" : "boolean"
+          },
+          "seen_ndp" : {
             "type" : "boolean"
           },
           "seen_tcp" : {
@@ -43049,6 +43889,9 @@
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
           },
           "dhcp_fingerprint_monitoring_enabled" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "ip_addresses_retention_time_days" : {
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
           },
           "statistics_retention_time_days" : {
@@ -45950,6 +46793,15 @@
               "type" : "string"
             }
           },
+          "addresses" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Dhcpv6Address"
+            }
+          },
+          "client_duid" : {
+            "type" : "string"
+          },
           "client_mac" : {
             "$ref" : "#/components/schemas/EthernetMacAddressResponse"
           },
@@ -45963,6 +46815,10 @@
           "first_packet" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "ip_version" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "is_complete" : {
             "type" : "boolean"
@@ -45993,10 +46849,19 @@
               "format" : "int32"
             }
           },
+          "prefixes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Dhcpv6Prefix"
+            }
+          },
           "requested_ip_address" : {
             "$ref" : "#/components/schemas/InternalAddressResponse"
           },
           "selected_server_address" : {
+            "type" : "string"
+          },
+          "server_duid" : {
             "type" : "string"
           },
           "server_mac" : {
@@ -47084,6 +47949,9 @@
           "domain_name" : {
             "type" : "string"
           },
+          "flags" : {
+            "type" : "string"
+          },
           "lease_time_seconds" : {
             "type" : "integer",
             "format" : "int64"
@@ -47146,6 +48014,9 @@
           },
           "offered_accepted" : {
             "type" : "boolean"
+          },
+          "protocol" : {
+            "type" : "string"
           },
           "recent" : {
             "type" : "boolean"
@@ -47265,6 +48136,9 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "protocol" : {
+            "type" : "string"
+          },
           "response_count" : {
             "type" : "integer",
             "format" : "int64"
@@ -47311,6 +48185,12 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "learning_protocols" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "servers" : {
             "type" : "array",
             "items" : {
@@ -47320,6 +48200,16 @@
           "total" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "untrusted_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "untrusted_limit_reached_protocols" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -47351,6 +48241,42 @@
             "$ref" : "#/components/schemas/EthernetMacAddressResponse"
           },
           "transaction_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Dhcpv6Address" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "preferred_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "valid_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Dhcpv6Prefix" : {
+        "type" : "object",
+        "properties" : {
+          "preferred_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "prefix_length" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "valid_lifetime" : {
             "type" : "integer",
             "format" : "int64"
           }
@@ -49336,6 +50262,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "ip_version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "is_error" : {
             "type" : "boolean"
           },
@@ -49914,6 +50844,84 @@
           }
         }
       },
+      "InternalNetworksUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "networks" : {
+            "type" : "array",
+            "description" : "The complete list of internal networks in CIDR notation, IPv4 or IPv6. Replaces the current list. At most 50 networks, none wider than a /8 or, for IPv6, a /16.",
+            "items" : {
+              "type" : "string",
+              "description" : "The complete list of internal networks in CIDR notation, IPv4 or IPv6. Replaces the current list. At most 50 networks, none wider than a /8 or, for IPv6, a /16."
+            },
+            "writeOnly" : true
+          }
+        }
+      },
+      "Ipv6TransitionTunnelDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "client" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "connection_status" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "duration_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "established_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "most_recent_segment_time" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "server" : {
+            "$ref" : "#/components/schemas/L4AddressResponse"
+          },
+          "session_key" : {
+            "type" : "string"
+          },
+          "terminated_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "transport" : {
+            "type" : "string"
+          },
+          "tunnel_type" : {
+            "type" : "string"
+          },
+          "tunneled_bytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Ipv6TransitionTunnelsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tunnels" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Ipv6TransitionTunnelDetailsResponse"
+            }
+          }
+        }
+      },
       "KnownClientDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -50153,6 +51161,33 @@
         "properties" : {
           "cgnat_is_internal" : {
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "internal_networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "internal_networks_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "learn_internal_networks" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
+          "learned_internal_networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "learned_internal_networks_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pending_rewrites" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -50269,6 +51304,12 @@
         "properties" : {
           "cgnat_is_internal" : {
             "type" : "boolean"
+          },
+          "internal_networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
           "taps_different" : {
             "type" : "array",
@@ -51934,6 +52975,227 @@
           }
         }
       },
+      "NdpMessageResponse" : {
+        "type" : "object",
+        "properties" : {
+          "destination_address" : {
+            "type" : "string"
+          },
+          "destination_mac" : {
+            "type" : "string"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "hop_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "message_type" : {
+            "type" : "string"
+          },
+          "overrides" : {
+            "type" : "boolean"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "router" : {
+            "type" : "boolean"
+          },
+          "solicited" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/InternalAddressResponse"
+          },
+          "source_link_layer_address" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "target" : {
+            "$ref" : "#/components/schemas/InternalAddressResponse"
+          },
+          "target_link_layer_address" : {
+            "type" : "string"
+          }
+        }
+      },
+      "NdpMessagesListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "messages" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NdpMessageResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NdpPrefix" : {
+        "type" : "object",
+        "properties" : {
+          "autonomous" : {
+            "type" : "boolean"
+          },
+          "on_link" : {
+            "type" : "boolean"
+          },
+          "preferred_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "prefix_length" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "valid_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "NdpRoute" : {
+        "type" : "object",
+        "properties" : {
+          "lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "preference" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "prefix_length" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "NdpRouterAdvertisementResponse" : {
+        "type" : "object",
+        "properties" : {
+          "current_hop_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "destination_address" : {
+            "type" : "string"
+          },
+          "dns_search_list" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "dns_servers" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "dns_servers_lifetime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "hop_limit" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "managed" : {
+            "type" : "boolean"
+          },
+          "mtu" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "other_configuration" : {
+            "type" : "boolean"
+          },
+          "packet_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "preference" : {
+            "type" : "string"
+          },
+          "prefixes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NdpPrefix"
+            }
+          },
+          "reachable_time" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "retransmit_timer" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "router" : {
+            "$ref" : "#/components/schemas/InternalAddressResponse"
+          },
+          "router_lifetime" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "routes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NdpRoute"
+            }
+          },
+          "source_link_layer_address" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "NdpRouterAdvertisementsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "router_advertisements" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NdpRouterAdvertisementResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "NetworkContextDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -52988,10 +54250,10 @@
           },
           "scan_types" : {
             "type" : "array",
-            "description" : "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP. Omit or pass an empty list to match all types.",
+            "description" : "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP, NDP_SWEEP. Omit or pass an empty list to match all types.",
             "items" : {
               "type" : "string",
-              "description" : "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP. Omit or pass an empty list to match all types."
+              "description" : "Scan types to match: TCP_PORT_SCAN, TCP_HOST_SWEEP, UDP_PORT_SCAN, UDP_HOST_SWEEP, ARP_SWEEP, NDP_SWEEP. Omit or pass an empty list to match all types."
             },
             "writeOnly" : true
           },
@@ -56332,6 +57594,18 @@
         "type" : "object",
         "properties" : {
           "cgnat_is_internal" : {
+            "type" : "boolean"
+          },
+          "cgnat_is_internal_differs" : {
+            "type" : "boolean"
+          },
+          "internal_networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "internal_networks_differ" : {
             "type" : "boolean"
           },
           "name" : {

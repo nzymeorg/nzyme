@@ -30,7 +30,16 @@ public abstract class DhcpSpoofingServersListResponse {
     @JsonProperty("learning_period_ended_by_user")
     public abstract boolean learningPeriodEndedByUser();
 
-    public static DhcpSpoofingServersListResponse create(long total, List<DhcpSpoofingServerResponse> servers, DateTime learningPeriodStart, DateTime learningPeriodEnd, boolean learningPeriodActive, boolean learningPeriodEndedByUser) {
+    @JsonProperty("learning_protocols")
+    public abstract List<String> learningProtocols();
+
+    @JsonProperty("untrusted_limit")
+    public abstract int untrustedLimit();
+
+    @JsonProperty("untrusted_limit_reached_protocols")
+    public abstract List<String> untrustedLimitReachedProtocols();
+
+    public static DhcpSpoofingServersListResponse create(long total, List<DhcpSpoofingServerResponse> servers, DateTime learningPeriodStart, DateTime learningPeriodEnd, boolean learningPeriodActive, boolean learningPeriodEndedByUser, List<String> learningProtocols, int untrustedLimit, List<String> untrustedLimitReachedProtocols) {
         return builder()
                 .total(total)
                 .servers(servers)
@@ -38,6 +47,9 @@ public abstract class DhcpSpoofingServersListResponse {
                 .learningPeriodEnd(learningPeriodEnd)
                 .learningPeriodActive(learningPeriodActive)
                 .learningPeriodEndedByUser(learningPeriodEndedByUser)
+                .learningProtocols(learningProtocols)
+                .untrustedLimit(untrustedLimit)
+                .untrustedLimitReachedProtocols(untrustedLimitReachedProtocols)
                 .build();
     }
 
@@ -57,6 +69,9 @@ public abstract class DhcpSpoofingServersListResponse {
         public abstract Builder learningPeriodActive(boolean learningPeriodActive);
 
         public abstract Builder learningPeriodEndedByUser(boolean learningPeriodEndedByUser);
+        public abstract Builder learningProtocols(List<String> learningProtocols);
+        public abstract Builder untrustedLimit(int untrustedLimit);
+        public abstract Builder untrustedLimitReachedProtocols(List<String> untrustedLimitReachedProtocols);
         public abstract DhcpSpoofingServersListResponse build();
     }
 }

@@ -4,6 +4,7 @@ import {serializeTimeRange} from "../../shared/timerange/TimeRangeUrl";
 import {Absolute} from "../../shared/timerange/TimeRange";
 import {countryName, filteredLink, formatBytes, formatCount, UNRESOLVED_EXTERNAL_LABEL} from "../assets/details/AssetProfileHelpers";
 import {countryCentroid} from "../../shared/maps/CountryCentroids";
+import {shortenIpAddress} from "../shared/IPAddress";
 
 export const INTERNAL_LEVELS = [["HOST", "Addresses"], ["SUBNET", "Networks"], ["TAP", "Taps"]];
 export const EXTERNAL_LEVELS = [["NETWORK", "Autonomous systems"], ["COUNTRY", "Countries"], ["HOST", "Addresses"]];
@@ -82,6 +83,26 @@ export const coverageNoun = (view) => (n) => (view === "graph" || view === "matr
 
 export const noDataText = (what) => "No " + what + " match the selected filters. Sessions to multicast, broadcast " +
     "and loopback addresses are not part of the topology.";
+
+// An IPv6 address that does not fit is cut in the middle: its end is what tells the hosts of a network apart.
+export const truncateLabel = (s, max) => {
+  if (!s || s.length <= max) {
+    return s;
+  }
+
+  const shortened = shortenIpAddress(s, max);
+  if (shortened.length <= max) {
+    return shortened;
+  }
+
+  if (/^[0-9a-f:…]+$/i.test(shortened) && shortened.includes(":")) {
+    const [head, end] = shortened.includes("…") ? shortened.split("…") : [shortened, shortened];
+    const tail = end.slice(-Math.max(1, max - 1 - Math.min(head.length, 4)));
+    return head.substring(0, max - 1 - tail.length) + "…" + tail;
+  }
+
+  return s.substring(0, Math.max(1, max - 1)) + "…";
+}
 
 export function nodeLabel(node) {
   switch (node.level) {

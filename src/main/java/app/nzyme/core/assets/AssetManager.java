@@ -11,6 +11,7 @@ import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.shared.db.GenericIntegerHistogramEntry;
+import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterSql;
@@ -314,13 +315,13 @@ public class AssetManager {
 
     // The TCP and UDP sources record the source MAC of a packet. A router is the source MAC of everything it
     // forwards and is recorded with every address behind it, so an asset only counts as the device that has an
-    // address if it claimed the address by ARP.
-    public static final String IP_ADDRESS_CLAIM_SOURCE = "Arp";
+    // address if it claimed the address by ARP or, for IPv6, by neighbor discovery.
+    public static final String IP_ADDRESS_CLAIM_SOURCES_SQL = "('Arp', 'Ndp')";
 
     // For a row of assets_ip_addresses: if the asset of the row claimed the address of the row.
     public static String ipAddressClaimed(String alias) {
         return "EXISTS (SELECT 1 FROM assets_ip_addresses AS claim WHERE claim.asset_id = " + alias + ".asset_id " +
-                "AND claim.address = " + alias + ".address AND claim.source = '" + IP_ADDRESS_CLAIM_SOURCE + "') ";
+                "AND claim.address = " + alias + ".address AND claim.source IN " + IP_ADDRESS_CLAIM_SOURCES_SQL + ") ";
     }
 
     public boolean claimedIpAddress(String mac, InetAddress ip, UUID organizationId, UUID tenantId) {
@@ -328,12 +329,11 @@ public class AssetManager {
                 handle.createQuery("SELECT EXISTS (SELECT 1 FROM assets_ip_addresses AS i " +
                                 "JOIN assets AS a ON a.id = i.asset_id WHERE a.mac = :mac " +
                                 "AND a.organization_id = :organization_id AND a.tenant_id = :tenant_id " +
-                                "AND i.address = :ip AND i.source = :source)")
+                                "AND i.address = :ip AND i.source IN " + IP_ADDRESS_CLAIM_SOURCES_SQL + ")")
                         .bind("mac", mac)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
                         .bind("ip", ip)
-                        .bind("source", IP_ADDRESS_CLAIM_SOURCE)
                         .mapTo(Boolean.class)
                         .one()
         );
@@ -396,6 +396,42 @@ public class AssetManager {
                 .bind("since", since)
                 .mapTo(UUID.class)
                 .list();
+    }
+
+    public enum SeenBy {
+        DHCP("seen_dhcp"),
+        NDP("seen_ndp");
+
+        private final String column;
+
+        SeenBy(String column) {
+            this.column = column;
+        }
+    }
+
+    public void registerSeen(Handle handle, Tap tap, String mac, DateTime firstSeen, DateTime lastSeen, SeenBy seenBy) {
+        UUID uuid = UUID.randomUUID();
+
+        boolean inserted = handle.createQuery("INSERT INTO assets(uuid, organization_id, tenant_id, mac, " +
+                        "first_seen, last_seen, " + seenBy.column + ", updated_at, created_at) " +
+                        "VALUES(:uuid, :organization_id, :tenant_id, :mac, :first_seen, :last_seen, true, " +
+                        "NOW(), NOW()) " +
+                        "ON CONFLICT (mac, organization_id, tenant_id) DO UPDATE SET " +
+                        "last_seen = GREATEST(assets.last_seen, EXCLUDED.last_seen), " +
+                        seenBy.column + " = true, updated_at = NOW() " +
+                        "RETURNING (xmax = 0) AS inserted")
+                .bind("uuid", uuid)
+                .bind("organization_id", tap.organizationId())
+                .bind("tenant_id", tap.tenantId())
+                .bind("mac", mac)
+                .bind("first_seen", firstSeen)
+                .bind("last_seen", lastSeen)
+                .mapTo(Boolean.class)
+                .one();
+
+        if (inserted) {
+            onNewAsset(Subsystem.ETHERNET, uuid, mac, tap.organizationId(), tap.tenantId(), tap.uuid());
+        }
     }
 
     public void onNewAsset(Subsystem subsystem,
@@ -596,10 +632,16 @@ public class AssetManager {
     private static final String INACTIVE_CONDITION =
             "(a.last_seen < (NOW() - interval '" + ACTIVE_ASSET_TIMEOUT_MINUTES + " minute'))";
 
+    public static final int MAX_LISTED_IP_ADDRESSES = 100;
+
+    private static final String LINK_LOCAL_LAST = "(address <<= 'fe80::/10'::inet OR address <<= '169.254.0.0/16'::inet)";
+
     private static final String ASSET_COLUMNS =
             "a.*, " + ACTIVE_CONDITION + " AS is_active, " +
                     "COALESCE(array_agg(DISTINCT h.hostname) FILTER (WHERE h.hostname IS NOT NULL), '{}') AS hostnames, " +
-                    "COALESCE(array_agg(DISTINCT host(i.address)) FILTER (WHERE i.address IS NOT NULL), '{}') AS ip_addresses ";
+                    "ARRAY(SELECT host(o.address) FROM assets_ip_addresses AS o WHERE o.asset_id = a.id " +
+                    "GROUP BY o.address ORDER BY " + LINK_LOCAL_LAST.replace("address", "o.address") +
+                    ", MAX(o.last_seen) DESC, o.address LIMIT " + MAX_LISTED_IP_ADDRESSES + ") AS ip_addresses ";
 
     private static final String ASSET_JOINS =
             "FROM assets AS a " +

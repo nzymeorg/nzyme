@@ -1,5 +1,6 @@
 package app.nzyme.core.search.sources;
 
+import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.ethernet.recon.ReconScanType;
 import app.nzyme.core.rest.responses.search.SearchHitResponse;
 import app.nzyme.core.search.SearchConditions;
@@ -301,7 +302,8 @@ public class EthernetSearch {
                     hits.add(hit(
                             "SPOOFING_ARP",
                             text(row, "address"),
-                            "ARP poisoning of this address",
+                            (text(row, "address") != null && text(row, "address").contains(":") ? "NDP" : "ARP")
+                                    + " poisoning of this address",
                             facts(term)
                                     .add("Spoofer", row.get("spoofer_mac"))
                                     .add("Owner", row.get("owner_mac"))
@@ -323,7 +325,7 @@ public class EthernetSearch {
                         .custom("EXISTS (SELECT 1 FROM spoofing_dhcp_victims v WHERE v.finding_id = f.id "
                                 + "AND v.assigned_address = :s_ip::inet)", SearchTerm.Kind.IP);
 
-                for (Map<String, Object> row : rows(handle, "SELECT f.uuid, f.type, f.server_mac, "
+                for (Map<String, Object> row : rows(handle, "SELECT f.uuid, f.type, f.protocol, f.server_mac, "
                         + "host(f.server_address) AS address, f.victim_count, f.last_seen "
                         + "FROM spoofing_dhcp_findings f "
                         + "WHERE " + tenant("f") + " AND " + dhcp.sql() + " "
@@ -333,8 +335,7 @@ public class EthernetSearch {
                     hits.add(hit(
                             "SPOOFING_DHCP",
                             server,
-                            "ROGUE_SERVER".equals(text(row, "type"))
-                                    ? "Rogue DHCP server" : "DHCP server handing out changed configuration",
+                            dhcpFindingText(text(row, "type"), text(row, "protocol")),
                             facts(term)
                                     .add("Server MAC", row.get("server_mac"))
                                     .add("Victims", count(number(row, "victim_count"), "device", "devices"))
@@ -874,6 +875,17 @@ public class EthernetSearch {
 
         String spaced = value.replace('_', ' ').toLowerCase(java.util.Locale.ROOT);
         return Character.toUpperCase(spaced.charAt(0)) + spaced.substring(1);
+    }
+
+    private static String dhcpFindingText(String type, String protocol) {
+        boolean rogue = "ROGUE_SERVER".equals(type);
+
+        if (DhcpSpoofingDetector.PROTOCOL_ROUTER_ADVERTISEMENT.equals(protocol)) {
+            return rogue ? "Rogue IPv6 router" : "IPv6 router advertising a changed configuration";
+        }
+
+        String server = DhcpSpoofingDetector.PROTOCOL_DHCP6.equals(protocol) ? "DHCPv6 server" : "DHCP server";
+        return rogue ? "Rogue " + server : server + " handing out changed configuration";
     }
 
 }

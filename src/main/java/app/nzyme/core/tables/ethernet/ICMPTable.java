@@ -37,12 +37,12 @@ public class ICMPTable implements DataTable {
                 }
 
                 PreparedBatch batch = handle.prepareBatch("INSERT INTO icmp_packets(tap_uuid, source_mac, " +
-                        "destination_mac, source_address, destination_address, icmp_type, icmp_code, " +
+                        "destination_mac, source_address, destination_address, ip_version, icmp_type, icmp_code, " +
                         "packet_count, bytes_min, bytes_max, ip_ttl, ip_tos, ip_df, redirect_gateway, " +
                         "quoted_protocol, quoted_source_address, quoted_destination_address, quoted_source_port, " +
                         "quoted_destination_port, quoted_ttl, first_seen, last_seen, created_at) " +
                         "VALUES(:tap_uuid, :source_mac, :destination_mac, :source_address::inet, " +
-                        ":destination_address::inet, :icmp_type, :icmp_code, :packet_count, :bytes_min, " +
+                        ":destination_address::inet, :ip_version, :icmp_type, :icmp_code, :packet_count, :bytes_min, " +
                         ":bytes_max, :ip_ttl, :ip_tos, :ip_df, :redirect_gateway::inet, :quoted_protocol, " +
                         ":quoted_source_address::inet, :quoted_destination_address::inet, :quoted_source_port, " +
                         ":quoted_destination_port, :quoted_ttl, :first_seen, :last_seen, NOW())");
@@ -53,6 +53,7 @@ public class ICMPTable implements DataTable {
                             .bind("destination_mac", s.destinationMac())
                             .bind("source_address", s.sourceAddress())
                             .bind("destination_address", s.destinationAddress())
+                            .bind("ip_version", s.ipVersion())
                             .bind("icmp_type", s.icmpType())
                             .bind("icmp_code", s.icmpCode())
                             .bind("packet_count", s.packetCount())
@@ -79,6 +80,7 @@ public class ICMPTable implements DataTable {
                             .bind("destination_mac", e.destinationMac())
                             .bind("source_address", e.sourceAddress())
                             .bind("destination_address", e.destinationAddress())
+                            .bind("ip_version", e.ipVersion())
                             .bind("icmp_type", e.icmpType())
                             .bind("icmp_code", e.icmpCode())
                             .bind("packet_count", 1L)
@@ -86,7 +88,7 @@ public class ICMPTable implements DataTable {
                             .bind("bytes_max", 0)
                             .bind("ip_ttl", e.ipTtl())
                             .bind("ip_tos", 0)
-                            .bind("ip_df", false)
+                            .bind("ip_df", e.ipVersion() == 6 ? null : Boolean.FALSE)
                             .bind("redirect_gateway", e.redirectGateway())
                             .bind("quoted_protocol", e.quotedProtocol())
                             .bind("quoted_source_address", e.quotedSourceAddress())

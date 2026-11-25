@@ -1,5 +1,6 @@
 package app.nzyme.core.rest.parameters.types;
 
+import com.google.common.net.InetAddresses;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ext.ParamConverter;
 import jakarta.ws.rs.ext.ParamConverterProvider;
@@ -18,6 +19,11 @@ public class InetAddressParamConverterProvider implements ParamConverterProvider
 
         return (ParamConverter<T>) new ParamConverter<InetAddress>() {
             @Override public InetAddress fromString(String value) {
+                // A zone like fe80::1%eth0 is not valid in SQL.
+                if (value == null || value.indexOf('%') >= 0) {
+                    throw new BadRequestException("Invalid IP address: [" + value + "]");
+                }
+
                 try {
                     return InetAddress.ofLiteral(value);
                 } catch (IllegalArgumentException e) {
@@ -25,7 +31,7 @@ public class InetAddressParamConverterProvider implements ParamConverterProvider
                 }
             }
             @Override public String toString(InetAddress value) {
-                return value.getHostAddress();
+                return InetAddresses.toAddrString(value);
             }
         };
     }

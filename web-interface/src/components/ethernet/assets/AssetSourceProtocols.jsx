@@ -8,6 +8,10 @@ export default function AssetSourceProtocols(props) {
     protocols.push("ARP");
   }
 
+  if (asset.seen_ndp) {
+    protocols.push("NDP");
+  }
+
   if (asset.seen_dhcp) {
     protocols.push("DHCP");
   }

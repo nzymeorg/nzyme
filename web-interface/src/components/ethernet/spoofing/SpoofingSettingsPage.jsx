@@ -19,8 +19,9 @@ const DESCRIPTIONS = {
   arp: (
     <React.Fragment>
       <p className="text-muted mb-2">
-        Runs every minute over the ARP packets of all taps of the tenant. Every ARP packet carries a claim that an
-        address belongs to a MAC address. A finding is raised when two different MAC addresses claimed the same
+        Runs every minute over the ARP packets and the NDP messages of all taps. Every ARP packet
+        carries a claim that an IPv4 address belongs to a MAC address, and NDP messages do the same for IPv6
+        addresses. A finding is raised when two different MAC addresses claimed the same
         address inside the detection window, the device that claimed it first over the owner lookback was still
         claiming it after the other device started, and the other device claimed it at least the minimum number
         of times inside the window.
@@ -35,15 +36,17 @@ const DESCRIPTIONS = {
   dhcp: (
     <React.Fragment>
       <p className="text-muted mb-2">
-        Runs over the DHCP transactions of all taps of the tenant. Every server that answers clients is learned
-        together with the configuration it hands out. Servers that answer inside the learning period are trusted
-        automatically; a learning period of zero trusts nothing until you do. A server that answers while it is
-        not trusted is a rogue server finding. A trusted server that hands out a gateway, DNS server, domain or
-        subnet mask different from its baseline is a changed configuration finding.
+        Runs over the DHCP and DHCPv6 transactions and the IPv6 router advertisements of all taps.
+        Every server that answers clients and every router that advertises itself is learned together with the
+        configuration it hands out. The ones seen inside the learning period are trusted automatically; a learning
+        period of zero trusts nothing until you do. DHCP, DHCPv6 and router advertisements each have a learning
+        period that starts when the first one is seen. A server or router that is seen while it is not trusted is
+        a rogue server finding. A trusted one that hands out a gateway, DNS server, domain, subnet mask or prefix
+        different from its baseline is a changed configuration finding.
       </p>
       <p className="text-muted">
-        End the learning period on the DHCP tab once every expected server is listed, and restart it there after
-        replacing a server. Transactions are analyzed a few minutes after they end, once all taps have reported
+        End the learning period on the DHCP and Routers tab once every expected server and router is listed, and
+        restart it there after replacing one. Transactions are analyzed a few minutes after they end, once all taps have reported
         them.
       </p>
     </React.Fragment>
@@ -51,7 +54,7 @@ const DESCRIPTIONS = {
   name_resolution: (
     <React.Fragment>
       <p className="text-muted mb-2">
-        Runs over the LLMNR, NBT-NS and mDNS answers of all taps of the tenant. A legitimate device answers
+        Runs over the LLMNR, NBT-NS and mDNS answers of all taps. A legitimate device answers
         queries for its own name only. A device that answered more different names than the threshold of the
         protocol allows inside the detection window, pointing them at one of its own addresses, is a finding. A
         device whose answers all point at the same one or two addresses is treated the same way.
@@ -65,7 +68,7 @@ const DESCRIPTIONS = {
   dns: (
     <React.Fragment>
       <p className="text-muted mb-2">
-        Runs every minute over the DNS transactions of all taps of the tenant. Every reply a tap records carries
+        Runs every minute over the DNS transactions of all taps. Every reply a tap records carries
         the MAC address it actually came from. For every resolver address, the MAC address that delivered its
         replies first over the owner lookback is the legitimate owner: the resolver itself or the gateway in front
         of it. A reply with the resolver&apos;s address from another MAC address, while the owner is still
@@ -82,28 +85,28 @@ const DESCRIPTIONS = {
 };
 
 const DELETE_DESCRIPTIONS = {
-  arp: "Deletes every ARP poisoning finding of this tenant, including its victims. Device and asset data is not " +
+  arp: "Deletes every ARP and NDP poisoning finding, including its victims. Device and asset data is not " +
     "affected. Exclusions and the settings above are kept. Findings are detected again if the devices keep " +
     "claiming addresses, unless an exclusion matches them.",
-  dhcp: "Deletes every DHCP spoofing finding of this tenant, including its victims. Learned servers and their " +
-    "trust status are kept, as are exclusions and the settings above. Findings are detected again if untrusted " +
-    "servers keep answering clients.",
-  name_resolution: "Deletes every name resolution poisoning finding of this tenant, including its victims. " +
+  dhcp: "Deletes every DHCP, DHCPv6 and router finding, including its victims. Learned servers and routers and " +
+    "their trust status are kept, as are exclusions and the settings above. Findings are detected again if " +
+    "untrusted servers or routers keep answering.",
+  name_resolution: "Deletes every name resolution poisoning finding, including its victims. " +
     "Exclusions and the settings above are kept. Findings are detected again if the devices keep answering name " +
     "queries, unless an exclusion matches them.",
-  dns: "Deletes every DNS spoofing finding of this tenant, including its victims. Exclusions and the settings " +
+  dns: "Deletes every DNS spoofing finding, including its victims. Exclusions and the settings " +
     "above are kept. Findings are detected again if the devices keep forging replies, unless an exclusion " +
     "matches them."
 };
 
 const DELETE_CONFIRMATIONS = {
-  arp: "Really delete ALL ARP poisoning findings of this tenant, including their victims? This cannot be undone. " +
+  arp: "Really delete ALL ARP and NDP poisoning findings, including their victims? This cannot be undone. " +
     "Findings are detected again if the devices keep claiming addresses.",
-  dhcp: "Really delete ALL DHCP spoofing findings of this tenant, including their victims? This cannot be undone. " +
-    "Learned servers are kept. Findings are detected again if untrusted servers keep answering.",
-  name_resolution: "Really delete ALL name resolution poisoning findings of this tenant, including their victims? " +
+  dhcp: "Really delete ALL DHCP, DHCPv6 and router findings, including their victims? This cannot be undone. " +
+    "Learned servers and routers are kept. Findings are detected again if untrusted servers or routers keep answering.",
+  name_resolution: "Really delete ALL name resolution poisoning findings, including their victims? " +
     "This cannot be undone. Findings are detected again if the devices keep answering name queries.",
-  dns: "Really delete ALL DNS spoofing findings of this tenant, including their victims? This cannot be undone. " +
+  dns: "Really delete ALL DNS spoofing findings, including their victims? This cannot be undone. " +
     "Findings are detected again if the devices keep forging replies."
 };
 

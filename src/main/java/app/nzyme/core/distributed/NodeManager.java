@@ -387,6 +387,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SOCKS_TOTAL_REPORT_PROCESSING_TIMER));
             writeTimer(MetricExternalName.REPORT_PROCESSING_VPN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.VPN_TOTAL_REPORT_PROCESSING_TIMER));
+            writeTimer(MetricExternalName.REPORT_PROCESSING_IPV6_TRANSITION_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.IPV6_TRANSITION_TOTAL_REPORT_PROCESSING_TIMER));
 
             writeTimer(MetricExternalName.BEACON_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.BEACON_DETECTION_RUN_TIMER));
@@ -413,6 +415,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.SEGMENTATION_CHUNK_TIMER));
             writeTimer(MetricExternalName.SEGMENTATION_RESTAMP_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.SEGMENTATION_RESTAMP_TIMER));
+            writeTimer(MetricExternalName.INTERNAL_ADDRESS_REWRITE_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.INTERNAL_ADDRESS_REWRITE_TIMER));
             writeTimer(MetricExternalName.SEGMENTATION_BACKFILL_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.SEGMENTATION_BACKFILL_TIMER));
             writeTimer(MetricExternalName.IDENTITY_DUPLICATE_MAC_DETECTION_RUN_TIMER.database_label,

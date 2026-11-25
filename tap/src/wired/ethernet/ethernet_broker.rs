@@ -10,7 +10,7 @@ use crate::helpers::network::to_mac_address_string;
 use crate::wired::packets::EthernetPacket;
 use crate::messagebus::channel_names::WiredChannelName;
 use crate::protocols::parsers::{arp_parser, ipv4_parser, ipv6_parser};
-use crate::protocols::tools::ip_tools::route_ipv4_packet;
+use crate::protocols::tools::ip_tools::route_ip_packet;
 use crate::wired::types::{find_ethertype, EtherType};
 
 pub struct EthernetBroker {
@@ -98,9 +98,17 @@ impl EthernetBroker {
                 }
             };
 
-            route_ipv4_packet(ipv4, bus);
+            route_ip_packet(ipv4, bus);
         } else if packet.packet_type == EtherType::IPv6 {
-            let _ip6 = ipv6_parser::parse(&packet);
+            let ipv6 = match ipv6_parser::parse_from_ethernet(&packet) {
+                Ok(x) => x,
+                Err(err) => {
+                    debug!("Could not parse IPv6 packet: {}", err);
+                    return;
+                }
+            };
+
+            route_ip_packet(ipv6, bus);
         } else if packet.packet_type == EtherType::Arp {
             match arp_parser::parse(&packet) {
                 Ok(packet) => {

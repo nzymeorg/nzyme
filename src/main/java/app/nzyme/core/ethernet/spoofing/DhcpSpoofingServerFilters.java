@@ -11,6 +11,8 @@ public class DhcpSpoofingServerFilters implements SqlFilterProvider {
     @Override
     public GeneratedSql buildSql(String bindId, String fieldName, FilterOperator operator) {
         switch (fieldName) {
+            case "protocol":
+                return GeneratedSql.create(stringMatch(bindId, "protocol", operator), "");
             case "mac":
                 return GeneratedSql.create(macAddressMatch(bindId, "mac", operator), "");
             case "tag":

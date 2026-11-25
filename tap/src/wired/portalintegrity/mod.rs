@@ -1,4 +1,5 @@
 pub mod probe;
+pub mod slaac;
 pub mod stack;
 pub mod tls;
 
@@ -17,6 +18,7 @@ use crate::link::reports::portal_integrity_report;
 use crate::metrics::Metrics;
 
 const DHCP_TIMEOUT: StdDuration = StdDuration::from_secs(15);
+const SLAAC_TIMEOUT: StdDuration = StdDuration::from_secs(15);
 
 pub fn run(cfg: PortalIntegrityConfiguration,
            probe_name: String,
@@ -34,6 +36,13 @@ pub fn run(cfg: PortalIntegrityConfiguration,
     loop {
         if let Err(e) = run_cycle(&cfg, probe_name.clone(), &metrics, &leaderlink) {
             error!("portal_integrity cycle failed: {:#}", e);
+        }
+
+        // Its own cycle, so that a network without IPv4 is still probed, and the other way around.
+        if cfg.ipv6 {
+            if let Err(e) = run_ipv6_cycle(&cfg, probe_name.clone(), &metrics, &leaderlink) {
+                error!("portal_integrity IPv6 cycle failed: {:#}", e);
+            }
         }
         debug!("Cycle complete, sleeping <{:?}>.", interval);
 
@@ -69,34 +78,63 @@ fn run_cycle(cfg: &PortalIntegrityConfiguration,
         let result = probe::probe_url(&mut stack, url, cfg.max_redirects, &context);
         result.log();
 
-
-        let mut timer = Timer::new();
-        // Generate JSON.
-        let report = match serde_json::to_string(&portal_integrity_report::generate(&result)) {
-            Ok(report) => report,
-            Err(e) => {
-                error!("Could not serialize portal integrity report: {}", e);
-                continue;
-            }
-        };
-        timer.stop();
-        record_timer(
-            timer.elapsed_microseconds(),
-            "portalintegrity.timer.report_generation",
-            &metrics
-        );
-
-        // Send report.
-        match leaderlink.lock() {
-            Ok(link) => {
-                if let Err(e) = link.send_report("portalintegrity/url", report) {
-                    error!("Could not submit portal integrity report: {}", e);
-                }
-            },
-            Err(e) => error!("Could not acquire leader link lock for portal integrity \
-                        report submission: {}", e)
-        }
+        send_report(&result, metrics, leaderlink);
     }
 
     Ok(())
+}
+
+fn run_ipv6_cycle(cfg: &PortalIntegrityConfiguration,
+                  probe_name: String,
+                  metrics: &Arc<Mutex<Metrics>>,
+                  leaderlink: &Arc<Mutex<Leaderlink>>) -> Result<()> {
+    for url in &cfg.control_urls {
+        let mac = mac::parse(&cfg.mac)?;
+        let mut stack = Stack::new(&cfg.interface, mac)?;
+        let configuration = stack.run_slaac(SLAAC_TIMEOUT)?;
+
+        let context = probe::ProbeContext {
+            name: probe_name.clone(),
+            interface: cfg.interface.clone(),
+            mac: mac.to_string().replace("-", ":").to_uppercase(),
+            assigned_cidr: configuration.address.to_string(),
+            gateway: Some(configuration.router.to_string()),
+            dhcp_server: None,
+            dns_servers: configuration.dns_servers.iter().map(|d| d.to_string()).collect(),
+        };
+
+        let result = probe::probe_url(&mut stack, url, cfg.max_redirects, &context);
+        result.log();
+
+        send_report(&result, metrics, leaderlink);
+    }
+
+    Ok(())
+}
+
+fn send_report(result: &probe::ProbeResult, metrics: &Arc<Mutex<Metrics>>, leaderlink: &Arc<Mutex<Leaderlink>>) {
+    let mut timer = Timer::new();
+    let report = match serde_json::to_string(&portal_integrity_report::generate(result)) {
+        Ok(report) => report,
+        Err(e) => {
+            error!("Could not serialize portal integrity report: {}", e);
+            return;
+        }
+    };
+    timer.stop();
+    record_timer(
+        timer.elapsed_microseconds(),
+        "portalintegrity.timer.report_generation",
+        metrics
+    );
+
+    match leaderlink.lock() {
+        Ok(link) => {
+            if let Err(e) = link.send_report("portalintegrity/url", report) {
+                error!("Could not submit portal integrity report: {}", e);
+            }
+        },
+        Err(e) => error!("Could not acquire leader link lock for portal integrity \
+                    report submission: {}", e)
+    }
 }

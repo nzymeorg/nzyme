@@ -13,10 +13,11 @@ import {
   zoomIdentity
 } from "d3";
 import Store from "../../../util/Store";
+import {cidrToRange} from "../../../util/Tools";
 import ZoomHint, {useZoomHint, wheelZoomDelta, wheelZooms} from "../../shared/ZoomHint";
 import {colorsForMode, drawGrid, FONT_FAMILY, tooltipStyle} from "../../shared/viz/VizTheme";
 import {countryName, formatBytes, formatCount} from "../assets/details/AssetProfileHelpers";
-import {linkClassColor, noDataText, nodeFilter, nodeKind, pairIdOf} from "./TopologyData";
+import {linkClassColor, noDataText, nodeFilter, nodeKind, pairIdOf, truncateLabel as truncate} from "./TopologyData";
 
 const MIN_RADIUS = 4;
 const MAX_RADIUS = 15;
@@ -51,7 +52,6 @@ const MAX_REMEMBERED_POSITIONS = 3000;
 const reducedMotion = () => typeof window.matchMedia === "function"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const truncate = (s, max) => (s && s.length > max ? s.substring(0, max - 1) + "…" : s);
 
 const linkWidth = (bytes) => {
   if (!bytes || bytes <= 0) return MIN_LINK_WIDTH;
@@ -94,9 +94,13 @@ const groupOf = (node) => {
   const data = node.data;
 
   if (node.type === "INTERNAL") {
-    if (data.level === "HOST" && data.address && data.address.indexOf(".") > 0) {
-      const network = data.address.split(".").slice(0, 3).join(".") + ".0/24";
-      return {key: "net:" + network, label: network, ring: 0};
+    if (data.level === "HOST" && data.address) {
+      const prefix = data.address.includes(":") ? 64 : 24;
+      const range = cidrToRange(data.address + "/" + prefix);
+      if (range) {
+        const network = range.from + "/" + prefix;
+        return {key: "net:" + network, label: network, ring: 0};
+      }
     }
     return {key: "internal", label: "Internal", ring: 0};
   }

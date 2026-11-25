@@ -47,13 +47,12 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.util.*;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/recon/scans")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
 @Tag(name = "Recon Scans", description = "A scan is a device probing the network: a port scan tries many ports "
-        + "of one host, a host sweep tries many hosts, an ARP sweep asks for many addresses on the local "
+        + "of one host, a host sweep tries many hosts, an ARP or NDP sweep asks for many addresses on the local "
         + "segment. Nzyme detects scans passively from the TCP, UDP and ARP traffic the taps report, merges "
         + "observations of several taps and keeps a scan open while the device continues probing. Each scan "
         + "carries the targets it probed and whether they answered. Scans are retention cleaned.")
@@ -102,7 +101,7 @@ public class ReconScansResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         List<UUID> taps = parseTapsFilter(sc, tapIds);
 
@@ -161,7 +160,7 @@ public class ReconScansResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         List<UUID> taps = parseTapsFilter(sc, tapIds);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
@@ -243,7 +242,7 @@ public class ReconScansResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Recon.TargetOrderColumn orderColumn = Recon.TargetOrderColumn.OUTCOME;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -457,7 +456,7 @@ public class ReconScansResource extends TapDataHandlingResource {
         detection.add(numberEntry(ReconRegistryKeys.DETECTION_WINDOW_MINUTES, "Detection window (Minutes)", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.PORT_SCAN_MINIMUM_PORTS, "Port scan: Minimum ports on one host", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.HOST_SWEEP_MINIMUM_HOSTS, "Host sweep: Minimum hosts", organizationId, tenantId));
-        detection.add(numberEntry(ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS, "ARP sweep: Minimum hosts", organizationId, tenantId));
+        detection.add(numberEntry(ReconRegistryKeys.ARP_SWEEP_MINIMUM_HOSTS, "ARP and NDP sweep: Minimum hosts", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.MINIMUM_FAILURE_PERCENT, "Minimum share of unanswered or refused probes (Percent)", organizationId, tenantId));
         detection.add(numberEntry(ReconRegistryKeys.SCAN_RETENTION_TIME_DAYS, "Scan retention time (Days)", organizationId, tenantId));
         detection.add(booleanEntry(ReconRegistryKeys.SLOW_SCAN_ENABLED, "Slow scan detection enabled", organizationId, tenantId));
@@ -467,7 +466,7 @@ public class ReconScansResource extends TapDataHandlingResource {
         List<ConfigurationEntryResponse> sources = Lists.newArrayList();
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_TCP_ENABLED, "TCP sessions and stateless probes", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_UDP_ENABLED, "UDP conversations", organizationId, tenantId));
-        sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ARP_ENABLED, "ARP requests", organizationId, tenantId));
+        sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ARP_ENABLED, "ARP requests and neighbor solicitations", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_ICMP_ENABLED, "ICMP echo and discovery requests (ping sweeps)", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.SOURCE_DNS_ENABLED, "DNS queries (reverse sweeps)", organizationId, tenantId));
         sources.add(booleanEntry(ReconRegistryKeys.FINGERPRINTING_ENABLED, "OS fingerprinting probes (ICMP, TCP, UDP)", organizationId, tenantId));

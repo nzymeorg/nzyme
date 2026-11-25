@@ -4,10 +4,11 @@ import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 import LoadingSpinner from "../../../misc/LoadingSpinner";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import {dimensionTitle, formatCount} from "./AssetProfileHelpers";
-import TcpFingerprint from "../identity/TcpFingerprint";
+import TcpFingerprint, {tcpFingerprintIpVersion} from "../identity/TcpFingerprint";
 
 const IDENTITY_DIMENSIONS = [
   "DHCP_VENDOR_CLASS", "DHCP_FINGERPRINT", "DHCP_PARAMETER_REQUEST_LIST", "DHCP_CLIENT_IDENTIFIER",
+  "DHCP6_FINGERPRINT", "DHCP6_CLIENT_DUID",
   "TCP_STACK", "TCP_FINGERPRINT", "TCP_SIGNATURE", "TCP_FINGERPRINT_FORWARDED", "TCP_SERVER_FINGERPRINT",
   "TCP_SERVER_SIGNATURE",
   "SOURCE_PORT_RANGE", "TCP_TIMESTAMP_RATE", "IP_ID_BEHAVIOR", "JA4", "TLS_VERSION", "NTP_CLIENT_VERSION"
@@ -61,7 +62,10 @@ export default function AssetIdentityCard({attributes, onRefresh}) {
         <td>{row.attribute}</td>
         <td>
           {isTcpStackDimension(row.dimension)
-            ? <TcpFingerprint value={row.value} />
+            ? <React.Fragment>
+                <TcpFingerprint value={row.value} />{' '}
+                <span className="text-muted">IPv{tcpFingerprintIpVersion(row.value)}</span>
+              </React.Fragment>
             : <span className="machine-data">{row.value}</span>}
         </td>
         <td>{formatCount(row.count)}</td>

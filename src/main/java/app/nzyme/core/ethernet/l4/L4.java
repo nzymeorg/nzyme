@@ -875,6 +875,35 @@ public class L4 {
         );
     }
 
+    public List<NumberNumberNumberAggregationResult> getIpVersionHistogram(TimeRange timeRange,
+                                                                           Filters filters,
+                                                                           List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new L4Filters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("WITH sess AS (" +
+                                "SELECT MAX(family(source_address)) AS version, " +
+                                "MAX(bytes_rx_count) + MAX(bytes_tx_count) AS bytes " +
+                                "FROM l4_sessions WHERE most_recent_segment_time >= :tr_from " +
+                                "AND most_recent_segment_time <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
+                                "GROUP BY session_key, l4_type, state HAVING 1=1 " + filterFragment.havingSql() +
+                                ") " +
+                                "SELECT version AS key, COUNT(*) AS value1, SUM(bytes) AS value2 " +
+                                "FROM sess GROUP BY version ORDER BY version ASC")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindMap(filterFragment.bindings())
+                        .bindList("taps", taps)
+                        .mapTo(NumberNumberNumberAggregationResult.class)
+                        .list()
+        );
+    }
+
     public Optional<L4AddressData> findMostRecentDestinationAddressData(List<UUID> taps, String address) {
         if (taps.isEmpty()) {
             return Optional.empty();

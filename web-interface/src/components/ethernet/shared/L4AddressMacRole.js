@@ -2,7 +2,7 @@
 export const MAC_ROLE_NOTES = {
   UNCLAIMED: {
     icon: "fa-circle-question",
-    note: "This MAC address did not claim the IP address by ARP. It usually belongs to a router that forwarded the traffic."
+    note: "This MAC address did not claim the IP address by ARP or NDP. It usually belongs to a router that forwarded the traffic."
   },
   PUBLIC: {
     icon: "fa-globe",

@@ -124,6 +124,7 @@ pub struct PortalIntegrityConfiguration {
     pub interval_minutes: u64,
     pub control_urls: Vec<String>,
     pub max_redirects: u32,
+    pub ipv6: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -141,7 +142,8 @@ pub struct Misc {
     pub context_mac_ip_retention_hours: i32,
     pub context_mac_hostname_retention_hours: i32,
     pub panic_log_file_path: Option<String>,
-    pub cgnat_is_internal: Option<bool>
+    pub cgnat_is_internal: Option<bool>,
+    pub internal_networks: Vec<String>
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,15 +154,18 @@ pub struct Protocols {
     pub dns: ProtocolsDns,
     pub arp: ProtocolsArp,
     pub icmp: ProtocolsIcmp,
+    pub ndp: ProtocolsNdp,
     pub ssh: ProtocolsSsh,
     pub tls: ProtocolsTls,
     pub socks: ProtocolsSocks,
     pub dhcpv4: ProtocolsDhcpv4,
+    pub dhcpv6: ProtocolsDhcpv6,
     pub ntp: ProtocolsNtp,
     pub rtsp: ProtocolsRtsp,
     pub stun: ProtocolsStun,
     pub webrtc: ProtocolsWebRtc,
     pub vpn: ProtocolsVpn,
+    pub ipv6_transition: ProtocolsIpv6Transition,
     pub uav_remote_id: ProtocolsUavRemoteId,
 }
 
@@ -201,6 +206,11 @@ pub struct ProtocolsIcmp {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ProtocolsNdp {
+    pub pipeline_size: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct ProtocolsSsh {
     pub pipeline_size: i32
 }
@@ -217,6 +227,11 @@ pub struct ProtocolsSocks {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProtocolsDhcpv4 {
+    pub pipeline_size: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProtocolsDhcpv6 {
     pub pipeline_size: i32
 }
 
@@ -242,6 +257,11 @@ pub struct ProtocolsWebRtc {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ProtocolsVpn {
+    pub pipeline_size: i32
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ProtocolsIpv6Transition {
     pub pipeline_size: i32
 }
 
@@ -327,6 +347,12 @@ pub fn load(path: String) -> Result<Configuration, Error> {
                 bail!("Configuration variable `telemetry.tick_ms` must be between {} and {}.",
                     TELEMETRY_MIN_TICK_MS, TELEMETRY_MAX_TICK_MS);
             }
+        }
+    }
+
+    for network in &doc.misc.internal_networks {
+        if !is_valid_cidr(network) {
+            bail!("Internal network [{}] is not a valid CIDR.", network);
         }
     }
 
@@ -424,6 +450,11 @@ pub fn load(path: String) -> Result<Configuration, Error> {
             greater than 0.");
     }
 
+    if doc.protocols.ndp.pipeline_size <= 0 {
+        bail!("Configuration variable `protocols.ndp.pipeline_size` must be set to a value \
+            greater than 0.");
+    }
+
     // ARP.
     if doc.protocols.arp.pipeline_size <= 0 {
         bail!("Configuration variable `protocols.arp.pipeline_size` must be set to a value \
@@ -453,6 +484,11 @@ pub fn load(path: String) -> Result<Configuration, Error> {
         bail!("Configuration variable `protocols.dhcpv4.pipeline_size` must be set to a value \
             greater than 0.");
     }
+
+    if doc.protocols.dhcpv6.pipeline_size <= 0 {
+        bail!("Configuration variable `protocols.dhcpv6.pipeline_size` must be set to a value \
+            greater than 0.");
+    }
     
     // NTP.
     if doc.protocols.ntp.pipeline_size <= 0 {
@@ -475,6 +511,11 @@ pub fn load(path: String) -> Result<Configuration, Error> {
     // VPN.
     if doc.protocols.vpn.pipeline_size <= 0 {
         bail!("Configuration variable `protocols.vpn.pipeline_size` must be set to a value \
+            greater than 0.");
+    }
+
+    if doc.protocols.ipv6_transition.pipeline_size <= 0 {
+        bail!("Configuration variable `protocols.ipv6_transition.pipeline_size` must be set to a value \
             greater than 0.");
     }
 

@@ -6,7 +6,6 @@ import app.nzyme.core.database.DataTableInformation;
 import app.nzyme.core.database.DatabaseImpl;
 import app.nzyme.core.security.authentication.db.OrganizationEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
-import app.nzyme.core.util.Tools;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import jakarta.annotation.Nullable;
@@ -169,7 +168,7 @@ public class DatabaseUsage {
     }
 
     private Map<String, Long> countRows(Handle handle, List<DataTableInformation> tables, @Nullable UUID organizationId, @Nullable UUID tenantId) {
-        List<UUID> tapUuids = Tools.getTapUuids(nzyme, organizationId, tenantId);
+        List<UUID> tapUuids = nzyme.getTapManager().findAllTapUuidsIncludingDeleted(organizationId, tenantId);
 
         Map<String, Long> rows = Maps.newHashMap();
         for (DataTableInformation table : tables) {

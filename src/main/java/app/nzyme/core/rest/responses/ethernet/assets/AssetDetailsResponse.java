@@ -48,6 +48,9 @@ public abstract class AssetDetailsResponse {
     @JsonProperty("seen_arp")
     public abstract boolean seenArp();
 
+    @JsonProperty("seen_ndp")
+    public abstract boolean seenNdp();
+
     @JsonProperty("seen_dhcp")
     public abstract boolean seenDhcp();
 
@@ -63,7 +66,7 @@ public abstract class AssetDetailsResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static AssetDetailsResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, DateTime firstSeen, DateTime lastSeen) {
+    public static AssetDetailsResponse create(UUID uuid, EthernetMacAddressResponse mac, String oui, boolean isActive, String name, String dhcpFingerprintInitial, String dhcpFingerprintRenew, String dhcpFingerprintReboot, String dhcpFingerprintRebind, boolean seenArp, boolean seenNdp, boolean seenDhcp, boolean seenTcp, boolean seenUdp, DateTime firstSeen, DateTime lastSeen) {
         return builder()
                 .uuid(uuid)
                 .mac(mac)
@@ -75,6 +78,7 @@ public abstract class AssetDetailsResponse {
                 .dhcpFingerprintReboot(dhcpFingerprintReboot)
                 .dhcpFingerprintRebind(dhcpFingerprintRebind)
                 .seenArp(seenArp)
+                .seenNdp(seenNdp)
                 .seenDhcp(seenDhcp)
                 .seenTcp(seenTcp)
                 .seenUdp(seenUdp)
@@ -108,6 +112,7 @@ public abstract class AssetDetailsResponse {
         public abstract Builder dhcpFingerprintRebind(String dhcpFingerprintRebind);
 
         public abstract Builder seenArp(boolean seenArp);
+        public abstract Builder seenNdp(boolean seenNdp);
 
         public abstract Builder seenDhcp(boolean seenDhcp);
 

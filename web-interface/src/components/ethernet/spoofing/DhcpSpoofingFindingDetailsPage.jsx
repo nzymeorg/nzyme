@@ -14,6 +14,7 @@ import SpoofingService from "../../../services/ethernet/SpoofingService";
 import L4Address from "../shared/L4Address";
 import EthernetMacAddress from "../../shared/context/macs/EthernetMacAddress";
 import DhcpSpoofingFindingType, {dhcpSpoofingFindingTypeToName} from "./DhcpSpoofingFindingType";
+import {dhcpSpoofingProtocolToName, dhcpSpoofingServerNoun, isRouterAdvertisement} from "./DhcpSpoofingProtocol";
 import DhcpOfferedParameters from "./DhcpOfferedParameters";
 
 const spoofingService = new SpoofingService();
@@ -31,7 +32,7 @@ export default function DhcpSpoofingFindingDetailsPage() {
   const [redirect, setRedirect] = useState(false);
   const [revision, setRevision] = useState(new Date());
 
-  usePageTitle(details ? `DHCP Spoofing: ${details.finding.server_address}` : "Ethernet DHCP Spoofing Details");
+  usePageTitle(details ? `DHCP and Router Spoofing: ${details.finding.server_address}` : "Ethernet DHCP and Router Spoofing Details");
 
   useEffect(() => {
     setDetails(null);
@@ -55,13 +56,13 @@ export default function DhcpSpoofingFindingDetailsPage() {
   const onTrust = (e) => {
     e.preventDefault();
 
-    if (!confirm("Trust this DHCP server? It will no longer raise rogue server findings, and the configuration it " +
+    if (!confirm("Trust this " + dhcpSpoofingServerNoun(details.finding.protocol) + "? It will no longer raise rogue server findings, and the configuration it " +
         "hands out right now becomes its expected configuration.")) {
       return;
     }
 
     spoofingService.setDhcpServerTrusted(details.finding.server_uuid, organizationId, tenantId, true, () => {
-      toast.success("Server is now trusted.");
+      toast.success("Now trusted.");
       setRevision(new Date());
     });
   }
@@ -86,7 +87,7 @@ export default function DhcpSpoofingFindingDetailsPage() {
   if (notFound) {
     return (
       <div className="alert alert-warning">
-        Finding not found. <Link to={ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX}>Back to DHCP Spoofing</Link>
+        Finding not found. <Link to={ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX}>Back to DHCP and Routers</Link>
       </div>
     )
   }
@@ -97,10 +98,17 @@ export default function DhcpSpoofingFindingDetailsPage() {
 
   const f = details.finding;
   const rogue = f.type === "ROGUE_SERVER";
+  const router = isRouterAdvertisement(f.protocol);
+  const noun = dhcpSpoofingServerNoun(f.protocol);
 
-  const transactionsLink = ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({
-    server_mac: [{field: "server_mac", operator: "equals", value: f.server_mac}]
-  }));
+  const transactionsLink = router
+    ? ApiRoutes.ETHERNET.ASSETS.NDP.ROUTER_ADVERTISEMENTS + "?filters=" + encodeURIComponent(JSON.stringify({
+      source_address: [{field: "source_address", operator: "equals", value: f.server_address}],
+      source_mac: [{field: "source_mac", operator: "equals", value: f.server_mac}]
+    }))
+    : ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX + "?filters=" + encodeURIComponent(JSON.stringify({
+      server_mac: [{field: "server_mac", operator: "equals", value: f.server_mac}]
+    }));
 
   return (
     <React.Fragment>
@@ -122,7 +130,8 @@ export default function DhcpSpoofingFindingDetailsPage() {
       <div className="row mt-3">
         <div className="col-7">
           <h1>
-            {rogue ? "Rogue DHCP Server" : "Changed DHCP Configuration from"}{' '}
+            {rogue ? (router ? "Rogue IPv6 Router" : f.protocol === "DHCP6" ? "Rogue DHCPv6 Server" : "Rogue DHCP Server")
+              : (router ? "Changed Router Advertisement from" : "Changed DHCP Configuration from")}{' '}
             <span className="machine-data">{f.server_address}</span>
           </h1>
         </div>
@@ -147,7 +156,7 @@ export default function DhcpSpoofingFindingDetailsPage() {
               </Link>
               <a href="#" className="btn btn-danger me-1" onClick={onDelete}>Delete Finding</a>
             </React.Fragment> : null}
-          <Link to={ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX} className="btn btn-primary">Back to DHCP Spoofing</Link>
+          <Link to={ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX} className="btn btn-primary">Back to DHCP and Routers</Link>
         </div>
       </div>
 
@@ -194,16 +203,21 @@ export default function DhcpSpoofingFindingDetailsPage() {
         <div className="col-4">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Server" />
+              <CardTitleWithControls title={router ? "Router" : "Server"} />
 
               <p className="text-muted">
-                {rogue ? "The device that answered DHCP clients although it is not a trusted DHCP server."
-                  : "The trusted DHCP server that handed out a configuration different from its baseline."}
+                {router ?
+                  (rogue ? "The device that sent router advertisements although it is not a trusted IPv6 router."
+                    : "The trusted IPv6 router that advertised a configuration different from its baseline.")
+                  : (rogue ? "The device that answered clients although it is not a trusted " + noun + "."
+                    : "The trusted " + noun + " that handed out a configuration different from its baseline.")}
               </p>
 
               <dl className="mb-0">
                 <dt>Type</dt>
                 <dd><DhcpSpoofingFindingType type={f.type} /></dd>
+                <dt>Protocol</dt>
+                <dd>{dhcpSpoofingProtocolToName(f.protocol)}</dd>
                 <dt>Address</dt>
                 <dd>
                   {f.server_address_data ?
@@ -241,17 +255,19 @@ export default function DhcpSpoofingFindingDetailsPage() {
               <CardTitleWithControls title={rogue ? "Handed Out" : "Handed Out vs. Expected"} />
 
               <p className="text-muted">
-                {rogue ? "What clients that took this server's lease were told to use."
-                  : "What the server handed out. Values that differ from the expected configuration are highlighted."}
+                {rogue ?
+                  (router ? "What hosts that accept this advertisement are told to use."
+                    : "What clients that took this server's lease were told to use.")
+                  : "What the " + noun + " handed out. Values that differ from the expected configuration are highlighted."}
               </p>
 
-              <DhcpOfferedParameters parameters={f.offered} compareTo={rogue ? undefined : f.expected} />
+              <DhcpOfferedParameters parameters={f.offered} compareTo={rogue ? undefined : f.expected} protocol={f.protocol} />
 
               {!rogue && f.expected ?
                 <React.Fragment>
                   <hr />
                   <h6>Expected</h6>
-                  <DhcpOfferedParameters parameters={f.expected} />
+                  <DhcpOfferedParameters parameters={f.expected} protocol={f.protocol} />
                 </React.Fragment> : null}
             </div>
           </div>
@@ -269,15 +285,22 @@ export default function DhcpSpoofingFindingDetailsPage() {
                     <span className="text-danger">Active</span>
                     : <span className="text-muted">Not seen in the last {f.window_minutes} minutes</span>}
                 </dd>
-                <dt>Responses</dt>
-                <dd>
-                  {numeral(f.response_count).format("0,0")} ({numeral(f.offer_count).format("0,0")} offers,{' '}
-                  {numeral(f.ack_count).format("0,0")} acknowledgements)
-                </dd>
-                <dt>Transactions</dt>
-                <dd>{numeral(f.transaction_count).format("0,0")}</dd>
-                <dt>Victims</dt>
-                <dd>{numeral(f.victim_count).format("0,0")} clients took a lease or chose this server</dd>
+                {router ?
+                  <React.Fragment>
+                    <dt>Router Advertisements</dt>
+                    <dd>{numeral(f.response_count).format("0,0")}</dd>
+                  </React.Fragment>
+                  : <React.Fragment>
+                    <dt>Responses</dt>
+                    <dd>
+                      {numeral(f.response_count).format("0,0")} ({numeral(f.offer_count).format("0,0")} offers,{' '}
+                      {numeral(f.ack_count).format("0,0")} acknowledgements)
+                    </dd>
+                    <dt>Transactions</dt>
+                    <dd>{numeral(f.transaction_count).format("0,0")}</dd>
+                    <dt>Victims</dt>
+                    <dd>{numeral(f.victim_count).format("0,0")} clients took a lease or chose this server</dd>
+                  </React.Fragment>}
                 <dt>First Seen</dt>
                 <dd title={moment(f.first_seen).format()}>{moment(f.first_seen).fromNow()}</dd>
                 <dt>Last Seen</dt>
@@ -288,9 +311,11 @@ export default function DhcpSpoofingFindingDetailsPage() {
                     f.taps.map((t) => t.name ? t.name : t.uuid).join(", ")
                     : <span className="text-muted">n/a</span>}
                 </dd>
-                <dt>Raw Transactions</dt>
+                <dt>{router ? "Raw Advertisements" : "Raw Transactions"}</dt>
                 <dd className="mb-0">
-                  <Link to={transactionsLink}>DHCP transactions of this server</Link>
+                  <Link to={transactionsLink}>
+                    {router ? "Router advertisements of this router" : "DHCP transactions of this server"}
+                  </Link>
                 </dd>
               </dl>
             </div>
@@ -305,14 +330,20 @@ export default function DhcpSpoofingFindingDetailsPage() {
               <CardTitleWithControls title="Victims"
                                      refreshAction={() => setRevision(new Date())} />
 
-              <p className="text-muted">
-                Clients that accepted a lease from this server or chose its offer. They are using the gateway and
-                DNS servers shown above, which means their traffic can be read, changed or redirected by whoever
-                runs those. These are the devices to check. Clients that only received an offer and went with
-                another server are not listed.
-              </p>
+              {router ? null :
+                <p className="text-muted">
+                  Clients that accepted a lease from this server or chose its offer. They are using the gateway and
+                  DNS servers shown above, which means their traffic can be read, changed or redirected by whoever
+                  runs those. These are the devices to check. Clients that only received an offer and went with
+                  another server are not listed.
+                </p>}
 
-              {details.victims.length === 0 ?
+              {router ?
+                <div className="alert alert-info mb-0">
+                  A router advertisement goes to every host of the network, and hosts do not answer it. Every IPv6
+                  host that this router can reach has to be treated as affected.
+                </div>
+                : details.victims.length === 0 ?
                 <div className="alert alert-info mb-0">
                   No client took a lease from this server. It only sent offers that clients did not accept.
                 </div>

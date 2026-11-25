@@ -243,7 +243,7 @@ public class MembershipResolver {
         return new Endpoint(null, internal, segment(segmentId), Collections.emptySet(), null, asn, countryCode);
     }
 
-    static byte[] mask(byte[] address, int prefix) {
+    public static byte[] mask(byte[] address, int prefix) {
         byte[] masked = new byte[address.length];
         int fullBytes = prefix / 8;
         System.arraycopy(address, 0, masked, 0, Math.min(fullBytes, address.length));

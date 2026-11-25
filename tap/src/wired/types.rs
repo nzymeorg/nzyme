@@ -27,6 +27,7 @@ pub fn find_ethertype(val: u16) -> EtherType {
     match val {
         2048 => EtherType::IPv4,
         2054 => EtherType::Arp,
+        34525 => EtherType::IPv6,
         _ => EtherType::NotImplemented
     }
 }
@@ -51,6 +52,7 @@ pub enum ProtocolType {
     Icmp,
     Tcp,
     Udp,
+    Icmpv6,
 }
 
 impl TryFrom<u8> for ProtocolType {
@@ -61,6 +63,7 @@ impl TryFrom<u8> for ProtocolType {
             1 => Ok(ProtocolType::Icmp),
             6 => Ok(ProtocolType::Tcp),
             17 => Ok(ProtocolType::Udp),
+            58 => Ok(ProtocolType::Icmpv6),
             _ => Err(NotImplementedError)
         }
     }

@@ -18,6 +18,7 @@ import Flag from "../../../misc/Flag";
 import LatLonMap from "../../../shared/LatLonMap";
 import * as L from "leaflet";
 import WithPermission from "../../../misc/WithPermission";
+import {nat64EmbeddedAddress} from "../../../../util/Nat64";
 
 const ipAddressesService = new IPAddressesService();
 
@@ -189,6 +190,16 @@ export default function IPAddressDetailsPage() {
                 <CardTitleWithControls title="Geo Information" />
 
                 <dl className="mb-0">
+                  {nat64EmbeddedAddress(address.address) ?
+                    <React.Fragment>
+                      <dt>NAT64</dt>
+                      <dd>
+                        This address stands for the IPv4 address{' '}
+                        <Link to={ApiRoutes.ETHERNET.IP.ADDRESS_DETAILS(nat64EmbeddedAddress(address.address))}
+                              className="machine-data">{nat64EmbeddedAddress(address.address)}</Link>{' '}
+                        behind a NAT64 gateway. The information below is that of the IPv4 address.
+                      </dd>
+                    </React.Fragment> : null}
                   <dt>ASN</dt>
                   <dd>
                     {address.geo && address.geo.asn_number ? <span className="machine-data">{address.geo.asn_number}</span>

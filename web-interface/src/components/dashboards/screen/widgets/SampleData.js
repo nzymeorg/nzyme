@@ -34,14 +34,14 @@ export const SAMPLE_TOPOLOGY = {
   nodes: [
     sampleNode("i1", "INTERNAL", "10.1.0.10", {hostname: "fileserver"}),
     sampleNode("i2", "INTERNAL", "10.1.0.21"),
-    sampleNode("i3", "INTERNAL", "10.1.0.22"),
+    sampleNode("i3", "INTERNAL", "fd00:10:1::1c2d:3eff:fe4f:5a6b"),
     sampleNode("i4", "INTERNAL", "10.1.0.35", {hostname: "build-01"}),
     sampleNode("i5", "INTERNAL", "10.1.0.53", {hostname: "dns"}),
     sampleNode("i6", "INTERNAL", "10.1.0.80"),
     sampleNode("e1", "EXTERNAL", "192.0.2.10", {asn_name: "Example Cloud", country_code: "US"}),
     sampleNode("e2", "EXTERNAL", "192.0.2.44", {asn_name: "Example Cloud", country_code: "US"}),
     sampleNode("e3", "EXTERNAL", "198.51.100.7", {asn_name: "Example CDN", country_code: "DE"}),
-    sampleNode("e4", "EXTERNAL", "198.51.100.90", {asn_name: "Example CDN", country_code: "NL"}),
+    sampleNode("e4", "EXTERNAL", "2001:db8:85a3::8a2e:370:7334", {asn_name: "Example CDN", country_code: "NL"}),
     sampleNode("e5", "EXTERNAL", "203.0.113.5", {asn_name: "Example Transit", country_code: "JP"}),
     sampleNode("e6", "EXTERNAL", "203.0.113.77", {asn_name: "Example Hosting", country_code: "BR"})
   ],

@@ -27,7 +27,7 @@ public class VPN {
 
     public enum OrderColumn {
 
-        TUNNEL_ID("MIN(vpn.uuid)"),
+        TUNNEL_ID("MIN(vpn.uuid::text)"),
         CLIENT_ADDRESS("MIN(vpn.source_address)"),
         CLIENT_MAC("MIN(vpn.source_mac)"),
         SERVER_ADDRESS("MIN(vpn.destination_address)"),

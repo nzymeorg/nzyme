@@ -322,6 +322,7 @@ public class DatabaseResource extends UserAuthenticatedResource {
             case ASSET_ACTIVITY -> key = AssetRegistryKeys.ASSETS_ACTIVITY_RETENTION_TIME_DAYS.key();
             case ASSET_ATTRIBUTES -> key = AssetRegistryKeys.ASSETS_ATTRIBUTES_RETENTION_TIME_DAYS.key();
             case ASSET_COMMUNICATION -> key = AssetRegistryKeys.ASSETS_COMMUNICATION_RETENTION_TIME_DAYS.key();
+            case ASSET_IP_ADDRESSES -> key = AssetRegistryKeys.ASSETS_IP_ADDRESSES_RETENTION_TIME_DAYS.key();
             case ASSET_STATISTICS -> key = AssetRegistryKeys.ASSETS_STATISTICS_RETENTION_TIME_DAYS.key();
             case ASSET_IDENTITY -> key = AssetIdentityRegistryKeys.RETENTION_TIME_DAYS.key();
             case SEGMENTATION_FLOWS -> key = SegmentationRegistryKeys.FLOW_RETENTION_TIME_DAYS.key();

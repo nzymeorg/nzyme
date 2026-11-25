@@ -177,7 +177,7 @@ export default function RTSPStreamDetails({sessionKey}) {
               <CardTitleWithControls title="Setup" />
               <dl className="mb-0">
                 <dt>Source Address</dt>
-                <dd>{stream.setup_source ? <L4Address address={stream.setup_source} /> : <span className="text-muted">n/a</span>}</dd>
+                <dd>{stream.setup_source ? <L4Address full={true} address={stream.setup_source} /> : <span className="text-muted">n/a</span>}</dd>
                 <dt>Source Asset</dt>
                 <dd>
                   {stream.setup_source ?
@@ -189,7 +189,7 @@ export default function RTSPStreamDetails({sessionKey}) {
                     : <span className="text-muted">n/a</span>}
                 </dd>
                 <dt>Destination Address</dt>
-                <dd>{stream.setup_destination ? <L4Address address={stream.setup_destination} /> : <span className="text-muted">n/a</span>}</dd>
+                <dd>{stream.setup_destination ? <L4Address full={true} address={stream.setup_destination} /> : <span className="text-muted">n/a</span>}</dd>
                 <dt>Destination Asset</dt>
                 <dd>
                   {stream.setup_destination ?
@@ -235,7 +235,7 @@ export default function RTSPStreamDetails({sessionKey}) {
                 <dt>Type</dt>
                 <dd>{stream.stream_l4_type ? stream.stream_l4_type : <span className="text-muted">n/a</span>}</dd>
                 <dt>Source Address</dt>
-                <dd>{stream.stream_source ? <L4Address address={stream.stream_source} /> : <span className="text-muted">n/a</span>}</dd>
+                <dd>{stream.stream_source ? <L4Address full={true} address={stream.stream_source} /> : <span className="text-muted">n/a</span>}</dd>
                 <dt>Source Asset</dt>
                 <dd>
                   {stream.stream_source ?
@@ -247,7 +247,7 @@ export default function RTSPStreamDetails({sessionKey}) {
                     : <span className="text-muted">n/a</span>}
                 </dd>
                 <dt>Destination Address</dt>
-                <dd>{stream.stream_destination ? <L4Address address={stream.stream_destination} /> : <span className="text-muted">n/a</span>}</dd>
+                <dd>{stream.stream_destination ? <L4Address full={true} address={stream.stream_destination} /> : <span className="text-muted">n/a</span>}</dd>
                 <dt>Destination Asset</dt>
                 <dd>
                   {stream.stream_destination ?

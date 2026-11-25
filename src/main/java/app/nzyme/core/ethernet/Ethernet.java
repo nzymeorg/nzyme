@@ -2,6 +2,7 @@ package app.nzyme.core.ethernet;
 
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.ethernet.arp.ARP;
+import app.nzyme.core.ethernet.ndp.NDP;
 import app.nzyme.core.ethernet.beacons.Beacons;
 import app.nzyme.core.ethernet.dhcp.DHCP;
 import app.nzyme.core.ethernet.dns.DNS;
@@ -15,6 +16,7 @@ import app.nzyme.core.ethernet.icmp.ICMP;
 import app.nzyme.core.ethernet.rtsp.RTSP;
 import app.nzyme.core.ethernet.socks.SOCKS;
 import app.nzyme.core.ethernet.vpn.VPN;
+import app.nzyme.core.ethernet.ipv6transition.Ipv6Transition;
 import app.nzyme.core.ethernet.ssh.SSH;
 import app.nzyme.core.ethernet.tls.TLS;
 import app.nzyme.core.ethernet.l4.tcp.TCP;
@@ -28,6 +30,7 @@ public class Ethernet {
     private final NzymeNode nzyme;
 
     private final ARP arp;
+    private final NDP ndp;
     private final DHCP dhcp;
     private final L4 l4;
     private final TCP tcp;
@@ -37,6 +40,8 @@ public class Ethernet {
     private final TLS tls;
     private final SOCKS socks;
     private final VPN vpn;
+    private final Ipv6Transition ipv6Transition;
+    private final InternalAddressRewrites internalAddressRewrites;
     private final NTP ntp;
     private final RTSP rtsp;
     private final NAT nat;
@@ -54,6 +59,7 @@ public class Ethernet {
         this.nzyme = nzyme;
 
         this.arp = new ARP(this);
+        this.ndp = new NDP(this);
         this.dhcp = new DHCP(this);
         this.l4 = new L4(this);
         this.tcp = new TCP(this);
@@ -63,6 +69,8 @@ public class Ethernet {
         this.tls = new TLS(this);
         this.socks = new SOCKS(this);
         this.vpn = new VPN(this);
+        this.ipv6Transition = new Ipv6Transition(this);
+        this.internalAddressRewrites = new InternalAddressRewrites(nzyme);
         this.ntp = new NTP(this);
         this.rtsp = new RTSP(this);
         this.nat = new NAT(this);
@@ -83,6 +91,10 @@ public class Ethernet {
 
     public ARP arp() {
         return arp;
+    }
+
+    public NDP ndp() {
+        return ndp;
     }
 
     public DHCP dhcp() {
@@ -115,6 +127,14 @@ public class Ethernet {
 
     public VPN vpn() {
         return vpn;
+    }
+
+    public Ipv6Transition ipv6Transition() {
+        return ipv6Transition;
+    }
+
+    public InternalAddressRewrites internalAddressRewrites() {
+        return internalAddressRewrites;
     }
 
     public NTP ntp() {

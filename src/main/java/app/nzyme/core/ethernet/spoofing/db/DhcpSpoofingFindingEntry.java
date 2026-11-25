@@ -17,6 +17,7 @@ public abstract class DhcpSpoofingFindingEntry {
     public abstract UUID organizationId();
     public abstract UUID tenantId();
     public abstract DhcpSpoofingFindingType type();
+    public abstract String protocol();
     public abstract String serverMac();
     public abstract String serverAddress();
     @Nullable
@@ -36,13 +37,14 @@ public abstract class DhcpSpoofingFindingEntry {
     public abstract DateTime createdAt();
     public abstract DateTime updatedAt();
 
-    public static DhcpSpoofingFindingEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, DhcpSpoofingFindingType type, String serverMac, String serverAddress, String serverIdentifier, DhcpOfferedParameters offered, DhcpOfferedParameters expected, long responseCount, long offerCount, long ackCount, long transactionCount, int victimCount, List<UUID> tapUuids, DateTime firstSeen, DateTime lastSeen, DateTime createdAt, DateTime updatedAt) {
+    public static DhcpSpoofingFindingEntry create(long id, UUID uuid, UUID organizationId, UUID tenantId, DhcpSpoofingFindingType type, String protocol, String serverMac, String serverAddress, String serverIdentifier, DhcpOfferedParameters offered, DhcpOfferedParameters expected, long responseCount, long offerCount, long ackCount, long transactionCount, int victimCount, List<UUID> tapUuids, DateTime firstSeen, DateTime lastSeen, DateTime createdAt, DateTime updatedAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
                 .organizationId(organizationId)
                 .tenantId(tenantId)
                 .type(type)
+                .protocol(protocol)
                 .serverMac(serverMac)
                 .serverAddress(serverAddress)
                 .serverIdentifier(serverIdentifier)
@@ -72,6 +74,7 @@ public abstract class DhcpSpoofingFindingEntry {
         public abstract Builder organizationId(UUID organizationId);
         public abstract Builder tenantId(UUID tenantId);
         public abstract Builder type(DhcpSpoofingFindingType type);
+        public abstract Builder protocol(String protocol);
         public abstract Builder serverMac(String serverMac);
         public abstract Builder serverAddress(String serverAddress);
         public abstract Builder serverIdentifier(String serverIdentifier);

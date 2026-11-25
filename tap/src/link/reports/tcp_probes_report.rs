@@ -43,7 +43,7 @@ pub struct TcpProbeReport {
     pub options: Vec<u8>,
     pub ip_ttl: u8,
     pub ip_tos: u8,
-    pub ip_df: bool,
+    pub ip_df: Option<bool>,
     pub packet_count: u64,
     pub first_seen: DateTime<Utc>,
     pub last_seen: DateTime<Utc>

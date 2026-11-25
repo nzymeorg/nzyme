@@ -26,12 +26,16 @@ export function monitorTypeToSearchPage(type) {
       return ApiRoutes.ETHERNET.ASSETS.DHCP.INDEX;
     case "ETHERNET_ARP_PACKET":
       return ApiRoutes.ETHERNET.ASSETS.ARP.INDEX;
+    case "ETHERNET_NDP_MESSAGE":
+      return ApiRoutes.ETHERNET.ASSETS.NDP.INDEX;
     case "ETHERNET_SSH_SESSION":
       return ApiRoutes.ETHERNET.REMOTE.SSH.INDEX;
     case "ETHERNET_SOCKS_TUNNEL":
       return ApiRoutes.ETHERNET.TUNNELS.SOCKS.INDEX;
     case "ETHERNET_VPN_TUNNEL":
       return ApiRoutes.ETHERNET.TUNNELS.VPN.INDEX;
+    case "ETHERNET_IPV6_TRANSITION_TUNNEL":
+      return ApiRoutes.ETHERNET.TUNNELS.IPV6_TRANSITION.INDEX;
     case "ETHERNET_TLS_SESSION":
       return ApiRoutes.ETHERNET.TLS.SESSIONS.INDEX;
     case "ETHERNET_TLS_CERTIFICATE":

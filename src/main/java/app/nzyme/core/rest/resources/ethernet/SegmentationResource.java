@@ -81,7 +81,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/segmentation")
 @Produces(MediaType.APPLICATION_JSON)
@@ -331,7 +330,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Segments.OrderColumn orderColumn = orderColumn(Segments.OrderColumn.class, orderColumnParam, Segments.OrderColumn.NAME);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.ASC);
 
@@ -530,7 +529,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        BulkSelection selection = BulkSelection.matching(parseFiltersQueryParameter(filtersParameter));
+        BulkSelection selection = BulkSelection.matching(parseFilters(filtersParameter, sc));
         return bulkResponse(segmentation().segments().delete(selection, organizationId, tenantId));
     }
 
@@ -809,7 +808,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Flows.OrderColumn orderColumn = orderColumn(Flows.OrderColumn.class, orderColumnParam, Flows.OrderColumn.SESSIONS);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.DESC);
 
@@ -885,7 +884,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Flows.AddressOrderColumn orderColumn = orderColumn(Flows.AddressOrderColumn.class, orderColumnParam,
                 Flows.AddressOrderColumn.SESSIONS_TO);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.DESC);
@@ -966,7 +965,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Policies.OrderColumn orderColumn = orderColumn(Policies.OrderColumn.class, orderColumnParam, Policies.OrderColumn.NAME);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.ASC);
 
@@ -1150,7 +1149,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return badRequest("The status must be ACTIVE, AUDIT or PAUSED.");
         }
 
-        BulkSelection selection = BulkSelection.matching(parseFiltersQueryParameter(filtersParameter));
+        BulkSelection selection = BulkSelection.matching(parseFilters(filtersParameter, sc));
         return bulkResponse(BulkResult.of(segmentation().policies().setStatus(selection, status, organizationId,
                 tenantId, parseTimeRangeQueryParameter(timeRangeParameter).from())));
     }
@@ -1217,7 +1216,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return badRequest("The alert must be connected or attempted, and turned on with true or off with false.");
         }
 
-        BulkSelection selection = BulkSelection.matching(parseFiltersQueryParameter(filtersParameter));
+        BulkSelection selection = BulkSelection.matching(parseFilters(filtersParameter, sc));
         return bulkResponse(BulkResult.of(segmentation().policies().setAlert(selection, alert, enabled,
                 organizationId, tenantId, parseTimeRangeQueryParameter(timeRangeParameter).from())));
     }
@@ -1268,7 +1267,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        BulkSelection selection = BulkSelection.matching(parseFiltersQueryParameter(filtersParameter));
+        BulkSelection selection = BulkSelection.matching(parseFilters(filtersParameter, sc));
         return bulkResponse(BulkResult.of(segmentation().policies().delete(selection, organizationId, tenantId,
                 parseTimeRangeQueryParameter(timeRangeParameter).from())));
     }
@@ -1418,7 +1417,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Findings.OrderColumn orderColumn = orderColumn(Findings.OrderColumn.class, orderColumnParam, Findings.OrderColumn.LAST_SEEN);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.DESC);
 
@@ -1464,7 +1463,7 @@ public class SegmentationResource extends TapDataHandlingResource {
         }
 
         Finding finding = found.get();
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         Findings.TargetOrderColumn orderColumn = orderColumn(Findings.TargetOrderColumn.class, orderColumnParam,
                 Findings.TargetOrderColumn.LAST_SEEN);
         OrderDirection orderDirection = orderDirection(orderDirectionParam, OrderDirection.DESC);
@@ -1555,7 +1554,7 @@ public class SegmentationResource extends TapDataHandlingResource {
             return notFound();
         }
 
-        BulkSelection selection = BulkSelection.matching(parseFiltersQueryParameter(filtersParameter));
+        BulkSelection selection = BulkSelection.matching(parseFilters(filtersParameter, sc));
         return bulkResponse(BulkResult.of(segmentation().findings().delete(selection, organizationId, tenantId,
                 parseTimeRangeQueryParameter(timeRangeParameter), policy)));
     }

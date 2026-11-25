@@ -7,6 +7,7 @@ export const ICMP_FILTER_FIELDS = {
   source_tag: { title: "Source Asset Tag", type: FILTER_TYPE.ASSET_TAG },
   destination_mac: { title: "Destination MAC", type: FILTER_TYPE.MAC_ADDRESS },
   destination_tag: { title: "Destination Asset Tag", type: FILTER_TYPE.ASSET_TAG },
+  ip_version: { title: "IP Version", type: FILTER_TYPE.NUMERIC },
   icmp_type: { title: "ICMP Type", type: FILTER_TYPE.ICMP_TYPE },
   icmp_code: { title: "ICMP Code", type: FILTER_TYPE.NUMERIC },
   packet_count: { title: "Packet Count", type: FILTER_TYPE.NUMERIC },

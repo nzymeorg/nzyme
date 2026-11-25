@@ -4,6 +4,7 @@ import SSHSessionDetails from "../remote/ssh/SSHSessionDetails";
 import ApiRoutes from "../../../util/ApiRoutes";
 import SOCKSTunnelDetails from "../tunnels/socks/SOCKSTunnelDetails";
 import VPNTunnelDetails from "../tunnels/vpn/VPNTunnelDetails";
+import Ipv6TransitionTunnelDetails from "../tunnels/ipv6transition/Ipv6TransitionTunnelDetails";
 import NTPTransactionDetails from "../time/ntp/NTPTransactionDetails";
 import STUNSessionDetails from "../nat/traversal/shared/STUNSessionDetails";
 import RTSPStreamDetails from "../streams/rtsp/RTSPStreamDetails";
@@ -45,6 +46,26 @@ export default function L4TagDetails({session, type}) {
                                          internalLink={ApiRoutes.ETHERNET.TUNNELS.SOCKS.TUNNEL_DETAILS(session.session_key)} />
 
                   <SOCKSTunnelDetails sessionId={session.session_key} />
+                </div>
+              </div>
+            </div>
+          </div>
+      )
+    }
+  }
+
+  const ipv6Transition = () => {
+    if (session.tags.includes("Teredo")) {
+      return (
+          <div className="row mt-3">
+            <div className="col-12">
+              <div className="card">
+                <div className="card-body card-container">
+                  <CardTitleWithControls title="Encapsulated IPv6 Transition Tunnel" />
+
+                  <Ipv6TransitionTunnelDetails l4Type={type}
+                                               l4SessionKey={session.session_key}
+                                               l4StartTime={session.start_time} />
                 </div>
               </div>
             </div>
@@ -133,6 +154,7 @@ export default function L4TagDetails({session, type}) {
         {ssh()}
         {socks()}
         {vpn()}
+        {ipv6Transition()}
         {tls()}
         {ntp()}
         {rtsp()}

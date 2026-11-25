@@ -12,6 +12,7 @@ import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.MetricNames;
 import app.nzyme.core.util.TimeRange;
 import app.nzyme.core.util.filters.FilterParser;
+import app.nzyme.core.util.filters.FilterScope;
 import app.nzyme.plugin.Subsystem;
 import com.codahale.metrics.Timer;
 import com.google.common.base.Throwables;
@@ -140,7 +141,8 @@ public class DashboardTopology {
         Topology.Selection selection = new Topology.Selection(
                 TimeRange.create(now.minusSeconds(SECONDS),
                         now.plusMinutes(TopologyResource.LIVE_TAP_CLOCK_TOLERANCE_MINUTES), false),
-                FilterParser.parseFiltersQueryParameter(widget.option("filters")),
+                FilterParser.parseFiltersQueryParameter(widget.option("filters"),
+                        FilterScope.tenant(dashboard.organizationId(), dashboard.tenantId())),
                 taps.stream().map(Tap::uuid).collect(Collectors.toList()),
                 Topology.Scope.ALL,
                 List.of(),

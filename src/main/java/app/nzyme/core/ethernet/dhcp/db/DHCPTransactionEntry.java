@@ -1,6 +1,8 @@
 package app.nzyme.core.ethernet.dhcp.db;
 
 import app.nzyme.core.rest.responses.ethernet.InternalAddressResponse;
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Address;
+import app.nzyme.core.ethernet.dhcp.Dhcpv6Prefix;
 import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
@@ -39,8 +41,15 @@ public abstract class DHCPTransactionEntry {
     public abstract String selectedServerAddress();
     public abstract boolean isSuccessful();
     public abstract boolean isComplete();
+    public abstract int ipVersion();
+    @Nullable
+    public abstract String clientDuid();
+    @Nullable
+    public abstract String serverDuid();
+    public abstract List<Dhcpv6Address> addresses();
+    public abstract List<Dhcpv6Prefix> prefixes();
 
-    public static DHCPTransactionEntry create(long transactionId, String transactionType, String clientMac, List<String> additionalClientMacs, String serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, String requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, Map<String, List<String>> timestamps, DateTime firstPacket, DateTime latestPacket, List<String> notes, List<DHCPServerResponseEntry> serverResponses, String selectedServerAddress, boolean isSuccessful, boolean isComplete) {
+    public static DHCPTransactionEntry create(long transactionId, String transactionType, String clientMac, List<String> additionalClientMacs, String serverMac, List<String> additionalServerMacs, List<String> offeredIpAddresses, String requestedIpAddress, List<Integer> options, List<List<Integer>> additionalOptions, String fingerprint, List<String> additionalFingerprints, String vendorClass, List<String> additionalVendorClasses, Map<String, List<String>> timestamps, DateTime firstPacket, DateTime latestPacket, List<String> notes, List<DHCPServerResponseEntry> serverResponses, String selectedServerAddress, boolean isSuccessful, boolean isComplete, int ipVersion, String clientDuid, String serverDuid, List<Dhcpv6Address> addresses, List<Dhcpv6Prefix> prefixes) {
         return builder()
                 .transactionId(transactionId)
                 .transactionType(transactionType)
@@ -64,6 +73,11 @@ public abstract class DHCPTransactionEntry {
                 .selectedServerAddress(selectedServerAddress)
                 .isSuccessful(isSuccessful)
                 .isComplete(isComplete)
+                .ipVersion(ipVersion)
+                .clientDuid(clientDuid)
+                .serverDuid(serverDuid)
+                .addresses(addresses)
+                .prefixes(prefixes)
                 .build();
     }
 
@@ -116,6 +130,16 @@ public abstract class DHCPTransactionEntry {
         public abstract Builder isSuccessful(boolean isSuccessful);
 
         public abstract Builder isComplete(boolean isComplete);
+
+        public abstract Builder ipVersion(int ipVersion);
+
+        public abstract Builder clientDuid(String clientDuid);
+
+        public abstract Builder serverDuid(String serverDuid);
+
+        public abstract Builder addresses(List<Dhcpv6Address> addresses);
+
+        public abstract Builder prefixes(List<Dhcpv6Prefix> prefixes);
 
         public abstract DHCPTransactionEntry build();
     }

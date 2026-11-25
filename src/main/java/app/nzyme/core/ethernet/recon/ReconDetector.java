@@ -1,5 +1,6 @@
 package app.nzyme.core.ethernet.recon;
 
+import app.nzyme.core.ethernet.icmp.IcmpSql;
 import app.nzyme.core.ethernet.InternalAddresses;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.detection.alerts.AlertOrigin;
@@ -33,7 +34,7 @@ public class ReconDetector {
 
     static final int UDP_DYNAMIC_PORT_START = 32768;
     static final List<String> EXCLUDED_UDP_TAGS = List.of(
-            "DNS", "NTP", "STUN", "TURN", "DHCP4", "RTP", "WebRTC", "DTLS"
+            "DNS", "NTP", "STUN", "TURN", "DHCP4", "DHCP6", "RTP", "WebRTC", "DTLS"
     );
 
     private final NzymeNode nzyme;
@@ -163,6 +164,7 @@ public class ReconDetector {
 
                 if (config.sourceArpEnabled()) {
                     readSource(handle, "ARP", candidates, () -> readArpCandidates(handle, taps, since, until, config));
+                    readSource(handle, "NDP", candidates, () -> readNdpCandidates(handle, taps, since, until, config));
                 }
 
                 if (config.sourceIcmpEnabled()) {
@@ -390,7 +392,7 @@ public class ReconDetector {
         handle.createUpdate("CREATE TEMPORARY TABLE recon_udp_unreachable ON COMMIT DROP AS " +
                         "SELECT DISTINCT quoted_source_address AS source_address, " +
                         "quoted_destination_address AS destination_address, quoted_destination_port AS destination_port " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type = 3 AND icmp_code = 3 " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.portUnreachable("") + " " +
                         "AND quoted_protocol = 17 AND quoted_destination_port IS NOT NULL " +
                         "AND last_seen >= :since AND last_seen <= :until")
                 .bindList("taps", taps)
@@ -719,9 +721,6 @@ public class ReconDetector {
     }
 
     // Replies are matched by the reversed address pair, which is what the scanner learned.
-    private static final String ICMP_REQUEST_TYPES = "8, 13, 17";
-    private static final String ICMP_REPLY_TYPES = "0, 14, 18";
-
     private List<Candidate> readIcmpCandidates(Handle handle,
                                                List<UUID> taps,
                                                DateTime since,
@@ -735,7 +734,7 @@ public class ReconDetector {
                         "SUM(packet_count) AS packets, MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen, " +
                         "MIN(bytes_min) AS bytes_min, MAX(bytes_max) AS bytes_max, " +
                         "mode() WITHIN GROUP (ORDER BY ip_ttl) AS ip_ttl " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.sweepRequest("") + " " +
                         "AND last_seen >= :since AND last_seen <= :until " + siteLocalCondition("source_address", config.includeExternalSources(), internalAddresses) +
                         siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
                         "GROUP BY source_address, source_mac, destination_address, tap_uuid), " +
@@ -745,7 +744,7 @@ public class ReconDetector {
                         "MAX(bytes_max) AS bytes_max, mode() WITHIN GROUP (ORDER BY ip_ttl) AS ip_ttl " +
                         "FROM per_tap GROUP BY source_address, source_mac, destination_address), " +
                         "replies AS (SELECT DISTINCT source_address AS replier, destination_address AS requester " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REPLY_TYPES + ") " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND " + IcmpSql.sweepReply("") + " " +
                         "AND last_seen >= :since AND last_seen <= :until) " +
                         "SELECT host(r.source_address) AS source_address, r.source_mac, " +
                         "COUNT(*) AS host_count, COUNT(p.replier) AS replied_count, SUM(r.packets) AS request_count, " +
@@ -810,7 +809,7 @@ public class ReconDetector {
                                                      InternalAddresses.Rules internalAddresses) {
         return handle.createQuery("WITH per_tap AS (SELECT destination_address, tap_uuid, SUM(packet_count) AS packets, " +
                         "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen FROM icmp_packets " +
-                        "WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REQUEST_TYPES + ") " +
+                        "WHERE tap_uuid IN (<taps>) AND " + IcmpSql.sweepRequest("") + " " +
                         "AND source_address = :source_address::inet AND source_mac IS NOT DISTINCT FROM :source_mac " +
                         "AND last_seen >= :since AND last_seen <= :until " +
                         siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
@@ -818,7 +817,7 @@ public class ReconDetector {
                         "requests AS (SELECT destination_address, MAX(packets) AS packets, MIN(first_seen) AS first_seen, " +
                         "MAX(last_seen) AS last_seen FROM per_tap GROUP BY destination_address), " +
                         "replies AS (SELECT DISTINCT source_address AS replier FROM icmp_packets " +
-                        "WHERE tap_uuid IN (<taps>) AND icmp_type IN (" + ICMP_REPLY_TYPES + ") " +
+                        "WHERE tap_uuid IN (<taps>) AND " + IcmpSql.sweepReply("") + " " +
                         "AND destination_address = :source_address::inet AND last_seen >= :since AND last_seen <= :until) " +
                         "SELECT host(r.destination_address) AS address, r.packets, r.first_seen, r.last_seen, " +
                         "(p.replier IS NOT NULL) AS replied FROM requests r LEFT JOIN replies p ON p.replier = r.destination_address " +
@@ -846,12 +845,14 @@ public class ReconDetector {
      * sends. Weak signatures are used by some discovery tools as well and only count alongside a strong one.
      */
 
-    // ICMP (IE probes). The first three are nmap-specific.
+    // ICMP (IE probes). The first three are nmap-specific. Over IPv6, the echo with a code is sent the same way.
     static final String SIGNATURE_ECHO_NONZERO_CODE = "ECHO_NONZERO_CODE";
     static final String SIGNATURE_ECHO_TOS_4 = "ECHO_TOS_4";
     static final String SIGNATURE_INFORMATION_REQUEST = "INFORMATION_REQUEST";
     static final String SIGNATURE_TIMESTAMP_REQUEST = "TIMESTAMP_REQUEST";
     static final String SIGNATURE_ADDRESS_MASK_REQUEST = "ADDRESS_MASK_REQUEST";
+
+    static final String SIGNATURE_NODE_INFORMATION_QUERY = "NODE_INFORMATION_QUERY";
 
     // TCP. The six SEQ probes are SYNs to an open port with fixed window sizes and option layouts. A single
     // shape is weak, two or more distinct shapes are strong. ECN, T3 and T5 are individually unique shapes.
@@ -870,13 +871,15 @@ public class ReconDetector {
     // UDP (U1 probe): A single datagram with 300 bytes of payload to a closed port. Weak on its own.
     static final String SIGNATURE_UDP_U1_PROBE = "UDP_U1_PROBE";
 
-    /* U1 payload (300 bytes) plus UDP, IPv4 and Ethernet headers, as the tap sizes datagrams. */
+    /* U1 payload (300 bytes) plus UDP, IP and Ethernet headers, as the tap sizes datagrams. */
     static final int UDP_U1_PROBE_BYTES = 300 + 8 + 20 + 14;
+    static final int UDP_U1_PROBE_BYTES_IPV6 = 300 + 8 + 40 + 14;
 
     static final List<String> STRONG_SIGNATURES = List.of(
             SIGNATURE_ECHO_NONZERO_CODE,
             SIGNATURE_ECHO_TOS_4,
             SIGNATURE_INFORMATION_REQUEST,
+            SIGNATURE_NODE_INFORMATION_QUERY,
             SIGNATURE_TCP_ECN_PROBE,
             SIGNATURE_TCP_T2_PROBE,
             SIGNATURE_TCP_T3_PROBE,
@@ -948,7 +951,9 @@ public class ReconDetector {
         handle.createQuery("WITH probes AS (" +
                         "SELECT 'ICMP' AS protocol, source_address, source_mac, destination_address, " +
                         "NULL::integer AS destination_port, " +
-                        "CASE WHEN icmp_type = 8 AND icmp_code <> 0 THEN '" + SIGNATURE_ECHO_NONZERO_CODE + "' " +
+                        "CASE WHEN ip_version = 6 AND icmp_type = 139 THEN '" + SIGNATURE_NODE_INFORMATION_QUERY + "' " +
+                        "WHEN ip_version = 6 THEN '" + SIGNATURE_ECHO_NONZERO_CODE + "' " +
+                        "WHEN icmp_type = 8 AND icmp_code <> 0 THEN '" + SIGNATURE_ECHO_NONZERO_CODE + "' " +
                         "WHEN icmp_type = 8 AND ip_tos = 4 THEN '" + SIGNATURE_ECHO_TOS_4 + "' " +
                         "WHEN icmp_type = 15 THEN '" + SIGNATURE_INFORMATION_REQUEST + "' " +
                         "WHEN icmp_type = 13 THEN '" + SIGNATURE_TIMESTAMP_REQUEST + "' " +
@@ -956,7 +961,9 @@ public class ReconDetector {
                         "NULL::text AS seq_shape, packet_count AS probe_count, first_seen, last_seen, tap_uuid, " +
                         "ip_ttl, bytes_max, false AS replied " +
                         "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND last_seen >= :since AND last_seen <= :until " +
-                        "AND ((icmp_type = 8 AND (icmp_code <> 0 OR ip_tos = 4)) OR icmp_type IN (13, 15, 17)) " +
+                        "AND ((ip_version = 4 AND ((icmp_type = 8 AND (icmp_code <> 0 OR ip_tos = 4)) " +
+                        "OR icmp_type IN (13, 15, 17))) " +
+                        "OR (ip_version = 6 AND ((icmp_type = 128 AND icmp_code <> 0) OR icmp_type = 139))) " +
                         siteLocalCondition("source_address", config.includeExternalSources(), internalAddresses) +
                         siteLocalCondition("destination_address", config.includeExternalTargets(), internalAddresses) +
                         "UNION ALL " +
@@ -997,9 +1004,11 @@ public class ReconDetector {
                         "AND start_time >= :since AND start_time <= :until " +
                         "AND source_address_is_multicast = false AND destination_address_is_multicast = false " +
                         l4SourceCondition + l4TargetCondition +
-                        "AND segments_count = 1 AND bytes_tx_count = :u1_bytes AND bytes_rx_count = 0), " +
+                        "AND segments_count = 1 AND bytes_rx_count = 0 " +
+                        "AND bytes_tx_count = CASE WHEN family(source_address) = 6 THEN :u1_bytes_ipv6 ELSE :u1_bytes END), " +
                         "replies AS (SELECT DISTINCT source_address AS replier, destination_address AS requester " +
-                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) AND icmp_type IN (0, 14, 16, 18) " +
+                        "FROM icmp_packets WHERE tap_uuid IN (<taps>) " +
+                        "AND ((ip_version = 4 AND icmp_type IN (0, 14, 16, 18)) OR (ip_version = 6 AND icmp_type IN (129, 140))) " +
                         "AND last_seen >= :since AND last_seen <= :until), " +
                         "per_tap AS (SELECT source_address, source_mac, destination_address, tap_uuid, " +
                         "SUM(probe_count) AS probe_count FROM probes WHERE signature IS NOT NULL " +
@@ -1025,6 +1034,7 @@ public class ReconDetector {
                 .bind("since", since)
                 .bind("until", until)
                 .bind("u1_bytes", UDP_U1_PROBE_BYTES)
+                .bind("u1_bytes_ipv6", UDP_U1_PROBE_BYTES_IPV6)
                 .mapToMap()
                 .forEach(row -> {
                     try {
@@ -1087,7 +1097,7 @@ public class ReconDetector {
         return result;
     }
 
-    /** The ICMP table has no site-local flag, so the private ranges are matched directly. */
+    /** The ICMP table has no site-local flag, so the internal ranges are matched directly. */
     private static String siteLocalCondition(String column,
                                              boolean includeExternal,
                                              InternalAddresses.Rules internalAddresses) {
@@ -1095,10 +1105,7 @@ public class ReconDetector {
             return "";
         }
 
-        return "AND (" + column + " << '10.0.0.0/8'::inet OR " + column + " << '172.16.0.0/12'::inet " +
-                "OR " + column + " << '192.168.0.0/16'::inet" +
-                (internalAddresses.cgnatIsInternal()
-                        ? " OR " + column + " << '" + InternalAddresses.CGNAT_NETWORK + "'::inet" : "") + ") ";
+        return "AND " + internalAddresses.sqlCondition(column) + " ";
     }
 
     private static List<String> stringArray(Object value) throws java.sql.SQLException {
@@ -1116,10 +1123,23 @@ public class ReconDetector {
         return result;
     }
 
-    private static final String REVERSE_NAME_PATTERN = "^([0-9]{1,3}\\.){4}in-addr\\.arpa$";
+    // Only names that are a complete address: anything else would fail the cast below and with it the run.
+    private static final String REVERSE_NAME_PATTERN =
+            "^(((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){4}in-addr|([0-9a-fA-F]\\.){32}ip6)\\.arpa$";
+
+    /*
+     * An ip6.arpa name lists the 32 hex digits of the address in reverse, each followed by a dot. The cast must not
+     * see a name that is no complete address, whatever order the planner applies the conditions of a query in.
+     */
     private static final String REVERSE_NAME_ADDRESS =
-            "(split_part(data_value, '.', 4) || '.' || split_part(data_value, '.', 3) || '.' || " +
-            "split_part(data_value, '.', 2) || '.' || split_part(data_value, '.', 1))::inet";
+            "(CASE WHEN data_value !~* :reverse_name_pattern THEN NULL " +
+            "WHEN lower(data_value) LIKE '%.ip6.arpa' THEN " +
+            "regexp_replace(reverse(replace(left(lower(data_value), 63), '.', '')), '(.{4})(?=.)', '\\1:', 'g') " +
+            "ELSE split_part(data_value, '.', 4) || '.' || split_part(data_value, '.', 3) || '.' || " +
+            "split_part(data_value, '.', 2) || '.' || split_part(data_value, '.', 1) END)::inet";
+
+    // x stands for the address.
+    private static final String SWEPT_NETWORK = "network(set_masklen(x, CASE WHEN family(x) = 4 THEN 24 ELSE 64 END))";
 
     private String reverseDnsQueriesCte(ReconConfiguration config, InternalAddresses.Rules internalAddresses) {
         return "WITH queries AS (SELECT q.client_address, q.client_mac, q.server_address, q.tap_uuid, " +
@@ -1130,7 +1150,7 @@ public class ReconDetector {
                 "AND r.server_address = q.server_address " +
                 "AND r.timestamp >= q.timestamp AND r.timestamp <= q.timestamp + interval '10 seconds') AS answered " +
                 "FROM dns_log q WHERE q.tap_uuid IN (<taps>) AND q.timestamp >= :since AND q.timestamp <= :until " +
-                "AND q.dns_type = 'query' AND q.data_type = 'PTR' AND q.data_value ~ :reverse_name_pattern " +
+                "AND q.dns_type = 'query' AND q.data_type = 'PTR' AND q.data_value ~* :reverse_name_pattern " +
                 "AND q.server_address_is_multicast = false " +
                 (config.includeExternalSources() ? "" : "AND q.client_address_is_site_local = true ") +
                 "AND NOT EXISTS (SELECT 1 FROM dns_log f WHERE f.dns_type = 'query' AND f.data_type = 'PTR' " +
@@ -1153,7 +1173,8 @@ public class ReconDetector {
         handle.createQuery(reverseDnsQueriesCte(config, internalAddresses) +
                         "SELECT host(t.client_address) AS source_address, t.client_mac, COUNT(*) AS host_count, " +
                         "COUNT(*) FILTER (WHERE t.answered) AS answered_count, SUM(t.query_count) AS query_count, " +
-                        "COUNT(DISTINCT network(set_masklen(t.address, 24))) AS network_count, " +
+                        "COUNT(DISTINCT " + SWEPT_NETWORK.replace("x", "t.address") + ") AS network_count, " +
+                        "COUNT(*) FILTER (WHERE family(t.address) = 6) AS ipv6_host_count, " +
                         "MIN(t.first_seen) AS first_seen, MAX(t.last_seen) AS last_seen, " +
                         "(SELECT string_agg(DISTINCT q.tap_uuid::text, ',') FROM queries q " +
                         "WHERE q.client_address = t.client_address AND q.client_mac IS NOT DISTINCT FROM t.client_mac) AS taps, " +
@@ -1181,8 +1202,10 @@ public class ReconDetector {
                         enrichment.put("query_count", ((Number) row.get("query_count")).longValue());
                         enrichment.put("network_count", networks);
                         // How much of the swept /24 networks was asked about. A sweep covers a range, name resolution
-                        // of observed hosts does not.
-                        enrichment.put("range_coverage_percent", Math.min(100, Math.round(hosts * 100.0 / (networks * 254.0))));
+                        // of observed hosts does not. No share of a /64 says anything, so only for IPv4.
+                        if (((Number) row.get("ipv6_host_count")).longValue() == 0) {
+                            enrichment.put("range_coverage_percent", Math.min(100, Math.round(hosts * 100.0 / (networks * 254.0))));
+                        }
                         putIfNotNull(enrichment, "resolver", row.get("resolver"));
                         putIfNotNull(enrichment, "resolver_count", row.get("resolver_count"));
 
@@ -1421,6 +1444,109 @@ public class ReconDetector {
                 });
 
         return result;
+    }
+
+    // Only solicitations to a solicited-node multicast address count: a host also solicits the neighbors it already
+    // knows, one by one, to see if they are still there.
+    private static final String NDP_SWEEP_REQUESTS =
+            "SELECT COALESCE(source_link_layer_address, source_mac) AS mac, source_address, target_address, " +
+            "packet_count, first_seen, last_seen, tap_uuid FROM ndp_messages WHERE tap_uuid IN (<taps>) " +
+            "AND message_type = 'NEIGHBOR_SOLICITATION' AND hop_limit = 255 " +
+            "AND last_seen >= :since AND last_seen <= :until AND source_address <> '::'::inet " +
+            "AND destination_address <<= 'ff02::1:ff00:0/104'::inet AND target_address IS NOT NULL " +
+            "AND target_address <> source_address AND COALESCE(source_link_layer_address, source_mac) IS NOT NULL";
+
+    private static final String NDP_SWEEP_REPLIES =
+            "SELECT DISTINCT destination_mac AS mac, target_address FROM ndp_messages WHERE tap_uuid IN (<taps>) " +
+            "AND message_type = 'NEIGHBOR_ADVERTISEMENT' AND hop_limit = 255 " +
+            "AND last_seen >= :since AND first_seen <= :until AND target_address IS NOT NULL";
+
+    private List<Candidate> readNdpCandidates(Handle handle,
+                                              List<UUID> taps,
+                                              DateTime since,
+                                              DateTime until,
+                                              ReconConfiguration config) {
+        List<Candidate> result = Lists.newArrayList();
+
+        handle.createQuery("WITH requests AS (" + NDP_SWEEP_REQUESTS + "), replies AS (" + NDP_SWEEP_REPLIES + ") " +
+                        "SELECT r.mac AS source_mac, " +
+                        "mode() WITHIN GROUP (ORDER BY host(r.source_address)) AS source_address, " +
+                        "COUNT(DISTINCT r.target_address) AS host_count, SUM(r.packet_count) AS request_count, " +
+                        "COUNT(DISTINCT " + SWEPT_NETWORK.replace("x", "r.target_address") + ") AS network_count, " +
+                        "MIN(r.first_seen) AS first_seen, MAX(r.last_seen) AS last_seen, " +
+                        "string_agg(DISTINCT r.tap_uuid::text, ',') AS taps, " +
+                        "COUNT(DISTINCT r.target_address) FILTER (WHERE EXISTS (SELECT 1 FROM replies p " +
+                        "WHERE p.mac = r.mac AND p.target_address = r.target_address)) AS replied_count " +
+                        "FROM requests r GROUP BY r.mac " +
+                        "HAVING COUNT(DISTINCT r.target_address) >= :minimum_hosts")
+                .bindList("taps", taps)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("minimum_hosts", config.arpSweepMinimumHosts())
+                .mapToMap()
+                .forEach(row -> {
+                    try {
+                        String sourceMac = (String) row.get("source_mac");
+                        String sourceAddress = (String) row.get("source_address");
+                        int hosts = ((Number) row.get("host_count")).intValue();
+                        long replied = ((Number) row.get("replied_count")).longValue();
+
+                        Map<String, Object> enrichment = Maps.newHashMap();
+                        enrichment.put("request_count", ((Number) row.get("request_count")).longValue());
+                        enrichment.put("network_count", ((Number) row.get("network_count")).longValue());
+
+                        result.add(new Candidate(
+                                ReconScanType.NDP_SWEEP,
+                                sourceAddress,
+                                sourceMac,
+                                null,
+                                hosts,
+                                0,
+                                hosts,
+                                replied,
+                                0,
+                                hosts - replied,
+                                new DateTime(row.get("first_seen")),
+                                new DateTime(row.get("last_seen")),
+                                parseTaps((String) row.get("taps")),
+                                enrichment,
+                                limit -> loadNdpTargets(handle, taps, sourceMac, since, until, limit)
+                        ));
+                    } catch (Exception e) {
+                        LOG.error("Could not read NDP sweep candidate.", e);
+                    }
+                });
+
+        return result;
+    }
+
+    private List<Recon.TargetRecord> loadNdpTargets(Handle handle,
+                                                    List<UUID> taps,
+                                                    String sourceMac,
+                                                    DateTime since,
+                                                    DateTime until,
+                                                    int limit) {
+        return handle.createQuery("WITH requests AS (" + NDP_SWEEP_REQUESTS + "), replies AS (" + NDP_SWEEP_REPLIES + "), " +
+                        "targets AS (SELECT target_address AS address, SUM(packet_count) AS request_count, " +
+                        "MIN(first_seen) AS first_seen, MAX(last_seen) AS last_seen FROM requests " +
+                        "WHERE mac = :source_mac GROUP BY target_address) " +
+                        "SELECT host(t.address) AS address, t.request_count, t.first_seen, t.last_seen, " +
+                        "EXISTS (SELECT 1 FROM replies p WHERE p.mac = :source_mac AND p.target_address = t.address) AS replied " +
+                        "FROM targets t ORDER BY replied DESC, t.last_seen DESC LIMIT :limit")
+                .bindList("taps", taps)
+                .bind("source_mac", sourceMac)
+                .bind("since", since)
+                .bind("until", until)
+                .bind("limit", limit)
+                .map((rs, ctx) -> new Recon.TargetRecord(
+                        rs.getString("address"),
+                        null,
+                        rs.getBoolean("replied") ? ReconTargetOutcome.OPEN : ReconTargetOutcome.UNANSWERED,
+                        rs.getLong("request_count"),
+                        new DateTime(rs.getTimestamp("first_seen")),
+                        new DateTime(rs.getTimestamp("last_seen"))
+                ))
+                .list();
     }
 
     private List<Recon.TargetRecord> loadArpTargets(Handle handle,

@@ -7,6 +7,10 @@ export const ASSETS_MENU_ITEMS = [
     {name: "Exclusions", href: ApiRoutes.ETHERNET.ASSETS.DHCP.EXCLUSIONS.INDEX},
   ]},
   {name: "ARP", href: ApiRoutes.ETHERNET.ASSETS.ARP.INDEX},
+  {name: "NDP", children: [
+    {name: "Messages", href: ApiRoutes.ETHERNET.ASSETS.NDP.INDEX},
+    {name: "Router Advertisements", href: ApiRoutes.ETHERNET.ASSETS.NDP.ROUTER_ADVERTISEMENTS},
+  ]},
   {name: "Identity", children: [
     {name: "Duplicate MAC Addresses", href: ApiRoutes.ETHERNET.ASSETS.IDENTITY.DUPLICATES},
     {name: "Identity Changes", href: ApiRoutes.ETHERNET.ASSETS.IDENTITY.CHANGES},

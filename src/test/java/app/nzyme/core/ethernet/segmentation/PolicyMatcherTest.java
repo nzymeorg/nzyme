@@ -297,7 +297,7 @@ public class PolicyMatcherTest {
                 "RTP", "DTLS", "WebRTC", "WireGuard", "OpenVPN", "DERP")) {
             assertEquals(PolicyRule.isKnownProtocol(protocol), true, protocol);
         }
-        assertEquals(PolicyRule.PROTOCOLS.size(), 16);
+        assertEquals(PolicyRule.PROTOCOLS.size(), 18);
 
         for (String protocol : List.of("SMTP", "IMAP", "POP3", "FTP", "Telnet")) {
             assertEquals(PolicyRule.isKnownProtocol(protocol), false, protocol);

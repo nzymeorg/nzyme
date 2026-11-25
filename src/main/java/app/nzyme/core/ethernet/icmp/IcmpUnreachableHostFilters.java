@@ -30,7 +30,9 @@ public class IcmpUnreachableHostFilters implements SqlFilterProvider {
             case "protocol":
                 return GeneratedSql.create(protocolMatch(bindId, prefix + "quoted_protocol", operator), "");
             case "code":
-                return GeneratedSql.create(numericMatch(bindId, prefix + "icmp_code", operator), "");
+                return GeneratedSql.create(numericMatch(bindId, IcmpSql.hostUnreachableCode(prefix), operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, prefix + "ip_version", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

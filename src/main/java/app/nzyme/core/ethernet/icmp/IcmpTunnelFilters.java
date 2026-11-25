@@ -35,6 +35,8 @@ public class IcmpTunnelFilters implements SqlFilterProvider {
                 return GeneratedSql.create(numericMatch(bindId, prefix + "max_payload_bytes", operator), "");
             case "packet_count":
                 return GeneratedSql.create(numericMatch(bindId, prefix + "packet_count", operator), "");
+            case "ip_version":
+                return GeneratedSql.create(numericMatch(bindId, "family(" + prefix + "source_address)", operator), "");
             default:
                 throw new RuntimeException("Unknown field name [" + fieldName + "].");
         }

@@ -16,7 +16,8 @@ public enum AssetRole {
     RTSP_SERVER,
     STUN_SERVER,
     TURN_SERVER,
-    VPN_SERVER;
+    VPN_SERVER,
+    IPV6_TUNNEL_SERVER;
 
     @Nullable
     public static AssetRole fromServerSideTag(String tag) {
@@ -33,11 +34,15 @@ public enum AssetRole {
             case "STUN": return STUN_SERVER;
             case "TURN": return TURN_SERVER;
             case "DNS": return DNS_SERVER;
-            case "DHCP4": return DHCP_SERVER;
+            case "DHCP4":
+            case "DHCP6":
+                return DHCP_SERVER;
             case "NTP": return NTP_SERVER;
             case "WireGuard":
             case "OpenVPN":
                 return VPN_SERVER;
+            case "Teredo":
+                return IPV6_TUNNEL_SERVER;
             default: return null;
         }
     }

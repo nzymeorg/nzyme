@@ -3,6 +3,7 @@ package app.nzyme.core.rest.resources.ethernet;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.database.OrderDirection;
 import app.nzyme.core.ethernet.L4Type;
+import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DhcpOfferedParameters;
 import app.nzyme.core.ethernet.spoofing.Spoofing;
 import app.nzyme.core.ethernet.spoofing.SpoofingConfiguration;
@@ -43,16 +44,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/spoofing/dhcp")
 @Produces(MediaType.APPLICATION_JSON)
 @RESTSecured(PermissionLevel.ANY)
-@Tag(name = "Spoofing: DHCP", description = "DHCP spoofing findings and the DHCP servers of a tenant. Every server "
-        + "that answers clients is learned with the configuration it hands out. A server that answers while it is "
-        + "not trusted is a rogue server finding. A trusted server that hands out a gateway, DNS server, domain or "
-        + "subnet mask different from its baseline is a changed configuration finding. Findings carry the clients "
-        + "that accepted a lease from the server. Built from the DHCP transactions of all taps of the tenant.")
+@Tag(name = "Spoofing: DHCP", description = "DHCP spoofing findings and the DHCP servers, DHCPv6 servers and "
+        + "IPv6 routers of a tenant, by protocol (DHCP, DHCP6, RA). Each is learned with the configuration it hands "
+        + "out. One that answers while it is not trusted is a rogue server finding. A trusted one that hands out a "
+        + "configuration different from its baseline is a changed configuration finding. For a router, subnet_mask "
+        + "holds the advertised prefixes. Built from the DHCP transactions and router advertisements of all taps "
+        + "of the tenant.")
 public class SpoofingDhcpResource extends TapDataHandlingResource {
 
     private static final String MANAGE_PERMISSION = "ethernet_monitoring_manage";
@@ -83,7 +84,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
         Spoofing.DhcpFindingOrderColumn orderColumn = Spoofing.DhcpFindingOrderColumn.LAST_SEEN;
@@ -131,7 +132,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
         Bucketing.BucketingConfiguration bucketing = Bucketing.getConfig(timeRange);
 
@@ -245,9 +246,11 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
     @GET
     @Path("/servers")
     @Operation(operationId = "findDhcpServers", summary = "List the DHCP servers of a tenant",
-            description = "Returns every DHCP server that answered clients on the taps of the tenant, with whether "
+            description = "Returns every DHCP server, DHCPv6 server and IPv6 router seen on the taps of the tenant, with whether "
                     + "it is trusted, the configuration it hands out (latest) and the configuration it is expected to "
-                    + "hand out (baseline). Results are paginated.")
+                    + "hand out (baseline). At most " + DhcpSpoofingDetector.MAX_UNTRUSTED_SERVERS + " untrusted "
+                    + "ones are kept per protocol. New ones are not recorded while a "
+                    + "protocol is at that limit, which the response states. Results are paginated.")
     @ApiResponse(responseCode = "200", description = "Servers found.",
             content = @Content(schema = @Schema(implementation = DhcpSpoofingServersListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
@@ -264,7 +267,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         Spoofing.DhcpServerOrderColumn orderColumn = Spoofing.DhcpServerOrderColumn.LAST_SEEN;
         OrderDirection orderDirection = OrderDirection.DESC;
@@ -288,20 +291,19 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
         }
 
         SpoofingConfiguration config = spoofing.getConfiguration(organizationId, tenantId);
-        DateTime learningStart = spoofing.findDhcpLearningStartedAt(organizationId, tenantId)
-                .or(() -> spoofing.findEarliestDhcpServerFirstSeen(organizationId, tenantId))
-                .orElse(null);
-        DateTime learningEndedAt = spoofing.findDhcpLearningEndedAt(organizationId, tenantId).orElse(null);
-        DateTime learningEnd = learningStart == null ? null : learningStart.plusHours(config.dhcpLearningPeriodHours());
-        boolean endedByUser = learningEnd != null && learningEndedAt != null && learningEndedAt.isBefore(learningEnd);
-        if (endedByUser) {
-            learningEnd = learningEndedAt;
-        }
+        Optional<Spoofing.DhcpLearningPeriod> learning = spoofing
+                .findDhcpLearningPeriod(organizationId, tenantId, config.dhcpLearningPeriodHours());
+        DateTime learningStart = learning.map(Spoofing.DhcpLearningPeriod::start).orElse(null);
+        DateTime learningEnd = learning.map(Spoofing.DhcpLearningPeriod::end).orElse(null);
+        boolean endedByUser = learning.map(Spoofing.DhcpLearningPeriod::endedByUser).orElse(false);
         boolean learningActive = learningEnd != null && config.dhcpLearningPeriodHours() > 0
                 && learningEnd.isAfterNow();
 
         return Response.ok(DhcpSpoofingServersListResponse.create(
-                total, servers, learningStart, learningEnd, learningActive, endedByUser
+                total, servers, learningStart, learningEnd, learningActive, endedByUser,
+                spoofing.findDhcpLearningProtocols(organizationId, tenantId, config.dhcpLearningPeriodHours()),
+                DhcpSpoofingDetector.MAX_UNTRUSTED_SERVERS,
+                spoofing.findDhcpProtocolsAtUntrustedLimit(organizationId, tenantId)
         )).build();
     }
 
@@ -398,6 +400,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
         }
 
         spoofing.setDhcpServerTrusted(server.get().id(), trusted);
+        nzyme.getEthernet().internalAddresses().syncLearnedNetworks(organizationId, tenantId);
 
         return Response.ok().build();
     }
@@ -428,6 +431,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
         }
 
         spoofing.resetDhcpServerBaselineToLatest(server.get().id());
+        nzyme.getEthernet().internalAddresses().syncLearnedNetworks(organizationId, tenantId);
 
         return Response.ok().build();
     }
@@ -457,6 +461,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
         }
 
         spoofing.deleteDhcpServer(server.get().id());
+        nzyme.getEthernet().internalAddresses().syncLearnedNetworks(organizationId, tenantId);
 
         return Response.ok().build();
     }
@@ -475,7 +480,7 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
         }
 
         Optional<DhcpSpoofingServerEntry> server = spoofing
-                .findDhcpServerByIdentity(finding.serverMac(), finding.serverAddress(), organizationId, tenantId);
+                .findDhcpServerByIdentity(finding.protocol(), finding.serverMac(), finding.serverAddress(), organizationId, tenantId);
 
         boolean recent = finding.lastSeen().isAfter(DateTime.now().minusMinutes(config.dhcpDetectionWindowMinutes()));
 
@@ -517,7 +522,8 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
                 tapResponses(finding.tapUuids()),
                 matchingExclusions,
                 finding.firstSeen(),
-                finding.lastSeen()
+                finding.lastSeen(),
+                finding.protocol()
         );
     }
 
@@ -548,7 +554,8 @@ public class SpoofingDhcpResource extends TapDataHandlingResource {
                 server.transactionCount(),
                 tapResponses(server.tapUuids()),
                 server.firstSeen(),
-                server.lastSeen()
+                server.lastSeen(),
+                server.protocol()
         );
     }
 

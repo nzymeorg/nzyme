@@ -35,8 +35,17 @@ public abstract class DhcpOfferedParameters {
     @JsonProperty("lease_time_seconds")
     public abstract Long leaseTimeSeconds();
 
+    @Nullable
+    @JsonProperty("flags")
+    public abstract String flags();
+
     public static DhcpOfferedParameters fromResponse(DHCPServerResponseEntry r) {
         return create(r.subnetMask(), r.routers(), r.dnsServers(), r.domainName(), r.leaseTimeSeconds());
+    }
+
+    public static DhcpOfferedParameters create(String subnetMask, List<String> routers, List<String> dnsServers,
+                                               String domainName, Long leaseTimeSeconds) {
+        return create(subnetMask, routers, dnsServers, domainName, leaseTimeSeconds, null);
     }
 
     public boolean deviatesFrom(DhcpOfferedParameters baseline) {
@@ -50,6 +59,10 @@ public abstract class DhcpOfferedParameters {
 
         if (!dnsServers().isEmpty()
                 && !Sets.newHashSet(dnsServers()).equals(Sets.newHashSet(baseline.dnsServers()))) {
+            return true;
+        }
+
+        if (flags() != null && !flags().equals(baseline.flags())) {
             return true;
         }
 
@@ -67,13 +80,15 @@ public abstract class DhcpOfferedParameters {
                 routers().isEmpty() ? previous.routers() : routers(),
                 dnsServers().isEmpty() ? previous.dnsServers() : dnsServers(),
                 normalizeDomain(domainName()) != null ? domainName() : previous.domainName(),
-                leaseTimeSeconds() != null ? leaseTimeSeconds() : previous.leaseTimeSeconds()
+                leaseTimeSeconds() != null ? leaseTimeSeconds() : previous.leaseTimeSeconds(),
+                flags() != null ? flags() : previous.flags()
         );
     }
 
     public String configurationKey() {
         return subnetMask() + "|" + String.join(",", routers().stream().sorted().toList()) + "|"
-                + String.join(",", dnsServers().stream().sorted().toList()) + "|" + normalizeDomain(domainName());
+                + String.join(",", dnsServers().stream().sorted().toList()) + "|" + normalizeDomain(domainName())
+                + (flags() == null ? "" : "|" + flags());
     }
 
     @Nullable
@@ -103,13 +118,15 @@ public abstract class DhcpOfferedParameters {
                                                @JsonProperty("routers") List<String> routers,
                                                @JsonProperty("dns_servers") List<String> dnsServers,
                                                @JsonProperty("domain_name") String domainName,
-                                               @JsonProperty("lease_time_seconds") Long leaseTimeSeconds) {
+                                               @JsonProperty("lease_time_seconds") Long leaseTimeSeconds,
+                                               @JsonProperty("flags") String flags) {
         return builder()
                 .subnetMask(subnetMask)
                 .routers(routers == null ? List.of() : routers)
                 .dnsServers(dnsServers == null ? List.of() : dnsServers)
                 .domainName(domainName)
                 .leaseTimeSeconds(leaseTimeSeconds)
+                .flags(flags)
                 .build();
     }
 
@@ -124,6 +141,7 @@ public abstract class DhcpOfferedParameters {
         public abstract Builder dnsServers(List<String> dnsServers);
         public abstract Builder domainName(String domainName);
         public abstract Builder leaseTimeSeconds(Long leaseTimeSeconds);
+        public abstract Builder flags(String flags);
         public abstract DhcpOfferedParameters build();
     }
 }

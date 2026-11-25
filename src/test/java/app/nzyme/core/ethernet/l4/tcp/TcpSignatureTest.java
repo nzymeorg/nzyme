@@ -166,4 +166,22 @@ public class TcpSignatureTest {
         assertEquals(TcpSignature.ipIdBehavior(100, 5000, 10), "OTHER");
     }
 
+    @Test
+    public void testStackOverIpv6HasNoDfBitAndNeverEqualsOneOverIpv4() {
+        TcpSignature v6 = new TcpSignature(64, 0, null, -1, false, false, 64800, 1440, 7,
+                List.of(2, 4, 8, 1, 3), false, 100L, 0L);
+        TcpSignature v4 = new TcpSignature(64, 0, false, 0, false, false, 64240, 1460, 7,
+                List.of(2, 4, 8, 1, 3), false, 100L, 0L);
+
+        assertEquals(v6.stack(), "64:-:0:mss,sok,ts,nop,ws:-");
+        assertEquals(v6.fingerprint(), "64:-:0:mss,sok,ts,nop,ws:-:1440:7");
+        assertEquals(TcpSignature.ipVersion(v6.stack()), 6);
+        assertEquals(TcpSignature.ipVersion(v6.signature()), 6);
+        assertEquals(TcpSignature.ipVersion(v4.stack()), 4);
+        assertEquals(TcpSignature.ipVersion(v4.fingerprint()), 4);
+        assertFalse(TcpSignature.sameStack(v6.stack(), v4.stack()));
+        assertEquals(TcpSignature.comparisonKey(v6.fingerprint()), "64:-:-:mss,sok,ts,nop,ws:-");
+        assertEquals(TcpSignature.byIpVersion(List.of(v4.stack(), v6.stack(), v4.fingerprint()), s -> s).get(4).size(), 2);
+    }
+
 }

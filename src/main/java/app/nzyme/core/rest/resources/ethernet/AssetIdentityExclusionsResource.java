@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static app.nzyme.core.rest.RestHelpers.macContextEntryToResponse;
-import static app.nzyme.core.util.filters.FilterParser.parseFiltersQueryParameter;
 
 @Path("/api/ethernet/assets/identity/exclusions")
 @Produces(MediaType.APPLICATION_JSON)
@@ -85,7 +84,7 @@ public class AssetIdentityExclusionsResource extends TapDataHandlingResource {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        Filters filters = parseFiltersQueryParameter(filtersParameter);
+        Filters filters = parseFilters(filtersParameter, sc);
 
         AssetIdentityExclusions.OrderColumn orderColumn = AssetIdentityExclusions.OrderColumn.NAME;
         OrderDirection orderDirection = OrderDirection.ASC;

@@ -4,7 +4,7 @@ import numeral from "numeral";
 import EthernetMacAddress from "../../../shared/context/macs/EthernetMacAddress";
 import {DhcpOfferedValue} from "../../spoofing/DhcpOfferedParameters";
 
-export default function DHCPServerResponses({responses, selectedServerAddress}) {
+export default function DHCPServerResponses({responses, selectedServerAddress, ipVersion}) {
 
   if (!responses || responses.length === 0) {
     return <div className="alert alert-info mb-0">No server answered this transaction.</div>
@@ -23,7 +23,7 @@ export default function DHCPServerResponses({responses, selectedServerAddress}) 
         <th>Server</th>
         <th>Server Address</th>
         <th>Offered Address</th>
-        <th>Gateway</th>
+        {ipVersion === 6 ? null : <th>Gateway</th>}
         <th>DNS Servers</th>
         <th>Domain</th>
         <th>Count</th>
@@ -36,7 +36,7 @@ export default function DHCPServerResponses({responses, selectedServerAddress}) 
           <tr key={i}>
             <td>
               {r.message_type}
-              {selected(r) ? <span className="badge bg-success ms-1" title="The client chose this server">Selected</span> : null}
+              {selected(r) ? <span className="badge bg-success ms-1" title="The client chose this server.">Selected</span> : null}
             </td>
             <td>
               {r.server_mac_data ? <EthernetMacAddress addressWithContext={r.server_mac_data} withAssetLink withAssetName />
@@ -46,12 +46,12 @@ export default function DHCPServerResponses({responses, selectedServerAddress}) 
             <td>
               <span className="machine-data">{r.server_address}</span>
               {r.server_identifier && r.server_identifier !== r.server_address ?
-                <span className="text-muted" title="Server identifier (DHCP option 54)">
+                <span className="text-muted" title={ipVersion === 6 ? "This is the DUID of the server." : "This is the server identifier (DHCP option 54)."}>
                   {' '}(ID <span className="machine-data">{r.server_identifier}</span>)
                 </span> : null}
             </td>
             <td>{r.offered_address ? <span className="machine-data">{r.offered_address}</span> : <span className="text-muted">n/a</span>}</td>
-            <td><DhcpOfferedValue parameters={r} field="routers" /></td>
+            {ipVersion === 6 ? null : <td><DhcpOfferedValue parameters={r} field="routers" /></td>}
             <td><DhcpOfferedValue parameters={r} field="dns_servers" /></td>
             <td><DhcpOfferedValue parameters={r} field="domain_name" /></td>
             <td>{numeral(r.count).format("0,0")}</td>

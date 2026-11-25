@@ -17,6 +17,7 @@
 
 package app.nzyme.core.util;
 
+import app.nzyme.core.ethernet.InternalAddressRewrites;
 import app.nzyme.core.dashboards.DashboardContent;
 import app.nzyme.core.dashboards.DashboardTopology;
 import app.nzyme.core.database.maintenance.DatabaseMaintenance;
@@ -94,6 +95,7 @@ public class MetricNames {
     public static final String ARP_ASSET_REGISTRATION_PROCESSING_TIMER = name(ARPTable.class, "asset-registration-processing-timing");
     public static final String NAMERES_TOTAL_REPORT_PROCESSING_TIMER = name(NameResolutionTable.class, "total-report-processing-timing");
     public static final String ICMP_TOTAL_REPORT_PROCESSING_TIMER = name(ICMPTable.class, "total-report-processing-timing");
+    public static final String NDP_TOTAL_REPORT_PROCESSING_TIMER = name(NDPTable.class, "total-report-processing-timing");
 
     public static final String DNS_TOTAL_REPORT_PROCESSING_TIMER = name(DNSTable.class, "total-report-processing-timing");
     public static final String DNS_STATISTICS_REPORT_PROCESSING_TIMER = name(DNSTable.class, "statistics-report-processing-timing");
@@ -113,10 +115,12 @@ public class MetricNames {
 
     public static final String SOCKS_TOTAL_REPORT_PROCESSING_TIMER = name(SOCKSTable.class, "total-report-processing-timing");
     public static final String VPN_TOTAL_REPORT_PROCESSING_TIMER = name(VPNTable.class, "total-report-processing-timing");
+    public static final String IPV6_TRANSITION_TOTAL_REPORT_PROCESSING_TIMER = name(Ipv6TransitionTable.class, "total-report-processing-timing");
     public static final String SSH_TOTAL_REPORT_PROCESSING_TIMER = name(SSHTable.class, "total-report-processing-timing");
     public static final String TLS_TOTAL_REPORT_PROCESSING_TIMER = name(TLSTable.class, "total-report-processing-timing");
     public static final String DHCP_TOTAL_REPORT_PROCESSING_TIMER = name(DHCPTable.class, "total-report-processing-timing");
     public static final String DHCP_TRANSACTIONS_FOUR_REPORT_PROCESSING_TIMER = name(DHCPTable.class, "txs-four-report-processing-timing");
+    public static final String DHCP_TRANSACTIONS_SIX_REPORT_PROCESSING_TIMER = name(DHCPTable.class, "txs-six-report-processing-timing");
     public static final String DHCP_ASSET_REGISTRATION_PROCESSING_TIMER = name(DHCPTable.class, "asset-registration-processing-timing");
     public static final String NTP_TOTAL_REPORT_PROCESSING_TIMER = name(NTPTable.class, "total-report-processing-timing");
     public static final String RTSP_TOTAL_REPORT_PROCESSING_TIMER = name(RTSPTable.class, "total-report-processing-timing");
@@ -151,6 +155,7 @@ public class MetricNames {
     public static final String SEGMENTATION_RUN_TIMER = name(SegmentationEngine.class, "run-timing");
     public static final String SEGMENTATION_CHUNK_TIMER = name(SegmentationEngine.class, "window-timing");
     public static final String SEGMENTATION_RESTAMP_TIMER = name(SegmentationEngine.class, "restamp-timing");
+    public static final String INTERNAL_ADDRESS_REWRITE_TIMER = name(InternalAddressRewrites.class, "rewrite-timing");
     public static final String SEGMENTATION_BACKFILL_TIMER = name(SegmentationEngine.class, "backfill-timing");
     public static final String SEGMENTATION_SESSIONS_METER = name(SegmentationEngine.class, "sessions-read");
     public static final String SEGMENTATION_FLOWS_METER = name(SegmentationEngine.class, "flows-written");

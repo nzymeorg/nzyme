@@ -1,5 +1,6 @@
 package app.nzyme.core.integrations.geoip;
 
+import app.nzyme.core.ethernet.Nat64;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.connect.ConnectDataset;
 import app.nzyme.core.connect.ConnectRegistryKeys;
@@ -164,7 +165,7 @@ public class GeoIpService {
             return Optional.empty();
         }
 
-        return cache.getUnchecked(address);
+        return cache.getUnchecked(Nat64.destination(address));
     }
 
     private Optional<GeoIpLookupResult> mmdbLookup(InetAddress address) {

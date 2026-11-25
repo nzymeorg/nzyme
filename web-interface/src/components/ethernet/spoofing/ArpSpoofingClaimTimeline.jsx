@@ -7,8 +7,8 @@ export default function ArpSpoofingClaimTimeline({finding, timeline}) {
   if (!timeline || timeline.length === 0) {
     return (
       <div className="alert alert-info mb-0">
-        No ARP packets of this address are retained anymore. The timeline is built from the raw ARP packets and
-        reaches back only as far as they are kept.
+        No {finding.address.includes(":") ? "NDP messages" : "ARP packets"} of this address are retained anymore.
+        The timeline is built from the raw packets and reaches back only as far as they are kept.
       </div>
     )
   }

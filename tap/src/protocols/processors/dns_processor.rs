@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use log::{debug, error, info};
 use crate::configuration::Configuration;
 use crate::context::context_engine::ContextEngine;
@@ -133,6 +133,26 @@ impl DnsProcessor {
     }
 
     fn reverse_dns_to_ip(dns_str: &str) -> Option<IpAddr> {
+        let name = dns_str.trim_end_matches('.').to_ascii_lowercase();
+        if let Some(nibbles) = name.strip_suffix(".ip6.arpa") {
+            let parts: Vec<&str> = nibbles.split('.').collect();
+            if parts.len() != 32 {
+                return None;
+            }
+
+            let mut octets = [0u8; 16];
+            for (i, part) in parts.iter().rev().enumerate() {
+                if part.len() != 1 {
+                    return None;
+                }
+
+                let nibble = u8::from_str_radix(part, 16).ok()?;
+                octets[i / 2] |= if i % 2 == 0 { nibble << 4 } else { nibble };
+            }
+
+            return Some(IpAddr::V6(Ipv6Addr::from(octets)));
+        }
+
         // Split the string by the '.' and take the first four parts (the IP segments).
         let parts: Vec<&str> = dns_str.split('.').take(4).collect();
 
@@ -155,4 +175,25 @@ impl DnsProcessor {
         None
     }
 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reverse_names_of_both_versions() {
+        assert_eq!(
+            DnsProcessor::reverse_dns_to_ip("7.2.0.192.in-addr.arpa"),
+            Some("192.0.2.7".parse().unwrap())
+        );
+
+        assert_eq!(
+            DnsProcessor::reverse_dns_to_ip("b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.4.IP6.ARPA."),
+            Some("4321:0:1:2:3:4:567:89ab".parse().unwrap())
+        );
+
+        assert_eq!(DnsProcessor::reverse_dns_to_ip("1.0.0.0.ip6.arpa"), None);
+        assert_eq!(DnsProcessor::reverse_dns_to_ip(&format!("{}ip6.arpa", "xy.".repeat(32))), None);
+    }
 }

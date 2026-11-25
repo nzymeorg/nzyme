@@ -61,6 +61,7 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
         <tr>
           <th>ID {columnSorting("uuid")}</th>
           <th>Probe Name {columnSorting("probe_name")}</th>
+          <th>IP Version</th>
           <th>Control URL {columnSorting("control_url")}</th>
           <th>Final URL {columnSorting("last_hop_url")}</th>
           <th>Hop Count {columnSorting("hop_count")}</th>
@@ -77,6 +78,7 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
                 </Link>
               </td>
               <td>{r.probe_name}</td>
+              <td>{String(r.assigned_address).includes(":") ? "IPv6" : "IPv4"}</td>
               <td>{r.control_url}</td>
               <td title={r.last_hop_url ? r.last_hop_url : null}>
                 {r.last_hop_url ?

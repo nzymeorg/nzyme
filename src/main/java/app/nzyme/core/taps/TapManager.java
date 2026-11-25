@@ -665,6 +665,28 @@ public class TapManager {
         );
     }
 
+    public List<UUID> findAllTapUuidsIncludingDeleted(@Nullable UUID organizationUUID, @Nullable UUID tenantUUID) {
+        return nzyme.getDatabase().withHandle(handle -> {
+            if (organizationUUID == null) {
+                return handle.createQuery("SELECT uuid FROM taps").mapTo(UUID.class).list();
+            }
+
+            if (tenantUUID == null) {
+                return handle.createQuery("SELECT uuid FROM taps WHERE organization_id = :organization_uuid")
+                        .bind("organization_uuid", organizationUUID)
+                        .mapTo(UUID.class)
+                        .list();
+            }
+
+            return handle.createQuery("SELECT uuid FROM taps WHERE organization_id = :organization_uuid " +
+                            "AND tenant_id = :tenant_uuid")
+                    .bind("organization_uuid", organizationUUID)
+                    .bind("tenant_uuid", tenantUUID)
+                    .mapTo(UUID.class)
+                    .list();
+        });
+    }
+
     public List<Tap> findAllTapsOnFloor(UUID organizationUUID, UUID tenantUUID, UUID locationUUID, UUID floorUUID) {
         if (organizationUUID == null && tenantUUID == null) {
             return nzyme.getDatabase().withHandle(handle ->
