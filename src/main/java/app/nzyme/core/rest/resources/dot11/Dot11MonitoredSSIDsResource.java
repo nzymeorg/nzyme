@@ -8,7 +8,9 @@ import app.nzyme.core.dot11.monitoring.ssids.KnownSSIDsRegistryKeys;
 import app.nzyme.core.rest.UserAuthenticatedResource;
 import app.nzyme.core.rest.requests.ApproveByRegexRequest;
 import app.nzyme.core.rest.requests.UpdateConfigurationRequest;
+import app.nzyme.core.rest.requests.UUIDListRequest;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.KnownNetworkDetailsResponse;
+import app.nzyme.core.rest.responses.dot11.monitoring.ssids.KnownNetworksBulkActionResponse;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.KnownNetworksListResponse;
 import app.nzyme.core.rest.responses.dot11.monitoring.ssids.SSIDMonitoringConfigurationResponse;
 import app.nzyme.core.registry.RegistryChangeValidator;
@@ -265,6 +267,46 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
         nzyme.getDot11().deleteKnownNetwork(knownNetwork.get().id());
 
         return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
+    @Path("/organization/{organization_id}/tenant/{tenant_id}/many/{action}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(operationId = "applyToMonitoredSsids", summary = "Approve, ignore or delete multiple known networks",
+            description = "Applies one action to every known network in the list that belongs to the tenant. "
+                    + "APPROVE and IGNORE only apply to networks that are neither approved nor ignored, REVOKE "
+                    + "only to approved and UNIGNORE only to ignored networks. DELETE removes the records, and a "
+                    + "deleted network reappears as a new, unapproved network the next time it is observed. "
+                    + "Networks the action does not apply to and unknown UUIDs are skipped. At most 250 UUIDs "
+                    + "per call. Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Action applied.",
+            content = @Content(schema = @Schema(implementation = KnownNetworksBulkActionResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Unknown action, missing request body or more than 250 UUIDs.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    public Response applyToMany(@Parameter(hidden = true) @Context SecurityContext sc,
+                                @Parameter(description = "Organization UUID.") @PathParam("organization_id") @NotNull UUID organizationId,
+                                @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") @NotNull UUID tenantId,
+                                @Parameter(description = "APPROVE, REVOKE, IGNORE, UNIGNORE or DELETE. Case insensitive.") @PathParam("action") String actionParam,
+                                @RequestBody(description = "The UUIDs of the known networks.", required = true, content = @Content(mediaType = "application/json")) UUIDListRequest req) {
+        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (req == null || req.uuids() == null || req.uuids().size() > 250 || req.uuids().contains(null)) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        Dot11.KnownNetworkBulkAction action;
+        try {
+            action = Dot11.KnownNetworkBulkAction.valueOf(actionParam.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        int affected = nzyme.getDot11().applyToKnownNetworks(req.uuids(), action, organizationId, tenantId);
+
+        return Response.ok(KnownNetworksBulkActionResponse.create(affected)).build();
     }
 
     @DELETE

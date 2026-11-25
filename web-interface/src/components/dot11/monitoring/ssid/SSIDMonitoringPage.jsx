@@ -9,6 +9,7 @@ import SSIDMonitoringConfiguration from "./SSIDMonitoringConfiguration";
 import KnownNetworksTable from "./KnownNetworksTable";
 import usePageTitle from "../../../../util/UsePageTitle";
 import ApproveKnownNetworksDialog from "./ApproveKnownNetworksDialog";
+import {isBehindLastPage} from "../../../ethernet/segmentation/SegmentationBulkActions";
 
 const dot11Service = new Dot11Service();
 
@@ -32,9 +33,23 @@ export default function SSIDMonitoringPage() {
 
   useEffect(() => {
     setNetworks(null);
+  }, [organizationId, tenantId]);
+
+  // Not reset while loading again: a spinner in place of the table changes the page height and moves the scroll position.
+  useEffect(() => {
+    const controller = new AbortController();
+
     dot11Service.findAllKnownNetworks(
-      organizationId, tenantId, orderColumn, orderDirection, perPage, (page-1)*perPage, setNetworks
-    )
+      organizationId, tenantId, orderColumn, orderDirection, perPage, (page-1)*perPage, (response) => {
+        if (isBehindLastPage(response.networks, response.total, page)) {
+          setPage(Math.ceil(response.total / perPage));
+        } else {
+          setNetworks(response);
+        }
+      }, controller.signal
+    );
+
+    return () => controller.abort();
   }, [page, perPage, orderColumn, orderDirection, organizationId, tenantId, revision])
 
   const onDeleteAll = (e) => {

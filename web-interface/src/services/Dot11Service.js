@@ -531,11 +531,13 @@ class Dot11Service {
         { change: newConfig }, successCallback, errorCallback)
   }
 
-  findAllKnownNetworks(organizationUUID, tenantUUID, orderColumn, orderDirection, limit, offset, setKnownNetworks) {
+  findAllKnownNetworks(organizationUUID, tenantUUID, orderColumn, orderDirection, limit, offset, setKnownNetworks, signal = undefined) {
     RESTClient.get(
         `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}`,
         {limit: limit, offset: offset, order_column: orderColumn, order_direction: orderDirection},
-        (response) => setKnownNetworks(response.data)
+        (response) => setKnownNetworks(response.data),
+        undefined,
+        signal
     )
   }
 
@@ -551,6 +553,16 @@ class Dot11Service {
     RESTClient.delete(
         `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}/show/${uuid}`,
         onSuccess
+    )
+  }
+
+  // Action is one of approve, revoke, ignore, unignore, delete.
+  applyToKnownNetworks(action, uuids, organizationUUID, tenantUUID, onSuccess, onError = undefined) {
+    RESTClient.put(
+        `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}/many/${action}`,
+        {uuids: uuids},
+        (response) => onSuccess(response.data),
+        onError
     )
   }
 

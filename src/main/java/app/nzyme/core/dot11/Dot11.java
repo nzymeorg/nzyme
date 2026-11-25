@@ -116,6 +116,24 @@ public class Dot11 {
 
     }
 
+    public enum KnownNetworkBulkAction {
+
+        APPROVE("UPDATE dot11_known_networks SET is_approved = true", "AND NOT is_approved AND NOT is_ignored"),
+        REVOKE("UPDATE dot11_known_networks SET is_approved = false", "AND is_approved"),
+        IGNORE("UPDATE dot11_known_networks SET is_ignored = true", "AND NOT is_ignored AND NOT is_approved"),
+        UNIGNORE("UPDATE dot11_known_networks SET is_ignored = false", "AND is_ignored"),
+        DELETE("DELETE FROM dot11_known_networks", "");
+
+        private final String statement;
+        private final String condition;
+
+        KnownNetworkBulkAction(String statement, String condition) {
+            this.statement = statement;
+            this.condition = condition;
+        }
+
+    }
+
     public enum MonitorActiveStatusTypeColumn {
 
         UNEXPECTED_BSSID("enabled_unexpected_bssid"),
@@ -2743,6 +2761,25 @@ public class Dot11 {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("DELETE FROM dot11_known_networks WHERE id = :id")
                         .bind("id", id)
+                        .execute()
+        );
+    }
+
+    public int applyToKnownNetworks(List<UUID> uuids,
+                                    KnownNetworkBulkAction action,
+                                    UUID organizationId,
+                                    UUID tenantId) {
+        if (uuids.isEmpty()) {
+            return 0;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate(action.statement + " WHERE uuid IN (<uuids>) " +
+                                "AND organization_id = :organization_id AND tenant_id = :tenant_id " +
+                                action.condition)
+                        .bindList("uuids", uuids)
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
                         .execute()
         );
     }

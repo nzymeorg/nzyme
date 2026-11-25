@@ -6,8 +6,69 @@ import {toast} from "react-toastify";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import numeral from "numeral";
+import ApiRoutes from "../../../../util/ApiRoutes";
+import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
+import {Presets} from "../../../shared/timerange/TimeRange";
+import {serializeTimeRange} from "../../../shared/timerange/TimeRangeUrl";
+import {filteredLink} from "../../../ethernet/assets/details/AssetProfileHelpers";
+import FindingsBulkActions from "../../../ethernet/assets/identity/FindingsBulkActions";
+import useRowSelection from "../../../ethernet/assets/identity/useRowSelection";
+import PivotLink from "../../../shared/PivotLink";
 
 const dot11Service = new Dot11Service();
+
+const counted = (count) => numeral(count).format("0,0") + (count === 1 ? " network" : " networks");
+
+const BULK_ACTIONS = [
+    {
+        action: "approve",
+        label: "Approve",
+        question: "Really approve the selected networks? Ignored networks are skipped.",
+        done: (what) => what + " approved."
+    },
+    {
+        action: "revoke",
+        label: "Revoke approval of",
+        question: "Really revoke the approval of the selected networks?",
+        done: (what) => "Approval of " + what + " revoked."
+    },
+    {
+        action: "ignore",
+        label: "Ignore",
+        question: "Really ignore the selected networks? Approved networks are skipped.",
+        done: (what) => what + " ignored."
+    },
+    {
+        action: "unignore",
+        label: "Unignore",
+        question: "Really unignore the selected networks?",
+        done: (what) => what + " unignored."
+    },
+    {
+        action: "delete",
+        label: "Delete",
+        question: "Really delete the selected networks? Each will reappear as unapproved network next time Nzyme " +
+            "records it.",
+        done: (what) => what + " deleted."
+    }
+];
+
+// The access points page shows the last 24 hours by default, which would be empty for a network last seen earlier.
+const accessPointsLink = (network) => {
+    const age = moment().diff(moment(network.last_seen), "minutes");
+
+    let timeRange = Presets.ALL_TIME;
+    if (age < Presets.RELATIVE_HOURS_24.minutes) {
+        timeRange = Presets.RELATIVE_HOURS_24;
+    } else if (age < Presets.RELATIVE_DAYS_7.minutes) {
+        timeRange = Presets.RELATIVE_DAYS_7;
+    }
+
+    const filters = {advertised_ssid: [{field: "advertised_ssid", operator: "equals", value: network.ssid}]};
+
+    return filteredLink(ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, filters)
+        + "&tr_timerange=" + encodeURIComponent(JSON.stringify(serializeTimeRange(timeRange)));
+}
 
 export default function KnownNetworksTable(props) {
 
@@ -21,6 +82,10 @@ export default function KnownNetworksTable(props) {
     const orderColumn = props.orderColumn;
     const setOrderDirection = props.setOrderDirection;
     const orderDirection = props.orderDirection;
+
+    const [organizationId, tenantId] = useSelectedTenant();
+
+    const selection = useRowSelection(networks ? networks.networks : []);
 
     const columnSorting = (columnName) => {
         return <ColumnSorting thisColumn={columnName}
@@ -145,6 +210,35 @@ export default function KnownNetworksTable(props) {
         });
     }
 
+    const bulkActions = BULK_ACTIONS.map((bulk) => {
+        return {
+            label: bulk.label,
+            onSelected: (e) => {
+                e.preventDefault();
+
+                if (!confirm(bulk.question)) {
+                    return;
+                }
+
+                const selected = selection.selected;
+
+                dot11Service.applyToKnownNetworks(bulk.action, selected, organizationId, tenantId, (result) => {
+                    const unchanged = selected.length - result.affected;
+                    const rest = unchanged > 0 ? " " + counted(unchanged) + " not changed." : "";
+
+                    if (result.affected > 0) {
+                        toast.success(bulk.done(counted(result.affected)) + rest);
+                    } else {
+                        toast.info("Nothing was changed.");
+                    }
+
+                    selection.clear();
+                    onChange();
+                });
+            }
+        }
+    });
+
     if (!networks) {
         return <GenericWidgetLoadingSpinner height={700} />
     }
@@ -163,9 +257,24 @@ export default function KnownNetworksTable(props) {
                 <strong>Total:</strong> {numeral(networks.total).format("0,0")}
             </p>
 
+            { onChange ?
+                <div className="d-flex align-items-center mb-2">
+                    <FindingsBulkActions selectedCount={selection.selected.length}
+                                         actions={bulkActions}
+                                         noun="network" />
+
+                    {selection.selected.length > 0 ?
+                        <span className="text-muted ms-2">{counted(selection.selected.length)} selected</span> : null}
+                </div> : null }
+
             <table className="table table-sm table-hover table-striped">
                 <thead>
                 <tr>
+                    { onChange ?
+                        <th>
+                            <input className="form-check-input" type="checkbox" title="Select all rows of this page"
+                                   checked={selection.allSelected} onChange={selection.toggleAll} />
+                        </th> : null }
                     <th>SSID {columnSorting("ssid")}</th>
                     <th>Status {columnSorting("status")}</th>
                     <th>Last Seen {columnSorting("last_seen")}</th>
@@ -177,10 +286,23 @@ export default function KnownNetworksTable(props) {
                 </tr>
                 </thead>
                 <tbody>
-                {networks.networks.map((net, i) => {
+                {networks.networks.map((net) => {
                     return (
-                        <tr key={i}>
-                            <td>{net.ssid}</td>
+                        <tr key={net.uuid}>
+                            { onChange ?
+                                <td>
+                                    <input className="form-check-input" type="checkbox"
+                                           checked={selection.selected.includes(net.uuid)}
+                                           onChange={() => selection.toggle(net.uuid)} />
+                                </td> : null }
+                            <td>
+                                {net.ssid}
+                                { onChange ?
+                                    <PivotLink to={accessPointsLink(net)}
+                                               title="Access points that advertise this SSID"
+                                               className="ms-2 small"
+                                               icon={true} /> : null }
+                            </td>
                             <td>{status(net)}</td>
                             <td title={moment(net.last_seen).format()}>{moment(net.last_seen).fromNow()}</td>
                             { onChange ? <>

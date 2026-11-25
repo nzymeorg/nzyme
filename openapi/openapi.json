@@ -6080,6 +6080,76 @@
         "tags" : [ "Monitoring" ]
       }
     },
+    "/api/dot11/monitoring/networks/organization/{organization_id}/tenant/{tenant_id}/many/{action}" : {
+      "put" : {
+        "description" : "Applies one action to every known network in the list that belongs to the tenant. APPROVE and IGNORE only apply to networks that are neither approved nor ignored, REVOKE only to approved and UNIGNORE only to ignored networks. DELETE removes the records, and a deleted network reappears as a new, unapproved network the next time it is observed. Networks the action does not apply to and unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "applyToMonitoredSsids",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "APPROVE, REVOKE, IGNORE, UNIGNORE or DELETE. Case insensitive.",
+          "in" : "path",
+          "name" : "action",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the known networks.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnownNetworksBulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown action, missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Approve, ignore or delete multiple known networks",
+        "tags" : [ "Monitoring" ]
+      }
+    },
     "/api/dot11/monitoring/networks/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}" : {
       "delete" : {
         "description" : "Deletes the known network record and resolves its alerts within a few minutes. The network reappears as a new, unapproved network the next time it is observed. Requires the dot11_monitoring_manage feature permission.",
@@ -50998,6 +51068,16 @@
           "uuid" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "KnownNetworksBulkActionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "affected" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of known networks the action was applied to."
           }
         }
       },
