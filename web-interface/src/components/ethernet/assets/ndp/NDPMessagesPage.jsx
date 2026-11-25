@@ -90,6 +90,7 @@ export default function NDPMessagesPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="NDP Message Filters"
+                                       helpLink="https://go.nzyme.org/ethernet-ndp"
                                        timeRange={timeRange}
                                        setTimeRange={setTimeRange} />
 

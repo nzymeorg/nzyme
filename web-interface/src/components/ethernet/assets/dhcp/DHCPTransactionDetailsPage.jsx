@@ -195,12 +195,11 @@ export default function DHCPTransactionDetailsPage() {
           <div className="col-md-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Server Responses" />
+                <CardTitleWithControls title="Server Responses"
+                                       helpLink="https://go.nzyme.org/ethernet-dhcp-server-responses" />
 
                 <p className="text-muted">
-                  Every server that answered this transaction and the configuration it handed out. More than one
-                  server answering is normal with redundant DHCP servers, but a server you do not recognize may be
-                  a rogue server. The spoofing detection on the <em>Spoofing</em> page keeps track of this.
+                  Every server that answered this transaction and the configuration it handed out.
                 </p>
 
                 <DHCPServerResponses responses={tx.server_responses}
@@ -216,12 +215,12 @@ export default function DHCPTransactionDetailsPage() {
             <div className="col-md-12">
               <div className="card">
                 <div className="card-body">
-                  <CardTitleWithControls title="Leases" />
+                  <CardTitleWithControls title="Leases"
+                                         helpLink="https://go.nzyme.org/ethernet-dhcpv6" />
 
                   <p className="text-muted">
-                    The addresses and delegated prefixes the client holds after this transaction. A delegated prefix
-                    is a network the client may hand out itself, as a router does. Up to 16 addresses and 16
-                    prefixes are recorded.
+                    The addresses and delegated prefixes the client holds after this transaction. Up to 16
+                    addresses and 16 prefixes are recorded.
                   </p>
 
                   <DHCPv6Leases addresses={tx.addresses} prefixes={tx.prefixes} />

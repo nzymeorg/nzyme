@@ -120,14 +120,12 @@ export default function ArpSpoofingPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="ARP and NDP Spoofing"
+                                     helpLink="https://go.nzyme.org/ethernet-spoofing-arp-findings"
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Addresses that a device claimed with its own MAC address while the legitimate owner was still
-                claiming them as well. IPv4 addresses are claimed with ARP and IPv6 addresses with NDP. The spoofer
-                is the device that showed up second. Victims are the devices
-                that received the spoofer&apos;s replies and may now send their traffic for the address to the
-                spoofer. The list covers findings that were active at any point in the selected time range.
+                The list covers ARP poisoning and NDP spoofing findings that were active at any point in the
+                selected time range.
               </p>
 
               {findings ? <p className="mb-3"><strong>Total:</strong> {numeral(findings.total).format("0,0")}</p> : null}

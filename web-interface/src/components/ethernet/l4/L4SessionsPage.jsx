@@ -240,6 +240,7 @@ export default function L4SessionsPage() {
               <div className="card">
                 <div className="card-body">
                   <CardTitleWithControls title="IP Versions"
+                                         helpLink="https://go.nzyme.org/ethernet-ipv6"
                                          timeRange={timeRange}
                                          refreshAction={() => setRevision(new Date())} />
 

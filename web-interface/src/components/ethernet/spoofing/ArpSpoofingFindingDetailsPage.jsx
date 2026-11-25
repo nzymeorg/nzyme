@@ -263,13 +263,11 @@ export default function ArpSpoofingFindingDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Victims"
+                                     helpLink="https://go.nzyme.org/ethernet-spoofing-arp-findings"
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                Devices that received the spoofer&apos;s replies for the address. Their {ndp ? "neighbor" : "ARP"} cache may now point at
-                the spoofer, which means their traffic for the address goes to the spoofer first. These are the
-                devices to check. A man-in-the-middle attack poisons both directions and produces one finding per
-                address, so the device listed here is usually the spoofer&apos;s other victim in a second finding.
+                The devices that received the spoofer&apos;s replies for the address.
               </p>
 
               {details.victims.length === 0 ?

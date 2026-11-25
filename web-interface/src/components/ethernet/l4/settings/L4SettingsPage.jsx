@@ -9,7 +9,6 @@ import L4Configuration from "./L4Configuration";
 import L4TapSettings from "./L4TapSettings";
 import L4InternalNetworks from "./L4InternalNetworks";
 import L4LearnedInternalNetworks from "./L4LearnedInternalNetworks";
-import {Link} from "react-router-dom";
 import L4Service from "../../../../services/ethernet/L4Service";
 
 const l4Service = new L4Service();
@@ -60,8 +59,7 @@ export default function L4SettingsPage() {
 
               <p className="text-muted mb-2">
                 These settings control which addresses are recorded as internal. A change also applies to records
-                that are stored already. Taps have the CGNAT setting and the internal networks as well, which
-                should be set to the same values.
+                that are stored already.
               </p>
 
               <L4Configuration config={config}
@@ -78,7 +76,7 @@ export default function L4SettingsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Internal Networks"
-                                     helpLink="https://go.nzyme.org/ethernet-internal-addresses" />
+                                     helpLink="https://go.nzyme.org/ethernet-internal-networks" />
 
               <p className="text-muted mb-2">
                 Private, unique local and link-local addresses are always internal. Addresses in these networks
@@ -99,12 +97,10 @@ export default function L4SettingsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Learned Internal Networks"
-                                     helpLink="https://go.nzyme.org/ethernet-internal-addresses" />
+                                     helpLink="https://go.nzyme.org/ethernet-internal-networks-learned" />
 
               <p className="text-muted mb-2">
-                The IPv6 prefixes that trusted routers advertise are recorded as internal as well. Routers are
-                trusted on the <Link to={ApiRoutes.ETHERNET.SPOOFING.DHCP.INDEX}>DHCP and Routers</Link> page of the
-                spoofing section. A router that is not trusted adds nothing here. Taps do not know these networks.
+                The IPv6 prefixes that trusted routers advertise are recorded as internal as well.
               </p>
 
               <L4LearnedInternalNetworks config={config} />

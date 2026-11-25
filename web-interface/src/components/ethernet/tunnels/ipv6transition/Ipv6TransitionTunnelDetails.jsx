@@ -151,7 +151,8 @@ export default function Ipv6TransitionTunnelDetails({sessionId, l4Type, l4Sessio
           <div className="col-md-12">
             <div className="card">
               <div className="card-body">
-                <CardTitleWithControls title="Tunnel Details" />
+                <CardTitleWithControls title="Tunnel Details"
+                                       helpLink="https://go.nzyme.org/ethernet-ipv6-transition-details" />
 
                 <Ipv6TransitionTunnelDetailsTable details={tunnel.details} />
               </div>

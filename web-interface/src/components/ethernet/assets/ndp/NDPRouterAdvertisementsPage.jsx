@@ -78,6 +78,7 @@ export default function NDPRouterAdvertisementsPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Router Advertisement Filters"
+                                       helpLink="https://go.nzyme.org/ethernet-ndp-router-advertisements"
                                        timeRange={timeRange}
                                        setTimeRange={setTimeRange} />
 

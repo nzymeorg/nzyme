@@ -204,15 +204,12 @@ export default function DhcpSpoofingPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="DHCP and Router Spoofing"
+                                     helpLink="https://go.nzyme.org/ethernet-spoofing-dhcp"
                                      refreshAction={() => setRevision(new Date())} />
 
               <p className="text-muted">
-                A <em>rogue server</em> finding is a DHCP server, DHCPv6 server or IPv6 router that answered
-                clients or advertised itself while it is not trusted. A <em>configuration changed</em> finding is a
-                trusted one that handed out a gateway, DNS server, domain, subnet mask or prefix different from what
-                it handed out before. Victims are the clients that accepted a lease from the server or chose its
-                offer. A router advertisement goes to every host of the network, so it has no list of victims. The
-                list covers findings that were active at any point in the selected time range.
+                The list covers findings about DHCP servers, DHCPv6 servers and IPv6 routers that were active at
+                any point in the selected time range.
               </p>
 
               {findings ? <p className="mb-3"><strong>Total:</strong> {numeral(findings.total).format("0,0")}</p> : null}
@@ -237,28 +234,21 @@ export default function DhcpSpoofingPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="DHCP Servers and IPv6 Routers"
+                                     helpLink="https://go.nzyme.org/ethernet-spoofing-dhcp-findings"
                                      refreshAction={() => setServersRevision(new Date())} />
 
               <p className="text-muted">
-                Every DHCP server and DHCPv6 server that answered clients and every IPv6 router that sent router
-                advertisements, regardless of time range. DHCP, DHCPv6 and router advertisements each have a
-                learning period. For DHCP it starts when the first server is seen. For DHCPv6 and router
-                advertisements it starts when Nzyme first looks for them, so a server or router that appears later
-                on a network without IPv6 is not trusted. Servers and routers seen during their learning period are
-                trusted automatically. Later ones are not until you trust them. A trusted one is held to the
-                configuration it handed out when it was trusted, and values that differ from it are highlighted.
-                Accept the current configuration after an intended change to stop configuration changed findings.
-                The prefixes that trusted routers advertise are treated as internal networks.
-                {servers ? " At most " + numeral(servers.untrusted_limit).format("0,0") + " untrusted DHCP " +
-                  "servers, DHCPv6 servers and routers each are kept." : null}
+                Every DHCP server, DHCPv6 server and IPv6 router that was seen, regardless of time range.
+                {servers ? " At most " + numeral(servers.untrusted_limit).format("0,0") + " untrusted ones are " +
+                  "kept per protocol." : null}
               </p>
 
               {servers && servers.untrusted_limit_reached_protocols.length > 0 ?
                 <div className="alert alert-warning">
                   The limit of {numeral(servers.untrusted_limit).format("0,0")} untrusted entries is reached
                   for: {servers.untrusted_limit_reached_protocols.map(dhcpSpoofingServerNoun).join(", ")}. New
-                  untrusted ones are not recorded and raise no finding until existing ones are trusted or deleted.
-                  A flood of forged advertisements or replies fills the list like this.
+                  untrusted ones are not recorded until existing ones are trusted or forgotten.{' '}
+                  <a href="https://go.nzyme.org/ethernet-spoofing-limits" target="_blank" rel="noreferrer">Learn more</a>
                 </div> : null}
 
               {servers ?

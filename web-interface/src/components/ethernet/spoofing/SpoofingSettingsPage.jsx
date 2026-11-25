@@ -16,72 +16,18 @@ import {userHasPermission} from "../../../util/Tools";
 const spoofingService = new SpoofingService();
 
 const DESCRIPTIONS = {
-  arp: (
-    <React.Fragment>
-      <p className="text-muted mb-2">
-        Runs every minute over the ARP packets and the NDP messages of all taps. Every ARP packet
-        carries a claim that an IPv4 address belongs to a MAC address, and NDP messages do the same for IPv6
-        addresses. A finding is raised when two different MAC addresses claimed the same
-        address inside the detection window, the device that claimed it first over the owner lookback was still
-        claiming it after the other device started, and the other device claimed it at least the minimum number
-        of times inside the window.
-      </p>
-      <p className="text-muted">
-        The overlap requirement separates poisoning from an address that simply changed hands. Router redundancy
-        protocols, failover clusters and virtual machine migration can legitimately move an address between MAC
-        addresses; add an exclusion for them.
-      </p>
-    </React.Fragment>
-  ),
-  dhcp: (
-    <React.Fragment>
-      <p className="text-muted mb-2">
-        Runs over the DHCP and DHCPv6 transactions and the IPv6 router advertisements of all taps.
-        Every server that answers clients and every router that advertises itself is learned together with the
-        configuration it hands out. The ones seen inside the learning period are trusted automatically; a learning
-        period of zero trusts nothing until you do. DHCP, DHCPv6 and router advertisements each have a learning
-        period that starts when the first one is seen. A server or router that is seen while it is not trusted is
-        a rogue server finding. A trusted one that hands out a gateway, DNS server, domain, subnet mask or prefix
-        different from its baseline is a changed configuration finding.
-      </p>
-      <p className="text-muted">
-        End the learning period on the DHCP and Routers tab once every expected server and router is listed, and
-        restart it there after replacing one. Transactions are analyzed a few minutes after they end, once all taps have reported
-        them.
-      </p>
-    </React.Fragment>
-  ),
-  name_resolution: (
-    <React.Fragment>
-      <p className="text-muted mb-2">
-        Runs over the LLMNR, NBT-NS and mDNS answers of all taps. A legitimate device answers
-        queries for its own name only. A device that answered more different names than the threshold of the
-        protocol allows inside the detection window, pointing them at one of its own addresses, is a finding. A
-        device whose answers all point at the same one or two addresses is treated the same way.
-      </p>
-      <p className="text-muted">
-        mDNS gets a higher threshold than LLMNR and NBT-NS because reflectors and devices with several service
-        names are common. Raise it further if a legitimate device keeps showing up, or add an exclusion for it.
-      </p>
-    </React.Fragment>
-  ),
-  dns: (
-    <React.Fragment>
-      <p className="text-muted mb-2">
-        Runs every minute over the DNS transactions of all taps. Every reply a tap records carries
-        the MAC address it actually came from. For every resolver address, the MAC address that delivered its
-        replies first over the owner lookback is the legitimate owner: the resolver itself or the gateway in front
-        of it. A reply with the resolver&apos;s address from another MAC address, while the owner is still
-        answering, is a forged reply. A device that sent at least the minimum number of forged replies inside the
-        detection window is a finding.
-      </p>
-      <p className="text-muted">
-        The owner&apos;s reply to the same query, when a tap saw one, decides whether the forged reply won the
-        race. Router redundancy, load balancers with direct server return and a replaced gateway can legitimately
-        deliver a resolver&apos;s replies from more than one MAC address; add an exclusion for them.
-      </p>
-    </React.Fragment>
-  )
+  arp: "Detects addresses that two different MAC addresses claim at the same time, over ARP and NDP.",
+  dhcp: "Detects DHCP servers, DHCPv6 servers and IPv6 routers that are not trusted or that hand out a changed " +
+    "configuration.",
+  name_resolution: "Detects devices that answer LLMNR, NBT-NS and mDNS queries for names that are not their own.",
+  dns: "Detects devices that answer DNS queries with the address of a resolver that they are not."
+};
+
+const HELP_LINKS = {
+  arp: "https://go.nzyme.org/ethernet-spoofing-arp",
+  dhcp: "https://go.nzyme.org/ethernet-spoofing-dhcp",
+  name_resolution: "https://go.nzyme.org/ethernet-spoofing-nameres",
+  dns: "https://go.nzyme.org/ethernet-spoofing-dns"
 };
 
 const DELETE_DESCRIPTIONS = {
@@ -153,9 +99,9 @@ export default function SpoofingSettingsPage() {
     return (
       <div className="card mb-3" key={section.key}>
         <div className="card-body">
-          <CardTitleWithControls title={section.title} />
+          <CardTitleWithControls title={section.title} helpLink={HELP_LINKS[section.key]} />
 
-          {DESCRIPTIONS[section.key]}
+          <p className="text-muted">{DESCRIPTIONS[section.key]}</p>
 
           <h4 className="mt-3">Detection</h4>
           <SpoofingConfiguration organizationId={organizationId}

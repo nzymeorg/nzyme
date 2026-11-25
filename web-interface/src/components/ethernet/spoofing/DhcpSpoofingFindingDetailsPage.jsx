@@ -328,14 +328,12 @@ export default function DhcpSpoofingFindingDetailsPage() {
           <div className="card">
             <div className="card-body">
               <CardTitleWithControls title="Victims"
+                                     helpLink="https://go.nzyme.org/ethernet-spoofing-dhcp-findings"
                                      refreshAction={() => setRevision(new Date())} />
 
               {router ? null :
                 <p className="text-muted">
-                  Clients that accepted a lease from this server or chose its offer. They are using the gateway and
-                  DNS servers shown above, which means their traffic can be read, changed or redirected by whoever
-                  runs those. These are the devices to check. Clients that only received an offer and went with
-                  another server are not listed.
+                  The clients that accepted a lease from this server or chose its offer.
                 </p>}
 
               {router ?

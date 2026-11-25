@@ -55,6 +55,7 @@ export default function Ipv6TransitionTunnelsPage() {
             <div className="card">
               <div className="card-body">
                 <CardTitleWithControls title="Filters"
+                                       helpLink="https://go.nzyme.org/ethernet-ipv6-transition"
                                        timeRange={timeRange}
                                        setTimeRange={setTimeRange}
                                        refreshAction={() => setRevision(new Date())} />
