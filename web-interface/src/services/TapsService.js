@@ -2,8 +2,8 @@ import RESTClient from '../util/RESTClient'
 
 class TapService {
 
-  findAllTapsHighLevel(organizationId, tenantId, successCallback) {
-    RESTClient.get('/taps/highlevel', { organization_id: organizationId, tenant_id: tenantId }, successCallback);
+  findAllTapsHighLevel(organizationId, tenantId, successCallback, errorCallback = undefined, signal = undefined) {
+    RESTClient.get('/taps/highlevel', { organization_id: organizationId, tenant_id: tenantId }, successCallback, errorCallback, signal);
   }
 
   findTapHighLevel(uuid, organizationId, tenantId, setTap) {

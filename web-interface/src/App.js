@@ -1,4 +1,5 @@
 import React, {createContext, useEffect, useState} from 'react'
+import isEqual from 'lodash/isEqual'
 
 import {
   BrowserRouter as Router,
@@ -8,6 +9,7 @@ import {
 
 import NavigationBar from './components/layout/NavigationBar'
 import ScrollToTop from './components/layout/ScrollToTop'
+import SessionInfoRefresh from './components/layout/SessionInfoRefresh'
 import BriefingPage from './components/briefing/BriefingPage'
 import NotConnectedPage from './components/misc/NotConnectedPage'
 import NotFoundPage from './components/misc/NotFoundPage'
@@ -352,23 +354,30 @@ function App() {
 
   const [fullyLoaded, setFullyLoaded] = useState(false);
 
+  const applySessionInfo = function(sessionInfo, background = false) {
+    // Unchanged objects are kept, or every background refresh would make the pages load again.
+    const next = (current, fresh) => background && isEqual(current, fresh) ? current : fresh;
+
+    if (sessionInfo.user.has_mfa_disabled) {
+      setMfaRequired(false);
+    } else {
+      setMfaRequired(sessionInfo.mfa_valid === false);
+    }
+    setMfaSetup(sessionInfo.mfa_setup);
+    setMfaEntryExpiresAt(sessionInfo.mfa_entry_expires_at);
+    setUserInformation((current) => next(current, sessionInfo.user));
+    setBranding((current) => next(current, sessionInfo.branding));
+    setAlertInformation((current) => next(current, {
+      has_active_alerts: sessionInfo.has_active_alerts,
+      health_indicator_level: sessionInfo.health_indicator_level
+    }));
+  }
+
   const fetchSessionInfo = function(callback) {
     if (isAuthenticated()) {
       authenticationService.fetchSessionInfo(Store.get("selected_organization"), Store.get("selected_tenant"),
         function (sessionInfo) {
-        if (sessionInfo.user.has_mfa_disabled) {
-          setMfaRequired(false);
-        } else {
-          setMfaRequired(sessionInfo.mfa_valid === false);
-        }
-        setMfaSetup(sessionInfo.mfa_setup);
-        setMfaEntryExpiresAt(sessionInfo.mfa_entry_expires_at);
-        setUserInformation(sessionInfo.user);
-        setBranding(sessionInfo.branding);
-        setAlertInformation({
-          has_active_alerts: sessionInfo.has_active_alerts,
-          health_indicator_level: sessionInfo.health_indicator_level
-        });
+        applySessionInfo(sessionInfo);
 
         callback();
       }, function() {
@@ -379,6 +388,11 @@ function App() {
       setAuthenticated(false);
       callback();
     }
+  }
+
+  const refreshSessionInfo = function(signal) {
+    authenticationService.fetchSessionInfo(Store.get("selected_organization"), Store.get("selected_tenant"),
+      (sessionInfo) => applySessionInfo(sessionInfo, true), () => {}, signal);
   }
 
   // Background ping to keep session alive.
@@ -548,6 +562,7 @@ function App() {
       return (
           <Router>
             <ScrollToTop />
+            <SessionInfoRefresh refresh={refreshSessionInfo} />
             <DarkMode enabled={darkModeEnabled} />
 
             <div className="nzyme d-flex">

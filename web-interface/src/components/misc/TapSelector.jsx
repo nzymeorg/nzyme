@@ -4,6 +4,9 @@ import TapsService from "../../services/TapsService";
 import {TapContext} from "../../App";
 import {arraysAreEqual} from "../../util/Tools";
 import useSelectedTenant from "../system/tenantselector/useSelectedTenant";
+import useBackgroundRefresh from "../layout/useBackgroundRefresh";
+import {useLocation} from "react-router-dom";
+import isEqual from "lodash/isEqual";
 
 export const enableTapSelector = (ctx) => {
   if(ctx) {
@@ -44,6 +47,7 @@ function TapSelector() {
 
   const [organizationId, tenantId] = useSelectedTenant();
   const tapContext = useContext(TapContext);
+  const {pathname} = useLocation();
 
   const selectedTaps = tapContext.taps;
   const setSelectedTaps = tapContext.set;
@@ -102,6 +106,21 @@ function TapSelector() {
       setAvailableTaps(response.data.taps);
     });
   }, [organizationId, tenantId])
+
+  useEffect(() => {
+    setShow(false);
+  }, [pathname]);
+
+  // Paused while the menu is open, because new taps reset the pending selection.
+  useBackgroundRefresh((signal) => {
+    if (organizationId == null || tenantId == null) {
+      return;
+    }
+
+    tapsService.findAllTapsHighLevel(organizationId, tenantId, function (response) {
+      setAvailableTaps((current) => current === null || isEqual(current, response.data.taps) ? current : response.data.taps);
+    }, () => {}, signal);
+  }, [organizationId, tenantId], show);
 
   useEffect(() => {
     const lsTaps = Store.get("selected_taps");

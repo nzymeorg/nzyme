@@ -32,10 +32,10 @@ class AuthenticationService {
         .catch(() => { console.log("Could not touch session."); setRevision(new Date()); })
   }
 
-  fetchSessionInfo(selectedOrganization, selectedTenant, successCallback, errorCallback) {
+  fetchSessionInfo(selectedOrganization, selectedTenant, successCallback, errorCallback, signal = undefined) {
     RESTClient.get('/system/authentication/session', { organization_id: selectedOrganization, tenant_id: selectedTenant}, function(response) {
       successCallback(response.data);
-    }, errorCallback);
+    }, errorCallback, signal);
   }
 
   initializeMFASetup(setUserSecret, setUserEmail, setRecoveryCodes) {
