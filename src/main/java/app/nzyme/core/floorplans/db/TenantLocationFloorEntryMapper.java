@@ -19,6 +19,7 @@ public class TenantLocationFloorEntryMapper implements RowMapper<TenantLocationF
                 rs.getLong("number"),
                 rs.getString("name"),
                 rs.getBytes("plan"),
+                rs.getBoolean("has_plan"),
                 rs.getInt("plan_width_pixels"),
                 rs.getInt("plan_length_pixels"),
                 rs.getInt("plan_width_meters"),

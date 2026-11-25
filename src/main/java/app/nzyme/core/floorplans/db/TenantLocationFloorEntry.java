@@ -17,6 +17,7 @@ public abstract class TenantLocationFloorEntry {
     public abstract String name();
     @Nullable
     public abstract byte[] plan();
+    public abstract boolean hasPlan();
     @Nullable
     public abstract Integer planWidthPixels();
     @Nullable
@@ -29,7 +30,7 @@ public abstract class TenantLocationFloorEntry {
     public abstract DateTime createdAt();
     public abstract DateTime updatedAt();
 
-    public static TenantLocationFloorEntry create(long id, UUID uuid, UUID locationId, long number, String name, byte[] plan, Integer planWidthPixels, Integer planLengthPixels, Integer planWidthMeters, Integer planLengthMeters, Float pathLossExponent, DateTime createdAt, DateTime updatedAt) {
+    public static TenantLocationFloorEntry create(long id, UUID uuid, UUID locationId, long number, String name, byte[] plan, boolean hasPlan, Integer planWidthPixels, Integer planLengthPixels, Integer planWidthMeters, Integer planLengthMeters, Float pathLossExponent, DateTime createdAt, DateTime updatedAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -37,6 +38,7 @@ public abstract class TenantLocationFloorEntry {
                 .number(number)
                 .name(name)
                 .plan(plan)
+                .hasPlan(hasPlan)
                 .planWidthPixels(planWidthPixels)
                 .planLengthPixels(planLengthPixels)
                 .planWidthMeters(planWidthMeters)
@@ -64,6 +66,8 @@ public abstract class TenantLocationFloorEntry {
         public abstract Builder name(String name);
 
         public abstract Builder plan(byte[] plan);
+
+        public abstract Builder hasPlan(boolean hasPlan);
 
         public abstract Builder planWidthPixels(Integer planWidthPixels);
 

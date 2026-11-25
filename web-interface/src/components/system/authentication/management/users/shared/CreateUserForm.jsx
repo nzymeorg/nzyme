@@ -72,13 +72,13 @@ function CreateUserForm(props) {
         <div className="mb-3">
           <div className="mb-3">
             <label htmlFor="name" className="form-label">Full Name</label>
-            <input type="email" className="form-control" id="name" aria-describedby="name"
+            <input type="email" className="form-control" id="name" maxLength={128} aria-describedby="name"
                    value={name} onChange={(e) => { updateValue(e, setName) }} />
             <div className="form-text">The full name of the new user.</div>
           </div>
 
           <label htmlFor="email" className="form-label">Email Address / Username</label>
-          <input type="email" className="form-control" id="email" aria-describedby="email"
+          <input type="email" className="form-control" id="email" maxLength={128} aria-describedby="email"
                  value={email} onChange={(e) => { updateValue(e, setEmail) }} />
           <div className="form-text">
             The email address of the new user. This will be the username.{' '}

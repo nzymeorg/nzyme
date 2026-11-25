@@ -43,6 +43,7 @@ import app.nzyme.core.security.sessions.db.SessionEntryWithUserDetails;
 import app.nzyme.core.dashboards.DashboardsRegistryKeys;
 import app.nzyme.core.subsystems.SubsystemRegistryKeys;
 import app.nzyme.core.taps.Tap;
+import app.nzyme.core.util.ImageDimensions;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.Subsystem;
 import app.nzyme.plugin.distributed.messaging.ClusterMessage;
@@ -67,6 +68,7 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -86,6 +88,8 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Path("/api/system/authentication/mgmt/organizations")
 @Produces(MediaType.APPLICATION_JSON)
@@ -94,6 +98,9 @@ import java.util.*;
 public class OrganizationsResource extends UserAuthenticatedResource {
 
     private static final Logger LOG = LogManager.getLogger(OrganizationsResource.class);
+
+    // A floor plan within the upload limits can still take hundreds of megabytes while it is decoded.
+    private static final Semaphore FLOOR_PLAN_DECODES = new Semaphore(1);
 
     @Inject
     private NzymeNode nzyme;
@@ -105,8 +112,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "counts. The page size is limited to 250. Requires super administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Organizations found.",
             content = @Content(schema = @Schema(implementation = OrganizationsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     public Response findAll(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -154,7 +166,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @Operation(operationId = "createOrganization", summary = "Create an organization",
             description = "Requires super administrator permissions.")
     @ApiResponse(responseCode = "201", description = "Organization created.", content = @Content)
-    public Response create(@RequestBody(description = "Name and description of the new organization.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateOrganizationRequest req) {
+    public Response create(@RequestBody(description = "Name and description of the new organization.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateOrganizationRequest req) {
         nzyme.getAuthenticationService().createOrganization(
                 req.name(),
                 req.description()
@@ -171,7 +183,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "200", description = "Organization updated.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
     public Response update(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id,
-                           @RequestBody(description = "New name and description of the organization.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateOrganizationRequest req) {
+                           @RequestBody(description = "New name and description of the organization.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateOrganizationRequest req) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -300,7 +312,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "403", description = "The subsystem is disabled system-wide.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
     @ApiResponse(responseCode = "422", description = "No configuration values were passed or a value failed validation.", content = @Content)
-    public Response updateOrganizationSubsystemConfiguration(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id, @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
+    public Response updateOrganizationSubsystemConfiguration(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id, @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdateConfigurationRequest req) {
         if (req.change().isEmpty()) {
             LOG.info("Empty configuration parameters.");
             return Response.status(422).build();
@@ -393,7 +405,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "404", description = "Organization not found.", content = @Content)
     public Response setOrganizationQuota(@Parameter(description = "Organization UUID.") @PathParam("id") UUID id,
                                          @Parameter(description = "Quota type name.") @PathParam("quota_type") String quotaTypeParam,
-                                         @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @Valid ConfigureQuotaRequest req) {
+                                         @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid ConfigureQuotaRequest req) {
         Optional<OrganizationEntry> org = nzyme.getAuthenticationService().findOrganization(id);
 
         if (org.isEmpty()) {
@@ -426,6 +438,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "limited to 250. Requires organization administrator permissions.", tags = {"Tenants"})
     @ApiResponse(responseCode = "200", description = "Tenants found.",
             content = @Content(schema = @Schema(implementation = TenantsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
     public Response findTenantsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -433,6 +446,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                               @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                               @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -470,6 +487,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "organization administrator permissions.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Organization administrators found.",
             content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
     public Response findAllOrganizationAdministrators(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -477,6 +495,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                                       @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                                       @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -564,7 +586,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
     public Response createOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
                                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
-                                                    @RequestBody(description = "Name, email address, password and MFA setting of the new organization administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
+                                                    @RequestBody(description = "Name, email address, password and MFA setting of the new organization administrator.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!validateCreateUserRequest(req)) {
@@ -574,6 +596,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         // Check if user is org admin for this org.
         if (!authenticatedUser.isSuperAdministrator() && !authenticatedUser.getOrganizationId().equals(organizationId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!organizationExists(organizationId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -601,10 +627,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}")
+    @SessionOnly
     @Operation(operationId = "updateOrganizationAdministrator", summary = "Update an organization administrator",
             description = "Changes name, email address and the multi-factor authentication requirement. Turning "
                     + "multi-factor authentication off records a system event. Requires organization administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Organization administrator updated.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -612,7 +639,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response editOrganizationAdministrator(@Parameter(hidden = true) @Context SecurityContext sc,
                                                   @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                   @Parameter(description = "User UUID.") @PathParam("id") UUID userId,
-                                                  @RequestBody(description = "New name, email address and MFA setting of the organization administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
+                                                  @RequestBody(description = "New name, email address and MFA setting of the organization administrator.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> orgAdmin = nzyme.getAuthenticationService().findOrganizationAdministrator(
@@ -632,7 +659,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        if (!orgAdmin.get().email().equals(req.email()) && nzyme.getAuthenticationService().userWithEmailExists(
+        if (!orgAdmin.get().email().equals(req.email().toLowerCase()) && nzyme.getAuthenticationService().userWithEmailExists(
                 req.email().toLowerCase())) {
             LOG.info("User with email address already exists.");
             return Response.status(Response.Status.UNAUTHORIZED).entity(
@@ -674,7 +701,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response editOrganizationAdministratorPassword(@Parameter(hidden = true) @Context SecurityContext sc,
                                                           @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                           @Parameter(description = "User UUID.") @PathParam("id") UUID userId,
-                                                          @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdatePasswordRequest req) {
+                                                          @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         Optional<UserEntry> orgAdmin = nzyme.getAuthenticationService().findOrganizationAdministrator(
@@ -718,9 +745,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/administrators/show/{id}")
+    @SessionOnly
     @Operation(operationId = "deleteOrganizationAdministrator", summary = "Delete an organization administrator",
             description = "Administrators cannot delete themselves. Requires organization administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Organization administrator deleted.", content = @Content)
     @ApiResponse(responseCode = "403", description = "The calling user tried to delete themselves.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization administrator not found or not accessible by the calling user.", content = @Content)
@@ -814,7 +842,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         Optional<TenantEntry> tenant = nzyme.getAuthenticationService().findTenant(tenantId);
 
-        if (tenant.isEmpty()) {
+        if (tenant.isEmpty() || !tenant.get().organizationUuid().equals(organizationId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -832,11 +860,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "422", description = "The tenant quota of the organization is exhausted.", content = @Content)
     public Response createTenant(@Parameter(hidden = true) @Context SecurityContext sc,
                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
-                                 @RequestBody(description = "Name, description and timeout settings of the new tenant.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTenantRequest req) {
+                                 @RequestBody(description = "Name, description and timeout settings of the new tenant.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateTenantRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         // Check if user is org admin for this org.
         if (!authenticatedUser.isSuperAdministrator() && !authenticatedUser.getOrganizationId().equals(organizationId)) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!organizationExists(organizationId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -868,7 +900,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response updateTenant(@Parameter(hidden = true) @Context SecurityContext sc,
                                  @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                  @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
-                                 @RequestBody(description = "New name, description and timeout settings of the tenant.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTenantRequest req) {
+                                 @RequestBody(description = "New name, description and timeout settings of the tenant.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateTenantRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -934,7 +966,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response getTenantQuotas(@Parameter(hidden = true) @Context SecurityContext sc,
                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                     @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -984,11 +1017,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                                 @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
-        if (limit > 200 || offset < 0) {
+        if (limit > 200 || limit < 0 || offset < 0) {
             return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -1059,8 +1093,9 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                    @Parameter(description = "Quota type name.") @PathParam("quota_type") String quotaTypeParam,
-                                   @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @Valid ConfigureQuotaRequest req) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+                                   @RequestBody(description = "The new quota limit. Pass null to reset the quota back to unlimited.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid ConfigureQuotaRequest req) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -1078,11 +1113,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         if (organizationQuota != null && req.quota() != null) {
             // Add up all tenant quotas of this type if organization quota is not unlimited.
-            int orgWideQuotaUse = nzyme.getAuthenticationService()
+            long orgWideQuotaUse = nzyme.getAuthenticationService()
                     .findAllTenantsOfOrganization(organizationId)
                     .stream()
                     .filter(t -> !t.uuid().equals(tenantId)) // Skip our own tenant.
-                    .mapToInt(t -> nzyme.getQuotaService()
+                    .mapToLong(t -> nzyme.getQuotaService()
                             .getTenantQuota(organizationId, t.uuid(), quotaType)
                             .orElse(0))
                     .sum();
@@ -1204,7 +1239,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response updateTenantSubsystemConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
                                                        @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                        @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
-                                                       @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
+                                                       @RequestBody(description = "Map of subsystem configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdateConfigurationRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1291,7 +1326,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response updateTenantDashboardsConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
                                                         @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                         @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
-                                                        @RequestBody(description = "Map of dashboards configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) UpdateConfigurationRequest req) {
+                                                        @RequestBody(description = "Map of dashboards configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdateConfigurationRequest req) {
         if (!organizationAndTenantExists(organizationId, tenantId)
                 || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -1324,6 +1359,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "limited to 250. Requires organization administrator permissions.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Users found.",
             content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response findAllUsersOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -1332,6 +1368,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                          @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                          @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -1440,8 +1480,9 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     public Response createUserOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
                                        @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                        @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
-                                       @RequestBody(description = "Name, email address, password and MFA setting of the new user.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+                                       @RequestBody(description = "Name, email address, password and MFA setting of the new user.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateUserRequest req) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -1480,10 +1521,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}")
+    @SessionOnly
     @Operation(operationId = "updateTenantUser", summary = "Update a user of a tenant",
             description = "Changes name, email address and the multi-factor authentication requirement. Turning "
                     + "multi-factor authentication off records a system event. Requires organization administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "User updated.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found, the request failed validation, or the email address is already in use.",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -1492,7 +1534,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                      @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                      @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                      @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                     @RequestBody(description = "New name, email address and MFA setting of the user.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
+                                     @RequestBody(description = "New name, email address and MFA setting of the user.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateUserRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1515,7 +1557,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        if (!user.get().email().equals(req.email()) && nzyme.getAuthenticationService().userWithEmailExists(
+        if (!user.get().email().equals(req.email().toLowerCase()) && nzyme.getAuthenticationService().userWithEmailExists(
                 req.email().toLowerCase())) {
             LOG.info("User with email address already exists.");
             return Response.status(Response.Status.UNAUTHORIZED).entity(
@@ -1545,18 +1587,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/taps")
+    @SessionOnly
     @Operation(operationId = "updateTenantUserTapPermissions", summary = "Set tap permissions of a user",
             description = "Replaces the list of taps this user can access. Tap UUIDs that do not belong to the "
                     + "tenant are ignored. Set the allow all flag to grant access to every current and future tap "
-                    + "of the tenant. Requires organization administrator permissions.", tags = {"Users"})
+                    + "of the tenant. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Tap permissions updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Missing request body or a tap UUID that is not a UUID.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
     public Response editUserOfTenantTapPermissions(@Parameter(hidden = true) @Context SecurityContext sc,
                                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                                    @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                                   @RequestBody(description = "List of tap UUIDs the user may access and the flag that grants access to all taps of the tenant.", required = true, content = @Content(mediaType = "application/json")) UpdateUserTapPermissionsRequest req) {
+                                                   @RequestBody(description = "List of tap UUIDs the user may access and the flag that grants access to all taps of the tenant.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdateUserTapPermissionsRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1577,8 +1621,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         // Update tap permissions.
         List<UUID> requestedPermissions = Lists.newArrayList();
 
-        for (String tap : req.taps()) {
-            requestedPermissions.add(UUID.fromString(tap));
+        try {
+            for (String tap : req.taps()) {
+                requestedPermissions.add(UUID.fromString(tap));
+            }
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
         List<UUID> newPermissions = Lists.newArrayList();
@@ -1601,18 +1649,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/permissions")
+    @SessionOnly
     @Operation(operationId = "updateTenantUserPermissions", summary = "Set feature permissions of a user",
             description = "Replaces the feature permissions of this user with the passed permission ids. List the "
                     + "available ids with the permissions endpoint. Requires organization administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Permissions updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "Missing request body or an unknown permission id.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "User not found or not accessible by the calling user.", content = @Content)
     public Response editUserOfTenantPermissions(@Parameter(hidden = true) @Context SecurityContext sc,
                                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                 @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                                 @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                                @RequestBody(description = "List of feature permission ids the user should have.", required = true, content = @Content(mediaType = "application/json")) UpdateUserPermissionsRequest req) {
+                                                @RequestBody(description = "List of feature permission ids the user should have.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdateUserPermissionsRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1630,7 +1680,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        nzyme.getAuthenticationService().setUserPermissions(user.get().uuid(), req.permissions());
+        // Permissions that Nzyme no longer has can still be stored for a user and are sent back. They are dropped.
+        List<String> held = nzyme.getAuthenticationService().findPermissionsOfUser(user.get().uuid());
+
+        if (req.permissions().stream().anyMatch(p -> p == null || (!Permissions.ALL.containsKey(p) && !held.contains(p)))) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        nzyme.getAuthenticationService().setUserPermissions(
+                user.get().uuid(),
+                req.permissions().stream().filter(Permissions.ALL::containsKey).distinct().toList()
+        );
 
         return Response.ok().build();
     }
@@ -1638,8 +1698,9 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}")
+    @SessionOnly
     @Operation(operationId = "deleteTenantUser", summary = "Delete a user of a tenant",
-            description = "Users cannot delete themselves. Requires organization administrator permissions.",
+            description = "Users cannot delete themselves. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
             tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "User deleted.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
@@ -1691,7 +1752,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                              @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                              @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                              @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                             @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) UpdatePasswordRequest req) {
+                                             @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
@@ -1785,8 +1846,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "administrator permissions.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Sessions found.",
             content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     public Response findAllSessions(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -1825,6 +1891,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Sessions found.",
             content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
     public Response findSessionsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -1832,6 +1899,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                                @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                                @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -1881,6 +1952,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Sessions found.",
             content = @Content(schema = @Schema(implementation = SessionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response findSessionsOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -1889,6 +1961,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                          @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                          @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -1975,6 +2051,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             tags = {"Taps"})
     @ApiResponse(responseCode = "200", description = "Taps found.",
             content = @Content(schema = @Schema(implementation = TapPermissionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250, or organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response findAllTapsOfTenant(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -1983,6 +2060,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                 @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                 @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
@@ -2002,7 +2083,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         for (TapPermissionEntry tap : nzyme.getAuthenticationService()
                 .findAllTapsOfTenant(organizationId, tenantId, limit, offset)) {
             Optional<TenantLocationEntry> location = nzyme.getAuthenticationService()
-                    .findTenantLocation(organizationId, tenantId, tap.locationId());
+                    .findTenantLocation(tap.locationId(), organizationId, tenantId);
             Optional<TenantLocationFloorEntry> floor;
             if (location.isPresent()) {
                 floor = nzyme.getAuthenticationService()
@@ -2073,14 +2154,20 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     + "process with that secret to connect the tap. Requires organization administrator "
                     + "permissions.", tags = {"Taps"})
     @ApiResponse(responseCode = "201", description = "Tap created.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The location does not belong to the tenant, the floor does not belong to the location, or a floor was passed without a location.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
     @ApiResponse(responseCode = "422", description = "The tap quota of the tenant is exhausted.", content = @Content)
     public Response createTap(@Parameter(hidden = true) @Context SecurityContext sc,
                               @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                               @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
-                              @RequestBody(description = "Name, description, location, floor and coordinates of the new tap.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTapRequest req) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+                              @RequestBody(description = "Name, description, location, floor and coordinates of the new tap.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateTapRequest req) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!tapPlacementExists(organizationId, tenantId, req.location(), req.floor())) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
         // Check if there is room in the quota.
@@ -2088,7 +2175,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(422).build();
         }
 
-        String secret = RandomStringUtils.random(64, true, true);
+        String secret = RandomStringUtils.secure().next(64, true, true);
 
         nzyme.getAuthenticationService().createTap(
                 organizationId,
@@ -2115,13 +2202,15 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
                     url = "https://go.nzyme.org/locations"))
     @ApiResponse(responseCode = "200", description = "Tap updated.", content = @Content)
+    @ApiResponse(responseCode = "400", description = "The new location does not belong to the tenant, the new floor does not belong to the location, or a floor was passed without a location.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Tap not found, or organization or tenant not accessible by the calling user.", content = @Content)
     public Response editTap(@Parameter(hidden = true) @Context SecurityContext sc,
                             @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                             @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId,
-                            @RequestBody(description = "New name, description, location, floor and coordinates of the tap.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTapRequest req) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+                            @RequestBody(description = "New name, description, location, floor and coordinates of the tap.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateTapRequest req) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -2129,6 +2218,14 @@ public class OrganizationsResource extends UserAuthenticatedResource {
 
         if (tap.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        // A tap keeps the placement it has, also one whose location was deleted since.
+        boolean placementChanged = !Objects.equals(req.location(), tap.get().locationId())
+                || !Objects.equals(req.floor(), tap.get().floorId());
+
+        if (placementChanged && !tapPlacementExists(organizationId, tenantId, req.location(), req.floor())) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
         }
 
         nzyme.getAuthenticationService().editTap(
@@ -2158,7 +2255,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                               @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                               @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                               @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -2190,7 +2288,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                    @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                    @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                    @Parameter(description = "Tap UUID.") @PathParam("tapUuid") UUID tapId) {
-        if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
+        if (!organizationAndTenantExists(organizationId, tenantId)
+                || !passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
@@ -2200,7 +2299,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        String newSecret = RandomStringUtils.random(64, true, true);
+        String newSecret = RandomStringUtils.secure().next(64, true, true);
         nzyme.getAuthenticationService().cycleTapSecret(organizationId, tenantId, tapId, newSecret);
 
         return Response.ok().build();
@@ -2261,11 +2360,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @Operation(operationId = "findTenantLocations", summary = "List locations of a tenant",
             description = "A location is a site such as a campus or a building. It groups the floors of that site "
                     + "and the taps placed on them, which makes data easier to read when a tenant has taps spread "
-                    + "over several sites. Requires organization administrator permissions.", tags = {"Locations"},
+                    + "over several sites. The page size is limited to 250. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"},
             externalDocs = @ExternalDocumentation(description = "Locations in the Nzyme documentation",
                     url = "https://go.nzyme.org/locations"))
     @ApiResponse(responseCode = "200", description = "Locations found.",
             content = @Content(schema = @Schema(implementation = TenantLocationListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The requested page size is larger than 250, or the page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response findAllTenantLocations(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -2274,6 +2375,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                            @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                            @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit > 250 || limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -2324,7 +2429,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not accessible by the calling user.", content = @Content)
     public Response createTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
-                                         @RequestBody(description = "Name, description and coordinates of the new location.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateTenantLocationRequest req,
+                                         @RequestBody(description = "Name, description and coordinates of the new location.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateTenantLocationRequest req,
                                          @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                          @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
@@ -2384,7 +2489,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
     public Response updateTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
-                                         @RequestBody(description = "New name, description and coordinates of the location.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateTenantLocationRequest req,
+                                         @RequestBody(description = "New name, description and coordinates of the location.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateTenantLocationRequest req,
                                          @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                          @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                          @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
@@ -2526,9 +2631,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors")
     @Operation(operationId = "findTenantLocationFloors", summary = "List floors of a location",
             description = "Returns all floors with the taps placed on them and whether a floor plan has been "
-                    + "uploaded. Requires organization administrator permissions.", tags = {"Locations"})
+                    + "uploaded. The page size is limited to 250. Requires organization administrator "
+                    + "permissions.", tags = {"Locations"})
     @ApiResponse(responseCode = "200", description = "Floors found.",
             content = @Content(schema = @Schema(implementation = TenantLocationFloorListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The requested page size is larger than 250, or the page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
     public Response findAllFloorsOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -2538,6 +2645,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                                                   @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit > 250 || limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (!organizationAndTenantExists(organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -2573,7 +2684,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     floor.locationId(),
                     floor.number(),
                     Tools.buildFloorName(floor),
-                    floor.plan() != null,
+                    floor.hasPlan(),
                     tapPositions.size(),
                     tapPositions,
                     Tools.round(floor.pathLossExponent(), 1),
@@ -2641,7 +2752,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                 floor.locationId(),
                 floor.number(),
                 Tools.buildFloorName(floor),
-                floor.plan() != null,
+                floor.hasPlan(),
                 tapPositions.size(),
                 tapPositions,
                 Tools.round(floor.pathLossExponent(), 1),
@@ -2664,7 +2775,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Location not found or not accessible by the calling user.", content = @Content)
     public Response createFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
-                                                @RequestBody(description = "Number, name and path loss exponent of the new floor.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateFloorOfTenantLocationRequest req,
+                                                @RequestBody(description = "Number, name and path loss exponent of the new floor.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateFloorOfTenantLocationRequest req,
                                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                 @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                                 @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId) {
@@ -2713,7 +2824,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
     public Response updateFloorOfTenantLocation(@Parameter(hidden = true) @Context SecurityContext sc,
-                                                @RequestBody(description = "New number, name and path loss exponent of the floor.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateFloorOfTenantLocationRequest req,
+                                                @RequestBody(description = "New number, name and path loss exponent of the floor.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateFloorOfTenantLocationRequest req,
                                                 @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                 @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                                 @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
@@ -2855,7 +2966,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         }
 
         Optional<TenantLocationFloorEntry> floor = nzyme.getAuthenticationService()
-                .findFloorOfTenantLocation(location.get().uuid(), floorId);
+                .findFloorOfTenantLocationWithPlan(location.get().uuid(), floorId);
 
         if (floor.isEmpty()) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -2865,28 +2976,29 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
-        ByteArrayInputStream imageBytes = new ByteArrayInputStream(floor.get().plan());
+        Optional<ImageDimensions.Dimensions> dimensions = ImageDimensions.read(floor.get().plan());
 
-        try {
-            BufferedImage image = ImageIO.read(imageBytes);
-
-            //noinspection DataFlowIssue
-            return Response.ok(FloorPlanResponse.create(
-                    BaseEncoding.base64().encode(
-                            floor.get().plan()), image.getWidth(), image.getHeight(), floor.get().planWidthMeters(), floor.get().planLengthMeters()
-                    )
-            ).build();
-        } catch (Exception e) {
-            LOG.error("Could not read floor plan image data from database. Floor: {}", floor.get(), e);
+        if (dimensions.isEmpty()) {
+            LOG.error("Could not read floor plan image data from database. Floor: {}", floor.get().uuid());
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
         }
+
+        //noinspection DataFlowIssue
+        return Response.ok(FloorPlanResponse.create(
+                BaseEncoding.base64().encode(floor.get().plan()),
+                dimensions.get().width(),
+                dimensions.get().height(),
+                floor.get().planWidthMeters(),
+                floor.get().planLengthMeters()
+        )).build();
     }
 
     @POST
     @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
     @Path("/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors/show/{floorId}/plan")
     @Operation(operationId = "uploadTenantLocationFloorPlan", summary = "Upload a floor plan",
-            description = "Takes a JPG or PNG file of up to 5MB as multipart form data and converts it to PNG. "
+            description = "Takes a JPG or PNG file of up to 5MB and 40 megapixels as multipart form data and "
+                    + "converts it to PNG. "
                     + "Pass the real world width and length of the floor in meters so Nzyme can translate pixels "
                     + "into distances. A floor plan with taps placed on it is what enables trilateration for the "
                     + "subsystems that support it. Requires organization administrator permissions.",
@@ -2899,6 +3011,8 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Location or floor not found, or not accessible by the calling user.", content = @Content)
     @ApiResponse(responseCode = "500", description = "The uploaded file could not be read.", content = @Content)
+    @ApiResponse(responseCode = "503", description = "Another floor plan is being processed. Only one upload is converted at a time.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @RequestBody(description = "Multipart form with the floor plan image file.", required = true,
             content = @Content(mediaType = "multipart/form-data",
                     schemaProperties = @SchemaProperty(name = "plan",
@@ -2941,6 +3055,10 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        if (planFile == null) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         byte[] planBytes;
         try {
             /*
@@ -2965,6 +3083,29 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     .build();
         }
 
+        Optional<ImageDimensions.Dimensions> dimensions = ImageDimensions.read(planBytes);
+
+        if (dimensions.isEmpty() || !dimensions.get().isFloorPlan()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(ErrorResponse.create("Could not use floor plan file. Make sure it is a JPG or PNG file of at " +
+                            "most " + ImageDimensions.MAX_FLOOR_PLAN_PIXELS / 1_000_000 + " megapixels."))
+                    .build();
+        }
+
+        try {
+            if (!FLOOR_PLAN_DECODES.tryAcquire(10, TimeUnit.SECONDS)) {
+                return Response.status(Response.Status.SERVICE_UNAVAILABLE)
+                        .entity(ErrorResponse.create("Another floor plan is being processed. Try again."))
+                        .build();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Response.status(Response.Status.SERVICE_UNAVAILABLE).build();
+        }
+
+        byte[] png;
+        int widthPixels;
+        int heightPixels;
         try {
             // New input stream because the previous one had been consumed when checking the length.
             BufferedImage image = ImageIO.read(new ByteArrayInputStream(planBytes));
@@ -2978,21 +3119,22 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             ByteArrayOutputStream pngOut = new ByteArrayOutputStream();
             ImageIO.write(image, "png", pngOut);
 
-            nzyme.getAuthenticationService().writeFloorPlan(
-                    floor.get().id(),
-                    pngOut.toByteArray(),
-                    image.getWidth(),
-                    image.getHeight(),
-                    widthMeters,
-                    lengthMeters
-            );
+            png = pngOut.toByteArray();
+            widthPixels = image.getWidth();
+            heightPixels = image.getHeight();
         } catch (Exception e) {
             LOG.warn("Could not process uploaded floor plan file.", e);
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(ErrorResponse.create("Could not process uploaded floor plan file. Make sure it is a JPG or " +
                             "PNG file."))
                     .build();
+        } finally {
+            FLOOR_PLAN_DECODES.release();
         }
+
+        nzyme.getAuthenticationService().writeFloorPlan(
+                floor.get().id(), png, widthPixels, heightPixels, widthMeters, lengthMeters
+        );
 
         nzyme.getAuthenticationService().updateUpdatedAtOfTenantLocation(location.get().id());
 
@@ -3063,7 +3205,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "401", description = "Organization or tenant not found.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Location, floor or tap not found, or not accessible by the calling user.", content = @Content)
     public Response placeTapOnFloor(@Parameter(hidden = true) @Context SecurityContext sc,
-                                    @RequestBody(description = "Pixel coordinates of the tap on the floor plan.", required = true, content = @Content(mediaType = "application/json")) @Valid PlaceTapRequest req,
+                                    @RequestBody(description = "Pixel coordinates of the tap on the floor plan.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid PlaceTapRequest req,
                                     @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                     @Parameter(description = "Tenant UUID.") @PathParam("tenantId") UUID tenantId,
                                     @Parameter(description = "Location UUID.") @PathParam("locationId") UUID locationId,
@@ -3171,12 +3313,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
                     url = "https://go.nzyme.org/detection-alerts-subscriptions"))
     @ApiResponse(responseCode = "200", description = "Event actions found.",
             content = @Content(schema = @Schema(implementation = EventActionsListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Organization not found or not accessible by the calling user.", content = @Content)
     public Response findAllEventActionsOfOrganization(@Parameter(hidden = true) @Context SecurityContext sc,
                                                       @Parameter(description = "Organization UUID.") @PathParam("organizationId") UUID organizationId,
                                                       @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                                       @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
 
         if (!organizationExists(organizationId)) {
             return Response.status(Response.Status.NOT_FOUND).build();
@@ -3314,7 +3461,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             description = "Requires super administrator permissions.", tags = {"System"})
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
     @ApiResponse(responseCode = "422", description = "A configuration value failed validation.", content = @Content)
-    public Response setGlobalSuperAdministratorConfiguration(@RequestBody(description = "Map of authentication configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @Valid SuperadminSettingsUpdateRequest ur) {
+    public Response setGlobalSuperAdministratorConfiguration(@RequestBody(description = "Map of authentication configuration keys and their new values.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid SuperadminSettingsUpdateRequest ur) {
         Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
                 .allowing(AuthenticationRegistryKeys.SESSION_TIMEOUT_MINUTES,
                         AuthenticationRegistryKeys.SESSION_INACTIVITY_TIMEOUT_MINUTES,
@@ -3340,8 +3487,13 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Super administrators found.",
             content = @Content(schema = @Schema(implementation = UsersListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The page size or offset is negative.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The requested page size is larger than 250.", content = @Content)
     public Response findAllSuperAdministrators(@Parameter(description = "Page size.") @QueryParam("limit") int limit, @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        if (limit < 0 || offset < 0) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
         if (limit > 250) {
             LOG.warn("Requested limit larger than 250. Not allowed.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -3415,7 +3567,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "201", description = "Super administrator created.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    public Response createSuperAdministrator(@RequestBody(description = "Name, email address, password and MFA setting of the new super administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid CreateUserRequest req) {
+    public Response createSuperAdministrator(@RequestBody(description = "Name, email address, password and MFA setting of the new super administrator.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid CreateUserRequest req) {
         if (!validateCreateUserRequest(req)) {
             LOG.info("Invalid parameters in create user request.");
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -3451,16 +3603,17 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @PUT
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{userId}")
+    @SessionOnly
     @Operation(operationId = "updateSuperAdministrator", summary = "Update a super administrator",
             description = "Changes name, email address and the multi-factor authentication requirement. Turning "
                     + "multi-factor authentication off records a system event. Requires super administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Super administrator updated.", content = @Content)
     @ApiResponse(responseCode = "401", description = "The request failed validation or the email address is already in use.",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
     public Response editSuperAdministrator(@Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                           @RequestBody(description = "New name, email address and MFA setting of the super administrator.", required = true, content = @Content(mediaType = "application/json")) @Valid UpdateUserRequest req) {
+                                           @RequestBody(description = "New name, email address and MFA setting of the super administrator.", required = true, content = @Content(mediaType = "application/json")) @NotNull @Valid UpdateUserRequest req) {
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
 
         if (superAdmin.isEmpty()) {
@@ -3472,7 +3625,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        if (!superAdmin.get().email().equals(req.email()) && nzyme.getAuthenticationService().userWithEmailExists(
+        if (!superAdmin.get().email().equals(req.email().toLowerCase()) && nzyme.getAuthenticationService().userWithEmailExists(
                 req.email().toLowerCase())) {
             LOG.info("User with email address already exists.");
             return Response.status(Response.Status.UNAUTHORIZED).entity(
@@ -3512,7 +3665,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
     public Response editSuperAdministratorPassword(@Parameter(hidden = true) @Context SecurityContext sc,
                                                    @Parameter(description = "User UUID.") @PathParam("userId") UUID userId,
-                                                   @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) UpdatePasswordRequest req) {
+                                                   @RequestBody(description = "The new password.", required = true, content = @Content(mediaType = "application/json")) @NotNull UpdatePasswordRequest req) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         Optional<UserEntry> superAdmin = nzyme.getAuthenticationService().findSuperAdministrator(userId);
 
@@ -3550,10 +3703,11 @@ public class OrganizationsResource extends UserAuthenticatedResource {
     @DELETE
     @RESTSecured(PermissionLevel.SUPERADMINISTRATOR)
     @Path("/superadmins/show/{id}")
+    @SessionOnly
     @Operation(operationId = "deleteSuperAdministrator", summary = "Delete a super administrator",
             description = "Super administrators cannot delete themselves and the last remaining super "
                     + "administrator cannot be deleted. Records a system event. Requires super administrator "
-                    + "permissions.", tags = {"Users"})
+                    + "permissions. Requires an interactive session; API keys are rejected.", tags = {"Users"})
     @ApiResponse(responseCode = "200", description = "Super administrator deleted.", content = @Content)
     @ApiResponse(responseCode = "403", description = "The calling user tried to delete themselves or the last remaining super administrator.", content = @Content)
     @ApiResponse(responseCode = "404", description = "Super administrator not found.", content = @Content)
@@ -3736,6 +3890,25 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         );
     }
 
+    private boolean tapPlacementExists(UUID organizationId,
+                                       UUID tenantId,
+                                       @Nullable UUID locationId,
+                                       @Nullable UUID floorId) {
+        if (locationId == null) {
+            return floorId == null;
+        }
+
+        Optional<TenantLocationEntry> location = nzyme.getAuthenticationService()
+                .findTenantLocation(locationId, organizationId, tenantId);
+
+        if (location.isEmpty()) {
+            return false;
+        }
+
+        return floorId == null || nzyme.getAuthenticationService()
+                .findFloorOfTenantLocation(location.get().uuid(), floorId).isPresent();
+    }
+
     private boolean organizationExists(UUID organizationId) {
         return nzyme.getAuthenticationService().findOrganization(organizationId).isPresent();
     }
@@ -3765,11 +3938,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return false;
         }
 
-        if (req.name() == null || req.name().trim().isEmpty()) {
+        if (req.name() == null || req.name().trim().isEmpty() || req.name().length() > 128) {
             return false;
         }
 
-        if (req.email() == null || !req.email().toLowerCase().matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")) {
+        if (req.email() == null || req.email().length() > 128
+                || !req.email().toLowerCase().matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")) {
             return false;
         }
 
@@ -3785,11 +3959,12 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             return false;
         }
 
-        if (req.name() == null || req.name().trim().isEmpty()) {
+        if (req.name() == null || req.name().trim().isEmpty() || req.name().length() > 128) {
             return false;
         }
 
-        if (req.email() == null || !req.email().toLowerCase().matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")) {
+        if (req.email() == null || req.email().length() > 128
+                || !req.email().toLowerCase().matches("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$")) {
             return false;
         }
 

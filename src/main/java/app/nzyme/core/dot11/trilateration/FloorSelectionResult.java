@@ -1,5 +1,6 @@
 package app.nzyme.core.dot11.trilateration;
 
+import app.nzyme.core.util.ImageDimensions;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.floorplans.db.TenantLocationFloorEntry;
 import app.nzyme.core.rest.responses.floorplans.TapPositionResponse;
@@ -8,7 +9,6 @@ import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
 import jakarta.ws.rs.core.Response;
 
-import java.awt.image.BufferedImage;
 import java.util.List;
 
 @AutoValue
@@ -30,9 +30,9 @@ public abstract class FloorSelectionResult {
     @Nullable
     public abstract TenantLocationFloorEntry floor();
     @Nullable
-    public abstract BufferedImage floorPlanImage();
+    public abstract ImageDimensions.Dimensions floorPlanDimensions();
 
-    public static FloorSelectionResult create(Response errorResponse, List<Tap> taps, List<TapPositionResponse> tapPositions, Long locationFloorCount, Long locationTapCount, TenantLocationEntry location, TenantLocationFloorEntry floor, BufferedImage floorPlanImage) {
+    public static FloorSelectionResult create(Response errorResponse, List<Tap> taps, List<TapPositionResponse> tapPositions, Long locationFloorCount, Long locationTapCount, TenantLocationEntry location, TenantLocationFloorEntry floor, ImageDimensions.Dimensions floorPlanDimensions) {
         return builder()
                 .errorResponse(errorResponse)
                 .taps(taps)
@@ -41,7 +41,7 @@ public abstract class FloorSelectionResult {
                 .locationTapCount(locationTapCount)
                 .location(location)
                 .floor(floor)
-                .floorPlanImage(floorPlanImage)
+                .floorPlanDimensions(floorPlanDimensions)
                 .build();
     }
 
@@ -65,7 +65,7 @@ public abstract class FloorSelectionResult {
 
         public abstract Builder floor(TenantLocationFloorEntry floor);
 
-        public abstract Builder floorPlanImage(BufferedImage floorPlanImage);
+        public abstract Builder floorPlanDimensions(ImageDimensions.Dimensions floorPlanDimensions);
 
         public abstract FloorSelectionResult build();
     }

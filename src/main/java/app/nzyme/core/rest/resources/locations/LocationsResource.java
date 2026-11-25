@@ -275,7 +275,7 @@ public class LocationsResource extends UserAuthenticatedResource {
         List<LocationFloorDetailsResponse> floors = Lists.newArrayList();
         for (TenantLocationFloorEntry floor : nzyme.getAuthenticationService()
                 .findAllFloorsOfTenantLocation(location.uuid())) {
-            boolean hasFloorPlan = floor.plan() != null;
+            boolean hasFloorPlan = floor.hasPlan();
             int tapCount = nzyme.getTapManager()
                     .findAllTapsOnFloor(organizationId, tenantId, location.uuid(), floor.uuid()).size();
 

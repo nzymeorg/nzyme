@@ -28,6 +28,8 @@ function EditTapPermissionsPage() {
     authenticationManagementService.editTapPermission(organization.id, tenant.id, tap.uuid, name, description, location, floor, latitude, longitude, () => {
       setRedirect(true);
       toast.success('Tap details updated.');
+    }, () => {
+      toast.error('Could not update tap.');
     })
   }
 
@@ -106,6 +108,8 @@ function EditTapPermissionsPage() {
                 <h3>Edit Tap Details</h3>
 
                 <TapPermissionForm onClick={onFormSubmitted}
+                                   organizationId={organization.id}
+                                   tenantId={tenant.id}
                                    name={tap.name}
                                    description={tap.description}
                                    floor={tap.floor_id}

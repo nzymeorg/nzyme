@@ -81,7 +81,7 @@ function UploadFloorPlanForm(props) {
       <React.Fragment>
         <div className="mb-3">
           <label htmlFor="plan" className="form-label">
-            Floor Plan Image File (JPG or PNG, maximum file size 5MB)
+            Floor Plan Image File (JPG or PNG, maximum file size 5MB, maximum 40 megapixels)
           </label>
           <input className="form-control form-control-sm" name="plan" id="plan" type="file"
                  onChange={(e) => setPlanFiles(e.target.files)}/>

@@ -9,6 +9,8 @@ function TapPermissionForm(props) {
   const onClick = props.onClick;
   const submitText = props.submitText;
   const defaultMapZoomLevel = props.defaultMapZoomLevel;
+  const organizationId = props.organizationId;
+  const tenantId = props.tenantId;
 
   const [name, setName] = useState(props.name ? props.name : "");
   const [description, setDescription] = useState(props.description ? props.description : "");
@@ -53,14 +55,14 @@ function TapPermissionForm(props) {
       <form>
         <div className="mb-3">
           <label htmlFor="name" className="form-label">Name</label>
-          <input type="text" className="form-control" id="name" aria-describedby="name"
+          <input type="text" className="form-control" id="name" maxLength={50} aria-describedby="name"
                  value={name} onChange={(e) => { updateValue(e, setName) }} />
           <div className="form-text">The name of the new tap.</div>
         </div>
 
         <div className="mb-3">
           <label htmlFor="description" className="form-label">Description</label>
-          <textarea className="form-control" id="description" rows="3"
+          <textarea className="form-control" id="description" maxLength={10000} rows="3"
                     value={description} onChange={(e) => { updateValue(e, setDescription) }} />
           <div className="form-text">A short description of the new tap.</div>
         </div>
@@ -71,8 +73,16 @@ function TapPermissionForm(props) {
               <h3>Tap Location <small>Optional</small></h3>
 
               <div className="mt-3">
-                <LocationSelector location={location} onLocationSelected={onLocationSelected} />
-                <FloorSelector locationId={location} floor={floor} onFloorSelected={onFloorSelected} />
+                <LocationSelector location={location}
+                                  onLocationSelected={onLocationSelected}
+                                  organizationId={organizationId}
+                                  tenantId={tenantId} />
+                <FloorSelector key={location}
+                               locationId={location}
+                               floor={floor}
+                               onFloorSelected={onFloorSelected}
+                               organizationId={organizationId}
+                               tenantId={tenantId} />
               </div>
 
               <div className="mt-3">

@@ -47,14 +47,14 @@ function EditUserForm(props) {
         <div className="mb-3">
           <div className="mb-3">
             <label htmlFor="name" className="form-label">Full Name</label>
-            <input type="text" className="form-control" id="name"
+            <input type="text" className="form-control" id="name" maxLength={128}
                    value={name} onChange={(e) => { updateValue(e, setName) }} />
             <div className="form-text">The full name of the user.</div>
           </div>
 
           <div className="mb-3">
             <label htmlFor="email" className="form-label">Email Address / Username</label>
-            <input type="email" className="form-control" id="email"
+            <input type="email" className="form-control" id="email" maxLength={128}
                    value={email} onChange={(e) => { updateValue(e, setEmail) }} />
             <div className="form-text">
               The email address of the user. This is also the username.{' '}

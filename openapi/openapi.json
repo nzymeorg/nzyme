@@ -33847,6 +33847,12 @@
             },
             "description" : "Organizations found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -33985,6 +33991,12 @@
               }
             },
             "description" : "Sessions found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
           },
           "401" : {
             "content" : {
@@ -34384,6 +34396,12 @@
             },
             "description" : "Organization administrators found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -34454,7 +34472,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/administrators/show/{id}" : {
       "delete" : {
-        "description" : "Administrators cannot delete themselves. Requires organization administrator permissions.",
+        "description" : "Administrators cannot delete themselves. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "deleteOrganizationAdministrator",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -34542,7 +34560,7 @@
         "tags" : [ "Users", "Organizations" ]
       },
       "put" : {
-        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires organization administrator permissions.",
+        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "updateOrganizationAdministrator",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -34746,6 +34764,12 @@
             },
             "description" : "Event actions found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "404" : {
             "content" : {
               "application/json" : { }
@@ -34843,6 +34867,12 @@
             },
             "description" : "Sessions found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -34900,6 +34930,12 @@
               }
             },
             "description" : "Tenants found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
           },
           "401" : {
             "content" : {
@@ -35202,7 +35238,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/locations" : {
       "get" : {
-        "description" : "A location is a site such as a campus or a building. It groups the floors of that site and the taps placed on them, which makes data easier to read when a tenant has taps spread over several sites. Requires organization administrator permissions.",
+        "description" : "A location is a site such as a campus or a building. It groups the floors of that site and the taps placed on them, which makes data easier to read when a tenant has taps spread over several sites. The page size is limited to 250. Requires organization administrator permissions.",
         "externalDocs" : {
           "description" : "Locations in the Nzyme documentation",
           "url" : "https://go.nzyme.org/locations"
@@ -35253,6 +35289,12 @@
               }
             },
             "description" : "Locations found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The requested page size is larger than 250, or the page size or offset is negative."
           },
           "401" : {
             "content" : {
@@ -35606,7 +35648,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/locations/show/{locationId}/floors" : {
       "get" : {
-        "description" : "Returns all floors with the taps placed on them and whether a floor plan has been uploaded. Requires organization administrator permissions.",
+        "description" : "Returns all floors with the taps placed on them and whether a floor plan has been uploaded. The page size is limited to 250. Requires organization administrator permissions.",
         "operationId" : "findTenantLocationFloors",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -35662,6 +35704,12 @@
               }
             },
             "description" : "Floors found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The requested page size is larger than 250, or the page size or offset is negative."
           },
           "401" : {
             "content" : {
@@ -36101,7 +36149,7 @@
         "tags" : [ "Locations", "Organizations" ]
       },
       "post" : {
-        "description" : "Takes a JPG or PNG file of up to 5MB as multipart form data and converts it to PNG. Pass the real world width and length of the floor in meters so Nzyme can translate pixels into distances. A floor plan with taps placed on it is what enables trilateration for the subsystems that support it. Requires organization administrator permissions.",
+        "description" : "Takes a JPG or PNG file of up to 5MB and 40 megapixels as multipart form data and converts it to PNG. Pass the real world width and length of the floor in meters so Nzyme can translate pixels into distances. A floor plan with taps placed on it is what enables trilateration for the subsystems that support it. Requires organization administrator permissions.",
         "externalDocs" : {
           "description" : "Trilateration in the Nzyme documentation",
           "url" : "https://go.nzyme.org/wifi-trilateration"
@@ -36196,6 +36244,16 @@
               "application/json" : { }
             },
             "description" : "The uploaded file could not be read."
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Another floor plan is being processed. Only one upload is converted at a time."
           }
         },
         "summary" : "Upload a floor plan",
@@ -36632,6 +36690,12 @@
             },
             "description" : "Sessions found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -36814,6 +36878,12 @@
             },
             "description" : "Taps found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -36869,6 +36939,12 @@
               "application/json" : { }
             },
             "description" : "Tap created."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The location does not belong to the tenant, the floor does not belong to the location, or a floor was passed without a location."
           },
           "404" : {
             "content" : {
@@ -37047,6 +37123,12 @@
             },
             "description" : "Tap updated."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The new location does not belong to the tenant, the new floor does not belong to the location, or a floor was passed without a location."
+          },
           "404" : {
             "content" : {
               "application/json" : { }
@@ -37158,6 +37240,12 @@
             },
             "description" : "Users found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -37249,7 +37337,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}" : {
       "delete" : {
-        "description" : "Users cannot delete themselves. Requires organization administrator permissions.",
+        "description" : "Users cannot delete themselves. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "deleteTenantUser",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -37367,7 +37455,7 @@
         "tags" : [ "Users", "Organizations" ]
       },
       "put" : {
-        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires organization administrator permissions.",
+        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "updateTenantUser",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -37555,7 +37643,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/permissions" : {
       "put" : {
-        "description" : "Replaces the feature permissions of this user with the passed permission ids. List the available ids with the permissions endpoint. Requires organization administrator permissions.",
+        "description" : "Replaces the feature permissions of this user with the passed permission ids. List the available ids with the permissions endpoint. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "updateTenantUserPermissions",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -37603,6 +37691,12 @@
             },
             "description" : "Permissions updated."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or an unknown permission id."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -37622,7 +37716,7 @@
     },
     "/api/system/authentication/mgmt/organizations/show/{organizationId}/tenants/show/{tenantId}/users/show/{userId}/taps" : {
       "put" : {
-        "description" : "Replaces the list of taps this user can access. Tap UUIDs that do not belong to the tenant are ignored. Set the allow all flag to grant access to every current and future tap of the tenant. Requires organization administrator permissions.",
+        "description" : "Replaces the list of taps this user can access. Tap UUIDs that do not belong to the tenant are ignored. Set the allow all flag to grant access to every current and future tap of the tenant. Requires organization administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "updateTenantUserTapPermissions",
         "parameters" : [ {
           "description" : "Organization UUID.",
@@ -37669,6 +37763,12 @@
               "application/json" : { }
             },
             "description" : "Tap permissions updated."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Missing request body or a tap UUID that is not a UUID."
           },
           "401" : {
             "content" : {
@@ -37719,6 +37819,12 @@
             },
             "description" : "Super administrators found."
           },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The page size or offset is negative."
+          },
           "401" : {
             "content" : {
               "application/json" : { }
@@ -37767,7 +37873,7 @@
     },
     "/api/system/authentication/mgmt/organizations/superadmins/show/{id}" : {
       "delete" : {
-        "description" : "Super administrators cannot delete themselves and the last remaining super administrator cannot be deleted. Records a system event. Requires super administrator permissions.",
+        "description" : "Super administrators cannot delete themselves and the last remaining super administrator cannot be deleted. Records a system event. Requires super administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "deleteSuperAdministrator",
         "parameters" : [ {
           "description" : "User UUID.",
@@ -37871,7 +37977,7 @@
     },
     "/api/system/authentication/mgmt/organizations/superadmins/show/{userId}" : {
       "put" : {
-        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires super administrator permissions.",
+        "description" : "Changes name, email address and the multi-factor authentication requirement. Turning multi-factor authentication off records a system event. Requires super administrator permissions. Requires an interactive session; API keys are rejected.",
         "operationId" : "updateSuperAdministrator",
         "parameters" : [ {
           "description" : "User UUID.",

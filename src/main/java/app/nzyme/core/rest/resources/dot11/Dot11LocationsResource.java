@@ -15,6 +15,7 @@ import app.nzyme.core.rest.responses.misc.ErrorResponse;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
+import app.nzyme.core.util.ImageDimensions;
 import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
@@ -41,9 +42,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -107,7 +105,7 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                     floor.locationId(),
                     floor.number(),
                     floor.name() == null ? "Floor " + floor.number() : floor.name(),
-                    floor.plan() != null,
+                    floor.hasPlan(),
                     tapPositions.size(),
                     tapPositions,
                     Tools.round(floor.pathLossExponent(), 1),
@@ -195,8 +193,8 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                 bssidLocation.outsideOfPlanBoundariesTapStrengths(),
                 FloorPlanResponse.create(
                         BaseEncoding.base64().encode(fsr.floor().plan()),
-                        fsr.floorPlanImage().getWidth(),
-                        fsr.floorPlanImage().getHeight(),
+                        fsr.floorPlanDimensions().width(),
+                        fsr.floorPlanDimensions().height(),
                         fsr.floor().planWidthMeters(),
                         fsr.floor().planLengthMeters()
                 ),
@@ -336,8 +334,8 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                 clientLocation.outsideOfPlanBoundariesTapStrengths(),
                 FloorPlanResponse.create(
                         BaseEncoding.base64().encode(fsr.floor().plan()),
-                        fsr.floorPlanImage().getWidth(),
-                        fsr.floorPlanImage().getHeight(),
+                        fsr.floorPlanDimensions().width(),
+                        fsr.floorPlanDimensions().height(),
                         fsr.floor().planWidthMeters(),
                         fsr.floor().planLengthMeters()
                 ),
@@ -461,17 +459,18 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
             ));
         }
 
-        // Get floor plan.
-        BufferedImage floorPlanImage;
-        try {
-            if (floor.plan() == null) {
-                LOG.error("Floor plan of floor [{}] is null. This is a database inconsistency.", floor.uuid());
-                return buildFloorSelectionError(Response.status(Response.Status.INTERNAL_SERVER_ERROR).build());
-            }
+        Optional<TenantLocationFloorEntry> floorWithPlan = nzyme.getAuthenticationService()
+                .findFloorOfTenantLocationWithPlan(location.uuid(), floor.uuid());
 
-            floorPlanImage = ImageIO.read(new ByteArrayInputStream(floor.plan()));
-        } catch (Exception e) {
-            LOG.error("Could not read floor plan image data from database. Floor: {}", floor, e);
+        if (floorWithPlan.isEmpty() || floorWithPlan.get().plan() == null) {
+            LOG.error("Floor plan of floor [{}] is null. This is a database inconsistency.", floor.uuid());
+            return buildFloorSelectionError(Response.status(Response.Status.INTERNAL_SERVER_ERROR).build());
+        }
+
+        Optional<ImageDimensions.Dimensions> floorPlanDimensions = ImageDimensions.read(floorWithPlan.get().plan());
+
+        if (floorPlanDimensions.isEmpty()) {
+            LOG.error("Could not read floor plan image data from database. Floor: {}", floor.uuid());
             return buildFloorSelectionError(Response.status(Response.Status.INTERNAL_SERVER_ERROR).build());
         }
 
@@ -482,8 +481,8 @@ public class Dot11LocationsResource extends TapDataHandlingResource {
                 locationFloorCount,
                 locationTapCount,
                 location,
-                floor,
-                floorPlanImage
+                floorWithPlan.get(),
+                floorPlanDimensions.get()
         );
     }
 

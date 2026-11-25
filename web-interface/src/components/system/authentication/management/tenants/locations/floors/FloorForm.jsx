@@ -40,7 +40,7 @@ function FloorForm(props) {
 
         <div className="mb-3">
           <label htmlFor="name" className="form-label">Name <small>Optional</small></label>
-          <input type="text" className="form-control" id="description" placeholder="Ground Level"
+          <input type="text" className="form-control" id="description" maxLength={128} placeholder="Ground Level"
                     value={name} onChange={(e) => { updateValue(e, setName) }}/>
           <div className="form-text">
             The name of this floor. Defaults to the floor number (like &quot;Floor 1&quot;) if not provided

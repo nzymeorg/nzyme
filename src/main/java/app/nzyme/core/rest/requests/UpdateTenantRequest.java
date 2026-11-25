@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 
@@ -12,9 +13,11 @@ import jakarta.validation.constraints.NotEmpty;
 public abstract class UpdateTenantRequest {
 
     @NotEmpty
+    @Size(max = 256)
     public abstract String name();
 
     @NotEmpty
+    @Size(max = 10000)
     public abstract String description();
 
     @Min(1)

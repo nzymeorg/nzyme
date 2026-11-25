@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 
 @Schema(description = "Body for updating a floor of a tenant location.")
@@ -14,6 +15,7 @@ public abstract class UpdateFloorOfTenantLocationRequest {
     public abstract long number();
 
     @Nullable
+    @Size(max = 128)
     public abstract String name();
 
     @Min(0)

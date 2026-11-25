@@ -31,6 +31,8 @@ function CreateTapPermissionPage() {
         () => {
       toast.success('Tap created.');
       setRedirect(true);
+    }, () => {
+      toast.error('Could not create tap.');
     })
   }
 
@@ -92,7 +94,10 @@ function CreateTapPermissionPage() {
             <div className="col-xl-12 col-xxl-6">
               <div className="card">
                 <div className="card-body">
-                  <TapPermissionForm onClick={onFormSubmitted} submitText="Create Tap" />
+                  <TapPermissionForm onClick={onFormSubmitted}
+                                     organizationId={organizationId}
+                                     tenantId={tenantId}
+                                     submitText="Create Tap" />
                 </div>
               </div>
             </div>

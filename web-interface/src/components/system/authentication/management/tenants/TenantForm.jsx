@@ -73,14 +73,14 @@ function TenantForm(props) {
       <form>
         <div className="mb-3">
           <label htmlFor="name" className="form-label">Name</label>
-          <input type="text" className="form-control" id="name"
+          <input type="text" className="form-control" id="name" maxLength={256}
                  value={name} onChange={(e) => { updateValue(e, setName) }} />
           <div className="form-text">The name of the tenant.</div>
         </div>
 
         <div className="mb-3">
           <label htmlFor="description" className="form-label">Description</label>
-          <textarea className="form-control" id="description" rows="3"
+          <textarea className="form-control" id="description" maxLength={10000} rows="3"
                     value={description} onChange={(e) => { updateValue(e, setDescription) }} />
           <div className="form-text">A short description of the tenant.</div>
         </div>

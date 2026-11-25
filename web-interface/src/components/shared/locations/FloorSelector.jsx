@@ -5,18 +5,30 @@ import {toast} from "react-toastify";
 
 const locationsService = new LocationsService();
 
-export default function FloorSelector({locationId, floor, onFloorSelected}) {
+export default function FloorSelector({locationId, floor, onFloorSelected, organizationId: ofOrganization, tenantId: ofTenant}) {
 
-  const [organizationId, tenantId] = useSelectedTenant();
+  const [selectedOrganization, selectedTenant] = useSelectedTenant();
+  const organizationId = ofOrganization ? ofOrganization : selectedOrganization;
+  const tenantId = ofTenant ? ofTenant : selectedTenant;
 
   const [location, setLocation] = useState(null);
 
   const [selected, setSelected] = useState(floor ? floor : "");
 
   useEffect(() => {
+    let active = true;
+
     if (locationId) {
       setLocation(null);
-      locationsService.findOne(locationId, organizationId, tenantId, setLocation, (error) => {
+      locationsService.findOne(locationId, organizationId, tenantId, (response) => {
+        if (active) {
+          setLocation(response);
+        }
+      }, (error) => {
+        if (!active) {
+          return;
+        }
+
         // Specific error handling because we ignore 404's. It means the location was deleted, which is fine.
         if (error.response && error.response.status === 404) {
           setLocation(null);
@@ -24,6 +36,10 @@ export default function FloorSelector({locationId, floor, onFloorSelected}) {
           toast.error("Could not fetch locations.")
         }
       })
+    }
+
+    return () => {
+      active = false;
     }
   }, [organizationId, tenantId, locationId]);
 

@@ -542,21 +542,19 @@ public class AuthenticationService {
     }
 
     public void setUserPermissions(UUID userId, List<String> permissions) {
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM auth_permissions WHERE user_id = :user_id")
-                        .bind("user_id", userId)
-                        .execute()
-        );
+        nzyme.getDatabase().useTransaction(handle -> {
+            handle.createUpdate("DELETE FROM auth_permissions WHERE user_id = :user_id")
+                    .bind("user_id", userId)
+                    .execute();
 
-        for (String permission : permissions) {
-            nzyme.getDatabase().useHandle(handle ->
-                    handle.createUpdate("INSERT INTO auth_permissions(user_id, permission) " +
-                                    "VALUES(:user_id, :permission)")
-                            .bind("user_id", userId)
-                            .bind("permission", permission)
-                            .execute()
-            );
-        }
+            for (String permission : permissions) {
+                handle.createUpdate("INSERT INTO auth_permissions(user_id, permission) " +
+                                "VALUES(:user_id, :permission)")
+                        .bind("user_id", userId)
+                        .bind("permission", permission)
+                        .execute();
+            }
+        });
     }
 
     public UserEntry createUserOfTenant(UUID organizationId,
@@ -1268,9 +1266,14 @@ public class AuthenticationService {
         return findAllFloorsOfTenantLocation(locationId, Integer.MAX_VALUE, 0);
     }
 
+    // The plan image can be large and is only loaded by findFloorOfTenantLocationWithPlan.
+    private static final String FLOOR_WITHOUT_PLAN = "id, uuid, location_id, number, name, NULL::bytea AS plan, " +
+            "plan IS NOT NULL AS has_plan, plan_width_pixels, plan_length_pixels, plan_width_meters, " +
+            "plan_length_meters, path_loss_exponent, created_at, updated_at";
+
     public List<TenantLocationFloorEntry> findAllFloorsOfTenantLocation(UUID locationId, int limit, int offset) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT * FROM auth_tenants_locations_floors " +
+                handle.createQuery("SELECT " + FLOOR_WITHOUT_PLAN + " FROM auth_tenants_locations_floors " +
                                 "WHERE location_id = :location_id " +
                                 "ORDER BY number ASC LIMIT :limit OFFSET :offset")
                         .bind("location_id", locationId)
@@ -1283,7 +1286,18 @@ public class AuthenticationService {
 
     public Optional<TenantLocationFloorEntry> findFloorOfTenantLocation(UUID locationId, UUID floorId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT * FROM auth_tenants_locations_floors " +
+                handle.createQuery("SELECT " + FLOOR_WITHOUT_PLAN + " FROM auth_tenants_locations_floors " +
+                                "WHERE uuid = :uuid AND location_id = :location_id")
+                        .bind("uuid", floorId)
+                        .bind("location_id", locationId)
+                        .mapTo(TenantLocationFloorEntry.class)
+                        .findOne()
+        );
+    }
+
+    public Optional<TenantLocationFloorEntry> findFloorOfTenantLocationWithPlan(UUID locationId, UUID floorId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT *, plan IS NOT NULL AS has_plan FROM auth_tenants_locations_floors " +
                                 "WHERE uuid = :uuid AND location_id = :location_id")
                         .bind("uuid", floorId)
                         .bind("location_id", locationId)

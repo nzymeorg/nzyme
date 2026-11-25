@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 
@@ -15,6 +16,7 @@ public abstract class CreateFloorOfTenantLocationRequest {
     public abstract long number();
 
     @Nullable
+    @Size(max = 128)
     public abstract String name();
 
     @Min(0)

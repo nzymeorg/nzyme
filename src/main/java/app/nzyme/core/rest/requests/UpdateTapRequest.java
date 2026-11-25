@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
@@ -16,9 +17,11 @@ import java.util.UUID;
 public abstract class UpdateTapRequest {
 
     @NotEmpty
+    @Size(max = 50)
     public abstract String name();
 
     @NotEmpty
+    @Size(max = 10000)
     public abstract String description();
 
     @Nullable

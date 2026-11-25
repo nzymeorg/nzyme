@@ -268,9 +268,9 @@ class AuthenticationManagementService {
     })
   }
 
-  createTapPermission(organizationId, tenantId, name, description, location, floor, latitude, longitude, successCallback) {
+  createTapPermission(organizationId, tenantId, name, description, location, floor, latitude, longitude, successCallback, errorCallback = undefined) {
     RESTClient.post('/system/authentication/mgmt/organizations/show/' + organizationId + '/tenants/show/' + tenantId + '/taps',
-        {name: name, description: description, location: location, floor: floor, latitude: latitude, longitude: longitude}, successCallback);
+        {name: name, description: description, location: location, floor: floor, latitude: latitude, longitude: longitude}, successCallback, errorCallback);
   }
 
   deleteTapPermission(organizationId, tenantId, tapUuid, successCallback) {
@@ -278,9 +278,9 @@ class AuthenticationManagementService {
         successCallback);
   }
 
-  editTapPermission(organizationId, tenantId, tapUuid, name, description, location, floor, latitude, longitude, successCallback) {
+  editTapPermission(organizationId, tenantId, tapUuid, name, description, location, floor, latitude, longitude, successCallback, errorCallback = undefined) {
     RESTClient.put('/system/authentication/mgmt/organizations/show/' + organizationId + '/tenants/show/' + tenantId + '/taps/show/' + tapUuid,
-        {name: name, description: description, location: location, floor: floor, latitude: latitude, longitude: longitude}, successCallback);
+        {name: name, description: description, location: location, floor: floor, latitude: latitude, longitude: longitude}, successCallback, errorCallback);
   }
 
   cycleTapSecret(organizationId, tenantId, tapUuid, successCallback) {

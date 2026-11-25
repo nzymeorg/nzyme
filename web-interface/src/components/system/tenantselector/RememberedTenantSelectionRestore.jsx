@@ -10,14 +10,8 @@ export default function RememberedTenantSelectionRestore({user, selection, darkM
   useEffect(() => {
     const controller = new AbortController();
 
-    authenticationManagementService.findTenantOfOrganization(selection.organization, selection.tenant, (tenant) => {
-      // The node does not compare the tenant to the organization of the request.
-      if (tenant.organization_id === selection.organization) {
-        onRestored(selection.organization, selection.tenant);
-      } else {
-        forgetTenantSelection(user);
-        onSkipped();
-      }
+    authenticationManagementService.findTenantOfOrganization(selection.organization, selection.tenant, () => {
+      onRestored(selection.organization, selection.tenant);
     }, (error) => {
       if (error.response && error.response.status === 404) {
         forgetTenantSelection(user);
