@@ -2,6 +2,7 @@ import {BSSID_FILTER_FIELDS} from "../../dot11/bssids/BssidFilterFields";
 import {CONNECTED_CLIENT_FILTER_FIELDS} from "../../dot11/clients/ConnectedClientFilterFields";
 import {DISCONNECTED_CLIENT_FILTER_FIELDS} from "../../dot11/clients/DisconnectedClientFilterFields";
 import {DISCO_FILTER_FIELDS} from "../../dot11/disco/DiscoFilterFields";
+import {CHANNEL_SWITCH_FILTER_FIELDS} from "../../dot11/channelswitches/ChannelSwitchFilterFields";
 import {BLUETOOTH_DEVICES_FILTER_FIELDS} from "../../bluetooth/BluetoothDevicesFilterFields";
 import {ASSET_FILTER_FIELDS} from "../../ethernet/assets/AssetFilterFields";
 import {L4_SESSIONS_FILTER_FIELDS} from "../../ethernet/l4/L4SessionFilterFields";
@@ -32,6 +33,8 @@ export default function monitorTypeToFilterFields(type) {
       return DISCONNECTED_CLIENT_FILTER_FIELDS
     case "DOT11_DISCO_FRAME":
       return DISCO_FILTER_FIELDS
+    case "DOT11_CHANNEL_SWITCH":
+      return CHANNEL_SWITCH_FILTER_FIELDS
     case "BLUETOOTH_DEVICE":
       return BLUETOOTH_DEVICES_FILTER_FIELDS
     case "ETHERNET_ASSET":

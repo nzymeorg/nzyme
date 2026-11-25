@@ -22,6 +22,8 @@ public enum MetricExternalName {
     REPORT_PROCESSING_SOCKS_TIMER("report_processing_socks_timer"),
     REPORT_PROCESSING_VPN_TIMER("report_processing_vpn_timer"),
     REPORT_PROCESSING_IPV6_TRANSITION_TIMER("report_processing_ipv6_transition_timer"),
+    DOT11_CHANNEL_SWITCH_MONITOR_RUN_TIMER("dot11_channel_switch_monitor_run_timer"),
+    DOT11_MULTIPLE_CHANNELS_MONITOR_RUN_TIMER("dot11_multiple_channels_monitor_run_timer"),
     BEACON_DETECTION_RUN_TIMER("beacon_detection_run_timer"),
     BEACON_CANDIDATE_DISCOVERY_TIMER("beacon_candidate_discovery_timer"),
     RECON_DETECTION_RUN_TIMER("recon_detection_run_timer"),

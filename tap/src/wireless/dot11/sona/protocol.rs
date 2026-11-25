@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use log::{debug, error, trace, warn};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
@@ -146,6 +147,7 @@ fn handle_payload(interface_name: &str,
                 capture_source: Acquisition,
                 interface_name: interface_name.to_string(),
                 data: full_frame,
+                captured_at: Instant::now()
             };
 
             trace!("Sona frame on {} captured at uptime {}ms => host walltime {}us",

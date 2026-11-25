@@ -11,6 +11,7 @@ import BSSIDAdvertisementHistogram from "./BSSIDAdvertisementHistogram";
 import BSSIDChannelUsageHistogram from "./BSSIDChannelUsageHistogram";
 import DiscoPairsTable from "../disco/DiscoPairsTable";
 import DiscoHistogram from "../disco/DiscoHistogram";
+import ChannelSwitchAnnouncements from "../channelswitches/ChannelSwitchAnnouncements";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import Dot11MacAddress from "../../shared/context/macs/Dot11MacAddress";
 import MacAddressContextLine from "../../shared/context/macs/details/MacAddressContextLine";
@@ -26,6 +27,7 @@ import {BSSID_MENU_ITEMS} from "./BSSIDMenuItems";
 import SectionMenuBar from "../../shared/SectionMenuBar";
 import {toast} from "react-toastify";
 import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
+import {filteredLink, macFilter} from "../../ethernet/assets/details/AssetProfileHelpers";
 
 const dot11Service = new Dot11Service();
 
@@ -46,6 +48,7 @@ function BSSIDDetailsPage() {
   const [activeChannelsTimeRange, setActiveChannelsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoFramesTimeRange, setDiscoFramesTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoPairsTimeRange, setDiscoPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [channelSwitchesTimeRange, setChannelSwitchesTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "channel_switches");
 
   const [waterfallFrequency, setWaterfallFrequency] = useState(0);
 
@@ -430,6 +433,26 @@ function BSSIDDetailsPage() {
                 <p className="mb-0 mt-3 text-muted">
                   The MAC address of this access point is <span className="highlighted">highlighted.</span>
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Channel Switch Announcements"
+                                       urlKey="channel_switches"
+                                       timeRange={channelSwitchesTimeRange}
+                                       setTimeRange={setChannelSwitchesTimeRange}
+                                       internalLink={filteredLink(ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX,
+                                           macFilter("bssid", bssid.summary.bssid.address))}
+                                       helpLink="https://go.nzyme.org/channel-switches" />
+
+                <ChannelSwitchAnnouncements bssids={[bssid.summary.bssid.address]}
+                                            timeRange={channelSwitchesTimeRange}
+                                            perPage={10} />
               </div>
             </div>
           </div>

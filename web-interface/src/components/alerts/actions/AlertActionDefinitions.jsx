@@ -176,6 +176,11 @@ const AlertActionDefinitions = {
     () => "Change the disconnection detection method of the monitored network.",
     (t) => ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(t.network_uuid)),
 
+  DOT11_OPEN_CHANNEL_SWITCH_CONFIGURATION: link(
+    "Open Channel Switch Monitor Configuration",
+    () => "Change the detection methods or the threshold of the channel switch monitor of the monitored network.",
+    (t) => ApiRoutes.DOT11.MONITORING.CHANNEL_SWITCH_CONFIGURATION(t.network_uuid)),
+
   DOT11_OPEN_SIMILAR_SSID_CONFIGURATION: link(
     "Open Similar SSID Monitor Configuration",
     () => "Change the similarity threshold or the allowed SSIDs of the monitored network.",

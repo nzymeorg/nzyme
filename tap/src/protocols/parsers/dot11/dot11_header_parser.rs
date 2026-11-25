@@ -222,7 +222,8 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
         frequency,
         channel,
         antenna_signal,
-        antenna
+        antenna,
+        captured_at: data.captured_at
     };
 
     let payload = &data.data[header_length..data.data.len()];

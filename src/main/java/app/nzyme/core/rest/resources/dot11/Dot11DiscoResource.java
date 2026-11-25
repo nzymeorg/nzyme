@@ -80,7 +80,7 @@ import java.util.stream.Collectors;
         + "monitor of a monitored network.",
         externalDocs = @ExternalDocumentation(description = "Disconnection activity in the Nzyme documentation",
                 url = "https://go.nzyme.org/disco"))
-public class Dot11DiscoResource extends TapDataHandlingResource {
+public class Dot11DiscoResource extends Dot11BssidScopedResource {
 
     private static final Logger LOG = LogManager.getLogger(TapDataHandlingResource.class);
 
@@ -95,9 +95,6 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
             this.dimension = dimension;
         }
     }
-
-    @Inject
-    private NzymeNode nzyme;
 
     private static final String FILTERS_DESCRIPTION = "JSON encoded filter definition as produced by the web interface filter builder.";
     private static final String BSSIDS_DESCRIPTION = "Comma separated list of BSSIDs. Narrows the result to frames one of them transmitted, received or refers to as BSSID. Ignored if a monitored network is passed.";
@@ -516,58 +513,6 @@ public class Dot11DiscoResource extends TapDataHandlingResource {
         }
 
         return Response.ok(TwoColumnTableHistogramResponse.create(total, true, values)).build();
-    }
-
-    private record BssidSelection(@Nullable List<String> bssids, @Nullable Response error) { }
-
-    private BssidSelection resolveBssids(AuthenticatedUser authenticatedUser,
-                                         @Nullable String bssidsParam,
-                                         @Nullable UUID monitoredNetworkId) {
-        List<String> bssids = null;
-
-        if (bssidsParam != null && !bssidsParam.isEmpty()) {
-            bssids = Splitter.on(",").omitEmptyStrings().trimResults().splitToList(bssidsParam)
-                    .stream()
-                    .map(String::toUpperCase)
-                    .collect(Collectors.toList());
-        }
-
-        if (monitoredNetworkId != null) {
-            Optional<MonitoredSSID> monitoredNetwork = nzyme.getDot11().findMonitoredSSID(monitoredNetworkId);
-            if (monitoredNetwork.isEmpty()) {
-                return new BssidSelection(null, Response.status(Response.Status.NOT_FOUND).build());
-            }
-
-            if (!entityAccessible(authenticatedUser, monitoredNetwork.get())) {
-                return new BssidSelection(null, Response.status(Response.Status.UNAUTHORIZED).build());
-            }
-
-            bssids = nzyme.getDot11().findMonitoredBSSIDsOfMonitoredNetwork(monitoredNetwork.get().id())
-                    .stream()
-                    .map(MonitoredBSSID::bssid)
-                    .collect(Collectors.toList());
-        }
-
-        return new BssidSelection(bssids, null);
-    }
-
-    private Dot11MacLinkMetadataResponse buildMacResponse(String mac,
-                                                          List<UUID> tapUuids,
-                                                          UUID organizationId,
-                                                          UUID tenantId) {
-        Optional<MacAddressContextEntry> macContext = nzyme.getContextService()
-                .findMacAddressContext(mac, organizationId, tenantId);
-
-        return Dot11MacLinkMetadataResponse.create(
-                nzyme.getDot11().getMacAddressMetadata(mac, tapUuids).type(),
-                Dot11MacAddressResponse.create(
-                        mac,
-                        nzyme.getOuiService().lookup(mac).orElse(null),
-                        null,
-                        macContext.map(c -> Dot11MacAddressContextResponse.create(c.name(), c.description(), c.notes()))
-                                .orElse(null)
-                )
-        );
     }
 
     @GET

@@ -67,6 +67,7 @@ export default function EditMonitorPage() {
       case "DOT11_CLIENT_CONNECTED":
       case "DOT11_CLIENT_DISCONNECTED":
       case "DOT11_DISCO_FRAME":
+      case "DOT11_CHANNEL_SWITCH":
         return (
           <ol className="breadcrumb">
             <li className="breadcrumb-item"><Link to={ApiRoutes.DOT11.OVERVIEW}>WiFi</Link></li>

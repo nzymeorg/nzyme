@@ -5,6 +5,17 @@ import HelpBubble from "../../misc/HelpBubble";
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import AlertEnabledTrigger from "./AlertEnabledTrigger";
 import ApiRoutes from "../../../util/ApiRoutes";
+import {channelSwitchMonitorRuleToName} from "../channelswitches/ChannelSwitchNames";
+
+const channelSwitchWarning = (ssid) => {
+  const disabled = ssid.channel_switch_disabled_rules;
+  if (!disabled || disabled.length === 0) {
+    return null;
+  }
+
+  return "No active alerts. Some detection methods are disabled: "
+      + disabled.map(channelSwitchMonitorRuleToName).join(", ") + ".";
+}
 
 function MonitoredNetworkAlertStatusTable(props) {
 
@@ -27,7 +38,8 @@ function MonitoredNetworkAlertStatusTable(props) {
         </thead>
           <tbody>
           <tr>
-              <td>Expected BSSIDs / Access Points</td>
+              <td>Expected BSSIDs / Access Points <HelpBubble
+                  link="https://go.nzyme.org/wifi-network-monitoring-bssids"/></td>
               <td><MonitoredNetworkSingleAlertStatus ssid={ssid} parameter="unexpected_bssid"/></td>
               {renderControls ?
                   <React.Fragment>
@@ -37,7 +49,8 @@ function MonitoredNetworkAlertStatusTable(props) {
                   </React.Fragment> : null}
           </tr>
           <tr>
-              <td>Expected Fingerprints</td>
+              <td>Expected Fingerprints <HelpBubble
+                  link="https://go.nzyme.org/wifi-network-monitoring-fingerprints"/></td>
               <td><MonitoredNetworkSingleAlertStatus ssid={ssid} parameter="unexpected_fingerprint"/></td>
               {renderControls ?
                   <React.Fragment>
@@ -47,7 +60,7 @@ function MonitoredNetworkAlertStatusTable(props) {
                   </React.Fragment> : null}
           </tr>
           <tr>
-              <td>Expected Channels</td>
+              <td>Expected Channels <HelpBubble link="https://go.nzyme.org/wifi-network-monitoring-channels"/></td>
               <td><MonitoredNetworkSingleAlertStatus ssid={ssid} parameter="unexpected_channel"/></td>
               {renderControls ?
                   <React.Fragment>
@@ -57,7 +70,8 @@ function MonitoredNetworkAlertStatusTable(props) {
                   </React.Fragment> : null}
           </tr>
           <tr>
-              <td>Expected Security Suites</td>
+              <td>Expected Security Suites <HelpBubble
+                  link="https://go.nzyme.org/wifi-network-monitoring-security-suites"/></td>
               <td><MonitoredNetworkSingleAlertStatus ssid={ssid} parameter="unexpected_security_suites"/></td>
               {renderControls ?
                   <React.Fragment>
@@ -86,6 +100,29 @@ function MonitoredNetworkAlertStatusTable(props) {
                   <React.Fragment>
                       <td><AlertEnabledTrigger ssid={ssid} parameter="disco_monitor" bumpRevision={bumpRevision}/></td>
                       <td><Link to={ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(ssid.uuid)}>Configure</Link></td>
+                  </React.Fragment> : null}
+          </tr>
+          <tr>
+              <td>Channel Switch Announcement Anomalies <HelpBubble
+                  link="https://go.nzyme.org/wifi-network-monitoring-channel-switches"/></td>
+              <td><MonitoredNetworkSingleAlertStatus ssid={ssid}
+                                                     parameter="channel_switch_monitor"
+                                                     warningTitle={channelSwitchWarning(ssid)} />{' '}
+              </td>
+              {renderControls ?
+                  <React.Fragment>
+                      <td><AlertEnabledTrigger ssid={ssid} parameter="channel_switch_monitor" bumpRevision={bumpRevision}/></td>
+                      <td><Link to={ApiRoutes.DOT11.MONITORING.CHANNEL_SWITCH_CONFIGURATION(ssid.uuid)}>Configure</Link></td>
+                  </React.Fragment> : null}
+          </tr>
+          <tr>
+              <td>BSSID on Multiple Channels <HelpBubble
+                  link="https://go.nzyme.org/wifi-network-monitoring-multiple-channels"/></td>
+              <td><MonitoredNetworkSingleAlertStatus ssid={ssid} parameter="multiple_channels"/>{' '}</td>
+              {renderControls ?
+                  <React.Fragment>
+                      <td><AlertEnabledTrigger ssid={ssid} parameter="multiple_channels" bumpRevision={bumpRevision}/></td>
+                      <td><span className="text-muted">n/a</span></td>
                   </React.Fragment> : null}
           </tr>
           <tr>

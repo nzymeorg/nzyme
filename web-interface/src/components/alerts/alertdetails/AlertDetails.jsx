@@ -8,6 +8,8 @@ import MonitorSignalTrackAlertDetails from "./dot11/MonitorSignalTrackAlertDetai
 import BanditContactAlertDetails from "./dot11/BanditContactAlertDetails";
 import BanditContactPwnagotchiAlertDetails from "./dot11/BanditContactPwnagotchiAlertDetails";
 import MonitorDiscoAnomalyAlertDetails from "./dot11/MonitorDiscoAnomalyAlertDetails";
+import MonitorChannelSwitchAnomalyAlertDetails from "./dot11/MonitorChannelSwitchAnomalyAlertDetails";
+import MonitorMultipleChannelsAlertDetails from "./dot11/MonitorMultipleChannelsAlertDetails";
 import SimilarLookingSSIDAlertDetails from "./dot11/SimilarLookingSSIDAlertDetails";
 import RestrictedSSIDSubstringAlertDetails from "./dot11/RestrictedSSIDSubstringAlertDetails";
 import MonitoredProbeRequestAlertDetails from "./dot11/MonitoredProbeRequestAlertDetails";
@@ -50,6 +52,10 @@ function AlertDetails(props) {
       return <MonitorSignalTrackAlertDetails alert={alert} />
     case "DOT11_MONITOR_DISCO_ANOMALIES":
       return <MonitorDiscoAnomalyAlertDetails alert={alert} />
+    case "DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES":
+      return <MonitorChannelSwitchAnomalyAlertDetails alert={alert} />
+    case "DOT11_MONITOR_MULTIPLE_CHANNELS":
+      return <MonitorMultipleChannelsAlertDetails alert={alert} />
     case "DOT11_BANDIT_CONTACT":
       if (alert.attributes.bandit_name === "Pwnagotchi") {
         return <BanditContactPwnagotchiAlertDetails alert={alert} />

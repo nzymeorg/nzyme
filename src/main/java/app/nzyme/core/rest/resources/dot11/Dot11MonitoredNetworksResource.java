@@ -5,6 +5,7 @@ import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.dot11.Dot11;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchMonitorRule;
 import app.nzyme.core.dot11.db.Dot11KnownClient;
 import app.nzyme.core.dot11.db.Dot11SecuritySuiteJson;
 import app.nzyme.core.dot11.db.monitoring.*;
@@ -138,6 +139,18 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                         }
                         isAlerted = true;
                         break;
+                    case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES:
+                        if (!ssid.enabledChannelSwitchMonitor()) {
+                            continue;
+                        }
+                        isAlerted = true;
+                        break;
+                    case DOT11_MONITOR_MULTIPLE_CHANNELS:
+                        if (!ssid.enabledMultipleChannels()) {
+                            continue;
+                        }
+                        isAlerted = true;
+                        break;
                     case DOT11_MONITOR_SIMILAR_LOOKING_SSID:
                         if (!ssid.enabledSimilarLookingSSID()) {
                             continue;
@@ -265,6 +278,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
         boolean fingerprintAlerted = false;
         boolean signalTracksAlerted = false;
         boolean discoAnomaliesAlerted = false;
+        boolean channelSwitchAnomaliesAlerted = false;
+        boolean multipleChannelsAlerted = false;
         boolean similarSSIDAlerted = false;
         boolean restrictedSSIDSubstringAlerted = false;
         boolean unapprovedClientAlerted = false;
@@ -315,6 +330,18 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                     }
                     discoAnomaliesAlerted = true;
                     break;
+                case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES:
+                    if (!ssid.enabledChannelSwitchMonitor()) {
+                        continue;
+                    }
+                    channelSwitchAnomaliesAlerted = true;
+                    break;
+                case DOT11_MONITOR_MULTIPLE_CHANNELS:
+                    if (!ssid.enabledMultipleChannels()) {
+                        continue;
+                    }
+                    multipleChannelsAlerted = true;
+                    break;
                 case DOT11_MONITOR_SIMILAR_LOOKING_SSID:
                     if (!ssid.enabledSimilarLookingSSID()) {
                         continue;
@@ -354,6 +381,9 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                 channels,
                 securitySuites,
                 ssid.detectionConfigSimilarLookingSSIDThreshold(),
+                ssid.detectionConfigChannelSwitchBurstThreshold(),
+                ChannelSwitchMonitorRule.parse(ssid.detectionConfigChannelSwitchDisabledRules())
+                        .stream().map(Enum::name).toList(),
                 nzyme.getDot11().findAllowedSimilarSSIDs(ssid.id()),
                 restrictedSSIDSubstrings,
                 ssid.createdAt(),
@@ -365,6 +395,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                 fingerprintAlerted,
                 signalTracksAlerted,
                 discoAnomaliesAlerted,
+                channelSwitchAnomaliesAlerted,
+                multipleChannelsAlerted,
                 similarSSIDAlerted,
                 restrictedSSIDSubstringAlerted,
                 unapprovedClientAlerted,
@@ -374,6 +406,8 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                 ssid.enabledUnexpectedFingerprint(),
                 ssid.enabledUnexpectedSignalTracks(),
                 ssid.enabledDiscoMonitor(),
+                ssid.enabledChannelSwitchMonitor(),
+                ssid.enabledMultipleChannels(),
                 ssid.enabledSimilarLookingSSID(),
                 ssid.enabledSSIDSubstring(),
                 (ssid.enabledClientMonitoring() && ssid.enabledClientEventing())
@@ -870,7 +904,7 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
                                           @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID ssidUUID,
                                           @Parameter(description = "Monitor type. One of UNEXPECTED_BSSID, UNEXPECTED_CHANNEL, "
                                                   + "UNEXPECTED_SECURITY_SUITES, UNEXPECTED_FINGERPRINT, UNEXPECTED_SIGNAL_TRACKS, "
-                                                  + "DISCO_MONITOR, SIMILAR_SSIDS, RESTRICTED_SSID_SUBSTRINGS, CLIENT_MONITORING, "
+                                                  + "DISCO_MONITOR, CHANNEL_SWITCH_MONITOR, MULTIPLE_CHANNELS, SIMILAR_SSIDS, RESTRICTED_SSID_SUBSTRINGS, CLIENT_MONITORING, "
                                                   + "CLIENT_EVENTING. Case insensitive.") @PathParam("alert") @NotEmpty String alert,
                                           @Parameter(description = "New status: true to enable, false to disable.") @PathParam("status") boolean status) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
@@ -1207,6 +1241,81 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
         }
 
         nzyme.getDot11().setSimilarSSIDMonitorConfiguration(ssid.get().id(), (int) req.threshold());
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
+    @Path("/ssids/show/{uuid}/configuration/channelswitches")
+    @Operation(operationId = "updateMonitoredNetworkChannelSwitchConfiguration", summary = "Update channel switch monitor burst threshold",
+            description = "Sets the number of beacons per second with a channel switch announcement from a BSSID "
+                    + "of this monitored network at which Nzyme alerts. Access points send about 10 beacons per "
+                    + "second by default. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user.", content = @Content)
+    public Response setChannelSwitchConfiguration(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                  @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                                  @RequestBody(description = "Burst threshold in frames per second, 10 to 1000.", required = true, content = @Content(mediaType = "application/json"))
+                                                  @Valid UpdateChannelSwitchNetworkMonitorConfiguration req) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
+
+        if (ssid.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!entityAccessible(authenticatedUser, ssid.get())){
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getDot11().setChannelSwitchMonitorConfiguration(ssid.get().id(), (int) req.burstThreshold());
+
+        nzyme.getDot11().bumpMonitoredSSIDUpdatedAt(ssid.get().id());
+
+        return Response.ok().build();
+    }
+
+    @PUT
+    @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
+    @Path("/ssids/show/{uuid}/configuration/channelswitches/rules/{rule}/set/{status}")
+    @Operation(operationId = "updateMonitoredNetworkChannelSwitchRuleStatus", summary = "Enable or disable a detection method of the channel switch monitor",
+            description = "Switches one detection method of the channel switch monitor of the network on or off. "
+                    + "All methods are enabled unless they were disabled. "
+                    + "Requires the dot11_monitoring_manage feature permission.")
+    @ApiResponse(responseCode = "200", description = "Detection method updated.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Monitored network not found or not accessible by the calling user, or the "
+            + "detection method is unknown.", content = @Content)
+    public Response setChannelSwitchRuleStatus(@Parameter(hidden = true) @Context SecurityContext sc,
+                                               @Parameter(description = "Monitored network UUID.") @PathParam("uuid") UUID uuid,
+                                               @Parameter(description = "Detection method. One of INVALID_CHANNEL, REPEATED_TIMESTAMP, "
+                                                       + "TIMESTAMP_MISMATCH, INTERLEAVED_BEACONS, BURST_RATE, NOT_FOLLOWED. "
+                                                       + "Case insensitive.") @PathParam("rule") @NotEmpty String rule,
+                                               @Parameter(description = "New status: true to enable, false to disable.") @PathParam("status") boolean status) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        Optional<MonitoredSSID> ssid = nzyme.getDot11().findMonitoredSSID(uuid);
+
+        if (ssid.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!entityAccessible(authenticatedUser, ssid.get())){
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        ChannelSwitchMonitorRule monitorRule;
+        try {
+            monitorRule = ChannelSwitchMonitorRule.valueOf(rule.toUpperCase());
+        } catch(IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        nzyme.getDot11().setChannelSwitchMonitorRuleEnabled(ssid.get().id(), monitorRule, status);
+
+        nzyme.getDot11().bumpMonitoredSSIDUpdatedAt(ssid.get().id());
 
         return Response.ok().build();
     }

@@ -72,6 +72,9 @@
     },
     "name" : "Bandits"
   }, {
+    "description" : "Access points announce a change of channel to their clients in beacons, probe responses and action frames. Forged announcements move or disconnect clients of networks that protect their management frames. These endpoints show the announcements your taps recorded, the anomalies Nzyme found in them and whether the access point followed its announcement.",
+    "name" : "Channel Switch Announcements"
+  }, {
     "description" : "WiFi clients that taps recorded on the air. A client is connected if it was seen exchanging frames with an access point, and disconnected if it was only seen probing or sending frames that are not tied to a BSSID.",
     "name" : "Clients"
   }, {
@@ -4337,6 +4340,630 @@
         "tags" : [ "Bandits" ]
       }
     },
+    "/api/dot11/channelswitches/announcements" : {
+      "get" : {
+        "description" : "Returns the recorded channel switch announcements. Taps aggregate frames that share BSSID, frame type, switch mode, announced channel and the channel they were recorded on within a report interval into one record with a frame count. The outcome is empty until Nzyme judged it, which takes about six minutes. Sorts by time descending unless you pass a sorting column and direction.",
+        "operationId" : "findChannelSwitches",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to announcements of these BSSIDs. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to announcements of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column. Omit to sort by time.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelSwitchListResponse"
+                }
+              }
+            },
+            "description" : "Announcements found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, or page size above 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List channel switch announcements",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/histogram" : {
+      "get" : {
+        "description" : "Returns an object keyed by bucket timestamp with the number of frames that announced a channel switch in each bucket and how many of them were part of an announcement with anomalies. Narrow the result with filters, a set of BSSIDs, or the BSSIDs of a monitored network. A monitored network takes precedence over the BSSID list.",
+        "operationId" : "findChannelSwitchHistogram",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to announcements of these BSSIDs. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to announcements of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found. The response is an object keyed by bucket timestamp."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found."
+          }
+        },
+        "summary" : "Get channel switch announcement histogram",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/histograms/bssids" : {
+      "get" : {
+        "description" : "Returns the BSSIDs with the most frames that announced a channel switch. Results are paginated.",
+        "operationId" : "findChannelSwitchBssids",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to announcements of these BSSIDs. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to announcements of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column, KEY or VALUE. Defaults to the frame count.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, or page size above 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List top announcing BSSIDs",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/histograms/channels" : {
+      "get" : {
+        "description" : "Returns the channels that were announced as the channel to switch to, with the number of frames that announced each. A channel that does not exist in its band has no frequency. Results are paginated.",
+        "operationId" : "findChannelSwitchChannels",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to announcements of these BSSIDs. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to announcements of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column, KEY or VALUE. Defaults to the frame count.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TwoColumnTableHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, or page size above 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found."
+          }
+        },
+        "summary" : "List top announced channels",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/monitor/histogram" : {
+      "get" : {
+        "description" : "Returns the number of frames that announced a channel switch for BSSIDs of a monitored network per bucket, and how many of them belong to announcements the channel switch monitor of the network alerts on: with an alerting anomaly, in beacons at or above the burst threshold of the network, or not followed by the access point. Detection methods that are disabled for the network do not count. Reads the passed taps, or all taps of the network that the calling user can access. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "findChannelSwitchMonitorHistogram",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps of the network the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelSwitchMonitorHistogramResponse"
+                }
+              }
+            },
+            "description" : "Histogram found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get histogram of the channel switch monitor",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/simulation" : {
+      "get" : {
+        "description" : "Returns the recorded announcements in beacons of BSSIDs of a monitored network that are at or above the passed burst threshold. The channel switch monitor also alerts on anomalies and on announcements that were not followed, which no threshold changes and which are not part of the simulation. Reads the passed taps, or all taps of the network that the calling user can access. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "simulateChannelSwitchMonitor",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Burst threshold in frames per second, 10 to 1000.",
+          "in" : "query",
+          "name" : "burst_threshold",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps of the network the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting column. Omit to sort by time.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelSwitchListResponse"
+                }
+              }
+            },
+            "description" : "Simulation completed."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Burst threshold outside of 10 to 1000, unknown sorting column or direction, or page size above 250."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Simulate the channel switch monitor",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/simulation/histogram" : {
+      "get" : {
+        "description" : "Returns the number of frames that announced a channel switch for BSSIDs of a monitored network per bucket, and how many of them belong to announcements in beacons at or above the passed burst threshold. Reads the passed taps, or all taps of the network that the calling user can access. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "simulateChannelSwitchMonitorHistogram",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Burst threshold in frames per second, 10 to 1000.",
+          "in" : "query",
+          "name" : "burst_threshold",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps of the network the user can access.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelSwitchMonitorHistogramResponse"
+                }
+              }
+            },
+            "description" : "Simulation completed."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Burst threshold outside of 10 to 1000."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get histogram of a channel switch monitor simulation",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
     "/api/dot11/clients/connected" : {
       "get" : {
         "description" : "Returns all clients that the selected taps saw connected to an access point in the time range, including the BSSID they were connected to and their probe requests. Sorts by last seen descending unless you pass a sorting column and direction.",
@@ -7050,7 +7677,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Monitor type. One of UNEXPECTED_BSSID, UNEXPECTED_CHANNEL, UNEXPECTED_SECURITY_SUITES, UNEXPECTED_FINGERPRINT, UNEXPECTED_SIGNAL_TRACKS, DISCO_MONITOR, SIMILAR_SSIDS, RESTRICTED_SSID_SUBSTRINGS, CLIENT_MONITORING, CLIENT_EVENTING. Case insensitive.",
+          "description" : "Monitor type. One of UNEXPECTED_BSSID, UNEXPECTED_CHANNEL, UNEXPECTED_SECURITY_SUITES, UNEXPECTED_FINGERPRINT, UNEXPECTED_SIGNAL_TRACKS, DISCO_MONITOR, CHANNEL_SWITCH_MONITOR, MULTIPLE_CHANNELS, SIMILAR_SSIDS, RESTRICTED_SSID_SUBSTRINGS, CLIENT_MONITORING, CLIENT_EVENTING. Case insensitive.",
           "in" : "path",
           "name" : "alert",
           "required" : true,
@@ -7473,6 +8100,98 @@
           }
         },
         "summary" : "Stop ignoring a known client",
+        "tags" : [ "Monitoring" ]
+      }
+    },
+    "/api/dot11/monitoring/ssids/show/{uuid}/configuration/channelswitches" : {
+      "put" : {
+        "description" : "Sets the number of beacons per second with a channel switch announcement from a BSSID of this monitored network at which Nzyme alerts. Access points send about 10 beacons per second by default. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "updateMonitoredNetworkChannelSwitchConfiguration",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateChannelSwitchNetworkMonitorConfiguration"
+              }
+            }
+          },
+          "description" : "Burst threshold in frames per second, 10 to 1000.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user."
+          }
+        },
+        "summary" : "Update channel switch monitor burst threshold",
+        "tags" : [ "Monitoring" ]
+      }
+    },
+    "/api/dot11/monitoring/ssids/show/{uuid}/configuration/channelswitches/rules/{rule}/set/{status}" : {
+      "put" : {
+        "description" : "Switches one detection method of the channel switch monitor of the network on or off. All methods are enabled unless they were disabled. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "updateMonitoredNetworkChannelSwitchRuleStatus",
+        "parameters" : [ {
+          "description" : "Monitored network UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Detection method. One of INVALID_CHANNEL, REPEATED_TIMESTAMP, TIMESTAMP_MISMATCH, INTERLEAVED_BEACONS, BURST_RATE, NOT_FOLLOWED. Case insensitive.",
+          "in" : "path",
+          "name" : "rule",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        }, {
+          "description" : "New status: true to enable, false to disable.",
+          "in" : "path",
+          "name" : "status",
+          "required" : true,
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Detection method updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found or not accessible by the calling user, or the detection method is unknown."
+          }
+        },
+        "summary" : "Enable or disable a detection method of the channel switch monitor",
         "tags" : [ "Monitoring" ]
       }
     },
@@ -33290,7 +34009,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "DOT11_CHANNEL_SWITCH", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         }, {
           "description" : "Organization UUID.",
@@ -33364,7 +34083,7 @@
           "required" : true,
           "schema" : {
             "type" : "string",
-            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
+            "enum" : [ "DOT11_BSSID", "DOT11_CLIENT_CONNECTED", "DOT11_CLIENT_DISCONNECTED", "DOT11_DISCO_FRAME", "DOT11_CHANNEL_SWITCH", "BLUETOOTH_DEVICE", "ETHERNET_ASSET", "ETHERNET_L4_SESSION", "ETHERNET_DNS_TRANSACTION", "ETHERNET_DHCP_TRANSACTION", "ETHERNET_ARP_PACKET", "ETHERNET_NDP_MESSAGE", "ETHERNET_SSH_SESSION", "ETHERNET_SOCKS_TUNNEL", "ETHERNET_VPN_TUNNEL", "ETHERNET_IPV6_TRANSITION_TUNNEL", "ETHERNET_TLS_SESSION", "ETHERNET_TLS_CERTIFICATE", "ETHERNET_RTSP_STREAM", "ETHERNET_WEBRTC_SESSION", "ETHERNET_NTP_TRANSACTION", "ETHERNET_STUN_DISCOVERY", "ETHERNET_STUN_CONNECTION", "ETHERNET_PORTAL_INTEGRITY_REPORT" ]
           }
         } ],
         "requestBody" : {
@@ -45598,6 +46317,139 @@
           }
         }
       },
+      "ChannelSwitchDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "announcement_type" : {
+            "type" : "string"
+          },
+          "anomalies" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "count_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "count_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frame_type" : {
+            "type" : "string"
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "new_channel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "new_frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "new_operating_class" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "peak_frames_per_second" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "signal_strength_average" : {
+            "type" : "number",
+            "format" : "float"
+          },
+          "signal_strength_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "signal_strength_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "switch_mode" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ChannelSwitchListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "announcements" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChannelSwitchDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChannelSwitchMonitorHistogramResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket_size_ms" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "buckets" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ChannelSwitchMonitorHistogramValueResponse"
+            }
+          }
+        }
+      },
+      "ChannelSwitchMonitorHistogramValueResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "highlighted_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "ClientDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -52489,6 +53341,16 @@
               "$ref" : "#/components/schemas/MonitoredBSSIDDetailsResponse"
             }
           },
+          "channel_switch_burst_threshold" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "channel_switch_disabled_rules" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "channels" : {
             "type" : "array",
             "items" : {
@@ -52499,7 +53361,13 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "enabled_channel_switch_monitor" : {
+            "type" : "boolean"
+          },
           "enabled_disco_monitor" : {
+            "type" : "boolean"
+          },
+          "enabled_multiple_channels" : {
             "type" : "boolean"
           },
           "enabled_restricted_ssid_substrings" : {
@@ -52555,7 +53423,13 @@
           "ssid" : {
             "type" : "string"
           },
+          "status_channel_switch_monitor" : {
+            "type" : "boolean"
+          },
           "status_disco_monitor" : {
+            "type" : "boolean"
+          },
+          "status_multiple_channels" : {
             "type" : "boolean"
           },
           "status_restricted_ssid_substrings" : {
@@ -55481,6 +56355,9 @@
       "SecuritySuitesResponse" : {
         "type" : "object",
         "properties" : {
+          "beacon_protection" : {
+            "type" : "boolean"
+          },
           "group_cipher" : {
             "type" : "string"
           },
@@ -55489,6 +56366,9 @@
           },
           "key_management_modes" : {
             "type" : "string"
+          },
+          "operating_channel_validation" : {
+            "type" : "boolean"
           },
           "pairwise_ciphers" : {
             "type" : "string"
@@ -59570,6 +60450,19 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "UpdateChannelSwitchNetworkMonitorConfiguration" : {
+        "type" : "object",
+        "description" : "Body for updating the channel switch monitor configuration of a monitored WiFi network.",
+        "properties" : {
+          "burst_threshold" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Beacons per second with a channel switch announcement from one BSSID that trigger an alert. Between 10 and 1000.",
+            "writeOnly" : true
+          }
+        },
+        "required" : [ "burst_threshold" ]
       },
       "UpdateConfigurationRequest" : {
         "type" : "object",

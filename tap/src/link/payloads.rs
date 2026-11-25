@@ -292,6 +292,7 @@ pub struct Dot11TableReport {
     pub bssids: HashMap<String, BssidReport>,
     pub clients: HashMap<String, Dot11ClientReport>,
     pub disco: Dot11DiscoReport,
+    pub channel_switches: Vec<Dot11ChannelSwitchReport>,
     pub alerts: Vec<Dot11AlertReport>
 }
 
@@ -302,6 +303,7 @@ pub struct BssidReport {
     pub hidden_ssid_frames: u128,
     pub signal_strength: SignalStrengthReport,
     pub fingerprints: Vec<String>,
+    pub declared_frequencies: HashMap<u16, u64>
 }
 
 #[derive(Serialize)]
@@ -336,6 +338,28 @@ pub struct Dot11DiscoFrameReport {
 }
 
 #[derive(Serialize)]
+pub struct Dot11ChannelSwitchReport {
+    pub bssid: String,
+    pub frame_type: String,
+    pub announcement_type: String,
+    pub switch_mode: u8,
+    pub new_operating_class: Option<u8>,
+    pub new_channel: u8,
+    pub frequency: Option<u16>,
+    pub count_min: u8,
+    pub count_max: u8,
+    pub frame_count: u64,
+    pub peak_frames_per_second: u32,
+    pub timestamp_repetitions: u32,
+    pub timestamp_mismatch_frames: u64,
+    pub interleaved_beacons: u64,
+    pub trailing_element_frames: u64,
+    pub dsss_only: Option<bool>,
+    pub country_code: Option<String>,
+    pub signal_strength: Option<SignalStrengthReport>
+}
+
+#[derive(Serialize)]
 pub struct AdvertisedNetworkReport {
     pub security: Vec<SecurityInformationReport>,
     pub fingerprints: Vec<String>,
@@ -360,7 +384,9 @@ pub struct SignalStrengthReport {
 pub struct SecurityInformationReport {
     pub protocols: Vec<String>,
     pub suites: Dot11CipherSuites,
-    pub pmf: PmfReport
+    pub pmf: PmfReport,
+    pub operating_channel_validation: bool,
+    pub beacon_protection: bool
 }
 
 #[derive(Serialize)]

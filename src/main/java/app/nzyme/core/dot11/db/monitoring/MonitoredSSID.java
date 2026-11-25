@@ -5,6 +5,7 @@ import com.google.auto.value.AutoValue;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.UUID;
 
 @AutoValue
@@ -22,6 +23,8 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
     public abstract boolean enabledUnexpectedFingerprint();
     public abstract boolean enabledUnexpectedSignalTracks();
     public abstract boolean enabledDiscoMonitor();
+    public abstract boolean enabledChannelSwitchMonitor();
+    public abstract boolean enabledMultipleChannels();
     public abstract boolean enabledSimilarLookingSSID();
     public abstract boolean enabledSSIDSubstring();
     public abstract boolean enabledClientMonitoring();
@@ -29,10 +32,12 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
     public abstract String discoMonitorType();
     public abstract String discoMonitorConfiguration();
     public abstract Integer detectionConfigSimilarLookingSSIDThreshold();
+    public abstract int detectionConfigChannelSwitchBurstThreshold();
+    public abstract List<String> detectionConfigChannelSwitchDisabledRules();
     public abstract DateTime createdAt();
     public abstract DateTime updatedAt();
 
-    public static MonitoredSSID create(long id, UUID uuid, boolean isEnabled, String ssid, UUID organizationId, UUID tenantId, boolean enabledUnexpectedBSSID, boolean enabledUnexpectedChannel, boolean enabledUnexpectedSecuritySuites, boolean enabledUnexpectedFingerprint, boolean enabledUnexpectedSignalTracks, boolean enabledDiscoMonitor, boolean enabledSimilarLookingSSID, boolean enabledSSIDSubstring, boolean enabledClientMonitoring, boolean enabledClientEventing, String discoMonitorType, String discoMonitorConfiguration, Integer detectionConfigSimilarLookingSSIDThreshold, DateTime createdAt, DateTime updatedAt) {
+    public static MonitoredSSID create(long id, UUID uuid, boolean isEnabled, String ssid, UUID organizationId, UUID tenantId, boolean enabledUnexpectedBSSID, boolean enabledUnexpectedChannel, boolean enabledUnexpectedSecuritySuites, boolean enabledUnexpectedFingerprint, boolean enabledUnexpectedSignalTracks, boolean enabledDiscoMonitor, boolean enabledChannelSwitchMonitor, boolean enabledMultipleChannels, boolean enabledSimilarLookingSSID, boolean enabledSSIDSubstring, boolean enabledClientMonitoring, boolean enabledClientEventing, String discoMonitorType, String discoMonitorConfiguration, Integer detectionConfigSimilarLookingSSIDThreshold, int detectionConfigChannelSwitchBurstThreshold, List<String> detectionConfigChannelSwitchDisabledRules, DateTime createdAt, DateTime updatedAt) {
         return builder()
                 .id(id)
                 .uuid(uuid)
@@ -46,6 +51,8 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
                 .enabledUnexpectedFingerprint(enabledUnexpectedFingerprint)
                 .enabledUnexpectedSignalTracks(enabledUnexpectedSignalTracks)
                 .enabledDiscoMonitor(enabledDiscoMonitor)
+                .enabledChannelSwitchMonitor(enabledChannelSwitchMonitor)
+                .enabledMultipleChannels(enabledMultipleChannels)
                 .enabledSimilarLookingSSID(enabledSimilarLookingSSID)
                 .enabledSSIDSubstring(enabledSSIDSubstring)
                 .enabledClientMonitoring(enabledClientMonitoring)
@@ -53,6 +60,8 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
                 .discoMonitorType(discoMonitorType)
                 .discoMonitorConfiguration(discoMonitorConfiguration)
                 .detectionConfigSimilarLookingSSIDThreshold(detectionConfigSimilarLookingSSIDThreshold)
+                .detectionConfigChannelSwitchBurstThreshold(detectionConfigChannelSwitchBurstThreshold)
+                .detectionConfigChannelSwitchDisabledRules(detectionConfigChannelSwitchDisabledRules)
                 .createdAt(createdAt)
                 .updatedAt(updatedAt)
                 .build();
@@ -88,6 +97,10 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
 
         public abstract Builder enabledDiscoMonitor(boolean enabledDiscoMonitor);
 
+        public abstract Builder enabledChannelSwitchMonitor(boolean enabledChannelSwitchMonitor);
+
+        public abstract Builder enabledMultipleChannels(boolean enabledMultipleChannels);
+
         public abstract Builder enabledSimilarLookingSSID(boolean enabledSimilarLookingSSID);
 
         public abstract Builder enabledSSIDSubstring(boolean enabledSSIDSubstring);
@@ -101,6 +114,10 @@ public abstract class MonitoredSSID implements TenantScopedEntity {
         public abstract Builder discoMonitorConfiguration(String discoMonitorConfiguration);
 
         public abstract Builder detectionConfigSimilarLookingSSIDThreshold(Integer detectionConfigSimilarLookingSSIDThreshold);
+
+        public abstract Builder detectionConfigChannelSwitchBurstThreshold(int detectionConfigChannelSwitchBurstThreshold);
+
+        public abstract Builder detectionConfigChannelSwitchDisabledRules(List<String> detectionConfigChannelSwitchDisabledRules);
 
         public abstract Builder createdAt(DateTime createdAt);
 

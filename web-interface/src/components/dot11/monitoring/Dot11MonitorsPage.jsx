@@ -19,11 +19,13 @@ export default function Dot11MonitorsPage() {
   const [connectedClientMonitors, setConnectedClientMonitors] = useState(null);
   const [disconnectedClientMonitors, setDisconnectedClientMonitors] = useState(null);
   const [discoFrameMonitors, setDiscoFrameMonitors] = useState(null);
+  const [channelSwitchMonitors, setChannelSwitchMonitors] = useState(null);
 
   const [bssidPage, setBssidPage] = useState(1);
   const [connectedClientPage, setConnectedClientPage] = useState(1);
   const [disconnectedClientPage, setDisconnectedClientPage] = useState(1);
   const [discoFramePage, setDiscoFramePage] = useState(1);
+  const [channelSwitchPage, setChannelSwitchPage] = useState(1);
 
   const perPage = 10;
 
@@ -50,6 +52,22 @@ export default function Dot11MonitorsPage() {
       "DOT11_DISCO_FRAME", organizationId, tenantId, perPage, (discoFramePage-1)*perPage, setDiscoFrameMonitors
     )
   }, [discoFramePage, organizationId, tenantId])
+
+  useEffect(() => {
+    let active = true;
+
+    monitorsService.findAllOfType(
+      "DOT11_CHANNEL_SWITCH", organizationId, tenantId, perPage, (channelSwitchPage-1)*perPage, (monitors) => {
+        if (active) {
+          setChannelSwitchMonitors(monitors);
+        }
+      }
+    )
+
+    return () => {
+      active = false;
+    }
+  }, [channelSwitchPage, organizationId, tenantId])
 
   return (
     <React.Fragment>
@@ -107,6 +125,18 @@ export default function Dot11MonitorsPage() {
               <h3 style={{display: "inline-block"}}>Disconnection Frame Monitors</h3>
 
               <MonitorsTable monitors={discoFrameMonitors} page={discoFramePage} setPage={setDiscoFramePage} perPage={perPage} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-xl-12 col-xxl-6">
+          <div className="card">
+            <div className="card-body">
+              <h3 style={{display: "inline-block"}}>Channel Switch Announcement Monitors</h3>
+
+              <MonitorsTable monitors={channelSwitchMonitors} page={channelSwitchPage} setPage={setChannelSwitchPage} perPage={perPage} />
             </div>
           </div>
         </div>

@@ -8,6 +8,8 @@ use sha2::{Digest, Sha256};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::protocols::detection::dot11_tagged_parameters_tagger::tag_advertisement_frame_tags;
+use crate::protocols::parsers::dot11::management::channel_switch_element_parser;
+use crate::protocols::parsers::dot11::management::channel_switch_element_parser::ChannelElements;
 use crate::wireless::tags::Tag;
 
 pub fn parse_capabilities(mask: &[u8]) -> Result<Dot11Capabilities, Error> {
@@ -144,9 +146,26 @@ pub fn parse_tagged_parameters(payload: &[u8],
                         }
                     };
 
-                    let protocols = vec![decide_wpa_identifier(&suites, &pmf).unwrap()];
+                    let operating_channel_validation = parse_operating_channel_validation(
+                        &data[suites.cursor..data.len()]
+                    );
 
-                    security.push(SecurityInformation {protocols, pmf, suites: Option::Some(suites)});
+                    // A suite combination that is no known protocol must not make the network look open.
+                    let protocols = match decide_wpa_identifier(&suites, &pmf) {
+                        Ok(protocol) => vec![protocol],
+                        Err(e) => {
+                            trace!("Could not decide RSN protocol: {}", e);
+                            vec![EncryptionProtocol::Invalid]
+                        }
+                    };
+
+                    security.push(SecurityInformation {
+                        protocols,
+                        pmf,
+                        suites: Option::Some(suites),
+                        operating_channel_validation,
+                        beacon_protection: false
+                    });
                     security_bytes.extend(data);
                 }
                 50 => {
@@ -184,7 +203,9 @@ pub fn parse_tagged_parameters(payload: &[u8],
                                     security.push(SecurityInformation {
                                         protocols: vec![EncryptionProtocol::WPA1],
                                         suites: Option::Some(suites),
-                                        pmf: PmfMode::Unavailable
+                                        pmf: PmfMode::Unavailable,
+                                        operating_channel_validation: false,
+                                        beacon_protection: false
                                     });
                                     security_bytes.extend(data);
                                 }
@@ -212,6 +233,24 @@ pub fn parse_tagged_parameters(payload: &[u8],
         trace!("Tagged parameters are too short. Not calculating for this frame.");
     }
 
+    let mut channel_elements = match payload.len() > 36 {
+        true => channel_switch_element_parser::parse_elements(&payload[36..]),
+        false => ChannelElements::default()
+    };
+
+    // With the order bit set, a receiver may expect an HT Control field before the body, so both places are read.
+    if channel_elements.announcement.is_none() && payload.len() > 40 && payload[1] & 0b1000_0000 != 0 {
+        let shifted = channel_switch_element_parser::parse_elements(&payload[40..]);
+        if shifted.announcement.is_some() {
+            channel_elements = shifted;
+        }
+    }
+
+    let beacon_protection = parse_beacon_protection(&extended_capabilities);
+    for sec in security.iter_mut() {
+        sec.beacon_protection = beacon_protection;
+    }
+
     let pwnagotchi_data = match pwnagotchi_parts.is_empty() {
         false => {
             match serde_json::from_str::<PwnagotchiData>(&pwnagotchi_parts.join("")) {
@@ -232,7 +271,9 @@ pub fn parse_tagged_parameters(payload: &[u8],
         country_information,
         ht_capabilities,
         extended_capabilities,
-        pwnagotchi_data
+        pwnagotchi_data,
+        channel_switch: channel_elements.announcement,
+        current_frequency: channel_elements.current_frequency
     };
 
     // Mark as open network when no security mechanisms were detected.
@@ -240,7 +281,9 @@ pub fn parse_tagged_parameters(payload: &[u8],
         security.push(SecurityInformation {
             protocols: vec![EncryptionProtocol::None],
             suites: Option::None,
-            pmf: PmfMode::Unavailable
+            pmf: PmfMode::Unavailable,
+            operating_channel_validation: false,
+            beacon_protection
         });
     }
 
@@ -326,7 +369,7 @@ fn parse_wpa_security(data: &[u8]) -> Result<CipherSuites, Error> {
         bail!("Unsupported RSN/WPA version <{:?}>.", &data)
     }
 
-    if data.len() < 5 {
+    if data.len() < 6 {
         bail!{"RSN/WPA info doesn't fit group cipher suite."}
     }
 
@@ -344,6 +387,10 @@ fn parse_wpa_security(data: &[u8]) -> Result<CipherSuites, Error> {
     let pair_suite_count = LittleEndian::read_u16(&data[6..8]) as usize;
     let mut cursor: usize = 8;
     for _ in 0..pair_suite_count {
+        if data.len() < cursor+4 {
+            bail!{"RSN doesn't fit pairwise cipher suites."};
+        }
+
         match parse_cipher_suite(&data[cursor..cursor+4]) {
             Ok(cipher) => pairwise_ciphers.push(cipher),
             Err(e) => bail!("Could not parse pairwise cipher: {}", e)
@@ -351,7 +398,7 @@ fn parse_wpa_security(data: &[u8]) -> Result<CipherSuites, Error> {
         cursor += 4;
     }
 
-    if data.len() < cursor+3 {
+    if data.len() < cursor+2 {
         bail!{"RSN doesn't fit key management suite count."};
     }
 
@@ -359,6 +406,10 @@ fn parse_wpa_security(data: &[u8]) -> Result<CipherSuites, Error> {
     let key_management_suite_count = LittleEndian::read_u16(&data[cursor..cursor+2]) as usize;
     cursor+=2;
     for _ in 0..key_management_suite_count {
+        if data.len() < cursor+4 {
+            bail!{"RSN doesn't fit key management suites."};
+        }
+
         match parse_key_management_suite(&data[cursor..cursor+4]) {
             Ok(cipher) => key_management_modes.push(cipher),
             Err(e) => bail!("Could not parse key management cipher: {}", e)
@@ -420,6 +471,19 @@ fn parse_pmf_mode(data: &[u8]) -> Result<PmfMode, Error> {
         Ok(PmfMode::Optional)
     } else {
         Ok(PmfMode::Disabled)
+    }
+}
+
+// OCVC is bit 14 of the RSN capabilities.
+fn parse_operating_channel_validation(rsn_capabilities: &[u8]) -> bool {
+    rsn_capabilities.len() >= 2 && rsn_capabilities[1] & 0b0100_0000 != 0
+}
+
+// Beacon Protection Enabled is bit 84 of the extended capabilities.
+fn parse_beacon_protection(extended_capabilities: &Option<Vec<u8>>) -> bool {
+    match extended_capabilities {
+        Some(caps) => caps.len() > 10 && caps[10] & 0b0001_0000 != 0,
+        None => false
     }
 }
 
@@ -581,10 +645,53 @@ pub fn decide_encryption_protocol(capabilities: &Dot11Capabilities,
             SecurityInformation {
                 protocols: vec![EncryptionProtocol::WEP],
                 suites: Option::None,
-                pmf: PmfMode::Unavailable
+                pmf: PmfMode::Unavailable,
+                operating_channel_validation: false,
+                beacon_protection: false
             }
         )
     };
 
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_operating_channel_validation_from_rsn_capabilities() {
+        assert!(parse_operating_channel_validation(&[0x8c, 0x40]));
+        assert!(!parse_operating_channel_validation(&[0xcc, 0x00]));
+        assert!(!parse_operating_channel_validation(&[0xff, 0xbf]));
+        assert!(!parse_operating_channel_validation(&[0xff]));
+    }
+
+    #[test]
+    fn rejects_truncated_rsn_elements() {
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac]).is_err());
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 2, 0]).is_err());
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac]).is_err());
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac, 4, 1]).is_err());
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac, 4, 1, 0]).is_err());
+        assert!(parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f]).is_err());
+
+        let suites = parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac, 4, 1, 0, 0x00, 0x0f, 0xac, 2])
+            .unwrap();
+        assert_eq!(suites.key_management_modes, vec![KeyManagementMode::PSK]);
+    }
+
+    #[test]
+    fn rsn_without_key_management_is_no_known_protocol() {
+        let suites = parse_wpa_security(&[1, 0, 0x00, 0x0f, 0xac, 4, 0, 0, 0, 0, 0, 0]).unwrap();
+        assert!(decide_wpa_identifier(&suites, &PmfMode::Disabled).is_err());
+    }
+
+    #[test]
+    fn reads_beacon_protection_from_extended_capabilities() {
+        assert!(parse_beacon_protection(&Some(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10])));
+        assert!(!parse_beacon_protection(&Some(vec![0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xef])));
+        assert!(!parse_beacon_protection(&Some(vec![0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff])));
+        assert!(!parse_beacon_protection(&None));
+    }
 }

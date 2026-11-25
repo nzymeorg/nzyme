@@ -85,6 +85,7 @@ public class AlertActions {
         switch (type) {
             case DOT11_MONITOR_BSSID, DOT11_MONITOR_CHANNEL, DOT11_MONITOR_SECURITY_SUITE,
                  DOT11_MONITOR_FINGERPRINT, DOT11_MONITOR_SIGNAL_TRACK, DOT11_MONITOR_DISCO_ANOMALIES,
+                 DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES, DOT11_MONITOR_MULTIPLE_CHANNELS,
                  DOT11_MONITOR_SIMILAR_LOOKING_SSID, DOT11_MONITOR_SSID_SUBSTRING, DOT11_UNAPPROVED_CLIENT,
                  DOT11_UNAPPROVED_SSID, DOT11_PROBEREQ, DOT11_BANDIT_CONTACT -> {
                 if (allowed(scope, DOT11_PERMISSION, Subsystem.DOT11)) {
@@ -226,6 +227,10 @@ public class AlertActions {
             }
             case DOT11_MONITOR_DISCO_ANOMALIES ->
                     actions.add(AlertAction.available(DOT11_OPEN_DISCO_CONFIGURATION, "network_uuid", networkUuid));
+            case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES -> actions.add(
+                    AlertAction.available(DOT11_OPEN_CHANNEL_SWITCH_CONFIGURATION, "network_uuid", networkUuid));
+            case DOT11_MONITOR_MULTIPLE_CHANNELS ->
+                    actions.add(AlertAction.available(DOT11_OPEN_MONITORED_NETWORK, "network_uuid", networkUuid));
             case DOT11_MONITOR_SIMILAR_LOOKING_SSID -> {
                 String similarSsid = scope.attribute("similar_ssid");
                 if (similarSsid != null) {

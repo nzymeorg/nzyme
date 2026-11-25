@@ -61,6 +61,14 @@ import {ALLOWED_RECON_SCAN_TYPE_VALUES, RECON_SCAN_TYPE_SELECT_OPTIONS} from "./
 import {ALLOWED_SPOOFING_TYPE_VALUES, SPOOFING_TYPE_SELECT_OPTIONS} from "./validators/SpoofingTypeValidator";
 import {ALLOWED_DISCO_TYPE_VALUES, DISCO_TYPE_SELECT_OPTIONS} from "./validators/DiscoTypeValidator";
 import {
+  ALLOWED_CHANNEL_SWITCH_ANOMALY_VALUES,
+  ALLOWED_CHANNEL_SWITCH_FRAME_TYPE_VALUES,
+  ALLOWED_CHANNEL_SWITCH_OUTCOME_VALUES,
+  CHANNEL_SWITCH_ANOMALY_SELECT_OPTIONS,
+  CHANNEL_SWITCH_FRAME_TYPE_SELECT_OPTIONS,
+  CHANNEL_SWITCH_OUTCOME_SELECT_OPTIONS
+} from "./validators/ChannelSwitchValidators";
+import {
   ALLOWED_DHCP_SPOOFING_FINDING_TYPE_VALUES,
   DHCP_SPOOFING_FINDING_TYPE_SELECT_OPTIONS
 } from "./validators/DhcpSpoofingFindingTypeValidator";
@@ -269,6 +277,27 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_DISCO_TYPE_VALUES, value)
     ],
     placeholder: "DEAUTHENTICATION"
+  },
+  CHANNEL_SWITCH_FRAME_TYPE: {
+    name: "channel_switch_frame_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_CHANNEL_SWITCH_FRAME_TYPE_VALUES, value)
+    ],
+    placeholder: "BEACON"
+  },
+  CHANNEL_SWITCH_ANOMALY: {
+    name: "channel_switch_anomaly",
+    validators: [
+      (value) => validateEnum(ALLOWED_CHANNEL_SWITCH_ANOMALY_VALUES, value)
+    ],
+    placeholder: "INVALID_CHANNEL"
+  },
+  CHANNEL_SWITCH_OUTCOME: {
+    name: "channel_switch_outcome",
+    validators: [
+      (value) => validateEnum(ALLOWED_CHANNEL_SWITCH_OUTCOME_VALUES, value)
+    ],
+    placeholder: "STAYED"
   },
   DHCP_SPOOFING_FINDING_TYPE: {
     name: "dhcp_spoofing_finding_type",
@@ -781,6 +810,60 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: DISCO_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_FRAME_TYPE_EQUALS: {
+    name: "channel_switch_frame_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_FRAME_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_FRAME_TYPE_NOT_EQUALS: {
+    name: "channel_switch_frame_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_FRAME_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_ANOMALY_CONTAINS: {
+    name: "channel_switch_anomaly_contains",
+    sign: "Contains",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_ANOMALY_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_ANOMALY_NOT_CONTAINS: {
+    name: "channel_switch_anomaly_not_contains",
+    sign: "Does not contain",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_ANOMALY_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_OUTCOME_EQUALS: {
+    name: "channel_switch_outcome_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_OUTCOME_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  CHANNEL_SWITCH_OUTCOME_NOT_EQUALS: {
+    name: "channel_switch_outcome_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: CHANNEL_SWITCH_OUTCOME_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   DHCP_SPOOFING_FINDING_TYPE_EQUALS: {
@@ -1376,6 +1459,28 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.DISCO_TYPE_EQUALS,
             OPERATORS.DISCO_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.CHANNEL_SWITCH_FRAME_TYPE:
+          setAllowedOperators([
+            OPERATORS.CHANNEL_SWITCH_FRAME_TYPE_EQUALS,
+            OPERATORS.CHANNEL_SWITCH_FRAME_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.CHANNEL_SWITCH_ANOMALY:
+          setAllowedOperators([
+            OPERATORS.CHANNEL_SWITCH_ANOMALY_CONTAINS,
+            OPERATORS.CHANNEL_SWITCH_ANOMALY_NOT_CONTAINS,
+            OPERATORS.IS_EMPTY,
+            OPERATORS.IS_NOT_EMPTY
+          ])
+          break;
+        case FILTER_TYPE.CHANNEL_SWITCH_OUTCOME:
+          setAllowedOperators([
+            OPERATORS.CHANNEL_SWITCH_OUTCOME_EQUALS,
+            OPERATORS.CHANNEL_SWITCH_OUTCOME_NOT_EQUALS,
+            OPERATORS.IS_NULL,
+            OPERATORS.IS_NOT_NULL
           ])
           break;
         case FILTER_TYPE.DHCP_SPOOFING_FINDING_TYPE:

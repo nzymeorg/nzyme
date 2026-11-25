@@ -36,6 +36,8 @@ public class FilterFactory {
             case "recon_scan_type_equals":
             case "spoofing_type_equals":
             case "disco_type_equals":
+            case "channel_switch_frame_type_equals":
+            case "channel_switch_outcome_equals":
             case "dhcp_spoofing_finding_type_equals":
             case "dhcp_spoofing_protocol_equals":
             case "recon_target_outcome_equals":
@@ -64,6 +66,8 @@ public class FilterFactory {
             case "recon_scan_type_not_equals":
             case "spoofing_type_not_equals":
             case "disco_type_not_equals":
+            case "channel_switch_frame_type_not_equals":
+            case "channel_switch_outcome_not_equals":
             case "dhcp_spoofing_finding_type_not_equals":
             case "dhcp_spoofing_protocol_not_equals":
             case "recon_target_outcome_not_equals":
@@ -163,11 +167,13 @@ public class FilterFactory {
                 );
             case "contains":
             case "tls_alert_contains":
+            case "channel_switch_anomaly_contains":
                 return Filter.create(
                         parameter.field(), FilterOperator.CONTAINS, optionallyTransformedValue(parameter), parameter.value()
                 );
             case "not_contains":
             case "tls_alert_not_contains":
+            case "channel_switch_anomaly_not_contains":
                 return Filter.create(
                         parameter.field(), FilterOperator.NOT_CONTAINS, optionallyTransformedValue(parameter), parameter.value()
                 );

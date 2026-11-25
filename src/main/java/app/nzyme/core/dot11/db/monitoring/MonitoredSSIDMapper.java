@@ -6,6 +6,7 @@ import org.joda.time.DateTime;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.UUID;
 
 public class MonitoredSSIDMapper implements RowMapper<MonitoredSSID> {
@@ -27,6 +28,8 @@ public class MonitoredSSIDMapper implements RowMapper<MonitoredSSID> {
                 rs.getBoolean("enabled_unexpected_fingerprint"),
                 rs.getBoolean("enabled_unexpected_signal_tracks"),
                 rs.getBoolean("enabled_disco_monitor"),
+                rs.getBoolean("enabled_channel_switch_monitor"),
+                rs.getBoolean("enabled_multiple_channels"),
                 rs.getBoolean("enabled_similar_looking_ssid"),
                 rs.getBoolean("enabled_ssid_substring"),
                 rs.getBoolean("enabled_client_monitoring"),
@@ -34,6 +37,8 @@ public class MonitoredSSIDMapper implements RowMapper<MonitoredSSID> {
                 rs.getString("disco_monitor_type"),
                 rs.getString("disco_monitor_configuration"),
                 rs.getInt("dconf_similar_looking_ssid_threshold"),
+                rs.getInt("dconf_channel_switch_burst_threshold"),
+                Arrays.asList((String[]) rs.getArray("dconf_channel_switch_disabled_rules").getArray()),
                 new DateTime(rs.getTimestamp("created_at")),
                 new DateTime(rs.getTimestamp("updated_at"))
         );

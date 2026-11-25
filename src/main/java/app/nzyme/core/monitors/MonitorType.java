@@ -12,6 +12,7 @@ public enum MonitorType {
     DOT11_CLIENT_CONNECTED(Subsystem.DOT11),
     DOT11_CLIENT_DISCONNECTED(Subsystem.DOT11),
     DOT11_DISCO_FRAME(Subsystem.DOT11),
+    DOT11_CHANNEL_SWITCH(Subsystem.DOT11),
 
     BLUETOOTH_DEVICE(Subsystem.BLUETOOTH),
 

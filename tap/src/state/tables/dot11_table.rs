@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Mutex};
 use std::sync::Arc;
+use std::time::Instant;
 
 use log::error;
 
@@ -10,8 +11,9 @@ use crate::{
     },
 };
 use crate::alerting::alert_types::Dot11Alert;
+use crate::state::tables::dot11_channel_switch_table::{ChannelSwitchFrameType, ChannelSwitchTable};
 use crate::state::tables::table_helpers::{clear_mutex_hashmap, clear_mutex_vector};
-use crate::wireless::dot11::frames::{Dot11Capabilities, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
+use crate::wireless::dot11::frames::{Dot11Capabilities, Dot11ChannelSwitchActionFrame, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
 use crate::link::leaderlink::Leaderlink;
 use crate::metrics::Metrics;
 use crate::link::payloads::{Dot11AlertReport, Dot11DiscoFrameReport, Dot11DiscoReport, PmfReport};
@@ -23,6 +25,7 @@ pub struct Dot11Table {
     pub bssids: Mutex<HashMap<String, Bssid>>,
     pub clients: Mutex<HashMap<String, Client>>,
     pub disco: DiscoTable,
+    pub channel_switches: Mutex<ChannelSwitchTable>,
     pub alerts: Mutex<Vec<Dot11Alert>>
 }
 
@@ -121,6 +124,7 @@ impl Dot11Table {
             bssids: Mutex::new(HashMap::new()),
             clients: Mutex::new(HashMap::new()),
             disco: DiscoTable::default(),
+            channel_switches: Mutex::new(ChannelSwitchTable::default()),
             alerts: Mutex::new(Vec::new()),
             leaderlink,
             metrics
@@ -137,6 +141,19 @@ impl Dot11Table {
     }
 
     pub fn register_beacon_frame(&mut self, beacon: Dot11BeaconFrame) {
+        match self.channel_switches.lock() {
+            Ok(mut channel_switches) => channel_switches.register_beacon(
+                &beacon.transmitter,
+                beacon.header.frequency,
+                beacon.header.antenna_signal,
+                beacon.timestamp,
+                beacon.tagged_parameters.channel_switch.as_ref(),
+                beacon.tagged_parameters.current_frequency,
+                beacon.header.captured_at
+            ),
+            Err(e) => error!("Could not acquire channel switch table mutex: {}", e)
+        }
+
         self.register_advertisement(
             FrameSubType::Beacon,
             beacon.length,
@@ -151,6 +168,20 @@ impl Dot11Table {
     }
 
     pub fn register_probe_response_frame(&mut self, proberesp: Dot11ProbeResponseFrame) {
+        if let Some(announcement) = &proberesp.tagged_parameters.channel_switch {
+            match self.channel_switches.lock() {
+                Ok(mut channel_switches) => channel_switches.register_frame(
+                    &proberesp.transmitter,
+                    ChannelSwitchFrameType::ProbeResponse,
+                    proberesp.header.frequency,
+                    proberesp.header.antenna_signal,
+                    announcement,
+                    proberesp.header.captured_at
+                ),
+                Err(e) => error!("Could not acquire channel switch table mutex: {}", e)
+            }
+        }
+
         self.register_advertisement(
             FrameSubType::ProbeResponse,
             proberesp.length,
@@ -462,6 +493,27 @@ impl Dot11Table {
         );
     }
 
+    // Counts every action frame, so the metrics show if a capture delivers them at all.
+    pub fn register_action_frame(&self, channel_switch: Option<Dot11ChannelSwitchActionFrame>) {
+        match self.channel_switches.lock() {
+            Ok(mut channel_switches) => {
+                channel_switches.action_frames += 1;
+
+                if let Some(frame) = channel_switch {
+                    channel_switches.register_frame(
+                        &frame.bssid,
+                        ChannelSwitchFrameType::Action,
+                        frame.header.frequency,
+                        frame.header.antenna_signal,
+                        &frame.announcement,
+                        frame.header.captured_at
+                    );
+                }
+            },
+            Err(e) => error!("Could not acquire channel switch table mutex: {}", e)
+        }
+    }
+
     fn register_disco_frame(&self,
                             disco_type: DiscoType,
                             transmitter: String,
@@ -623,11 +675,53 @@ impl Dot11Table {
             Err(e) => error!("Could not acquire disco table mutex: {}", e)
         }
 
+        match self.channel_switches.lock() {
+            Ok(mut channel_switches) => {
+                match self.metrics.lock() {
+                    Ok(mut metrics) => {
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.size", channel_switches.entries.len() as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.dropped", channel_switches.dropped_frames as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.action_frames", channel_switches.action_frames as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.beacon_states.size",
+                            channel_switches.beacon_state_count() as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.declared_frequencies.dropped",
+                            channel_switches.dropped_declared_frequencies as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.channel_switches.beacon_states.rejected",
+                            channel_switches.rejected_beacon_states as i128
+                        );
+                    },
+                    Err(e) => error!("Could not acquire metrics mutex: {}", e)
+                }
+
+                channel_switches.end_report(Instant::now());
+            },
+            Err(e) => error!("Could not acquire channel switch table mutex: {}", e)
+        }
+
         clear_mutex_vector(&self.alerts);
     }
 
     fn generate_report(&self) -> Dot11TableReport {
         let mut bssid_report: HashMap<String, BssidReport> = HashMap::new();
+
+        let mut declared_frequencies = match self.channel_switches.lock() {
+            Ok(channel_switches) => channel_switches.declared_frequencies(),
+            Err(e) => {
+                error!("Could not acquire channel switch table mutex: {}", e);
+                HashMap::new()
+            }
+        };
 
         match self.bssids.lock() {
             Ok(bssids) => for (bssid, info) in &*bssids {
@@ -674,7 +768,13 @@ impl Dot11Table {
                             PmfMode::Unavailable => PmfReport::Unavailable
                         };
 
-                        netsec_report.push(SecurityInformationReport { protocols, suites, pmf });
+                        netsec_report.push(SecurityInformationReport {
+                            protocols,
+                            suites,
+                            pmf,
+                            operating_channel_validation: netsecinfo.operating_channel_validation,
+                            beacon_protection: netsecinfo.beacon_protection
+                        });
                     }
 
                     let mut channel_statistics = HashMap::new();
@@ -737,6 +837,7 @@ impl Dot11Table {
                             &info.signal_strengths,
                         ),
                         fingerprints: info.fingerprints.clone(),
+                        declared_frequencies: declared_frequencies.remove(bssid).unwrap_or_default()
                     },
                 );
             },
@@ -764,6 +865,14 @@ impl Dot11Table {
 
         let disco_report = self.disco_table_to_report();
 
+        let channel_switches_report = match self.channel_switches.lock() {
+            Ok(channel_switches) => channel_switches.to_report(),
+            Err(e) => {
+                error!("Could not acquire channel switch table mutex: {}", e);
+                Vec::new()
+            }
+        };
+
         let mut alerts_report: Vec<Dot11AlertReport> = Vec::new();
         match self.alerts.lock() {
             Ok(alerts) => {
@@ -784,6 +893,7 @@ impl Dot11Table {
             bssids: bssid_report,
             clients: clients_report,
             disco: disco_report,
+            channel_switches: channel_switches_report,
             alerts: alerts_report
         }
     }

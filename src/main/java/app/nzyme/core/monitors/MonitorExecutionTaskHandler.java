@@ -95,6 +95,8 @@ public class MonitorExecutionTaskHandler implements TaskHandler {
                         .countClients(lookback, filters, false, taps);
                 case DOT11_DISCO_FRAME -> nzyme.getDot11()
                         .countDiscoFrames(lookback, filters, null, taps);
+                case DOT11_CHANNEL_SWITCH -> nzyme.getDot11()
+                        .countChannelSwitches(lookback, filters, null, taps);
                 case BLUETOOTH_DEVICE -> nzyme.getBluetooth()
                         .countAllDevices(lookback, filters, taps);
                 case ETHERNET_ASSET -> nzyme.getAssetsManager()

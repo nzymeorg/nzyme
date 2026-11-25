@@ -77,7 +77,11 @@ function SimulatorChart(props) {
     return shapes;
   }
 
-  if (!histogram || anomalies === null || !tapUuid) {
+  if (!tapUuid) {
+    return null;
+  }
+
+  if (!histogram || anomalies === null) {
     return (
         <div className="mt-3">
           <LoadingSpinner />

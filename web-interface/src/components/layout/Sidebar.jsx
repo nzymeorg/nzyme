@@ -153,6 +153,11 @@ function Sidebar(props) {
                 icon={<i className="sidebar-icon fa-solid fa-link-slash"/>}/>
 
             <NavigationLink
+                href={ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX}
+                title="Channel Switches"
+                icon={<i className="sidebar-icon fa-solid fa-shuffle"/>}/>
+
+            <NavigationLink
                 href={ApiRoutes.DOT11.MONITORING.INDEX}
                 title="Monitoring"
                 icon={<i className="sidebar-icon fa-solid fa-shield-halved"/>}

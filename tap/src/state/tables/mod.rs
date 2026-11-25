@@ -6,6 +6,7 @@ pub mod ssh_table;
 pub mod tcp_table;
 pub mod udp_table;
 pub mod dot11_table;
+pub mod dot11_channel_switch_table;
 pub mod tables;
 pub mod table_helpers;
 pub mod uav_table;

@@ -3,8 +3,13 @@ package app.nzyme.core.dot11;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchAnomaly;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchMonitorRule;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchOutcome;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchRules;
 import app.nzyme.core.dot11.db.*;
 import app.nzyme.core.dot11.db.filters.Dot11BSSIDFilters;
+import app.nzyme.core.dot11.db.filters.Dot11ChannelSwitchFilters;
 import app.nzyme.core.dot11.db.filters.Dot11ConnectedClientFilters;
 import app.nzyme.core.dot11.db.filters.Dot11DisconnectedClientFilters;
 import app.nzyme.core.database.generic.ThreeColumnHistogramOrderColumn;
@@ -40,9 +45,11 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.Query;
+import org.jdbi.v3.core.statement.SqlStatement;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
+import java.sql.Array;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -142,6 +149,8 @@ public class Dot11 {
         UNEXPECTED_FINGERPRINT("enabled_unexpected_fingerprint"),
         UNEXPECTED_SIGNAL_TRACKS("enabled_unexpected_signal_tracks"),
         DISCO_MONITOR("enabled_disco_monitor"),
+        CHANNEL_SWITCH_MONITOR("enabled_channel_switch_monitor"),
+        MULTIPLE_CHANNELS("enabled_multiple_channels"),
         SIMILAR_SSIDS("enabled_similar_looking_ssid"),
         RESTRICTED_SSID_SUBSTRINGS("enabled_ssid_substring"),
         CLIENT_MONITORING("enabled_client_monitoring"),
@@ -184,6 +193,38 @@ public class Dot11 {
 
         public String getColumnName() {
             return columnName;
+        }
+
+    }
+
+    public enum ChannelSwitchOrderColumn {
+
+        CREATED_AT("created_at"),
+        BSSID("bssid"),
+        FRAME_TYPE("frame_type"),
+        SWITCH_MODE("switch_mode"),
+        FREQUENCY("frequency"),
+        NEW_CHANNEL("new_channel"),
+        COUNT("count_min"),
+        FRAME_COUNT("frame_count"),
+        PEAK_RATE("peak_frames_per_second"),
+        SIGNAL_STRENGTH("signal_strength_average"),
+        ANOMALIES("cardinality(anomalies)"),
+        OUTCOME("outcome");
+
+        private final String columnName;
+
+        ChannelSwitchOrderColumn(String columnName) {
+            this.columnName = columnName;
+        }
+
+        public String getColumnName() {
+            return columnName;
+        }
+
+        // The index on the time only serves an order without a placement of nulls.
+        public String nullsSql() {
+            return this == CREATED_AT ? "" : "NULLS LAST";
         }
 
     }
@@ -1823,6 +1864,17 @@ public class Dot11 {
         );
     }
 
+    public void setChannelSwitchMonitorConfiguration(long monitoredNetworkId, int burstThreshold) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE dot11_monitored_networks " +
+                                "SET dconf_channel_switch_burst_threshold = :burst_threshold " +
+                                "WHERE id = :id")
+                        .bind("id", monitoredNetworkId)
+                        .bind("burst_threshold", burstThreshold)
+                        .execute()
+        );
+    }
+
     public void setSimilarSSIDMonitorConfiguration(long monitoredNetworkId, int threshold) {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("UPDATE dot11_monitored_networks " +
@@ -2038,7 +2090,7 @@ public class Dot11 {
         return bssids == null ? "" : DISCO_BSSID_RESTRICTION_SQL;
     }
 
-    private Query bindDiscoQuery(Query query,
+    private Query bindBssidScopedQuery(Query query,
                                  TimeRange timeRange,
                                  List<UUID> taps,
                                  FilterSqlFragment filterFragment,
@@ -2055,7 +2107,7 @@ public class Dot11 {
         return query;
     }
 
-    private boolean discoQueryIsEmpty(List<UUID> taps, @Nullable List<String> bssids) {
+    private boolean bssidScopedQueryIsEmpty(List<UUID> taps, @Nullable List<String> bssids) {
         return taps.isEmpty() || (bssids != null && bssids.isEmpty());
     }
 
@@ -2064,14 +2116,14 @@ public class Dot11 {
                                                        List<UUID> taps,
                                                        Filters filters,
                                                        @Nullable List<String> bssids) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT DATE_TRUNC(:date_trunc, created_at) AS bucket, " +
+                bindBssidScopedQuery(handle.createQuery("SELECT DATE_TRUNC(:date_trunc, created_at) AS bucket, " +
                                 "SUM(frame_count) AS frame_count, " +
                                 "COALESCE(SUM(frame_count) FILTER (WHERE disco_type = 'DEAUTHENTICATION'), 0) " +
                                 "AS deauthentication_count, " +
@@ -2100,14 +2152,14 @@ public class Dot11 {
                                                  DiscoFrameOrderColumn orderColumn,
                                                  OrderDirection orderDirection,
                                                  List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT * FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT * FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids) +
@@ -2127,14 +2179,14 @@ public class Dot11 {
                                  Filters filters,
                                  @Nullable List<String> bssids,
                                  List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return 0;
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(*) FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids)),
@@ -2153,7 +2205,7 @@ public class Dot11 {
                                                          TwoColumnHistogramOrderColumn orderColumn,
                                                          OrderDirection orderDirection,
                                                          List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
@@ -2163,7 +2215,7 @@ public class Dot11 {
         String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "bssid" : "frame_count";
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT <dimension> AS bssid, SUM(frame_count) AS frame_count " +
+                bindBssidScopedQuery(handle.createQuery("SELECT <dimension> AS bssid, SUM(frame_count) AS frame_count " +
                                 "FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -2186,14 +2238,14 @@ public class Dot11 {
                                        Filters filters,
                                        @Nullable List<String> bssids,
                                        List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return 0;
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT COUNT(DISTINCT <dimension>) FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(DISTINCT <dimension>) FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids)),
@@ -2212,7 +2264,7 @@ public class Dot11 {
                                                    ThreeColumnHistogramOrderColumn orderColumn,
                                                    OrderDirection orderDirection,
                                                    List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
@@ -2225,7 +2277,7 @@ public class Dot11 {
         };
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT transmitter AS sender, receiver, " +
+                bindBssidScopedQuery(handle.createQuery("SELECT transmitter AS sender, receiver, " +
                                 "SUM(frame_count) AS frame_count FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -2246,14 +2298,14 @@ public class Dot11 {
                                 Filters filters,
                                 @Nullable List<String> bssids,
                                 List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return 0;
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids) +
@@ -2272,7 +2324,7 @@ public class Dot11 {
                                                                   TwoColumnHistogramOrderColumn orderColumn,
                                                                   OrderDirection orderDirection,
                                                                   List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
@@ -2281,7 +2333,7 @@ public class Dot11 {
         String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "reason_code" : "frame_count";
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT reason_code, SUM(frame_count) AS frame_count " +
+                bindBssidScopedQuery(handle.createQuery("SELECT reason_code, SUM(frame_count) AS frame_count " +
                                 "FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -2302,14 +2354,14 @@ public class Dot11 {
                                       Filters filters,
                                       @Nullable List<String> bssids,
                                       List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return 0;
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT COUNT(DISTINCT reason_code) FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(DISTINCT reason_code) FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids)),
@@ -2327,7 +2379,7 @@ public class Dot11 {
                                                                 TwoColumnHistogramOrderColumn orderColumn,
                                                                 OrderDirection orderDirection,
                                                                 List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return Collections.emptyList();
         }
 
@@ -2336,7 +2388,7 @@ public class Dot11 {
         String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "frequency" : "frame_count";
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT frequency, SUM(frame_count) AS frame_count " +
+                bindBssidScopedQuery(handle.createQuery("SELECT frequency, SUM(frame_count) AS frame_count " +
                                 "FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
@@ -2357,14 +2409,14 @@ public class Dot11 {
                                       Filters filters,
                                       @Nullable List<String> bssids,
                                       List<UUID> taps) {
-        if (discoQueryIsEmpty(taps, bssids)) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
             return 0;
         }
 
         FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11DiscoFilters());
 
         return nzyme.getDatabase().withHandle(handle ->
-                bindDiscoQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids) +
@@ -2372,6 +2424,606 @@ public class Dot11 {
                         timeRange, taps, filterFragment, bssids)
                         .mapTo(Long.class)
                         .one()
+        );
+    }
+
+    private static final String CHANNEL_SWITCH_SELECTION_SQL =
+            "WHERE created_at >= :tr_from AND created_at <= :tr_to AND tap_uuid IN (<taps>) ";
+
+    private String channelSwitchSelection(FilterSqlFragment filterFragment, @Nullable List<String> bssids) {
+        return CHANNEL_SWITCH_SELECTION_SQL + filterFragment.whereSql() + " "
+                + (bssids == null ? "" : "AND bssid IN (<bssids>) ");
+    }
+
+    public List<ChannelSwitchHistogramEntry> getChannelSwitchHistogram(TimeRange timeRange,
+                                                                       Bucketing.BucketingConfiguration bucketing,
+                                                                       List<UUID> taps,
+                                                                       Filters filters,
+                                                                       @Nullable List<String> bssids) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT DATE_TRUNC(:date_trunc, created_at) AS bucket, " +
+                                "SUM(frame_count) AS frame_count, " +
+                                "COALESCE(SUM(frame_count) FILTER (WHERE cardinality(anomalies) > 0), 0) " +
+                                "AS anomalous_frame_count " +
+                                "FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids) +
+                                "GROUP BY bucket ORDER BY bucket DESC"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .mapTo(ChannelSwitchHistogramEntry.class)
+                        .list()
+        );
+    }
+
+    public List<ChannelSwitchEntry> findChannelSwitches(TimeRange timeRange,
+                                                        Filters filters,
+                                                        @Nullable List<String> bssids,
+                                                        int limit,
+                                                        int offset,
+                                                        ChannelSwitchOrderColumn orderColumn,
+                                                        OrderDirection orderDirection,
+                                                        List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT * FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids) +
+                                "ORDER BY <order_column> <order_direction> <order_nulls>, id DESC " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .define("order_nulls", orderColumn.nullsSql())
+                        .mapTo(ChannelSwitchEntry.class)
+                        .list()
+        );
+    }
+
+    public long countChannelSwitches(TimeRange timeRange,
+                                     Filters filters,
+                                     @Nullable List<String> bssids,
+                                     List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return 0;
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(*) FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids)),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<Dot11MacFrameCount> getChannelSwitchBssidHistogram(TimeRange timeRange,
+                                                                   Filters filters,
+                                                                   @Nullable List<String> bssids,
+                                                                   int limit,
+                                                                   int offset,
+                                                                   TwoColumnHistogramOrderColumn orderColumn,
+                                                                   OrderDirection orderDirection,
+                                                                   List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "bssid" : "frame_count";
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT bssid, SUM(frame_count) AS frame_count " +
+                                "FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids) +
+                                "GROUP BY bssid ORDER BY <order_column> <order_direction>, bssid " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(Dot11MacFrameCount.class)
+                        .list()
+        );
+    }
+
+    public long countChannelSwitchBssids(TimeRange timeRange,
+                                         Filters filters,
+                                         @Nullable List<String> bssids,
+                                         List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return 0;
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(DISTINCT bssid) FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids)),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public List<ChannelSwitchChannelCount> getChannelSwitchChannelHistogram(TimeRange timeRange,
+                                                                            Filters filters,
+                                                                            @Nullable List<String> bssids,
+                                                                            int limit,
+                                                                            int offset,
+                                                                            TwoColumnHistogramOrderColumn orderColumn,
+                                                                            OrderDirection orderDirection,
+                                                                            List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return Collections.emptyList();
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        String orderColumnName = orderColumn == TwoColumnHistogramOrderColumn.KEY ? "new_channel" : "frame_count";
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT new_channel, new_frequency, " +
+                                "SUM(frame_count) AS frame_count FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids) +
+                                "GROUP BY new_channel, new_frequency " +
+                                "ORDER BY <order_column> <order_direction>, new_channel, new_frequency " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, taps, filterFragment, bssids)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumnName)
+                        .define("order_direction", orderDirection)
+                        .mapTo(ChannelSwitchChannelCount.class)
+                        .list()
+        );
+    }
+
+    public long countChannelSwitchChannels(TimeRange timeRange,
+                                           Filters filters,
+                                           @Nullable List<String> bssids,
+                                           List<UUID> taps) {
+        if (bssidScopedQueryIsEmpty(taps, bssids)) {
+            return 0;
+        }
+
+        FilterSqlFragment filterFragment = FilterSql.generate(filters, new Dot11ChannelSwitchFilters());
+
+        return nzyme.getDatabase().withHandle(handle ->
+                bindBssidScopedQuery(handle.createQuery("SELECT COUNT(*) FROM (SELECT 1 FROM dot11_channel_switches " +
+                                channelSwitchSelection(filterFragment, bssids) +
+                                "GROUP BY new_channel, new_frequency) AS channels"),
+                        timeRange, taps, filterFragment, bssids)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    private static final String CHANNEL_SWITCH_COUNTDOWN_END_SQL =
+            "p.created_at + (15 + p.count_max * 0.2) * interval '1 second'";
+
+    private static final String CHANNEL_SWITCH_EVIDENCE_END_SQL =
+            "p.created_at + :evidence_window * interval '1 minute'";
+
+    /*
+     * Judges announcements by the channels the beacons of the BSSID named as their own afterwards, as the same tap
+     * recorded them. The countdown of an announcement may still run when it is reported, so only beacons after it
+     * ended count. An access point that is on its channel in the second half of that time did not follow, whatever
+     * was on the announced channel: a few beacons there must not turn a forged announcement into a followed one.
+     * A second transmitter with the same BSSID is on both channels in each half.
+     *
+     * Oldest first and limited, so that a flood of announcements takes several runs instead of one long one.
+     */
+    public int resolveChannelSwitchOutcomes(DateTime now, DateTime announcedBefore, boolean monitoredBssidsOnly, int limit) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("UPDATE dot11_channel_switches AS cs SET outcome = judged.outcome, " +
+                                "outcome_at = :now FROM (" +
+                                "SELECT p.id, CASE " +
+                                "WHEN p.frequency IS NULL THEN :unknown " +
+                                "WHEN p.new_frequency IS NULL AND NOT (:invalid_channel = ANY(p.anomalies)) THEN :unknown " +
+                                "WHEN p.new_frequency = p.frequency THEN :unknown " +
+                                "WHEN e.halves_on_both = 2 THEN :both_channels " +
+                                "WHEN e.old_frames_late >= :minimum_frames_per_half THEN :stayed " +
+                                "WHEN e.new_frames >= :minimum_frames THEN :switched " +
+                                "WHEN e.old_frames >= :minimum_frames THEN :stayed " +
+                                "ELSE :unknown END AS outcome " +
+                                "FROM (SELECT id, tap_uuid, bssid, frequency, new_frequency, anomalies, count_max, created_at " +
+                                "FROM dot11_channel_switches AS pending " +
+                                "WHERE outcome IS NULL AND created_at < :announced_before " +
+                                (monitoredBssidsOnly
+                                        ? "AND EXISTS (SELECT 1 FROM taps AS t " +
+                                        "JOIN dot11_monitored_networks AS mn ON mn.organization_id = t.organization_id " +
+                                        "AND mn.tenant_id = t.tenant_id " +
+                                        "JOIN dot11_monitored_networks_bssids AS mb ON mb.monitored_network_id = mn.id " +
+                                        "WHERE t.uuid = pending.tap_uuid AND mb.bssid = pending.bssid " +
+                                        "AND mn.enabled AND mn.enabled_channel_switch_monitor) "
+                                        : "") +
+                                "ORDER BY created_at LIMIT :limit) AS p " +
+                                "CROSS JOIN LATERAL (SELECT COALESCE(SUM(h.old_frames), 0) AS old_frames, " +
+                                "COALESCE(SUM(h.new_frames), 0) AS new_frames, " +
+                                "COALESCE(SUM(h.old_frames) FILTER (WHERE h.second_half), 0) AS old_frames_late, " +
+                                "COUNT(*) FILTER (WHERE h.old_frames >= :minimum_frames_per_half " +
+                                "AND h.new_frames >= :minimum_frames_per_half) AS halves_on_both " +
+                                "FROM (SELECT b.created_at > " + CHANNEL_SWITCH_COUNTDOWN_END_SQL + " + (" +
+                                CHANNEL_SWITCH_EVIDENCE_END_SQL + " - (" + CHANNEL_SWITCH_COUNTDOWN_END_SQL + ")) / 2 " +
+                                "AS second_half, " +
+                                "COALESCE(SUM((b.declared_frequencies->>(p.frequency::text))::bigint), 0) AS old_frames, " +
+                                "COALESCE(SUM((b.declared_frequencies->>(p.new_frequency::text))::bigint), 0) AS new_frames " +
+                                "FROM dot11_bssids AS b " +
+                                "WHERE b.bssid = p.bssid AND b.tap_uuid = p.tap_uuid " +
+                                "AND b.declared_frequencies IS NOT NULL " +
+                                "AND b.created_at > " + CHANNEL_SWITCH_COUNTDOWN_END_SQL + " " +
+                                "AND b.created_at <= " + CHANNEL_SWITCH_EVIDENCE_END_SQL + " " +
+                                "GROUP BY second_half) AS h) AS e" +
+                                ") AS judged WHERE cs.id = judged.id AND cs.outcome IS NULL")
+                        .bind("now", now)
+                        .bind("unknown", ChannelSwitchOutcome.UNKNOWN.name())
+                        .bind("switched", ChannelSwitchOutcome.SWITCHED.name())
+                        .bind("stayed", ChannelSwitchOutcome.STAYED.name())
+                        .bind("both_channels", ChannelSwitchOutcome.BOTH_CHANNELS.name())
+                        .bind("invalid_channel", ChannelSwitchAnomaly.INVALID_CHANNEL.name())
+                        .bind("minimum_frames", ChannelSwitchRules.OUTCOME_MINIMUM_FRAMES)
+                        .bind("minimum_frames_per_half", ChannelSwitchRules.OUTCOME_MINIMUM_FRAMES_PER_HALF)
+                        .bind("evidence_window", ChannelSwitchRules.OUTCOME_EVIDENCE_MINUTES)
+                        .bind("announced_before", announcedBefore)
+                        .bind("limit", limit)
+                        .execute()
+        );
+    }
+
+    private static final String CHANNEL_SWITCH_NETWORK_SELECTION_SQL =
+            "WHERE created_at >= :tr_from AND created_at <= :tr_to AND tap_uuid IN (<taps>) " +
+                    "AND bssid IN (<bssids>) ";
+
+    // Only what a statement uses can be bound.
+    private record ChannelSwitchHighlight(List<String> conditions, boolean burst, List<String> anomalies, List<String> outcomes) {
+
+        private static final String BURST_SQL = "(frame_type = :beacon AND peak_frames_per_second >= :burst_threshold)";
+        private static final String OUTCOME_SQL = "outcome IN (<alerting_outcomes>)";
+
+        static ChannelSwitchHighlight burstThreshold() {
+            return new ChannelSwitchHighlight(List.of(BURST_SQL), true, List.of(), List.of());
+        }
+
+        static ChannelSwitchHighlight monitor(Set<ChannelSwitchMonitorRule> disabledRules) {
+            List<String> anomalies = ChannelSwitchMonitorRule.enabledAnomalies(disabledRules);
+            boolean burst = !disabledRules.contains(ChannelSwitchMonitorRule.BURST_RATE);
+
+            List<String> conditions = Lists.newArrayList();
+            if (!anomalies.isEmpty()) {
+                conditions.add("anomalies && ARRAY[<alerting>]::text[]");
+            }
+            if (burst) {
+                conditions.add(BURST_SQL);
+            }
+
+            // On both channels, the access point is still on its own as well.
+            List<String> outcomes = Lists.newArrayList();
+            if (!disabledRules.contains(ChannelSwitchMonitorRule.NOT_FOLLOWED)) {
+                outcomes.add(ChannelSwitchOutcome.STAYED.name());
+                outcomes.add(ChannelSwitchOutcome.BOTH_CHANNELS.name());
+            }
+
+            return new ChannelSwitchHighlight(conditions, burst, anomalies, outcomes);
+        }
+
+        String conditionSql() {
+            List<String> all = Lists.newArrayList(conditions);
+            if (!outcomes.isEmpty()) {
+                all.add(OUTCOME_SQL);
+            }
+
+            return all.isEmpty() ? "FALSE" : String.join(" OR ", all);
+        }
+
+        // An announcement is judged minutes after it was recorded, so its outcome counts from when it was judged.
+        String conditionSql(String recentSql, String judgedSql) {
+            return "((" + recentSql + " AND (" + (conditions.isEmpty() ? "FALSE" : String.join(" OR ", conditions))
+                    + ")) OR (" + judgedSql + " AND " + (outcomes.isEmpty() ? "FALSE" : OUTCOME_SQL) + "))";
+        }
+
+        <T extends SqlStatement<T>> T bind(T statement, int burstThreshold) {
+            if (burst) {
+                statement.bind("burst_threshold", burstThreshold)
+                        .bind("beacon", ChannelSwitchRules.FRAME_TYPE_BEACON);
+            }
+            if (!anomalies.isEmpty()) {
+                statement.bindList("alerting", anomalies);
+            }
+            if (!outcomes.isEmpty()) {
+                statement.bindList("alerting_outcomes", outcomes);
+            }
+
+            return statement;
+        }
+
+    }
+
+    private <T extends SqlStatement<T>> T bindNetworkChannelSwitches(T statement,
+                                                                    TimeRange timeRange,
+                                                                    List<String> bssids,
+                                                                    List<UUID> taps) {
+        return statement
+                .bind("tr_from", timeRange.from())
+                .bind("tr_to", timeRange.to())
+                .bindList("taps", taps)
+                .bindList("bssids", bssids);
+    }
+
+    public List<ChannelSwitchEntry> findChannelSwitchesAtBurstThreshold(TimeRange timeRange,
+                                                                       List<String> bssids,
+                                                                       int burstThreshold,
+                                                                       int limit,
+                                                                       int offset,
+                                                                       ChannelSwitchOrderColumn orderColumn,
+                                                                       OrderDirection orderDirection,
+                                                                       List<UUID> taps) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        ChannelSwitchHighlight highlight = ChannelSwitchHighlight.burstThreshold();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                highlight.bind(bindNetworkChannelSwitches(handle.createQuery("SELECT * FROM dot11_channel_switches " +
+                                CHANNEL_SWITCH_NETWORK_SELECTION_SQL +
+                                "AND " + highlight.conditionSql() + " " +
+                                "ORDER BY <order_column> <order_direction> <order_nulls>, id DESC " +
+                                "LIMIT :limit OFFSET :offset"),
+                        timeRange, bssids, taps), burstThreshold)
+                        .bind("limit", limit)
+                        .bind("offset", offset)
+                        .define("order_column", orderColumn.getColumnName())
+                        .define("order_direction", orderDirection)
+                        .define("order_nulls", orderColumn.nullsSql())
+                        .mapTo(ChannelSwitchEntry.class)
+                        .list()
+        );
+    }
+
+    public long countChannelSwitchesAtBurstThreshold(TimeRange timeRange,
+                                                     List<String> bssids,
+                                                     int burstThreshold,
+                                                     List<UUID> taps) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return 0;
+        }
+
+        ChannelSwitchHighlight highlight = ChannelSwitchHighlight.burstThreshold();
+
+        return nzyme.getDatabase().withHandle(handle ->
+                highlight.bind(bindNetworkChannelSwitches(handle.createQuery("SELECT COUNT(*) FROM dot11_channel_switches " +
+                                CHANNEL_SWITCH_NETWORK_SELECTION_SQL +
+                                "AND " + highlight.conditionSql()),
+                        timeRange, bssids, taps), burstThreshold)
+                        .mapTo(Long.class)
+                        .one()
+        );
+    }
+
+    public record HighlightedChannelSwitchBucket(DateTime bucket, long frameCount, long highlightedFrameCount) { }
+
+    public List<HighlightedChannelSwitchBucket> getChannelSwitchSimulationHistogram(TimeRange timeRange,
+                                                                                    Bucketing.BucketingConfiguration bucketing,
+                                                                                    List<String> bssids,
+                                                                                    int burstThreshold,
+                                                                                    List<UUID> taps) {
+        return highlightedChannelSwitchHistogram(
+                timeRange, bucketing, bssids, burstThreshold, ChannelSwitchHighlight.burstThreshold(), taps
+        );
+    }
+
+    public List<HighlightedChannelSwitchBucket> getChannelSwitchMonitorHistogram(TimeRange timeRange,
+                                                                                 Bucketing.BucketingConfiguration bucketing,
+                                                                                 List<String> bssids,
+                                                                                 int burstThreshold,
+                                                                                 Set<ChannelSwitchMonitorRule> disabledRules,
+                                                                                 List<UUID> taps) {
+        return highlightedChannelSwitchHistogram(
+                timeRange, bucketing, bssids, burstThreshold, ChannelSwitchHighlight.monitor(disabledRules), taps
+        );
+    }
+
+    private List<HighlightedChannelSwitchBucket> highlightedChannelSwitchHistogram(TimeRange timeRange,
+                                                                                   Bucketing.BucketingConfiguration bucketing,
+                                                                                   List<String> bssids,
+                                                                                   int burstThreshold,
+                                                                                   ChannelSwitchHighlight highlight,
+                                                                                   List<UUID> taps) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                highlight.bind(bindNetworkChannelSwitches(handle.createQuery(
+                                "SELECT DATE_TRUNC(:date_trunc, created_at) AS bucket, " +
+                                        "SUM(frame_count) AS frame_count, " +
+                                        "COALESCE(SUM(frame_count) FILTER (WHERE " + highlight.conditionSql() + "), 0) " +
+                                        "AS highlighted_frame_count FROM dot11_channel_switches " +
+                                        CHANNEL_SWITCH_NETWORK_SELECTION_SQL +
+                                        "GROUP BY bucket ORDER BY bucket DESC"),
+                        timeRange, bssids, taps), burstThreshold)
+                        .bind("date_trunc", bucketing.type().getDateTruncName())
+                        .map((rs, ctx) -> new HighlightedChannelSwitchBucket(
+                                new DateTime(rs.getTimestamp("bucket")),
+                                rs.getLong("frame_count"),
+                                rs.getLong("highlighted_frame_count")
+                        ))
+                        .list()
+        );
+    }
+
+    public void setChannelSwitchMonitorRuleEnabled(long monitoredNetworkId, ChannelSwitchMonitorRule rule, boolean enabled) {
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createUpdate("UPDATE dot11_monitored_networks SET dconf_channel_switch_disabled_rules = " +
+                                (enabled
+                                        ? "array_remove(dconf_channel_switch_disabled_rules, :rule) "
+                                        : "array_append(array_remove(dconf_channel_switch_disabled_rules, :rule), :rule) ") +
+                                "WHERE id = :id")
+                        .bind("id", monitoredNetworkId)
+                        .bind("rule", rule.name())
+                        .execute()
+        );
+    }
+
+    public List<String> findBssidsDeclaringSeveralFrequencies(List<UUID> taps, List<String> bssids, DateTime since) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.bssid FROM dot11_bssids AS b " +
+                                "CROSS JOIN LATERAL jsonb_object_keys(b.declared_frequencies) AS f(frequency) " +
+                                "WHERE b.tap_uuid IN (<taps>) AND b.bssid IN (<bssids>) AND b.created_at > :since " +
+                                "AND b.declared_frequencies IS NOT NULL " +
+                                "GROUP BY b.bssid HAVING COUNT(DISTINCT f.frequency) > 1")
+                        .bindList("taps", taps)
+                        .bindList("bssids", bssids)
+                        .bind("since", since)
+                        .mapTo(String.class)
+                        .list()
+        );
+    }
+
+    public record DeclaredFrequency(UUID tapUuid, String bssid, DateTime at, int frequency) { }
+
+    // The newest first, so that a limit cuts off the oldest part of the time.
+    public List<DeclaredFrequency> findDeclaredFrequencies(List<UUID> taps,
+                                                           List<String> bssids,
+                                                           DateTime since,
+                                                           int minimumBeacons,
+                                                           int limit) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT b.tap_uuid, b.bssid, b.created_at, f.frequency::integer AS frequency " +
+                                "FROM dot11_bssids AS b " +
+                                "CROSS JOIN LATERAL jsonb_each_text(b.declared_frequencies) AS f(frequency, beacons) " +
+                                "WHERE b.tap_uuid IN (<taps>) AND b.bssid IN (<bssids>) AND b.created_at > :since " +
+                                "AND b.declared_frequencies IS NOT NULL AND f.beacons::bigint >= :minimum_beacons " +
+                                "ORDER BY b.created_at DESC LIMIT :limit")
+                        .bindList("taps", taps)
+                        .bindList("bssids", bssids)
+                        .bind("since", since)
+                        .bind("minimum_beacons", minimumBeacons)
+                        .bind("limit", limit)
+                        .map((rs, ctx) -> new DeclaredFrequency(
+                                UUID.fromString(rs.getString("tap_uuid")),
+                                rs.getString("bssid"),
+                                new DateTime(rs.getTimestamp("created_at")),
+                                rs.getInt("frequency")
+                        ))
+                        .list()
+        );
+    }
+
+    public record TenantId(UUID organizationId, UUID tenantId) { }
+
+    public List<TenantId> findTenantsMonitoringMultipleChannels() {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT DISTINCT organization_id, tenant_id FROM dot11_monitored_networks " +
+                                "WHERE enabled AND enabled_multiple_channels")
+                        .map((rs, ctx) -> new TenantId(
+                                UUID.fromString(rs.getString("organization_id")),
+                                UUID.fromString(rs.getString("tenant_id"))
+                        ))
+                        .list()
+        );
+    }
+
+    public List<TenantId> findTenantsWithChannelSwitches(DateTime since) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT DISTINCT t.organization_id, t.tenant_id FROM taps AS t " +
+                                "WHERE t.deleted = false AND (EXISTS (SELECT 1 FROM dot11_channel_switches AS cs " +
+                                "WHERE cs.tap_uuid = t.uuid AND cs.created_at > :since) " +
+                                "OR t.uuid IN (SELECT cs.tap_uuid FROM dot11_channel_switches AS cs " +
+                                "WHERE cs.outcome_at > :since))")
+                        .bind("since", since)
+                        .map((rs, ctx) -> new TenantId(
+                                UUID.fromString(rs.getString("organization_id")),
+                                UUID.fromString(rs.getString("tenant_id"))
+                        ))
+                        .list()
+        );
+    }
+
+    public record AlertingChannelSwitches(UUID tapUuid,
+                                          String bssid,
+                                          List<String> anomalies,
+                                          int peakFramesPerSecond,
+                                          boolean notFollowed,
+                                          DateTime earliest,
+                                          String frameType,
+                                          int newChannel,
+                                          @Nullable Integer frequency,
+                                          DateTime latest) { }
+
+    // One row per tap and BSSID, however many announcements a flood left behind.
+    public List<AlertingChannelSwitches> findAlertingChannelSwitches(List<UUID> taps,
+                                                                    List<String> bssids,
+                                                                    DateTime since,
+                                                                    int burstThreshold,
+                                                                    Set<ChannelSwitchMonitorRule> disabledRules) {
+        if (taps.isEmpty() || bssids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        ChannelSwitchHighlight highlight = ChannelSwitchHighlight.monitor(disabledRules);
+
+        return nzyme.getDatabase().withHandle(handle ->
+                highlight.bind(handle.createQuery("SELECT cs.tap_uuid, cs.bssid, " +
+                                "ARRAY_AGG(DISTINCT a.anomaly) FILTER (WHERE a.anomaly IS NOT NULL) AS anomalies, " +
+                                "MAX(cs.peak_frames_per_second) AS peak_frames_per_second, " +
+                                "COALESCE(BOOL_OR(cs.outcome IN (<not_followed_outcomes>)), false) AS not_followed, " +
+                                "MIN(cs.created_at) AS earliest, " +
+                                "(ARRAY_AGG(cs.frame_type ORDER BY cs.created_at DESC, cs.id DESC))[1] AS frame_type, " +
+                                "(ARRAY_AGG(cs.new_channel ORDER BY cs.created_at DESC, cs.id DESC))[1] AS new_channel, " +
+                                "(ARRAY_AGG(cs.frequency ORDER BY cs.created_at DESC, cs.id DESC))[1] AS frequency, " +
+                                "MAX(cs.created_at) AS latest " +
+                                "FROM dot11_channel_switches AS cs " +
+                                "LEFT JOIN LATERAL UNNEST(cs.anomalies) AS a(anomaly) ON true " +
+                                "WHERE cs.tap_uuid IN (<taps>) AND cs.bssid IN (<bssids>) AND " +
+                                highlight.conditionSql("cs.created_at > :since", "cs.outcome_at > :since") + " " +
+                                "GROUP BY cs.tap_uuid, cs.bssid"), burstThreshold)
+                        .bindList("taps", taps)
+                        .bindList("bssids", bssids)
+                        .bind("since", since)
+                        .bindList("not_followed_outcomes", List.of(
+                                ChannelSwitchOutcome.STAYED.name(), ChannelSwitchOutcome.BOTH_CHANNELS.name()
+                        ))
+                        .map((rs, ctx) -> {
+                            Array anomalies = rs.getArray("anomalies");
+                            return new AlertingChannelSwitches(
+                                    UUID.fromString(rs.getString("tap_uuid")),
+                                    rs.getString("bssid"),
+                                    anomalies == null ? List.of() : Arrays.asList((String[]) anomalies.getArray()),
+                                    rs.getInt("peak_frames_per_second"),
+                                    rs.getBoolean("not_followed"),
+                                    new DateTime(rs.getTimestamp("earliest")),
+                                    rs.getString("frame_type"),
+                                    rs.getInt("new_channel"),
+                                    rs.getObject("frequency", Integer.class),
+                                    new DateTime(rs.getTimestamp("latest"))
+                            );
+                        })
+                        .list()
         );
     }
 

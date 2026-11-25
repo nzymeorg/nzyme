@@ -416,6 +416,7 @@ const ApiRoutes = {
       SSID_DETAILS: (uuid) => `/dot11/monitoring/ssids/show/${uuid}`,
       CONFIGURATION_IMPORT: (uuid) => `/dot11/monitoring/ssids/show/${uuid}/configuration/import`,
       SIMILAR_SSID_CONFIGURATION: (uuid) => `/dot11/monitoring/ssids/show/${uuid}/configuration/similarssids`,
+      CHANNEL_SWITCH_CONFIGURATION: (uuid) => `/dot11/monitoring/ssids/show/${uuid}/configuration/channelswitches`,
       RESTRICTED_SUBSTRINGS_CONFIGURATION: (uuid) => `/dot11/monitoring/ssids/show/${uuid}/configuration/restrictedsubstrings`,
       CLIENTS_CONFIGURATION: (uuid) => `/dot11/monitoring/ssids/show/${uuid}/configuration/clients`,
       BANDITS: {
@@ -458,6 +459,9 @@ const ApiRoutes = {
     },
     DISCO: {
       INDEX: '/dot11/disco'
+    },
+    CHANNEL_SWITCHES: {
+      INDEX: '/dot11/channelswitches'
     }
   },
   BLUETOOTH: {

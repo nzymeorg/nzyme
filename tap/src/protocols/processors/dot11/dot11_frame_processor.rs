@@ -4,12 +4,12 @@ use std::sync::{Arc, Mutex};
 
 use log::{error, info, trace};
 
-use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11DataFrame, Dot11DeauthenticationFrame, Dot11Frame, Dot11ProbeRequestFrame, FrameSubType};
+use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11ChannelSwitchActionFrame, Dot11DataFrame, Dot11DeauthenticationFrame, Dot11Frame, Dot11ProbeRequestFrame, FrameSubType};
 use crate::alerting::alert_types::{Dot11Alert, AlertAttribute, Dot11AlertType};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::wireless::dot11::frames::{Dot11DisassociationFrame, Dot11ProbeResponseFrame, PwnagotchiData};
-use crate::protocols::parsers::dot11::management::{disassociation_frame_parser, probe_response_frame_parser};
+use crate::protocols::parsers::dot11::management::{action_frame_parser, disassociation_frame_parser, probe_response_frame_parser};
 use crate::protocols::parsers::dot11::data::data_frame_parser;
 use crate::protocols::parsers::dot11::management::{beacon_frame_parser, deauthentication_frame_parser, probe_request_frame_parser};
 use crate::state::tables::dot11_table::Dot11Table;
@@ -53,6 +53,15 @@ impl Dot11FrameProcessor {
                         Err(e) => trace!("Could not parse disassociation frame: {}", e)
                     }
                 }
+                FrameSubType::Action => {
+                    match action_frame_parser::parse_channel_switch(&frame) {
+                        Ok(channel_switch) => self.handle_action_frame(channel_switch),
+                        Err(e) => {
+                            trace!("Could not parse action frame: {}", e);
+                            self.handle_action_frame(None);
+                        }
+                    }
+                },
                 FrameSubType::ProbeRequest => {
                     match probe_request_frame_parser::parse(&frame) {
                         Ok(frame) => self.handle_probe_request_frame(frame),
@@ -80,7 +89,6 @@ impl Dot11FrameProcessor {
                 FrameSubType::TimingAdvertisement |
                 FrameSubType::Atim |
                 FrameSubType::Authentication |
-                FrameSubType::Action |
                 FrameSubType::ActionNoAck |
                 FrameSubType::Trigger |
                 FrameSubType::Tack |
@@ -157,6 +165,13 @@ impl Dot11FrameProcessor {
     fn handle_deauthentication_frame(&self, frame: Dot11DeauthenticationFrame) {
         match self.dot11_table.lock() {
             Ok(table) => table.register_deauthentication_frame(frame),
+            Err(e) => error!("Could not acquire 802.11 table lock: {}", e)
+        }
+    }
+
+    fn handle_action_frame(&self, channel_switch: Option<Dot11ChannelSwitchActionFrame>) {
+        match self.dot11_table.lock() {
+            Ok(table) => table.register_action_frame(channel_switch),
             Err(e) => error!("Could not acquire 802.11 table lock: {}", e)
         }
     }

@@ -4,6 +4,7 @@ import app.nzyme.core.NzymeNode;
 import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.Dot11;
+import app.nzyme.core.dot11.channelswitches.ChannelSwitchRules;
 import app.nzyme.core.dot11.db.monitoring.*;
 import app.nzyme.core.dot11.bandits.Dot11BanditDescription;
 import app.nzyme.core.dot11.bandits.Dot11Bandits;
@@ -29,6 +30,8 @@ import org.jdbi.v3.core.statement.PreparedBatch;
 import org.joda.time.DateTime;
 import com.codahale.metrics.Timer;
 
+import jakarta.annotation.Nullable;
+
 import java.sql.Types;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -45,6 +48,7 @@ public class Dot11Table implements DataTable {
     private final Timer bssidReportTimer;
     private final Timer clientsReportTimer;
     private final Timer discoReportTimer;
+    private final Timer channelSwitchReportTimer;
     private final Timer alertTimer;
 
     public Dot11Table(TablesService tablesService) {
@@ -59,6 +63,8 @@ public class Dot11Table implements DataTable {
                 .timer(MetricNames.DOT11_CLIENTS_REPORT_PROCESSING_TIMER);
         this.discoReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DOT11_DISCO_REPORT_PROCESSING_TIMER);
+        this.channelSwitchReportTimer = tablesService.getNzyme().getMetrics()
+                .timer(MetricNames.DOT11_CHANNEL_SWITCH_REPORT_PROCESSING_TIMER);
         this.alertTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DOT11_ALERT_PROCESSING_TIMER);
     }
@@ -82,6 +88,10 @@ public class Dot11Table implements DataTable {
 
             try (Timer.Context ignored2 = discoReportTimer.time()) {
                 writeDisco(tap.get(), timestamp, report.disco());
+            }
+
+            try (Timer.Context ignored2 = channelSwitchReportTimer.time()) {
+                writeChannelSwitches(tap.get(), timestamp, report.channelSwitches());
             }
 
             try (Timer.Context ignored2 = alertTimer.time()) {
@@ -249,9 +259,11 @@ public class Dot11Table implements DataTable {
                 long bssidDatabaseId = handle.createQuery(
                         "INSERT INTO dot11_bssids(tap_uuid, bssid, oui, " +
                                 "signal_strength_average, signal_strength_max, signal_strength_min, " +
-                                "hidden_ssid_frames, fingerprints, created_at) VALUES(:tap_uuid, :bssid, NULL, " +
+                                "hidden_ssid_frames, fingerprints, declared_frequencies, created_at) " +
+                                "VALUES(:tap_uuid, :bssid, NULL, " +
                                 ":signal_strength_average, :signal_strength_max, :signal_strength_min, " +
-                                ":hidden_ssid_frames, :fingerprints, :created_at) RETURNING id")
+                                ":hidden_ssid_frames, :fingerprints, CAST(:declared_frequencies AS jsonb), " +
+                                ":created_at) RETURNING id")
                         .bind("tap_uuid", tap.uuid())
                         .bind("bssid", bssid)
                         .bind("signal_strength_average", report.signalStrength().average())
@@ -259,6 +271,7 @@ public class Dot11Table implements DataTable {
                         .bind("signal_strength_min", report.signalStrength().min())
                         .bind("hidden_ssid_frames", report.hiddenSSIDFrames())
                         .bindBySqlType("fingerprints", fingerprintsArr, Types.ARRAY)
+                        .bind("declared_frequencies", declaredFrequenciesJson(report.declaredFrequencies()))
                         .bind("created_at", timestamp)
                         .mapTo(Long.class)
                         .one();
@@ -647,6 +660,133 @@ public class Dot11Table implements DataTable {
 
             batch.execute();
         });
+    }
+
+    private static final int MAX_CHANNEL_SWITCHES_PER_REPORT = 1000;
+
+    private void writeChannelSwitches(Tap tap, DateTime timestamp, List<Dot11ChannelSwitchReport> channelSwitches) {
+        if (channelSwitches.isEmpty()) {
+            return;
+        }
+
+        if (channelSwitches.size() > MAX_CHANNEL_SWITCHES_PER_REPORT) {
+            LOG.warn("Tap [{}] reported <{}> channel switch announcements. Recording the first <{}>.",
+                    tap.uuid(), channelSwitches.size(), MAX_CHANNEL_SWITCHES_PER_REPORT);
+            channelSwitches = channelSwitches.subList(0, MAX_CHANNEL_SWITCHES_PER_REPORT);
+        }
+
+        List<Dot11ChannelSwitchReport> valid = channelSwitches.stream()
+                .filter(Dot11Table::isValidChannelSwitch)
+                .toList();
+
+        if (valid.size() < channelSwitches.size()) {
+            LOG.warn("Tap [{}] reported <{}> invalid channel switch announcements. Skipping them.",
+                    tap.uuid(), channelSwitches.size() - valid.size());
+        }
+
+        if (valid.isEmpty()) {
+            return;
+        }
+
+        tablesService.getNzyme().getDatabase().useHandle(handle -> {
+            PreparedBatch batch = handle.prepareBatch(
+                    "INSERT INTO dot11_channel_switches(tap_uuid, bssid, frame_type, announcement_type, " +
+                            "switch_mode, frequency, new_operating_class, new_channel, new_frequency, count_min, " +
+                            "count_max, frame_count, peak_frames_per_second, timestamp_repetitions, " +
+                            "timestamp_mismatch_frames, interleaved_beacons, trailing_element_frames, anomalies, " +
+                            "signal_strength_min, signal_strength_max, signal_strength_average, created_at) " +
+                            "VALUES(:tap_uuid, :bssid, :frame_type, :announcement_type, :switch_mode, :frequency, " +
+                            ":new_operating_class, :new_channel, :new_frequency, :count_min, :count_max, " +
+                            ":frame_count, :peak_frames_per_second, :timestamp_repetitions, " +
+                            ":timestamp_mismatch_frames, :interleaved_beacons, :trailing_element_frames, " +
+                            ":anomalies, :signal_strength_min, :signal_strength_max, :signal_strength_average, " +
+                            ":created_at)"
+            );
+
+            for (Dot11ChannelSwitchReport cs : valid) {
+                Dot11SignalStrengthReport signal = cs.signalStrength();
+                String[] anomalies = ChannelSwitchRules.anomalies(cs).stream()
+                        .map(Enum::name)
+                        .toArray(String[]::new);
+
+                batch.bind("tap_uuid", tap.uuid())
+                        .bind("bssid", cs.bssid().toUpperCase())
+                        .bind("frame_type", cs.frameType())
+                        .bind("announcement_type", cs.announcementType())
+                        .bind("switch_mode", cs.switchMode())
+                        .bind("frequency", cs.frequency())
+                        .bind("new_operating_class", cs.newOperatingClass())
+                        .bind("new_channel", cs.newChannel())
+                        .bind("new_frequency", ChannelSwitchRules.newFrequency(cs))
+                        .bind("count_min", cs.countMin())
+                        .bind("count_max", cs.countMax())
+                        .bind("frame_count", cs.frameCount())
+                        .bind("peak_frames_per_second", cs.peakFramesPerSecond())
+                        .bind("timestamp_repetitions", cs.timestampRepetitions())
+                        .bind("timestamp_mismatch_frames", cs.timestampMismatchFrames())
+                        .bind("interleaved_beacons", cs.interleavedBeacons())
+                        .bind("trailing_element_frames", cs.trailingElementFrames())
+                        .bindBySqlType("anomalies", anomalies, Types.ARRAY)
+                        .bind("signal_strength_min", signal == null ? null : signal.min())
+                        .bind("signal_strength_max", signal == null ? null : signal.max())
+                        .bind("signal_strength_average", signal == null ? null : signal.average())
+                        .bind("created_at", timestamp)
+                        .add();
+            }
+
+            batch.execute();
+        });
+    }
+
+    private static final int MAX_DECLARED_FREQUENCIES = 8;
+
+    // The channels the beacons of a BSSID named as their own, as a JSON object of frequency and number of beacons.
+    @Nullable
+    private static String declaredFrequenciesJson(Map<Integer, Long> declaredFrequencies) {
+        String entries = declaredFrequencies.entrySet().stream()
+                .filter(e -> e.getKey() != null && e.getValue() != null
+                        && Dot11.frequencyToChannel(e.getKey()) != -1 && e.getValue() > 0 && isCount(e.getValue()))
+                .sorted(Map.Entry.<Integer, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
+                .limit(MAX_DECLARED_FREQUENCIES)
+                .map(e -> "\"" + e.getKey() + "\":" + e.getValue())
+                .collect(Collectors.joining(","));
+
+        return entries.isEmpty() ? null : "{" + entries + "}";
+    }
+
+    private static boolean isValidChannelSwitch(Dot11ChannelSwitchReport cs) {
+        return cs != null
+                && Tools.isValidMacAddress(cs.bssid())
+                && ChannelSwitchRules.FRAME_TYPES.contains(cs.frameType())
+                && ChannelSwitchRules.ANNOUNCEMENT_TYPES.contains(cs.announcementType())
+                && isByte(cs.switchMode())
+                && isByte(cs.newChannel())
+                && isByte(cs.countMin())
+                && isByte(cs.countMax())
+                && cs.countMin() <= cs.countMax()
+                && (cs.newOperatingClass() == null || isByte(cs.newOperatingClass()))
+                && (cs.frequency() == null || Dot11.frequencyToChannel(cs.frequency()) != -1)
+                && cs.frameCount() > 0
+                && isCount(cs.frameCount())
+                && isCount(cs.peakFramesPerSecond())
+                && isCount(cs.timestampRepetitions())
+                && isCount(cs.timestampMismatchFrames())
+                && isCount(cs.interleavedBeacons())
+                && isCount(cs.trailingElementFrames())
+                && (cs.signalStrength() == null || isSignalStrength(cs.signalStrength()));
+    }
+
+    private static boolean isByte(int value) {
+        return value >= 0 && value <= 255;
+    }
+
+    private static boolean isCount(long value) {
+        return value >= 0 && value <= Integer.MAX_VALUE;
+    }
+
+    private static boolean isSignalStrength(Dot11SignalStrengthReport signal) {
+        return signal.min() >= -128 && signal.min() <= signal.max() && signal.max() <= 127
+                && signal.average() >= signal.min() - 1 && signal.average() <= signal.max() + 1;
     }
 
     private void handleAlerts(Tap tap, List<Dot11AlertReport> alerts) {

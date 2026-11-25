@@ -77,7 +77,8 @@ const SECTIONS = [
   {path: ["WiFi"], show: subsystem("dot11"), items: [
     {name: "Briefing", href: ApiRoutes.DOT11.OVERVIEW, keywords: "overview 802.11"},
     {name: "Access Points", href: ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, keywords: "bssid ssid networks 802.11"},
-    {name: "Disconnections", href: ApiRoutes.DOT11.DISCO.INDEX, keywords: "deauthentication disassociation deauth 802.11"}
+    {name: "Disconnections", href: ApiRoutes.DOT11.DISCO.INDEX, keywords: "deauthentication disassociation deauth 802.11"},
+    {name: "Channel Switches", href: ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX, keywords: "channel switch announcement csa ecsa 802.11"}
   ]},
   {path: ["WiFi", "Clients"], show: subsystem("dot11"), items: CLIENTS_MENU_ITEMS, keywords: "stations 802.11"},
   {path: ["WiFi", "Monitoring"], show: subsystem("dot11", "dot11_monitoring_manage"), items: MONITORING_MENU_ITEMS, keywords: "802.11"},

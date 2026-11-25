@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use anyhow::{bail, Error};
 use chrono::{DateTime, Utc};
 use crossbeam_channel::{bounded, tick, Receiver, Sender};
@@ -241,7 +241,8 @@ impl EngagementCapture for Dot11EngagementCapture {
                         let data = Dot11RawFrame {
                             capture_source: Engagement,
                             interface_name: self.parent_interface.name.clone(),
-                            data: frame.data.to_vec()
+                            data: frame.data.to_vec(),
+                            captured_at: Instant::now()
                         };
 
                         // Figure out what frequency this came from.

@@ -253,6 +253,9 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new CustomBanditDescriptionMapper())
                 .registerRowMapper(new DiscoHistogramEntryMapper())
                 .registerRowMapper(new DiscoFrameEntryMapper())
+                .registerRowMapper(new ChannelSwitchEntryMapper())
+                .registerRowMapper(new ChannelSwitchHistogramEntryMapper())
+                .registerRowMapper(new ChannelSwitchChannelCountMapper())
                 .registerRowMapper(new DiscoReasonCodeCountMapper())
                 .registerRowMapper(new DiscoFrequencyCountMapper())
                 .registerRowMapper(new CustomBanditDescriptionMapper())
@@ -570,6 +573,12 @@ public class DatabaseImpl implements Database {
                         "dot11_disco_frames",
                         "SELECT COUNT(*) FROM dot11_disco_frames WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM dot11_disco_frames WHERE created_at < :since AND tap_uuid IN (<taps>)"
+                ));
+
+                tables.add(new DataTableInformation(
+                        "dot11_channel_switches",
+                        "SELECT COUNT(*) FROM dot11_channel_switches WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM dot11_channel_switches WHERE created_at < :since AND tap_uuid IN (<taps>)"
                 ));
 
                 tables.add(new DataTableInformation(

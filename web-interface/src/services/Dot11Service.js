@@ -396,6 +396,84 @@ class Dot11Service {
         })
   }
 
+  getChannelSwitchFramesHistogram(timeRange, filters, taps, bssids, monitoredNetworkId, setHistogram) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+    const bssidList = bssids ? bssids.join(",") : null
+
+    RESTClient.get("/dot11/channelswitches/histogram",
+        { time_range: timeRange, filters: filters, taps: tapsList, bssids: bssidList,
+          monitored_network_id: monitoredNetworkId ? monitoredNetworkId : null },
+        function (response) {
+          setHistogram(response.data)
+        })
+  }
+
+  findChannelSwitches(organizationId, tenantId, timeRange, filters, taps, bssids, monitoredNetworkId, orderColumn, orderDirection, limit, offset, setAnnouncements) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+    const bssidList = bssids ? bssids.join(",") : null
+
+    RESTClient.get("/dot11/channelswitches/announcements",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          bssids: bssidList, monitored_network_id: monitoredNetworkId ? monitoredNetworkId : null,
+          order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setAnnouncements(response.data)
+        })
+  }
+
+  simulateChannelSwitchMonitor(monitoredNetworkUUID, burstThreshold, timeRange, taps, orderColumn, orderDirection, limit, offset, setAnnouncements) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : null
+
+    RESTClient.get("/dot11/channelswitches/simulation",
+        { monitored_network_id: monitoredNetworkUUID, burst_threshold: burstThreshold, time_range: timeRange,
+          taps: tapsList, order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setAnnouncements(response.data)
+        })
+  }
+
+  getChannelSwitchMonitorHistogram(monitoredNetworkUUID, timeRange, taps, setHistogram) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : null
+
+    RESTClient.get("/dot11/channelswitches/monitor/histogram",
+        { monitored_network_id: monitoredNetworkUUID, time_range: timeRange, taps: tapsList },
+        function (response) {
+          setHistogram(response.data)
+        })
+  }
+
+  setChannelSwitchMonitorRuleStatus(monitoredNetworkUUID, rule, status, successCallback) {
+    RESTClient.put("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID + "/configuration/channelswitches/rules/"
+        + rule + "/set/" + status, {}, successCallback)
+  }
+
+  getChannelSwitchMonitorSimulationHistogram(monitoredNetworkUUID, burstThreshold, timeRange, taps, setHistogram) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : null
+
+    RESTClient.get("/dot11/channelswitches/simulation/histogram",
+        { monitored_network_id: monitoredNetworkUUID, burst_threshold: burstThreshold, time_range: timeRange,
+          taps: tapsList },
+        function (response) {
+          setHistogram(response.data)
+        })
+  }
+
+  getChannelSwitchHistogram(histogramType, organizationId, tenantId, timeRange, filters, taps, orderColumn, orderDirection, limit, offset, setData) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/dot11/channelswitches/histograms/" + histogramType,
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        function (response) {
+          setData(response.data)
+        })
+  }
+
+  setChannelSwitchMonitorConfiguration(monitoredNetworkUUID, burstThreshold, successCallback) {
+    RESTClient.put("/dot11/monitoring/ssids/show/" + monitoredNetworkUUID + "/configuration/channelswitches",
+        {burst_threshold: burstThreshold}, successCallback)
+  }
+
   getDiscoDetectionConfiguration(monitoredNetworkUUID, setConfiguration) {
     RESTClient.get("/dot11/disco/config/detection", {monitored_network_id: monitoredNetworkUUID}, function (response) {
           setConfiguration(response.data);

@@ -108,6 +108,8 @@ import CreateCustomBanditPage from "./components/dot11/monitoring/bandits/Create
 import CustomBanditDetailsPage from "./components/dot11/monitoring/bandits/CustomBanditDetailsPage";
 import EditCustomBanditPage from "./components/dot11/monitoring/bandits/EditCustomBanditPage";
 import DiscoPage from "./components/dot11/disco/DiscoPage";
+import ChannelSwitchesPage from "./components/dot11/channelswitches/ChannelSwitchesPage";
+import ChannelSwitchConfigurationPage from "./components/dot11/monitoring/ChannelSwitchConfigurationPage";
 import ConfigureDiscoDetectionMethodPage
   from "./components/dot11/monitoring/disco/configuration/ConfigureDiscoDetectionMethodPage";
 import AuthenticationSettingsPage from "./components/system/authentication/management/AuthenticationSettingsPage";
@@ -900,6 +902,7 @@ function App() {
                                 <Route path={ApiRoutes.DOT11.MONITORING.BANDITS.EDIT(':id')} element={<EditCustomBanditPage />} />
                                 <Route path={ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(':uuid')} element={<ConfigureDiscoDetectionMethodPage />} />
                                 <Route path={ApiRoutes.DOT11.MONITORING.SIMILAR_SSID_CONFIGURATION(':uuid')} element={<SimilarSSIDConfigurationPage />} />
+                                <Route path={ApiRoutes.DOT11.MONITORING.CHANNEL_SWITCH_CONFIGURATION(':uuid')} element={<ChannelSwitchConfigurationPage />} />
                                 <Route path={ApiRoutes.DOT11.MONITORING.RESTRICTED_SUBSTRINGS_CONFIGURATION(':uuid')} element={<RestrictedSubstringsConfigurationPage />} />
                                 <Route path={ApiRoutes.DOT11.MONITORING.CLIENTS_CONFIGURATION(':uuid')} element={<MonitoredClientsConfigurationPage />} />
                                 <Route path={ApiRoutes.DOT11.MONITORING.PROBE_REQUESTS.INDEX} element={<ProbeRequestsPage />}/>
@@ -923,6 +926,9 @@ function App() {
 
                                 { /* 802.11/Disco. */}
                                 <Route path={ApiRoutes.DOT11.DISCO.INDEX} element={<DiscoPage />}/>
+
+                                { /* 802.11/Channel Switches. */}
+                                <Route path={ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX} element={<ChannelSwitchesPage />}/>
                               </Route>
 
                               { /* Bluetooth. */ }

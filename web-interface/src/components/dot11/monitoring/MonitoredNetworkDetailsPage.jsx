@@ -14,9 +14,14 @@ import ToggleMonitoringStatusButton from "./ToggleMonitoringStatusButton";
 import MonitoredNetworkAlertStatusTable from "./MonitoredNetworkAlertStatusTable";
 import DiscoDetectionDetails from "./disco/DiscoDetectionDetails";
 import MonitoredNetworkDiscoChart from "./disco/MonitoredNetworkDiscoChart";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
+import ChannelSwitchMonitorChart from "../channelswitches/ChannelSwitchMonitorChart";
+import {channelSwitchMonitorRuleToName} from "../channelswitches/ChannelSwitchNames";
+import ChannelSwitchAnnouncements from "../channelswitches/ChannelSwitchAnnouncements";
 import InlineTapSelector from "../../shared/InlineTapSelector";
 import {isValidMACAddress} from "../../../util/Tools";
 import {Presets} from "../../shared/timerange/TimeRange";
+import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
 import usePageTitle from "../../../util/UsePageTitle";
 
 const dot11Service = new Dot11Service();
@@ -32,6 +37,8 @@ function MonitoredNetworkDetailsPage() {
   const [bssidFormSubmitting, setBSSIDFormSubmitting] = useState(false);
 
   const [discoSimulationTapUuid, setDiscoSimulationTapUuid] = useState(null);
+  const [channelSwitchesTimeRange, setChannelSwitchesTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "channel_switches");
+  const [channelSwitchesTapUuid, setChannelSwitchesTapUuid] = useState(null);
 
   const [newChannel, setNewChannel] = useState("");
   const [channelFormSubmitting, setChannelFormSubmitting] = useState(false);
@@ -346,6 +353,53 @@ function MonitoredNetworkDetailsPage() {
                   Anomalies highlighted on chart with red background. <strong>You can configure this monitor
                   from the alert overview at the top of this page.</strong>
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Channel Switch Announcement Monitor"
+                                       urlKey="channel_switches"
+                                       timeRange={channelSwitchesTimeRange}
+                                       setTimeRange={setChannelSwitchesTimeRange}
+                                       internalLink={ApiRoutes.DOT11.MONITORING.CHANNEL_SWITCH_CONFIGURATION(ssid.uuid)}
+                                       helpLink="https://go.nzyme.org/wifi-network-monitoring-channel-switches" />
+
+                <dl>
+                  <dt>Threshold</dt>
+                  <dd>{ssid.channel_switch_burst_threshold} frames per second</dd>
+                  <dt>Disabled Detection Methods</dt>
+                  <dd>
+                    {ssid.channel_switch_disabled_rules.length === 0 ? "None"
+                        : ssid.channel_switch_disabled_rules.map(channelSwitchMonitorRuleToName).join(", ")}
+                  </dd>
+                </dl>
+
+                <InlineTapSelector onTapSelected={(tapUuid) => setChannelSwitchesTapUuid(tapUuid)}/>
+
+                <ChannelSwitchMonitorChart monitoredNetworkId={ssid.uuid}
+                                           tapUuid={channelSwitchesTapUuid}
+                                           revision={ssid.updated_at}
+                                           timeRange={channelSwitchesTimeRange}
+                                           setTimeRange={setChannelSwitchesTimeRange}
+                                           urlKey="channel_switches" />
+
+                {channelSwitchesTapUuid ?
+                    <p className="mt-2 text-muted">
+                      Announcements the monitor alerts on are highlighted on the chart with red background.
+                    </p> : null}
+
+                {channelSwitchesTapUuid ?
+                    <ChannelSwitchAnnouncements timeRange={channelSwitchesTimeRange}
+                                                monitoredNetworkId={ssid.uuid}
+                                                taps={[channelSwitchesTapUuid]}
+                                                revision={ssid.updated_at}
+                                                perPage={10} />
+                    : null}
               </div>
             </div>
           </div>

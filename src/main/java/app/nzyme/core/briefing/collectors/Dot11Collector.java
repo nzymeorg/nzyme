@@ -31,6 +31,7 @@ public class Dot11Collector {
             DetectionType.DOT11_MONITOR_BSSID, DetectionType.DOT11_MONITOR_CHANNEL,
             DetectionType.DOT11_MONITOR_SECURITY_SUITE, DetectionType.DOT11_MONITOR_FINGERPRINT,
             DetectionType.DOT11_MONITOR_SIGNAL_TRACK, DetectionType.DOT11_MONITOR_DISCO_ANOMALIES,
+            DetectionType.DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES, DetectionType.DOT11_MONITOR_MULTIPLE_CHANNELS,
             DetectionType.DOT11_MONITOR_SIMILAR_LOOKING_SSID, DetectionType.DOT11_MONITOR_SSID_SUBSTRING,
             DetectionType.DOT11_UNAPPROVED_CLIENT
     );
@@ -365,6 +366,8 @@ public class Dot11Collector {
             case DOT11_MONITOR_FINGERPRINT -> network.enabledUnexpectedFingerprint();
             case DOT11_MONITOR_SIGNAL_TRACK -> network.enabledUnexpectedSignalTracks();
             case DOT11_MONITOR_DISCO_ANOMALIES -> network.enabledDiscoMonitor();
+            case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES -> network.enabledChannelSwitchMonitor();
+            case DOT11_MONITOR_MULTIPLE_CHANNELS -> network.enabledMultipleChannels();
             case DOT11_MONITOR_SIMILAR_LOOKING_SSID -> network.enabledSimilarLookingSSID();
             case DOT11_MONITOR_SSID_SUBSTRING -> network.enabledSSIDSubstring();
             case DOT11_UNAPPROVED_CLIENT -> network.enabledClientMonitoring() && network.enabledClientEventing();
@@ -388,6 +391,8 @@ public class Dot11Collector {
             case DOT11_MONITOR_FINGERPRINT -> "unexpected fingerprint";
             case DOT11_MONITOR_SIGNAL_TRACK -> "multiple signal tracks";
             case DOT11_MONITOR_DISCO_ANOMALIES -> "disconnection anomalies";
+            case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES -> "channel switch announcement anomalies";
+            case DOT11_MONITOR_MULTIPLE_CHANNELS -> "BSSID on multiple channels";
             case DOT11_MONITOR_SIMILAR_LOOKING_SSID -> "similar looking SSID";
             case DOT11_MONITOR_SSID_SUBSTRING -> "forbidden SSID substring";
             case DOT11_UNAPPROVED_CLIENT -> "unapproved client";

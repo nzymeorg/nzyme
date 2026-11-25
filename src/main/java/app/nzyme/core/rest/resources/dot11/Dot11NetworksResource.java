@@ -477,6 +477,8 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
                     suite.groupCipher(),
                     suite.keyManagementModes(),
                     suite.pmfMode(),
+                    suite.operatingChannelValidation(),
+                    suite.beaconProtection(),
                     Dot11.securitySuitesToIdentifier(suite)
             ));
         }

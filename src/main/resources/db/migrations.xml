@@ -13896,4 +13896,127 @@
         <dropColumn tableName="internal_address_rewrites" columnName="rows_changed" />
     </changeSet>
 
+    <changeSet id="create_dot11_channel_switches" author="lennartkoopmann">
+        <createTable tableName="dot11_channel_switches">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_type" type="varchar(16)">
+                <constraints nullable="false" />
+            </column>
+            <column name="announcement_type" type="varchar(8)">
+                <constraints nullable="false" />
+            </column>
+            <column name="switch_mode" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="frequency" type="integer" />
+            <column name="new_operating_class" type="integer" />
+            <column name="new_channel" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="new_frequency" type="integer" />
+            <column name="count_min" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="count_max" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="peak_frames_per_second" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="timestamp_repetitions" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="timestamp_mismatch_frames" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="interleaved_beacons" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="trailing_element_frames" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="anomalies" type="text[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="outcome" type="varchar(16)" />
+            <column name="signal_strength_min" type="integer" />
+            <column name="signal_strength_max" type="integer" />
+            <column name="signal_strength_average" type="float" />
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_channel_switches" indexName="dot11_channel_switches_tap_uuid_created_at_idx">
+            <column name="tap_uuid" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_channel_switches" indexName="dot11_channel_switches_bssid_created_at_idx">
+            <column name="bssid" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_channel_switches" indexName="dot11_channel_switches_created_at_idx">
+            <column name="created_at" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_channel_switch_monitor_to_dot11_monitored_networks" author="lennartkoopmann">
+        <addColumn tableName="dot11_monitored_networks">
+            <column name="enabled_channel_switch_monitor" type="boolean" defaultValue="true">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="dconf_channel_switch_burst_threshold" type="integer" defaultValueNumeric="50">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_channel_switch_disabled_rules_to_dot11_monitored_networks" author="lennartkoopmann">
+        <sql>
+            ALTER TABLE dot11_monitored_networks ADD COLUMN dconf_channel_switch_disabled_rules text[] NOT NULL DEFAULT '{}';
+        </sql>
+    </changeSet>
+
+    <changeSet id="add_pending_outcome_index_to_dot11_channel_switches" author="lennartkoopmann">
+        <sql>
+            CREATE INDEX dot11_channel_switches_pending_created_at_idx ON dot11_channel_switches (created_at) WHERE outcome IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="add_declared_frequencies_to_dot11_bssids" author="lennartkoopmann">
+        <addColumn tableName="dot11_bssids">
+            <column name="declared_frequencies" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_multiple_channels_monitor_to_dot11_monitored_networks" author="lennartkoopmann">
+        <addColumn tableName="dot11_monitored_networks">
+            <column name="enabled_multiple_channels" type="boolean" defaultValue="false">
+                <constraints nullable="false" />
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_outcome_at_to_dot11_channel_switches" author="lennartkoopmann">
+        <addColumn tableName="dot11_channel_switches">
+            <column name="outcome_at" type="timestamptz" />
+        </addColumn>
+
+        <createIndex tableName="dot11_channel_switches" indexName="dot11_channel_switches_outcome_at_idx">
+            <column name="outcome_at" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

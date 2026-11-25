@@ -24,16 +24,26 @@ public abstract class SecuritySuitesResponse {
     @Nullable
     public abstract String pmfMode();
 
+    @JsonProperty("operating_channel_validation")
+    @Nullable
+    public abstract Boolean operatingChannelValidation();
+
+    @JsonProperty("beacon_protection")
+    @Nullable
+    public abstract Boolean beaconProtection();
+
     @JsonProperty("identifier")
     @Nullable
     public abstract String identifier();
 
-    public static SecuritySuitesResponse create(String pairwiseCiphers, String groupCipher, String keyManagementModes, String pmfMode, String identifier) {
+    public static SecuritySuitesResponse create(String pairwiseCiphers, String groupCipher, String keyManagementModes, String pmfMode, Boolean operatingChannelValidation, Boolean beaconProtection, String identifier) {
         return builder()
                 .pairwiseCiphers(pairwiseCiphers)
                 .groupCipher(groupCipher)
                 .keyManagementModes(keyManagementModes)
                 .pmfMode(pmfMode)
+                .operatingChannelValidation(operatingChannelValidation)
+                .beaconProtection(beaconProtection)
                 .identifier(identifier)
                 .build();
     }
@@ -51,6 +61,10 @@ public abstract class SecuritySuitesResponse {
         public abstract Builder keyManagementModes(String keyManagementModes);
 
         public abstract Builder pmfMode(String pmfMode);
+
+        public abstract Builder operatingChannelValidation(Boolean operatingChannelValidation);
+
+        public abstract Builder beaconProtection(Boolean beaconProtection);
 
         public abstract Builder identifier(String identifier);
 

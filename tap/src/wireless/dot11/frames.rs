@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use serde::Deserialize;
 use strum_macros::Display;
 
@@ -11,7 +13,8 @@ pub enum Dot11CaptureSource {
 pub struct Dot11RawFrame {
     pub interface_name: String,
     pub capture_source: Dot11CaptureSource,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
+    pub captured_at: Instant
 }
 
 #[derive(Debug, Clone)]
@@ -21,7 +24,8 @@ pub struct RadiotapHeader {
     pub frequency: Option<u16>,
     pub channel: Option<u16>,
     pub antenna_signal: Option<i8>,
-    pub antenna: Option<u8>
+    pub antenna: Option<u8>,
+    pub captured_at: Instant
 }
 
 #[derive(Debug)]
@@ -158,10 +162,31 @@ pub struct TaggedParameters {
     pub extended_supported_rates: Option<Vec<f32>>,
     pub country_information: Option<CountryInformation>,
     pub pwnagotchi_data: Option<PwnagotchiData>,
+    pub channel_switch: Option<ChannelSwitchAnnouncement>,
+    pub current_frequency: Option<u16>,
     
     // Not parsing, only keeping for fingerprint calculation.
     pub ht_capabilities: Option<Vec<u8>>,
     pub extended_capabilities: Option<Vec<u8>>
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChannelSwitchAnnouncementType {
+    Standard,
+    Extended
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChannelSwitchAnnouncement {
+    pub announcement_type: ChannelSwitchAnnouncementType,
+    pub switch_mode: u8,
+    pub new_operating_class: Option<u8>,
+    pub new_channel: u8,
+    pub switch_count: u8,
+    pub is_trailing_element: bool,
+    pub dsss_only: Option<bool>,
+    pub country_code: Option<String>,
+    pub current_frequency: Option<u16>
 }
 
 #[derive(Deserialize, Debug)]
@@ -202,7 +227,9 @@ pub enum InfraStructureType {
 pub struct SecurityInformation {
     pub protocols: Vec<EncryptionProtocol>,
     pub suites: Option<CipherSuites>, // Optional in case protocol is WEP
-    pub pmf: PmfMode
+    pub pmf: PmfMode,
+    pub operating_channel_validation: bool,
+    pub beacon_protection: bool
 }
 
 #[derive(Debug, Display, Copy, Clone, PartialEq)]
@@ -338,6 +365,15 @@ pub struct Dot11DisassociationFrame {
     pub transmitter: String,
     pub bssid: String,
     pub reason_code: u16
+}
+
+#[derive(Debug)]
+pub struct Dot11ChannelSwitchActionFrame {
+    pub header: RadiotapHeader,
+    pub destination: String,
+    pub transmitter: String,
+    pub bssid: String,
+    pub announcement: ChannelSwitchAnnouncement
 }
 
 #[derive(Debug)]

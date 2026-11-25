@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use log::{debug, error, info};
 
@@ -66,6 +67,7 @@ impl Capture {
                 }
             };
 
+            let captured_at = Instant::now();
             let length = frame.data.len();
 
             match self.metrics.lock() {
@@ -95,7 +97,8 @@ impl Capture {
             let data = Dot11RawFrame {
                 capture_source: Acquisition,
                 interface_name: device_name.to_string(),
-                data: frame.data.to_vec()
+                data: frame.data.to_vec(),
+                captured_at
             };
         
             // Write to Dot11 broker pipeline.
