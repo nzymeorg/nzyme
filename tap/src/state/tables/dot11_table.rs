@@ -426,7 +426,7 @@ impl Dot11Table {
                 (frame.ds.destination, 0, 0, 1, frame.length)
             },
             Dot11DataFrameDirection::Leaving => {
-                (frame.ds.destination, 1, frame.length, 0, 0)
+                (frame.ds.source, 1, frame.length, 0, 0)
             },
             Dot11DataFrameDirection::NotLeavingOrAdHoc |
             Dot11DataFrameDirection::WDS => return
