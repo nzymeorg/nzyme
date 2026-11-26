@@ -199,7 +199,7 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
     };
 
     // There are more variable fields after this, which we are not currently parsing.
-    let is_wep = flags.map(|flags| flags.wep);
+    let is_wep = flags.as_ref().map(|flags| flags.wep);
 
     let channel = if let Some(frequency) = frequency {
         let channel = match dot11_frequency_to_channel(frequency as u32) {
@@ -226,7 +226,11 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
         captured_at: data.captured_at
     };
 
-    let payload = &data.data[header_length..data.data.len()];
+    let mut payload = &data.data[header_length..];
+
+    if flags.is_some_and(|flags| flags.fcs_at_end) && payload.len() >= 4 {
+        payload = &payload[..payload.len()-4];
+    }
 
     if payload.len() < 2 {
         trace!("Payload too short.");
@@ -413,5 +417,46 @@ fn parse_frame_type(mask: &u8) -> FrameTypeInformation {
         0b1111_1100 => FrameTypeInformation { frame_type: FrameType::Extension, frame_subtype: FrameSubType::Reserved },
 
         _ => FrameTypeInformation { frame_type: FrameType::Invalid, frame_subtype: FrameSubType::Invalid }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::Instant;
+
+    use super::*;
+    use crate::wireless::dot11::frames::Dot11CaptureSource;
+
+    fn raw_frame(flags: u8, dot11: &[u8]) -> Arc<Dot11RawFrame> {
+        let mut data = vec![0x00, 0x00, 0x09, 0x00, 0x02, 0x00, 0x00, 0x00, flags];
+        data.extend(dot11);
+
+        Arc::new(Dot11RawFrame {
+            interface_name: "test".to_string(),
+            capture_source: Dot11CaptureSource::Acquisition,
+            data,
+            captured_at: Instant::now()
+        })
+    }
+
+    #[test]
+    fn strips_fcs_when_flagged() {
+        let (frame, length) = parse(&raw_frame(0x10, &[0x80, 0x00, 1, 2, 3, 0xde, 0xad, 0xbe, 0xef])).unwrap();
+
+        assert_eq!(frame.payload, vec![0x80, 0x00, 1, 2, 3]);
+        assert_eq!(length, 5);
+    }
+
+    #[test]
+    fn keeps_payload_without_fcs_flag() {
+        let (frame, _) = parse(&raw_frame(0x00, &[0x80, 0x00, 1, 2, 3, 4, 5, 6, 7])).unwrap();
+
+        assert_eq!(frame.payload, vec![0x80, 0x00, 1, 2, 3, 4, 5, 6, 7]);
+    }
+
+    #[test]
+    fn rejects_frame_that_only_holds_fcs() {
+        assert!(parse(&raw_frame(0x10, &[0xde, 0xad, 0xbe, 0xef])).is_err());
     }
 }
