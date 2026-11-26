@@ -47,6 +47,7 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
     // TSFT.
     if present_flags.tsft {
         // not parsing
+        radiotap_buffer.align(8);
         let _ = match radiotap_buffer.take(8) {
             Some(a) => a,
             None => bail!("Radiotap buffer is malformed, not enough data to parse."),
@@ -159,7 +160,7 @@ pub fn parse(data: &Arc<Dot11RawFrame>) -> Result<(Dot11Frame, u32), Error> {
     if present_flags.tx_attenuation {
         // not parsing
         radiotap_buffer.align(2);
-        let _ = match radiotap_buffer.take(1) {
+        let _ = match radiotap_buffer.take(2) {
             Some(a) => a,
             None => bail!("Radiotap buffer is malformed, not enough data."),
         };
@@ -438,6 +439,41 @@ mod tests {
             data,
             captured_at: Instant::now()
         })
+    }
+
+    #[test]
+    fn aligns_tsft_after_extended_present_flags() {
+        let mut data = vec![0x00, 0x00, 0x24, 0x00, 0x2f, 0x40, 0x00, 0xa0, 0x20, 0x08, 0x00, 0x00];
+        data.extend([0x00; 4]);
+        data.extend([0x40, 0x42, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00]);
+        data.extend([0x00, 0x02, 0x6c, 0x09, 0xa0, 0x00, 0xd0, 0x00, 0x00, 0x00, 0xd0, 0x00]);
+        data.extend([0x80, 0x00, 1, 2, 3]);
+
+        let (frame, _) = parse(&Arc::new(Dot11RawFrame {
+            interface_name: "test".to_string(),
+            capture_source: Dot11CaptureSource::Acquisition,
+            data,
+            captured_at: Instant::now()
+        })).unwrap();
+
+        assert_eq!(frame.header.frequency, Some(2412));
+        assert_eq!(frame.header.antenna_signal, Some(-48));
+        assert_eq!(frame.payload, vec![0x80, 0x00, 1, 2, 3]);
+    }
+
+    #[test]
+    fn reads_antenna_after_tx_attenuation() {
+        let mut data = vec![0x00, 0x00, 0x0b, 0x00, 0x00, 0x09, 0x00, 0x00, 0x05, 0x07, 0x03];
+        data.extend([0x80, 0x00, 1, 2, 3]);
+
+        let (frame, _) = parse(&Arc::new(Dot11RawFrame {
+            interface_name: "test".to_string(),
+            capture_source: Dot11CaptureSource::Acquisition,
+            data,
+            captured_at: Instant::now()
+        })).unwrap();
+
+        assert_eq!(frame.header.antenna, Some(3));
     }
 
     #[test]
