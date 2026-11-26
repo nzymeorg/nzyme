@@ -15,19 +15,18 @@ public abstract class SSIDChannelDetailsResponse {
     public abstract String ssid();
 
     @JsonProperty("frequency")
-    public abstract long frequency();
+    @Nullable
+    public abstract Integer frequency();
 
     @JsonProperty("channel")
-    public abstract long channel();
+    @Nullable
+    public abstract Integer channel();
 
     @JsonProperty("signal_strength_average")
     public abstract float signalStrengthAverage();
 
     @JsonProperty("total_frames")
     public abstract long totalFrames();
-
-    @JsonProperty("total_bytes")
-    public abstract long totalBytes();
 
     @JsonProperty("is_main_active")
     public abstract boolean isMainActive();
@@ -44,14 +43,13 @@ public abstract class SSIDChannelDetailsResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static SSIDChannelDetailsResponse create(String ssid, long frequency, long channel, float signalStrengthAverage, long totalFrames, long totalBytes, boolean isMainActive, List<String> securityProtocols, List<String> infrastructureTypes, List<Boolean> isWps, DateTime lastSeen) {
+    public static SSIDChannelDetailsResponse create(String ssid, @Nullable Integer frequency, @Nullable Integer channel, float signalStrengthAverage, long totalFrames, boolean isMainActive, List<String> securityProtocols, List<String> infrastructureTypes, List<Boolean> isWps, DateTime lastSeen) {
         return builder()
                 .ssid(ssid)
                 .frequency(frequency)
                 .channel(channel)
                 .signalStrengthAverage(signalStrengthAverage)
                 .totalFrames(totalFrames)
-                .totalBytes(totalBytes)
                 .isMainActive(isMainActive)
                 .securityProtocols(securityProtocols)
                 .infrastructureTypes(infrastructureTypes)
@@ -68,15 +66,13 @@ public abstract class SSIDChannelDetailsResponse {
     public abstract static class Builder {
         public abstract Builder ssid(String ssid);
 
-        public abstract Builder frequency(long frequency);
+        public abstract Builder frequency(@Nullable Integer frequency);
 
-        public abstract Builder channel(long channel);
+        public abstract Builder channel(@Nullable Integer channel);
 
         public abstract Builder signalStrengthAverage(float signalStrengthAverage);
 
         public abstract Builder totalFrames(long totalFrames);
-
-        public abstract Builder totalBytes(long totalBytes);
 
         public abstract Builder isMainActive(boolean isMainActive);
 

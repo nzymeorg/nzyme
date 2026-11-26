@@ -599,36 +599,49 @@ public class Dot11 {
     }
 
     public Optional<Integer> findMostActiveChannelOfBSSID(TimeRange timeRange, String bssid, List<UUID> taps) {
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT c.frequency, MAX(c.stats_frames) AS frames FROM dot11_ssids AS s " +
-                                "LEFT JOIN dot11_channels AS c ON c.ssid_id = s.id " +
-                                "WHERE s.bssid = :bssid AND s.tap_uuid IN (<taps>) " +
-                                "AND s.created_at >= :tr_from AND s.created_at <= :tr_to " +
-                                "GROUP BY c.frequency ORDER BY SUM(c.stats_frames) DESC LIMIT 1")
-                        .bind("bssid", bssid)
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .bindList("taps", taps)
-                        .mapTo(Integer.class)
-                        .findOne()
-        );
+        return findDeclaredChannelsOfBSSID(bssid, timeRange, taps).stream().findFirst().map(DeclaredChannel::frequency);
     }
 
     public Optional<Integer> findMostActiveChannelOfSSID(TimeRange timeRange, String bssid, String ssid, List<UUID> taps) {
-        return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT c.frequency, MAX(c.stats_frames) AS frames FROM dot11_ssids AS s " +
-                                "LEFT JOIN dot11_channels AS c ON c.ssid_id = s.id " +
-                                "WHERE s.bssid = :bssid AND s.ssid = :ssid AND s.tap_uuid IN (<taps>) " +
-                                "AND s.created_at >= :tr_from AND s.created_at <= :tr_to " +
-                                "GROUP BY c.frequency ORDER BY SUM(c.stats_frames) DESC LIMIT 1")
-                        .bind("bssid", bssid)
-                        .bind("ssid", ssid)
-                        .bind("tr_from", timeRange.from())
-                        .bind("tr_to", timeRange.to())
-                        .bindList("taps", taps)
-                        .mapTo(Integer.class)
-                        .findOne()
-        );
+        return findDeclaredChannelsOfSSID(bssid, ssid, timeRange, taps).stream().findFirst().map(DeclaredChannel::frequency);
+    }
+
+    public List<DeclaredChannel> findDeclaredChannelsOfBSSID(String bssid, TimeRange timeRange, List<UUID> taps) {
+        return findDeclaredChannels(bssid, null, timeRange, taps);
+    }
+
+    public List<DeclaredChannel> findDeclaredChannelsOfSSID(String bssid, String ssid, TimeRange timeRange, List<UUID> taps) {
+        return findDeclaredChannels(bssid, ssid, timeRange, taps);
+    }
+
+    private List<DeclaredChannel> findDeclaredChannels(String bssid,
+                                                       @Nullable String ssid,
+                                                       TimeRange timeRange,
+                                                       List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle -> {
+            Query query = handle.createQuery("SELECT f.frequency::integer AS frequency, " +
+                            "SUM(f.frames::bigint) AS frames FROM dot11_ssids AS s " +
+                            "CROSS JOIN LATERAL jsonb_each_text(s.declared_frequencies) AS f(frequency, frames) " +
+                            "WHERE s.bssid = :bssid AND s.tap_uuid IN (<taps>) " +
+                            (ssid == null ? "" : "AND s.ssid = :ssid ") +
+                            "AND s.created_at >= :tr_from AND s.created_at <= :tr_to " +
+                            "AND s.declared_frequencies IS NOT NULL " +
+                            "GROUP BY f.frequency ORDER BY frames DESC, frequency ASC")
+                    .bind("bssid", bssid)
+                    .bind("tr_from", timeRange.from())
+                    .bind("tr_to", timeRange.to())
+                    .bindList("taps", taps);
+
+            if (ssid != null) {
+                query.bind("ssid", ssid);
+            }
+
+            return query.map((rs, ctx) -> new DeclaredChannel(rs.getInt("frequency"), rs.getLong("frames"))).list();
+        });
     }
 
     public List<SSIDChannelDetails> findSSIDPerChannelsOfBSSID(TimeRange timeRange, String bssid, List<UUID> taps) {
@@ -636,23 +649,44 @@ public class Dot11 {
             return Collections.emptyList();
         }
 
+        // An SSID without a declared channel in the time range (recorded before taps reported it) has one row.
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT s.ssid, c.frequency, MAX(s.created_at) AS last_seen, " +
+                handle.createQuery("WITH reports AS (" +
+                                "SELECT s.ssid, s.created_at, s.signal_strength_average, s.beacon_advertisements, " +
+                                "s.proberesp_advertisements, s.infrastructure_types, s.has_wps, s.security_settings, " +
+                                "s.declared_frequencies FROM dot11_ssids AS s " +
+                                "WHERE s.created_at >= :tr_from AND s.created_at <= :tr_to " +
+                                "AND s.bssid = :bssid AND s.tap_uuid IN (<taps>)" +
+                                "), channels AS (" +
+                                "SELECT r.ssid, f.frequency::integer AS frequency, SUM(f.frames::bigint) AS total_frames, " +
+                                "MAX(r.created_at) AS last_seen, AVG(r.signal_strength_average) AS signal_strength_average " +
+                                "FROM reports AS r " +
+                                "CROSS JOIN LATERAL jsonb_each_text(r.declared_frequencies) AS f(frequency, frames) " +
+                                "GROUP BY r.ssid, f.frequency" +
+                                "), seen AS (" +
+                                "SELECT r.ssid, MAX(r.created_at) AS last_seen, " +
+                                "AVG(r.signal_strength_average) AS signal_strength_average, " +
+                                "SUM(r.beacon_advertisements + r.proberesp_advertisements) AS total_frames " +
+                                "FROM reports AS r GROUP BY r.ssid" +
+                                "), attributes AS (" +
+                                "SELECT r.ssid, " +
                                 "COALESCE(ARRAY_AGG(DISTINCT protocol_elem) FILTER (WHERE protocol_elem IS NOT NULL), " +
                                 "ARRAY[]::text[]) AS security_protocols, " +
                                 "ARRAY_AGG(DISTINCT wps_elem) AS has_wps, " +
-                                "ARRAY_AGG(DISTINCT infratypes_elem) AS infrastructure_types, " +
-                                "AVG(s.signal_strength_average) AS signal_strength_average, " +
-                                "SUM(c.stats_bytes) AS total_bytes, SUM(c.stats_frames) AS total_frames " +
-                                "FROM dot11_ssids AS s " +
-                                "LEFT JOIN dot11_channels AS c on s.id = c.ssid_id " +
-                                "LEFT JOIN LATERAL UNNEST(s.infrastructure_types) AS infratypes_elem ON TRUE " +
-                                "LEFT JOIN LATERAL UNNEST(s.has_wps) AS wps_elem ON TRUE " +
-                                "LEFT JOIN LATERAL JSONB_ARRAY_ELEMENTS(s.security_settings) AS security_elem ON TRUE " +
+                                "ARRAY_AGG(DISTINCT infratypes_elem) AS infrastructure_types " +
+                                "FROM reports AS r " +
+                                "LEFT JOIN LATERAL UNNEST(r.infrastructure_types) AS infratypes_elem ON TRUE " +
+                                "LEFT JOIN LATERAL UNNEST(r.has_wps) AS wps_elem ON TRUE " +
+                                "LEFT JOIN LATERAL JSONB_ARRAY_ELEMENTS(r.security_settings) AS security_elem ON TRUE " +
                                 "LEFT JOIN LATERAL JSONB_ARRAY_ELEMENTS_TEXT(security_elem->'protocols') AS protocol_elem ON TRUE " +
-                                "WHERE s.created_at >= :tr_from AND s.created_at <= :tr_to " +
-                                "AND bssid = :bssid AND tap_uuid IN (<taps>) " +
-                                "GROUP BY s.ssid, c.frequency")
+                                "GROUP BY r.ssid" +
+                                ") SELECT seen.ssid, c.frequency, a.security_protocols, a.has_wps, a.infrastructure_types, " +
+                                "COALESCE(c.last_seen, seen.last_seen) AS last_seen, " +
+                                "COALESCE(c.signal_strength_average, seen.signal_strength_average) AS signal_strength_average, " +
+                                "COALESCE(c.total_frames, seen.total_frames) AS total_frames " +
+                                "FROM seen " +
+                                "JOIN attributes AS a ON a.ssid = seen.ssid " +
+                                "LEFT JOIN channels AS c ON c.ssid = seen.ssid")
                         .bind("bssid", bssid)
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
@@ -3260,13 +3294,18 @@ public class Dot11 {
         );
     }
 
-    public List<Long> findChannelsOfSSID(String ssid, List<UUID> taps) {
+    public List<Long> findDeclaredFrequenciesOfNetwork(String ssid, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT DISTINCT(c.frequency) FROM dot11_ssids AS s " +
-                                "LEFT JOIN dot11_channels AS c ON s.id = c.ssid_id " +
-                                "WHERE s.ssid = :ssid AND s.tap_uuid IN (<taps>) AND c.frequency IS NOT NULL " +
+                handle.createQuery("SELECT DISTINCT f.frequency::bigint AS frequency FROM dot11_ssids AS s " +
+                                "CROSS JOIN LATERAL jsonb_object_keys(s.declared_frequencies) AS f(frequency) " +
+                                "WHERE s.ssid = :ssid AND s.tap_uuid IN (<taps>) " +
+                                "AND s.declared_frequencies IS NOT NULL " +
                                 "AND s.created_at >= (NOW() - INTERVAL '24 hours') " +
-                                "ORDER BY c.frequency ASC")
+                                "ORDER BY frequency ASC")
                         .bind("ssid", ssid)
                         .bindList("taps", taps)
                         .mapTo(Long.class)

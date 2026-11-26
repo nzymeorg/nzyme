@@ -146,9 +146,9 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @GET
     @Path("/bssids/show/{bssid}")
     @Operation(operationId = "findDot11Bssid", summary = "Get details of a BSSID",
-            description = "Looks the BSSID up over all time, not a selected time range. Includes the clients that "
-                    + "connected to it in the last 24 hours and the signal strength each tap recorded in the last "
-                    + "15 minutes.")
+            description = "Looks the BSSID up over all time, not a selected time range. Includes the channels it "
+                    + "declared, most frames first, the frequencies taps recorded it on, the clients that connected "
+                    + "to it in the last 24 hours and the signal strength each tap recorded in the last 15 minutes.")
     @ApiResponse(responseCode = "200", description = "BSSID found.",
             content = @Content(schema = @Schema(implementation = BSSIDDetailsResponse.class)))
     @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this BSSID.", content = @Content)
@@ -229,7 +229,11 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
                 summary,
                 clients,
                 signalStrength,
-                bssid.frequencies()
+                bssid.frequencies(),
+                nzyme.getDot11().findDeclaredChannelsOfBSSID(bssidParam, TimeRangeFactory.allTime(), tapUuids)
+                        .stream()
+                        .map(DeclaredChannel::frequency)
+                        .toList()
         )).build();
     }
 
@@ -314,8 +318,12 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @GET
     @Path("/bssids/show/{bssid}/frequencies/histogram")
     @Operation(operationId = "findDot11BssidChannelHistogram", summary = "List active channels of a BSSID",
-            description = "Returns every channel the BSSID was active on in the time range, with the number of frames "
-                    + "and bytes recorded on each.")
+            description = "Returns the channels the BSSID declared as its own in the time range, with the number "
+                    + "of beacon and probe response frames that declared each, and the frequencies taps were tuned to "
+                    + "when they recorded it, with the number of frames and bytes recorded on each. Taps also record "
+                    + "frames of neighboring channels, so the tap frequencies are not the channels of the BSSID.",
+            externalDocs = @ExternalDocumentation(description = "Channels in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-channels"))
     @ApiResponse(responseCode = "200", description = "Channels found.",
             content = @Content(schema = @Schema(implementation = ActiveChannelListResponse.class)))
     public Response bssidActiveChannelHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -326,24 +334,19 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
-        List<ActiveChannelDetailsResponse> channels = Lists.newArrayList();
-        for (ActiveChannel c : nzyme.getDot11().getBSSIDChannelUsageHistogram(bssid, timeRange, tapUuids)) {
-            channels.add(ActiveChannelDetailsResponse.create(
-                    Dot11.frequencyToChannel(c.frequency()),
-                    c.frequency(),
-                    c.frames(),
-                    c.bytes()
-            ));
-        }
-
-        return Response.ok(ActiveChannelListResponse.create(channels)).build();
+        return Response.ok(ActiveChannelListResponse.create(
+                declaredChannels(nzyme.getDot11().findDeclaredChannelsOfBSSID(bssid, timeRange, tapUuids)),
+                tapFrequencies(nzyme.getDot11().getBSSIDChannelUsageHistogram(bssid, timeRange, tapUuids))
+        )).build();
     }
 
     @GET
     @Path("/bssids/show/{bssid}/ssids")
     @Operation(operationId = "findDot11BssidSsids", summary = "List SSIDs advertised by a BSSID",
-            description = "Returns one entry per SSID and channel combination. Each entry is flagged if its channel "
-                    + "is the most active one for that SSID.")
+            description = "Returns one entry per SSID and channel that its beacon and probe response frames "
+                    + "declared, with the number of frames that declared it. Each entry is flagged if its channel is "
+                    + "the most active one for that SSID. An SSID that was only recorded before taps reported "
+                    + "declared channels has one entry without a channel.")
     @ApiResponse(responseCode = "200", description = "SSIDs found.",
             content = @Content(schema = @Schema(implementation = SSIDChannelListResponse.class)))
     @ApiResponse(responseCode = "404", description = "The BSSID was not recorded in the time range.", content = @Content)
@@ -361,29 +364,9 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
         List<SSIDChannelDetails> ssids = nzyme.getDot11().findSSIDPerChannelsOfBSSID(timeRange, bssid, tapUuids);
 
-        // Find main active channel per SSID.
-        Map<String, Map<Integer, Long>> activeChannels = Maps.newHashMap();
+        Map<String, Long> mostFrames = Maps.newHashMap();
         for (SSIDChannelDetails ssid : ssids) {
-            if (!activeChannels.containsKey(ssid.ssid())) {
-                activeChannels.put(ssid.ssid(), Maps.newHashMap());
-            }
-            Map<Integer, Long> ssidChannels = activeChannels.get(ssid.ssid());
-            ssidChannels.put(ssid.frequency(), ssid.totalFrames());
-        }
-        Map<String, Integer> mostActiveChannels = Maps.newHashMap();
-        for (Map.Entry<String, Map<Integer, Long>> channel : activeChannels.entrySet()) {
-            String ssid = channel.getKey();
-
-            int mostActiveChannel = 0;
-            long highestCount = 0;
-            for (Map.Entry<Integer, Long> count : channel.getValue().entrySet()) {
-                if (count.getValue() > highestCount) {
-                    highestCount = count.getValue();
-                    mostActiveChannel = count.getKey();
-                }
-            }
-
-            mostActiveChannels.put(ssid, mostActiveChannel);
+            mostFrames.merge(ssid.ssid(), ssid.totalFrames(), Math::max);
         }
 
         List<SSIDChannelDetailsResponse> ssidsResult = Lists.newArrayList();
@@ -391,11 +374,10 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
             ssidsResult.add(SSIDChannelDetailsResponse.create(
                     ssid.ssid(),
                     ssid.frequency(),
-                    Dot11.frequencyToChannel(ssid.frequency()),
+                    ssid.frequency() == null ? null : Dot11.frequencyToChannel(ssid.frequency()),
                     ssid.signalStrengthAverage(),
                     ssid.totalFrames(),
-                    ssid.totalBytes(),
-                    mostActiveChannels.get(ssid.ssid()).equals(ssid.frequency()),
+                    ssid.frequency() != null && mostFrames.get(ssid.ssid()) == ssid.totalFrames(),
                     ssid.securityProtocols(),
                     ssid.infrastructureTypes(),
                     ssid.isWps(),
@@ -443,9 +425,10 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}")
     @Operation(operationId = "findDot11Ssid", summary = "Get details of an SSID of a BSSID",
-            description = "Returns frequencies, frame and byte counts, security suites, fingerprints and connected "
-                    + "clients of one SSID as advertised by one BSSID. The signal strength per tap covers the last "
-                    + "15 minutes regardless of the time range.")
+            description = "Returns declared channels, tap frequencies, frame and byte counts, security suites, "
+                    + "fingerprints and connected clients of one SSID as advertised by one BSSID. Channels are "
+                    + "ordered by the number of frames that declared them, most first. The signal strength per tap "
+                    + "covers the last 15 minutes regardless of the time range.")
     @ApiResponse(responseCode = "200", description = "SSID found.",
             content = @Content(schema = @Schema(implementation = SSIDDetailsResponse.class)))
     @ApiResponse(responseCode = "404", description = "This BSSID did not advertise this SSID in the time range.", content = @Content)
@@ -534,6 +517,10 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
                 ),
                 ssidDetails.ssid(),
                 ssidDetails.frequencies(),
+                nzyme.getDot11().findDeclaredChannelsOfSSID(bssid, ssid, timeRange, tapUuids)
+                        .stream()
+                        .map(DeclaredChannel::frequency)
+                        .toList(),
                 ssidDetails.signalStrengthAverage(),
                 ssidDetails.totalFrames(),
                 ssidDetails.totalBytes(),
@@ -588,8 +575,13 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @GET
     @Path("/bssids/show/{bssid}/ssids/show/{ssid}/frequencies/histogram")
     @Operation(operationId = "findDot11SsidChannelHistogram", summary = "List active channels of an SSID",
-            description = "Returns every channel this SSID of this BSSID was active on in the time range, with the "
-                    + "number of frames and bytes recorded on each.")
+            description = "Returns the channels this SSID of this BSSID declared as its own in the time range, "
+                    + "with the number of beacon and probe response frames that declared each, and the frequencies "
+                    + "taps were tuned to when they recorded it, with the number of frames and bytes recorded on "
+                    + "each. Taps also record frames of neighboring channels, so the tap frequencies are not the "
+                    + "channels of the SSID.",
+            externalDocs = @ExternalDocumentation(description = "Channels in the Nzyme documentation",
+                    url = "https://go.nzyme.org/wifi-channels"))
     @ApiResponse(responseCode = "200", description = "Channels found.",
             content = @Content(schema = @Schema(implementation = ActiveChannelListResponse.class)))
     public Response ssidOfBSSIDActiveChannelHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
@@ -601,17 +593,10 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
 
-        List<ActiveChannelDetailsResponse> channels = Lists.newArrayList();
-        for (ActiveChannel c : nzyme.getDot11().getSSIDChannelUsageHistogram(bssid, ssid, timeRange, tapUuids)) {
-            channels.add(ActiveChannelDetailsResponse.create(
-                    Dot11.frequencyToChannel(c.frequency()),
-                    c.frequency(),
-                    c.frames(),
-                    c.bytes()
-            ));
-        }
-
-        return Response.ok(ActiveChannelListResponse.create(channels)).build();
+        return Response.ok(ActiveChannelListResponse.create(
+                declaredChannels(nzyme.getDot11().findDeclaredChannelsOfSSID(bssid, ssid, timeRange, tapUuids)),
+                tapFrequencies(nzyme.getDot11().getSSIDChannelUsageHistogram(bssid, ssid, timeRange, tapUuids))
+        )).build();
     }
 
     @GET
@@ -750,4 +735,20 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
         return Response.ok(nzyme.getDot11().findAllSSIDNames(tapUuids)).build();
     }
+    private static List<DeclaredChannelDetailsResponse> declaredChannels(List<DeclaredChannel> channels) {
+        return channels.stream()
+                .map(c -> DeclaredChannelDetailsResponse.create(
+                        Dot11.frequencyToChannel(c.frequency()), c.frequency(), c.frames()
+                ))
+                .toList();
+    }
+
+    private static List<ActiveChannelDetailsResponse> tapFrequencies(List<ActiveChannel> frequencies) {
+        return frequencies.stream()
+                .map(c -> ActiveChannelDetailsResponse.create(
+                        Dot11.frequencyToChannel(c.frequency()), c.frequency(), c.frames(), c.bytes()
+                ))
+                .toList();
+    }
+
 }

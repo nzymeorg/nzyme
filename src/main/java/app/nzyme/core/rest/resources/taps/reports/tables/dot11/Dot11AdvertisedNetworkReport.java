@@ -20,6 +20,7 @@ public abstract class Dot11AdvertisedNetworkReport {
     public abstract Map<Long, Map<String, Dot11ChannelStatisticsReport>> channelStatistics();
     public abstract long beaconAdvertisements();
     public abstract long probeResponseAdvertisements();
+    public abstract Map<Integer, Long> declaredFrequencies();
 
     @JsonCreator
     public static Dot11AdvertisedNetworkReport create(@JsonProperty("security") List<Dot11SecurityInformationReport> security,
@@ -31,7 +32,8 @@ public abstract class Dot11AdvertisedNetworkReport {
                                                       @JsonProperty("infrastructure_types") List<String> infrastructureTypes,
                                                       @JsonProperty("channel_statistics") Map<Long, Map<String, Dot11ChannelStatisticsReport>> channelStatistics,
                                                       @JsonProperty("beacon_advertisements") long beaconAdvertisements,
-                                                      @JsonProperty("proberesp_advertisements") long probeResponseAdvertisements) {
+                                                      @JsonProperty("proberesp_advertisements") long probeResponseAdvertisements,
+                                                      @JsonProperty("declared_frequencies") Map<Integer, Long> declaredFrequencies) {
         return builder()
                 .security(security)
                 .fingerprints(fingerprints)
@@ -43,6 +45,7 @@ public abstract class Dot11AdvertisedNetworkReport {
                 .channelStatistics(channelStatistics)
                 .beaconAdvertisements(beaconAdvertisements)
                 .probeResponseAdvertisements(probeResponseAdvertisements)
+                .declaredFrequencies(declaredFrequencies)
                 .build();
     }
 
@@ -71,6 +74,8 @@ public abstract class Dot11AdvertisedNetworkReport {
         public abstract Builder beaconAdvertisements(long beaconAdvertisements);
 
         public abstract Builder probeResponseAdvertisements(long probeResponseAdvertisements);
+
+        public abstract Builder declaredFrequencies(Map<Integer, Long> declaredFrequencies);
 
         public abstract Dot11AdvertisedNetworkReport build();
     }

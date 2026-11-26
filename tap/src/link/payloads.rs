@@ -409,7 +409,8 @@ pub struct AdvertisedNetworkReport {
     pub signal_strength: SignalStrengthReport,
     pub signal_histogram: HashMap<u16, HashMap<i8, u128>>,
     pub infrastructure_types: Vec<String>,
-    pub channel_statistics: HashMap<u16, HashMap<String, Dot11ChannelStatisticsReport>>
+    pub channel_statistics: HashMap<u16, HashMap<String, Dot11ChannelStatisticsReport>>,
+    pub declared_frequencies: HashMap<u16, u64>
 }
 
 #[derive(Serialize)]

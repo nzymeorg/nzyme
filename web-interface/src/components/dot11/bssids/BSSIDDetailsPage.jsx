@@ -23,7 +23,7 @@ import ReadOnlyTrilaterationResultFloorPlanWrapper
   from "../../shared/floorplan/ReadOnlyTrilaterationResultFloorPlanWrapper";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import {Presets} from "../../shared/timerange/TimeRange";
-import ChannelSelector from "../util/ChannelSelector";
+import ChannelSelector, {preferredFrequency} from "../util/ChannelSelector";
 import usePageTitle from "../../../util/UsePageTitle";
 import {BSSID_MENU_ITEMS} from "./BSSIDMenuItems";
 import SectionMenuBar from "../../shared/SectionMenuBar";
@@ -105,7 +105,7 @@ function BSSIDDetailsPage() {
 
   useEffect(() => {
     if (bssid) {
-      setWaterfallFrequency(bssid.frequencies[0]);
+      setWaterfallFrequency(preferredFrequency(bssid.frequencies, bssid.channels));
     }
   }, [bssid]);
 
@@ -295,7 +295,8 @@ function BSSIDDetailsPage() {
 
                     <ChannelSelector currentFrequency={waterfallFrequency}
                                      setFrequency={setWaterfallFrequency}
-                                     frequencies={bssid.frequencies}/>
+                                     frequencies={bssid.frequencies}
+                                     channels={bssid.channels}/>
 
                     <BSSIDSignalWaterfallChart bssid={bssid.summary.bssid.address}
                                                frequency={waterfallFrequency}
@@ -367,6 +368,7 @@ function BSSIDDetailsPage() {
                 <div className="card">
                   <div className="card-body">
                     <CardTitleWithControls title="Active Channels"
+                                           helpLink="https://go.nzyme.org/wifi-channels"
                                            timeRange={activeChannelsTimeRange}
                                            setTimeRange={setActiveChannelsTimeRange} />
 

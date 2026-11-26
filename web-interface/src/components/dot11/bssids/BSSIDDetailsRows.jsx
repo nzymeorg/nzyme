@@ -79,13 +79,13 @@ function BSSIDDetailsRows(props) {
                 return (
                   <tr key={"ssid-" + i}>
                     <td>
-                      <Link to={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(bssid.address, ssid.ssid, ssid.frequency)}>{ssid.ssid}</Link>{' '}
+                      <Link to={ApiRoutes.DOT11.NETWORKS.SSIDS.DETAILS(bssid.address, ssid.ssid, ssid.frequency ? ssid.frequency : 0)}>{ssid.ssid}</Link>{' '}
                     </td>
                     <td><InfrastructureTypes types={ssid.infrastructure_types} /></td>
                     <td>
                       <Channel channel={ssid.channel} frequency={ssid.frequency} is_main_active={ssid.is_main_active} />
                     </td>
-                    <td>{numeral(ssid.total_frames).format("0,0")} frames / {numeral(ssid.total_bytes).format("0,0b")}</td>
+                    <td>{numeral(ssid.total_frames).format("0,0")} frames</td>
                     <td><SignalStrength strength={ssid.signal_strength_average} /></td>
                     <td>{ssid.security_protocols.length === 0 || ssid.security_protocols[0] === "" ? "None" : <Dot11SecurityProtocolList protocols={ssid.security_protocols} />}</td>
                     <td>{ssid.is_wps.join(",")}</td>

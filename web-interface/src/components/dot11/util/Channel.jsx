@@ -14,7 +14,11 @@ function Channel(props) {
     title = "This is the most active channel during the selected time frame."
   }
 
-  return <span className={className} title={title}>{channel} ({numeral(frequency).format("0,0")} Mhz)</span>
+  if (!frequency) {
+    return <span className="text-muted">Unknown</span>
+  }
+
+  return <span className={className} title={title}>{channel} ({numeral(frequency).format("0,0")} MHz)</span>
 
 }
 

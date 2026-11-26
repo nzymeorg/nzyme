@@ -18,14 +18,16 @@ public class SSIDChannelDetailsMapper implements RowMapper<SSIDChannelDetails> {
         List<Boolean> hasWps = Lists.newArrayList();
         hasWps.addAll(Arrays.asList(((Boolean[]) rs.getArray("has_wps").getArray())));
 
+        int frequency = rs.getInt("frequency");
+        boolean hasFrequency = !rs.wasNull();
+
         return SSIDChannelDetails.create(
                 rs.getString("ssid"),
                 Lists.newArrayList((String[]) rs.getArray("security_protocols").getArray()),
                 hasWps,
                 Lists.newArrayList((String[]) rs.getArray("infrastructure_types").getArray()),
                 rs.getFloat("signal_strength_average"),
-                rs.getInt("frequency"),
-                rs.getLong("total_bytes"),
+                hasFrequency ? frequency : null,
                 rs.getLong("total_frames"),
                 new DateTime(rs.getTimestamp("last_seen"))
         );

@@ -14236,4 +14236,10 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_declared_frequencies_to_dot11_ssids" author="lennartkoopmann">
+        <addColumn tableName="dot11_ssids">
+            <column name="declared_frequencies" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

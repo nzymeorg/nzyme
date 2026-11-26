@@ -9901,7 +9901,7 @@
     },
     "/api/dot11/networks/bssids/show/{bssid}" : {
       "get" : {
-        "description" : "Looks the BSSID up over all time, not a selected time range. Includes the clients that connected to it in the last 24 hours and the signal strength each tap recorded in the last 15 minutes.",
+        "description" : "Looks the BSSID up over all time, not a selected time range. Includes the channels it declared, most frames first, the frequencies taps recorded it on, the clients that connected to it in the last 24 hours and the signal strength each tap recorded in the last 15 minutes.",
         "operationId" : "findDot11Bssid",
         "parameters" : [ {
           "description" : "BSSID MAC address.",
@@ -9987,7 +9987,11 @@
     },
     "/api/dot11/networks/bssids/show/{bssid}/frequencies/histogram" : {
       "get" : {
-        "description" : "Returns every channel the BSSID was active on in the time range, with the number of frames and bytes recorded on each.",
+        "description" : "Returns the channels the BSSID declared as its own in the time range, with the number of beacon and probe response frames that declared each, and the frequencies taps were tuned to when they recorded it, with the number of frames and bytes recorded on each. Taps also record frames of neighboring channels, so the tap frequencies are not the channels of the BSSID.",
+        "externalDocs" : {
+          "description" : "Channels in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/wifi-channels"
+        },
         "operationId" : "findDot11BssidChannelHistogram",
         "parameters" : [ {
           "description" : "BSSID MAC address.",
@@ -10091,7 +10095,7 @@
     },
     "/api/dot11/networks/bssids/show/{bssid}/ssids" : {
       "get" : {
-        "description" : "Returns one entry per SSID and channel combination. Each entry is flagged if its channel is the most active one for that SSID.",
+        "description" : "Returns one entry per SSID and channel that its beacon and probe response frames declared, with the number of frames that declared it. Each entry is flagged if its channel is the most active one for that SSID. An SSID that was only recorded before taps reported declared channels has one entry without a channel.",
         "operationId" : "findDot11BssidSsids",
         "parameters" : [ {
           "description" : "BSSID MAC address.",
@@ -10140,7 +10144,7 @@
     },
     "/api/dot11/networks/bssids/show/{bssid}/ssids/show/{ssid}" : {
       "get" : {
-        "description" : "Returns frequencies, frame and byte counts, security suites, fingerprints and connected clients of one SSID as advertised by one BSSID. The signal strength per tap covers the last 15 minutes regardless of the time range.",
+        "description" : "Returns declared channels, tap frequencies, frame and byte counts, security suites, fingerprints and connected clients of one SSID as advertised by one BSSID. Channels are ordered by the number of frames that declared them, most first. The signal strength per tap covers the last 15 minutes regardless of the time range.",
         "operationId" : "findDot11Ssid",
         "parameters" : [ {
           "description" : "BSSID MAC address.",
@@ -10248,7 +10252,11 @@
     },
     "/api/dot11/networks/bssids/show/{bssid}/ssids/show/{ssid}/frequencies/histogram" : {
       "get" : {
-        "description" : "Returns every channel this SSID of this BSSID was active on in the time range, with the number of frames and bytes recorded on each.",
+        "description" : "Returns the channels this SSID of this BSSID declared as its own in the time range, with the number of beacon and probe response frames that declared each, and the frequencies taps were tuned to when they recorded it, with the number of frames and bytes recorded on each. Taps also record frames of neighboring channels, so the tap frequencies are not the channels of the SSID.",
+        "externalDocs" : {
+          "description" : "Channels in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/wifi-channels"
+        },
         "operationId" : "findDot11SsidChannelHistogram",
         "parameters" : [ {
           "description" : "BSSID MAC address.",
@@ -44141,6 +44149,12 @@
           "channels" : {
             "type" : "array",
             "items" : {
+              "$ref" : "#/components/schemas/DeclaredChannelDetailsResponse"
+            }
+          },
+          "tap_frequencies" : {
+            "type" : "array",
+            "items" : {
               "$ref" : "#/components/schemas/ActiveChannelDetailsResponse"
             }
           }
@@ -45893,6 +45907,13 @@
       "BSSIDDetailsResponse" : {
         "type" : "object",
         "properties" : {
+          "channels" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
           "clients" : {
             "type" : "array",
             "items" : {
@@ -49868,6 +49889,23 @@
           "vacuum_count" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "DeclaredChannelDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "frames" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -57671,11 +57709,11 @@
         "properties" : {
           "channel" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int32"
           },
           "frequency" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int32"
           },
           "infrastructure_types" : {
             "type" : "array",
@@ -57709,10 +57747,6 @@
           "ssid" : {
             "type" : "string"
           },
-          "total_bytes" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "total_frames" : {
             "type" : "integer",
             "format" : "int64"
@@ -57741,6 +57775,13 @@
           },
           "bssid" : {
             "$ref" : "#/components/schemas/Dot11MacAddressResponse"
+          },
+          "channels" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
           },
           "fingerprints" : {
             "type" : "array",

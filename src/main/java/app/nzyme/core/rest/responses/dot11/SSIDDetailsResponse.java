@@ -20,6 +20,9 @@ public abstract class SSIDDetailsResponse {
     @JsonProperty("frequencies")
     public abstract List<Integer> frequencies();
 
+    @JsonProperty("channels")
+    public abstract List<Integer> channels();
+
     @JsonProperty("signal_strength_average")
     public abstract float signalStrengthAverage();
 
@@ -56,11 +59,12 @@ public abstract class SSIDDetailsResponse {
     @JsonProperty("last_seen")
     public abstract DateTime lastSeen();
 
-    public static SSIDDetailsResponse create(Dot11MacAddressResponse bssid, String ssid, List<Integer> frequencies, float signalStrengthAverage, long totalFrames, long totalBytes, List<String> securityProtocols, List<String> fingerprints, List<BSSIDClientDetails> accessPointClients, List<Double> rates, List<String> infrastructureTypes, List<SecuritySuitesResponse> securitySuites, List<Boolean> isWps, List<TapBasedSignalStrengthResponse> signalStrength, DateTime lastSeen) {
+    public static SSIDDetailsResponse create(Dot11MacAddressResponse bssid, String ssid, List<Integer> frequencies, List<Integer> channels, float signalStrengthAverage, long totalFrames, long totalBytes, List<String> securityProtocols, List<String> fingerprints, List<BSSIDClientDetails> accessPointClients, List<Double> rates, List<String> infrastructureTypes, List<SecuritySuitesResponse> securitySuites, List<Boolean> isWps, List<TapBasedSignalStrengthResponse> signalStrength, DateTime lastSeen) {
         return builder()
                 .bssid(bssid)
                 .ssid(ssid)
                 .frequencies(frequencies)
+                .channels(channels)
                 .signalStrengthAverage(signalStrengthAverage)
                 .totalFrames(totalFrames)
                 .totalBytes(totalBytes)
@@ -87,6 +91,8 @@ public abstract class SSIDDetailsResponse {
         public abstract Builder ssid(String ssid);
 
         public abstract Builder frequencies(List<Integer> frequencies);
+
+        public abstract Builder channels(List<Integer> channels);
 
         public abstract Builder signalStrengthAverage(float signalStrengthAverage);
 

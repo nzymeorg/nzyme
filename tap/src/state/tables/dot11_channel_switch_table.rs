@@ -185,7 +185,7 @@ fn band(frequency: u16) -> u8 {
  * across bands, and a client only follows what fits where it listens. A frame that names nothing usable was sent
  * where the tap was tuned, as far as the tap can tell.
  */
-fn sent_on(tuned_frequency: Option<u16>, declared_frequency: Option<u16>) -> Option<u16> {
+pub fn sent_on(tuned_frequency: Option<u16>, declared_frequency: Option<u16>) -> Option<u16> {
     match (tuned_frequency, declared_frequency) {
         (Some(tuned), Some(declared)) if band(tuned) == band(declared) => Some(declared),
         (Some(tuned), _) => Some(tuned),

@@ -14,7 +14,7 @@ import SSIDChannelUsageHistogram from "./SSIDChannelUsageHistogram";
 import SSIDAccessPointClients from "./SSIDAccessPointClients";
 import numeral from "numeral";
 import {dot11FrequencyToChannel} from "../../../../util/Tools";
-import ChannelSelector from "../../util/ChannelSelector";
+import ChannelSelector, {preferredFrequency} from "../../util/ChannelSelector";
 import SSIDMonitoredInformation from "./SSIDMonitoredInformation";
 import DiscoHistogram from "../../disco/DiscoHistogram";
 import {disableTapSelector, enableTapSelector} from "../../../misc/TapSelector";
@@ -63,6 +63,12 @@ function SSIDDetailsPage() {
   useEffect(() => {
     setSelectedFrequency(parseInt(frequencyParam, 10));
   }, [frequencyParam]);
+
+  useEffect(() => {
+    if (ssid && !ssid.frequencies.includes(parseInt(frequencyParam, 10))) {
+      setSelectedFrequency(preferredFrequency(ssid.frequencies, ssid.channels));
+    }
+  }, [ssid, frequencyParam]);
 
   useEffect(() => {
     enableTapSelector(tapContext);
@@ -261,6 +267,7 @@ function SSIDDetailsPage() {
                   <div className="card">
                     <div className="card-body">
                       <CardTitleWithControls title="Active Channels"
+                                             helpLink="https://go.nzyme.org/wifi-channels"
                                              timeRange={channelUsageHistogramTimeRange}
                                              setTimeRange={setChannelUsageHistogramTimeRange} />
 
@@ -281,7 +288,8 @@ function SSIDDetailsPage() {
 
                       <ChannelSelector currentFrequency={selectedFrequency}
                                        setFrequency={setSelectedFrequency}
-                                       frequencies={ssid.frequencies}/>
+                                       frequencies={ssid.frequencies}
+                                       channels={ssid.channels}/>
 
                       <SSIDSignalWaterfallChart bssid={ssid.bssid.address}
                                                 ssid={ssid.ssid}

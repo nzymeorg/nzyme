@@ -22,12 +22,16 @@ public abstract class BSSIDDetailsResponse {
     @JsonProperty("frequencies")
     public abstract List<Integer> frequencies();
 
-    public static BSSIDDetailsResponse create(BSSIDSummaryDetailsResponse summary, List<BSSIDClientDetails> clients, List<TapBasedSignalStrengthResponse> signalStrength, List<Integer> frequencies) {
+    @JsonProperty("channels")
+    public abstract List<Integer> channels();
+
+    public static BSSIDDetailsResponse create(BSSIDSummaryDetailsResponse summary, List<BSSIDClientDetails> clients, List<TapBasedSignalStrengthResponse> signalStrength, List<Integer> frequencies, List<Integer> channels) {
         return builder()
                 .summary(summary)
                 .clients(clients)
                 .signalStrength(signalStrength)
                 .frequencies(frequencies)
+                .channels(channels)
                 .build();
     }
 
@@ -44,6 +48,8 @@ public abstract class BSSIDDetailsResponse {
         public abstract Builder signalStrength(List<TapBasedSignalStrengthResponse> signalStrength);
 
         public abstract Builder frequencies(List<Integer> frequencies);
+
+        public abstract Builder channels(List<Integer> channels);
 
         public abstract BSSIDDetailsResponse build();
     }

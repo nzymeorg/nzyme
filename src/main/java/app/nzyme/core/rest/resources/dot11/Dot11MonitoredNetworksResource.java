@@ -1020,7 +1020,7 @@ public class Dot11MonitoredNetworksResource extends TapDataHandlingResource {
         List<Long> monitoredChannels = nzyme.getDot11().findMonitoredChannelsOfMonitoredNetwork(ssid.get().id())
                 .stream().map(MonitoredChannel::frequency).collect(Collectors.toList());
         List<ChannelImportDataResponse> channelsResponse = Lists.newArrayList();
-        for (Long f : nzyme.getDot11().findChannelsOfSSID(ssid.get().ssid(), allAccessibleTapUUIDs)) {
+        for (Long f : nzyme.getDot11().findDeclaredFrequenciesOfNetwork(ssid.get().ssid(), allAccessibleTapUUIDs)) {
             if (f != null) {
                 channelsResponse.add(ChannelImportDataResponse.create(f, monitoredChannels.contains(f)));
             }

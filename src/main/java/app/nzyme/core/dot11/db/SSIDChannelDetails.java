@@ -1,6 +1,7 @@
 package app.nzyme.core.dot11.db;
 
 import com.google.auto.value.AutoValue;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
 import java.util.List;
@@ -13,12 +14,12 @@ public abstract class SSIDChannelDetails {
     public abstract List<Boolean> isWps();
     public abstract List<String> infrastructureTypes();
     public abstract float signalStrengthAverage();
-    public abstract int frequency();
-    public abstract long totalBytes();
+    @Nullable
+    public abstract Integer frequency();
     public abstract long totalFrames();
     public abstract DateTime lastSeen();
 
-    public static SSIDChannelDetails create(String ssid, List<String> securityProtocols, List<Boolean> isWps, List<String> infrastructureTypes, float signalStrengthAverage, int frequency, long totalBytes, long totalFrames, DateTime lastSeen) {
+    public static SSIDChannelDetails create(String ssid, List<String> securityProtocols, List<Boolean> isWps, List<String> infrastructureTypes, float signalStrengthAverage, @Nullable Integer frequency, long totalFrames, DateTime lastSeen) {
         return builder()
                 .ssid(ssid)
                 .securityProtocols(securityProtocols)
@@ -26,7 +27,6 @@ public abstract class SSIDChannelDetails {
                 .infrastructureTypes(infrastructureTypes)
                 .signalStrengthAverage(signalStrengthAverage)
                 .frequency(frequency)
-                .totalBytes(totalBytes)
                 .totalFrames(totalFrames)
                 .lastSeen(lastSeen)
                 .build();
@@ -48,9 +48,7 @@ public abstract class SSIDChannelDetails {
 
         public abstract Builder signalStrengthAverage(float signalStrengthAverage);
 
-        public abstract Builder frequency(int frequency);
-
-        public abstract Builder totalBytes(long totalBytes);
+        public abstract Builder frequency(@Nullable Integer frequency);
 
         public abstract Builder totalFrames(long totalFrames);
 

@@ -26,12 +26,12 @@ public class ChannelSwitchRulesTest {
                                                    long trailingElementFrames) {
         return Dot11ChannelSwitchReport.create("02:11:22:33:44:55", frameType, "CSA", 1, operatingClass, channel,
                 frequency, countMin, countMax, frames, frames, timestampRepetitions, timestampMismatchFrames,
-                interleavedBeacons, trailingElementFrames, "ACTION".equals(frameType) ? null : false, null, null);
+                interleavedBeacons, trailingElementFrames, "ACTION".equals(frameType) ? null : false, null, null, null);
     }
 
     private static Dot11ChannelSwitchReport toChannel14(String frameType, Boolean dsssOnly, String countryCode) {
         return Dot11ChannelSwitchReport.create("02:11:22:33:44:55", frameType, "CSA", 1, null, 14, 2437, 1, 3, 3, 3,
-                1, 0, 0, 0, dsssOnly, countryCode, null);
+                1, 0, 0, 0, dsssOnly, countryCode, null, null);
     }
 
     private static Integer newFrequency(Integer frequency, Integer operatingClass, int channel) {

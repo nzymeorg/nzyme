@@ -282,7 +282,9 @@ public class Dot11Table implements DataTable {
                         .bind("signal_strength_min", report.signalStrength().min())
                         .bind("hidden_ssid_frames", report.hiddenSSIDFrames())
                         .bindBySqlType("fingerprints", fingerprintsArr, Types.ARRAY)
-                        .bind("declared_frequencies", declaredFrequenciesJson(report.declaredFrequencies()))
+                        .bind("declared_frequencies", declaredFrequenciesJson(
+                                declaredFrequencies(report.declaredFrequencies(), MAX_DECLARED_FREQUENCIES_OF_BSSID)
+                        ))
                         .bind("created_at", timestamp)
                         .mapTo(Long.class)
                         .one();
@@ -398,16 +400,20 @@ public class Dot11Table implements DataTable {
             Boolean[] wpsArr = task.ssidReport().wps().toArray(new Boolean[0]);
             String[] fingerprintsArr = task.ssidReport().fingerprints().toArray(new String[0]);
             String securitySettingsJson = om.writeValueAsString(task.ssidReport().security());
+            Map<Integer, Long> declaredFrequencies = declaredFrequencies(
+                    task.ssidReport().declaredFrequencies(), MAX_DECLARED_FREQUENCIES_OF_SSID
+            );
 
             Long ssidDatabaseId = handle.createQuery(
                     "INSERT INTO dot11_ssids(bssid_id, tap_uuid, ssid, bssid, " +
                             "signal_strength_average, signal_strength_max, signal_strength_min, " +
                             "beacon_advertisements, proberesp_advertisements, rates, infrastructure_types, " +
-                            "has_wps, security_settings, fingerprints, created_at) " +
+                            "has_wps, security_settings, fingerprints, declared_frequencies, created_at) " +
                             "VALUES(:bssid_id, :tap_uuid, :ssid, :bssid, :signal_strength_average, " +
                             ":signal_strength_max, :signal_strength_min, :beacon_advertisements, " +
                             ":proberesp_advertisements, :rates::double precision[], :infrastructure_types::text[], " +
-                            ":has_wps::bool[], :security_settings::jsonb, :fingerprints, :created_at) RETURNING *")
+                            ":has_wps::bool[], :security_settings::jsonb, :fingerprints, " +
+                            "CAST(:declared_frequencies AS jsonb), :created_at) RETURNING *")
                     .bind("bssid_id", task.bssidDatabaseId())
                     .bind("tap_uuid", task.tap().uuid())
                     .bind("ssid", ssid)
@@ -422,6 +428,7 @@ public class Dot11Table implements DataTable {
                     .bindBySqlType("infrastructure_types", infraArr, Types.ARRAY)
                     .bindBySqlType("has_wps", wpsArr, Types.ARRAY)
                     .bindBySqlType("fingerprints", fingerprintsArr, Types.ARRAY)
+                    .bind("declared_frequencies", declaredFrequenciesJson(declaredFrequencies))
                     .bind("created_at", task.timestamp())
                     .mapTo(Long.class)
                     .one();
@@ -582,8 +589,9 @@ public class Dot11Table implements DataTable {
                 }
 
                 if (monitoredSSID.enabledUnexpectedChannel()) {
-                    for (Long frequency : task.ssidReport().channelStatistics().keySet()) {
-                        if (!monitoredSSID.channels().contains(frequency.intValue())) {
+                    // Taps decode frames of neighboring channels, so the tuned frequency says nothing here.
+                    for (Integer frequency : declaredFrequencies.keySet()) {
+                        if (!monitoredSSID.channels().contains(frequency)) {
                             // Unexpected channel.
                             Map<String, String> attributes = Maps.newHashMap();
                             attributes.put("frequency", String.valueOf(frequency));
@@ -1033,20 +1041,30 @@ public class Dot11Table implements DataTable {
         return frames <= frameCount;
     }
 
-    private static final int MAX_DECLARED_FREQUENCIES = 8;
+    private static final int MAX_DECLARED_FREQUENCIES_OF_BSSID = 8;
+    private static final int MAX_DECLARED_FREQUENCIES_OF_SSID = 16;
 
-    // The channels the beacons of a BSSID named as their own, as a JSON object of frequency and number of beacons.
-    @Nullable
-    private static String declaredFrequenciesJson(Map<Integer, Long> declaredFrequencies) {
-        String entries = declaredFrequencies.entrySet().stream()
+    private static Map<Integer, Long> declaredFrequencies(Map<Integer, Long> reported, int limit) {
+        Map<Integer, Long> declared = Maps.newLinkedHashMap();
+        reported.entrySet().stream()
                 .filter(e -> e.getKey() != null && e.getValue() != null
                         && Dot11.frequencyToChannel(e.getKey()) != -1 && e.getValue() > 0 && isCount(e.getValue()))
                 .sorted(Map.Entry.<Integer, Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey()))
-                .limit(MAX_DECLARED_FREQUENCIES)
-                .map(e -> "\"" + e.getKey() + "\":" + e.getValue())
-                .collect(Collectors.joining(","));
+                .limit(limit)
+                .forEach(e -> declared.put(e.getKey(), e.getValue()));
 
-        return entries.isEmpty() ? null : "{" + entries + "}";
+        return declared;
+    }
+
+    @Nullable
+    private static String declaredFrequenciesJson(Map<Integer, Long> declaredFrequencies) {
+        if (declaredFrequencies.isEmpty()) {
+            return null;
+        }
+
+        return declaredFrequencies.entrySet().stream()
+                .map(e -> "\"" + e.getKey() + "\":" + e.getValue())
+                .collect(Collectors.joining(",", "{", "}"));
     }
 
     private static boolean isValidChannelSwitch(Dot11ChannelSwitchReport cs) {

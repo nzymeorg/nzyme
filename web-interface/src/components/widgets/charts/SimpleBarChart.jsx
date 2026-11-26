@@ -93,7 +93,8 @@ class SimpleBarChartBase extends React.Component {
           title: { text: this.props.title },
           paper_bgcolor: colors.background,
           plot_bgcolor: colors.background,
-          showlegend: false,
+          showlegend: Boolean(this.props.showLegend),
+          legend: { orientation: 'h', y: 1.15 },
           dragmode: interactive ? 'zoom' : false,
           clickmode: 'none',
           hovermode: hovermode,
@@ -101,7 +102,7 @@ class SimpleBarChartBase extends React.Component {
             font: { size: 11 },
             namelength: -1
           },
-          barmode: 'stack',
+          barmode: this.props.barmode ?? 'stack',
           boxgap: 0,
           xaxis: {
             fixedrange: !interactive,

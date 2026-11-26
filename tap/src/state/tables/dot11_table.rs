@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Mutex};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use log::error;
@@ -11,7 +12,7 @@ use crate::{
     },
 };
 use crate::alerting::alert_types::Dot11Alert;
-use crate::state::tables::dot11_channel_switch_table::{ChannelSwitchFrameType, ChannelSwitchTable};
+use crate::state::tables::dot11_channel_switch_table::{sent_on, ChannelSwitchFrameType, ChannelSwitchTable};
 use crate::state::tables::dot11_frame_tables::{ConnectionFrames, DiscoFrames, DiscoType};
 use crate::state::tables::table_helpers::{clear_mutex_hashmap, clear_mutex_vector};
 use crate::wireless::dot11::frames::{DisconnectionFrameDetails, Dot11Capabilities, Dot11ChannelSwitchActionFrame, Dot11ConnectionFrame, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
@@ -21,6 +22,7 @@ use crate::link::payloads::{Dot11AlertReport, Dot11DiscoReport, FrequencySignalS
 use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11DataFrame, Dot11DataFrameDirection, Dot11ProbeRequestFrame, FrameSubType, InfraStructureType, SecurityInformation};
 
 const KNOWN_ACCESS_POINT_MINIMUM_AGE: Duration = Duration::from_secs(300);
+pub const MAX_DECLARED_FREQUENCIES_PER_NETWORK: usize = 16;
 
 pub struct Dot11Table {
     pub leaderlink: Arc<Mutex<Leaderlink>>,
@@ -30,7 +32,8 @@ pub struct Dot11Table {
     pub disco: Mutex<DiscoFrames>,
     pub connection_frames: Mutex<ConnectionFrames>,
     pub channel_switches: Mutex<ChannelSwitchTable>,
-    pub alerts: Mutex<Vec<Dot11Alert>>
+    pub alerts: Mutex<Vec<Dot11Alert>>,
+    dropped_declared_frequencies: AtomicU64
 }
 
 #[derive(Debug)]
@@ -132,7 +135,22 @@ pub struct AdvertisedNetwork {
     pub wps: Vec<bool>,
     pub signal_strengths: HashMap<u16, Vec<i8>>,
     pub infrastructure_types: Vec<InfraStructureType>,
-    pub channel_statistics: HashMap<u16, HashMap<FrameSubType, Dot11ChannelStatistics>>
+    pub channel_statistics: HashMap<u16, HashMap<FrameSubType, Dot11ChannelStatistics>>,
+    pub declared_frequencies: HashMap<u16, u64>
+}
+
+impl AdvertisedNetwork {
+
+    fn register_declared_frequency(&mut self, frequency: u16) -> bool {
+        if self.declared_frequencies.len() >= MAX_DECLARED_FREQUENCIES_PER_NETWORK
+            && !self.declared_frequencies.contains_key(&frequency) {
+            return false;
+        }
+
+        *self.declared_frequencies.entry(frequency).or_insert(0) += 1;
+        true
+    }
+
 }
 
 impl Dot11Table {
@@ -144,6 +162,7 @@ impl Dot11Table {
             connection_frames: Mutex::new(ConnectionFrames::default()),
             channel_switches: Mutex::new(ChannelSwitchTable::default()),
             alerts: Mutex::new(Vec::new()),
+            dropped_declared_frequencies: AtomicU64::new(0),
             leaderlink,
             metrics
         }
@@ -226,6 +245,7 @@ impl Dot11Table {
                               capabilities: Dot11Capabilities
     ) {
         let signal_strength: i8 = header.antenna_signal.unwrap_or(0);
+        let declared_frequency = sent_on(header.frequency, tagged_parameters.current_frequency);
 
         match self.bssids.lock() {
             Ok(mut bssids) => {
@@ -267,6 +287,12 @@ impl Dot11Table {
                                             FrameSubType::Beacon, header.frequency, length, ssid
                                         );
 
+                                        if let Some(frequency) = declared_frequency {
+                                            if !ssid.register_declared_frequency(frequency) {
+                                                self.dropped_declared_frequencies.fetch_add(1, Ordering::Relaxed);
+                                            }
+                                        }
+
                                         if let Some(freq) = &header.frequency {
                                             match ssid.signal_strengths.get_mut(freq) {
                                                 Some(ss) => ss.push(signal_strength),
@@ -307,7 +333,10 @@ impl Dot11Table {
                                                 infrastructure_types: vec![capabilities.infrastructure_type],
                                                 channel_statistics: Self::build_initial_channel_statistics(
                                                     FrameSubType::Beacon, &header.frequency, length
-                                                )
+                                                ),
+                                                declared_frequencies: declared_frequency.into_iter()
+                                                    .map(|frequency| (frequency, 1))
+                                                    .collect()
                                             },
                                         );
                                     }
@@ -354,7 +383,10 @@ impl Dot11Table {
                                         infrastructure_types: vec![capabilities.infrastructure_type],
                                         channel_statistics: Self::build_initial_channel_statistics(
                                             FrameSubType::Beacon, &header.frequency, length
-                                        )
+                                        ),
+                                        declared_frequencies: declared_frequency.into_iter()
+                                            .map(|frequency| (frequency, 1))
+                                            .collect()
                                     },
                                 )]),
                                 0,
@@ -708,6 +740,13 @@ impl Dot11Table {
         // Clean up.
         clear_mutex_hashmap(&self.bssids);
         clear_mutex_hashmap(&self.clients);
+        match self.metrics.lock() {
+            Ok(mut metrics) => metrics.set_gauge(
+                "tables.dot11.bssids.declared_frequencies.dropped",
+                self.dropped_declared_frequencies.swap(0, Ordering::Relaxed) as i128
+            ),
+            Err(e) => error!("Could not acquire metrics mutex: {}", e)
+        }
         match self.disco.lock() {
             Ok(mut disco) => {
                 match self.metrics.lock() {
@@ -882,7 +921,8 @@ impl Dot11Table {
                             ),
                             signal_histogram: calculate_signal_histogram(&netinfo.signal_strengths),
                             infrastructure_types,
-                            channel_statistics
+                            channel_statistics,
+                            declared_frequencies: netinfo.declared_frequencies.clone()
                         },
                     );
                 }
@@ -1079,6 +1119,55 @@ fn calculate_signal_histogram(signal_strengths: &HashMap<u16, Vec<i8>>) -> HashM
     }
 
     histograms
+}
+
+#[cfg(test)]
+mod declared_frequency_tests {
+    use std::collections::HashMap;
+
+    use super::{AdvertisedNetwork, MAX_DECLARED_FREQUENCIES_PER_NETWORK};
+
+    fn network() -> AdvertisedNetwork {
+        AdvertisedNetwork {
+            security: Vec::new(),
+            beacon_advertisements: 0,
+            proberesp_advertisements: 0,
+            fingerprints: Vec::new(),
+            rates: Vec::new(),
+            wps: Vec::new(),
+            signal_strengths: HashMap::new(),
+            infrastructure_types: Vec::new(),
+            channel_statistics: HashMap::new(),
+            declared_frequencies: HashMap::new()
+        }
+    }
+
+    #[test]
+    fn counts_frames_per_declared_frequency() {
+        let mut network = network();
+
+        assert!(network.register_declared_frequency(2437));
+        assert!(network.register_declared_frequency(2437));
+        assert!(network.register_declared_frequency(5180));
+
+        assert_eq!(network.declared_frequencies, HashMap::from([(2437, 2), (5180, 1)]));
+    }
+
+    #[test]
+    fn keeps_counting_known_frequencies_when_full() {
+        let mut network = network();
+
+        for i in 0..MAX_DECLARED_FREQUENCIES_PER_NETWORK as u16 {
+            assert!(network.register_declared_frequency(5180 + i * 20));
+        }
+
+        assert!(!network.register_declared_frequency(2412));
+        assert!(network.register_declared_frequency(5180));
+
+        assert_eq!(network.declared_frequencies.len(), MAX_DECLARED_FREQUENCIES_PER_NETWORK);
+        assert_eq!(network.declared_frequencies[&5180], 2);
+        assert!(!network.declared_frequencies.contains_key(&2412));
+    }
 }
 
 #[cfg(test)]
