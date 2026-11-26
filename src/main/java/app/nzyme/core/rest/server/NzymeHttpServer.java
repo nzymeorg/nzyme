@@ -197,6 +197,7 @@ public class NzymeHttpServer {
         resourceConfig.register(BanditsResource.class);
         resourceConfig.register(Dot11DiscoResource.class);
         resourceConfig.register(Dot11ChannelSwitchesResource.class);
+        resourceConfig.register(Dot11DiscoAnomaliesResource.class);
         resourceConfig.register(AssetContextResource.class);
         resourceConfig.register(Dot11LocationsResource.class);
         resourceConfig.register(SocksResource.class);

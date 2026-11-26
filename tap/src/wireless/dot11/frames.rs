@@ -354,7 +354,7 @@ pub struct Dot11DeauthenticationFrame {
     pub destination: String,
     pub transmitter: String,
     pub bssid: String,
-    pub reason_code: u16
+    pub details: DisconnectionFrameDetails
 }
 
 #[derive(Debug)]
@@ -364,7 +364,71 @@ pub struct Dot11DisassociationFrame {
     pub destination: String,
     pub transmitter: String,
     pub bssid: String,
-    pub reason_code: u16
+    pub details: DisconnectionFrameDetails
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DisconnectionFrameDetails {
+    pub reason_code: Option<u16>,
+    pub protected: bool,
+    pub retry: bool,
+    pub has_order_bit: bool,
+    pub sequence_number: u16,
+    pub has_integrity_element: bool
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ConnectionFrameType {
+    Authentication,
+    AssociationRequest,
+    AssociationResponse,
+    ReassociationRequest,
+    ReassociationResponse,
+    EapolStart,
+    EapolLogoff,
+    EapRequest,
+    EapResponse,
+    EapSuccess,
+    EapFailure,
+    Handshake1,
+    Handshake2,
+    Handshake3,
+    Handshake4
+}
+
+impl ConnectionFrameType {
+    pub fn report_name(&self) -> &'static str {
+        match self {
+            ConnectionFrameType::Authentication => "AUTHENTICATION",
+            ConnectionFrameType::AssociationRequest => "ASSOCIATION_REQUEST",
+            ConnectionFrameType::AssociationResponse => "ASSOCIATION_RESPONSE",
+            ConnectionFrameType::ReassociationRequest => "REASSOCIATION_REQUEST",
+            ConnectionFrameType::ReassociationResponse => "REASSOCIATION_RESPONSE",
+            ConnectionFrameType::EapolStart => "EAPOL_START",
+            ConnectionFrameType::EapolLogoff => "EAPOL_LOGOFF",
+            ConnectionFrameType::EapRequest => "EAP_REQUEST",
+            ConnectionFrameType::EapResponse => "EAP_RESPONSE",
+            ConnectionFrameType::EapSuccess => "EAP_SUCCESS",
+            ConnectionFrameType::EapFailure => "EAP_FAILURE",
+            ConnectionFrameType::Handshake1 => "HANDSHAKE_1",
+            ConnectionFrameType::Handshake2 => "HANDSHAKE_2",
+            ConnectionFrameType::Handshake3 => "HANDSHAKE_3",
+            ConnectionFrameType::Handshake4 => "HANDSHAKE_4"
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Dot11ConnectionFrame {
+    pub header: RadiotapHeader,
+    pub frame_type: ConnectionFrameType,
+    pub receiver: String,
+    pub transmitter: String,
+    pub bssid: String,
+    pub algorithm: Option<u16>,
+    pub transaction: Option<u16>,
+    pub status_code: Option<u16>,
+    pub retry: bool
 }
 
 #[derive(Debug)]

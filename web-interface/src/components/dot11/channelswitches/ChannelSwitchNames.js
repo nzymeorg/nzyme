@@ -5,6 +5,7 @@ export const CHANNEL_SWITCH_ANOMALIES = [
   "REPEATED_TIMESTAMP",
   "TIMESTAMP_MISMATCH",
   "INTERLEAVED_BEACONS",
+  "SIGNAL_MISMATCH",
   "STATIC_COUNT",
   "TRAILING_ELEMENT"
 ];
@@ -16,6 +17,7 @@ export const CHANNEL_SWITCH_MONITOR_RULES = [
   "REPEATED_TIMESTAMP",
   "TIMESTAMP_MISMATCH",
   "INTERLEAVED_BEACONS",
+  "SIGNAL_MISMATCH",
   "BURST_RATE",
   "NOT_FOLLOWED"
 ];
@@ -65,6 +67,8 @@ export function channelSwitchAnomalyToName(anomaly) {
       return "Timestamp Mismatch";
     case "INTERLEAVED_BEACONS":
       return "Interleaved Beacons";
+    case "SIGNAL_MISMATCH":
+      return "Signal Strength Mismatch";
     case "STATIC_COUNT":
       return "Static Count";
     case "TRAILING_ELEMENT":
@@ -84,6 +88,8 @@ export function channelSwitchAnomalyDescription(anomaly) {
       return "The timestamps of the beacons with the announcement do not continue the clock of the access point.";
     case "INTERLEAVED_BEACONS":
       return "Beacons without the announcement kept arriving between frames with it.";
+    case "SIGNAL_MISMATCH":
+      return "Frames with the announcement arrived much stronger or weaker than the beacons of the access point.";
     case "STATIC_COUNT":
       return "The countdown did not change over many beacons.";
     case "TRAILING_ELEMENT":

@@ -23,10 +23,11 @@ public abstract class ConnectedClientDetailsResponse {
     @JsonProperty("probe_request_ssids")
     public abstract List<String> probeRequests();
 
+    @Nullable
     @JsonProperty("signal_strength_average")
-    public abstract double signalStrengthAverage();
+    public abstract Double signalStrengthAverage();
 
-    public static ConnectedClientDetailsResponse create(Dot11MacAddressResponse mac, DateTime lastSeen, Dot11MacAddressResponse connectedBSSID, List<String> probeRequests, double signalStrengthAverage) {
+    public static ConnectedClientDetailsResponse create(Dot11MacAddressResponse mac, DateTime lastSeen, Dot11MacAddressResponse connectedBSSID, List<String> probeRequests, Double signalStrengthAverage) {
         return builder()
                 .mac(mac)
                 .lastSeen(lastSeen)
@@ -50,7 +51,7 @@ public abstract class ConnectedClientDetailsResponse {
 
         public abstract Builder probeRequests(List<String> probeRequests);
 
-        public abstract Builder signalStrengthAverage(double signalStrengthAverage);
+        public abstract Builder signalStrengthAverage(Double signalStrengthAverage);
 
         public abstract ConnectedClientDetailsResponse build();
     }

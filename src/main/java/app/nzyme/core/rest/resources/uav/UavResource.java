@@ -82,7 +82,7 @@ public class UavResource extends TapDataHandlingResource {
                             @Parameter(description = "Page offset.") @QueryParam("offset") int offset,
                             @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
-                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -132,7 +132,7 @@ public class UavResource extends TapDataHandlingResource {
                             @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
                             @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
                             @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
-                            @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+                            @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -165,7 +165,7 @@ public class UavResource extends TapDataHandlingResource {
                                   @Parameter(description = "Identifier of the UAV as reported by the taps.") @PathParam("identifier") String uavIdentifier,
                                   @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
                                   @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
-                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds,
+                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String tapIds,
                                   @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                   @Parameter(description = "Page size.") @QueryParam("limit") int limit,
                                   @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
@@ -248,7 +248,7 @@ public class UavResource extends TapDataHandlingResource {
                                        @Parameter(description = "Timeline UUID.") @PathParam("timeline_id") UUID timelineId,
                                        @Parameter(description = "Organization UUID.") @PathParam("organization_id") UUID organizationId,
                                        @Parameter(description = "Tenant UUID.") @PathParam("tenant_id") UUID tenantId,
-                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String tapIds) {
+                                       @Parameter(description = "Has no effect. The vectors of the timeline are returned whatever taps recorded them.") @QueryParam("taps") String tapIds) {
         if (!passedTenantDataAccessible(sc, organizationId, tenantId)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }

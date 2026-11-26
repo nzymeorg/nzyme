@@ -25,6 +25,16 @@ function ThreeColumnHistogram(props) {
 
   const columnFilterElements = props.columnFilterElements ? props.columnFilterElements : [];
 
+  const columnPivotElements = props.columnPivotElements ? props.columnPivotElements : [];
+
+  const withPivot = (filter, index, row) => {
+    if (!columnPivotElements[index]) {
+      return filter;
+    }
+
+    return <React.Fragment>{filter}{columnPivotElements[index](row)}</React.Fragment>
+  }
+
   const orderColumnOneIsKey = props.orderColumnOneIsKey === undefined ? false : props.orderColumnOneIsKey;
   const orderColumn = props.orderColumn;
   const setOrderColumn = props.setOrderColumn;
@@ -182,17 +192,17 @@ function ThreeColumnHistogram(props) {
                     <td className="text-muted">{i+1}</td>
                     <td>
                       <HistogramValue value={d.column_one}
-                                      filterElement={filterElement(columnFilterElements[0], d.column_one)}
+                                      filterElement={withPivot(filterElement(columnFilterElements[0], d.column_one), 0, d)}
                                       highlightValue={highlightValue} />
                     </td>
                     <td>
                       <HistogramValue value={d.column_two}
-                                      filterElement={filterElement(columnFilterElements[1], d.column_two)}
+                                      filterElement={withPivot(filterElement(columnFilterElements[1], d.column_two), 1, d)}
                                       highlightValue={highlightValue} />
                     </td>
                     <td>
                       <HistogramValue value={d.column_three}
-                                      filterElement={filterElement(columnFilterElements[2], d.column_three)}
+                                      filterElement={withPivot(filterElement(columnFilterElements[2], d.column_three), 2, d)}
                                       highlightValue={highlightValue} />
                     </td>
                   </tr>

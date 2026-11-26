@@ -72,7 +72,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
     public Response connectedClients(@Parameter(hidden = true) @Context SecurityContext sc,
                                      @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                      @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
-                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                     @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                                      @Parameter(description = "Sorting column. Omit to sort by last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                                      @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                      @Parameter(description = "Page size.") @QueryParam("limit") int limit,
@@ -161,7 +161,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                                         @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
                                         @Parameter(description = "Set to true to leave out clients with a randomized MAC address.") @QueryParam("skip_randomized") boolean skipRandomized,
                                         @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
-                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                        @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                                         @Parameter(description = "Sorting column. Omit to sort by last seen.") @QueryParam("order_column") @Nullable String orderColumnParam,
                                         @Parameter(description = "Sorting direction, ASC or DESC.") @QueryParam("order_direction") @Nullable String orderDirectionParam,
                                         @Parameter(description = "Page size.") @QueryParam("limit") int limit,
@@ -230,7 +230,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
     public Response connectedHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
                                        @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                        @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
-                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
+                                       @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -261,7 +261,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
                                           @Parameter(description = "JSON encoded filter definition as produced by the web interface filter builder.") @QueryParam("filters") String filtersParameter,
                                           @Parameter(description = "Set to true to leave out clients with a randomized MAC address.") @QueryParam("skip_randomized") boolean skipRandomized,
                                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
-                                          @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
+                                          @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
@@ -294,7 +294,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
     @ApiResponse(responseCode = "404", description = "No tap the user can access recorded this client.", content = @Content)
     public Response client(@Parameter(hidden = true) @Context SecurityContext sc,
                            @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
-                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
 
@@ -462,7 +462,7 @@ public class Dot11ClientsResource extends TapDataHandlingResource {
     public Response clientFrameCountHistogram(@Parameter(hidden = true) @Context SecurityContext sc,
                                               @Parameter(description = "Client MAC address.") @PathParam("clientMac") @NotEmpty String clientMac,
                                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
-                                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps) {
+                                              @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
         List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
         TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);

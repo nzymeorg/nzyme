@@ -54,6 +54,8 @@ function AlertDetails(props) {
       return <MonitorDiscoAnomalyAlertDetails alert={alert} />
     case "DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES":
       return <MonitorChannelSwitchAnomalyAlertDetails alert={alert} />
+    case "DOT11_CHANNEL_SWITCH_ANOMALIES":
+      return <MonitorChannelSwitchAnomalyAlertDetails alert={alert} monitored={false} />
     case "DOT11_MONITOR_MULTIPLE_CHANNELS":
       return <MonitorMultipleChannelsAlertDetails alert={alert} />
     case "DOT11_BANDIT_CONTACT":

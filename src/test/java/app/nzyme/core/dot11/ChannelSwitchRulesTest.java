@@ -35,7 +35,7 @@ public class ChannelSwitchRulesTest {
     }
 
     private static Integer newFrequency(Integer frequency, Integer operatingClass, int channel) {
-        return ChannelSwitchRules.newFrequency(frequency, operatingClass, channel, false);
+        return ChannelSwitchRules.newFrequency(frequency, operatingClass, channel);
     }
 
     private static boolean isInvalidChannel(Integer frequency, Integer operatingClass, int channel) {
@@ -57,10 +57,13 @@ public class ChannelSwitchRulesTest {
 
     @Test
     public void testChannelsThatDoNotExistInTheBand() {
-        for (int channel : new int[]{0, 14, 15, 36, 255}) {
+        for (int channel : new int[]{0, 15, 36, 255}) {
             assertNull(newFrequency(2437, null, channel), "2.4 GHz channel " + channel);
             assertTrue(isInvalidChannel(2437, null, channel), "2.4 GHz channel " + channel);
         }
+
+        assertEquals(newFrequency(2437, null, 14), Integer.valueOf(2484));
+        assertTrue(isInvalidChannel(2437, null, 14));
 
         for (int channel : new int[]{0, 1, 14, 34, 38, 68, 96, 148, 150, 166, 181}) {
             assertNull(newFrequency(5180, null, channel), "5 GHz channel " + channel);
@@ -108,7 +111,7 @@ public class ChannelSwitchRulesTest {
                 toChannel14("BEACON", true, "US"),
                 toChannel14("PROBE_RESPONSE", false, "JP"),
                 toChannel14("BEACON", null, "DE"))) {
-            assertNull(ChannelSwitchRules.newFrequency(report));
+            assertEquals(ChannelSwitchRules.newFrequency(report), Integer.valueOf(2484));
             assertEquals(ChannelSwitchRules.anomalies(report), List.of(ChannelSwitchAnomaly.INVALID_CHANNEL));
         }
     }

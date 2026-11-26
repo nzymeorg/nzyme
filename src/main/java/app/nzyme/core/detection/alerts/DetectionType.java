@@ -53,6 +53,7 @@ public enum DetectionType {
     DOT11_MONITOR_SSID_SUBSTRING("WiFi Network Monitor: SSID includes a forbidden substring", Subsystem.DOT11),
 
     // Other Dot11 alerts.
+    DOT11_CHANNEL_SWITCH_ANOMALIES("Channel Switch Announcement Anomalies detected", Subsystem.DOT11),
     DOT11_BANDIT_CONTACT("WiFi Bandit detected", Subsystem.DOT11),
     DOT11_PROBEREQ("Monitored probe request detected", Subsystem.DOT11),
     DOT11_UNAPPROVED_SSID("Unapproved SSID detected", Subsystem.DOT11),

@@ -458,10 +458,18 @@ const ApiRoutes = {
       DETAILS: (mac) => `/dot11/clients/show/${mac}`
     },
     DISCO: {
-      INDEX: '/dot11/disco'
+      INDEX: '/dot11/disco',
+      ANOMALIES: {
+        INDEX: '/dot11/disco/anomalies',
+        DETAILS: (uuid) => `/dot11/disco/anomalies/show/${uuid}`
+      },
+      SIGNAL: '/dot11/disco/signal',
+      SETTINGS: '/dot11/disco/settings'
     },
     CHANNEL_SWITCHES: {
-      INDEX: '/dot11/channelswitches'
+      INDEX: '/dot11/channelswitches',
+      SIGNAL: '/dot11/channelswitches/signal',
+      SETTINGS: '/dot11/channelswitches/settings'
     }
   },
   BLUETOOTH: {

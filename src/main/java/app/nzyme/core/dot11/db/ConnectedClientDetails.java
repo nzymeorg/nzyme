@@ -1,6 +1,7 @@
 package app.nzyme.core.dot11.db;
 
 import com.google.auto.value.AutoValue;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
 @AutoValue
@@ -9,6 +10,7 @@ public abstract class ConnectedClientDetails {
     public abstract String clientMac();
     public abstract String bssid();
     public abstract DateTime lastSeen();
+    @Nullable
     public abstract Double signalStrength();
 
     public static ConnectedClientDetails create(String clientMac, String bssid, DateTime lastSeen, Double signalStrength) {

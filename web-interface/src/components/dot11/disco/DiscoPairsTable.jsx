@@ -6,6 +6,8 @@ import ThreeColumnHistogram from "../../widgets/histograms/ThreeColumnHistogram"
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinner";
 import {DISCO_FILTER_FIELDS} from "./DiscoFilterFields";
+import PivotLink from "../../shared/PivotLink";
+import {discoSignalPairLink} from "./signal/DiscoSignalLinks";
 
 const dot11Service = new Dot11Service();
 
@@ -42,6 +44,13 @@ export default function DiscoPairsTable({timeRange, filters, setFilters, bssids,
                                  setFilters ? {field: "transmitter", fields: DISCO_FILTER_FIELDS, setFilters: setFilters} : null,
                                  setFilters ? {field: "receiver", fields: DISCO_FILTER_FIELDS, setFilters: setFilters} : null,
                                  null
+                               ]}
+                               columnPivotElements={[
+                                 null,
+                                 (row) => <PivotLink to={discoSignalPairLink(row.column_one.value, row.column_two.value, timeRange)}
+                                                     title="Signal strength investigation of the frames of this pair"
+                                                     icon={true}
+                                                     className="ms-2 small" />
                                ]}
                                customChartMarginLeft={235}
                                orderColumn={orderColumn}

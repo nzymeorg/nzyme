@@ -20,6 +20,8 @@ import {MONITORING_MENU_ITEMS} from "../dot11/monitoring/Dot11MonitoringMenuItem
 import {BLUETOOTH_MONITORING_MENU_ITEMS} from "../bluetooth/monitoring/BluetoothMonitoringMenuItems";
 import {DASHBOARDS_MENU_ITEMS} from "../dashboards/DashboardsMenuItems";
 import {DATABASE_MENU_ITEMS} from "../system/database/DatabaseMenuItems";
+import {DISCO_MENU_ITEMS} from "../dot11/disco/DiscoMenuItems";
+import {CHANNEL_SWITCH_MENU_ITEMS} from "../dot11/channelswitches/ChannelSwitchMenuItems";
 import {MINIMUM_QUERY_LENGTH} from "./searchQuery";
 
 const anyone = () => true;
@@ -76,10 +78,10 @@ const SECTIONS = [
 
   {path: ["WiFi"], show: subsystem("dot11"), items: [
     {name: "Briefing", href: ApiRoutes.DOT11.OVERVIEW, keywords: "overview 802.11"},
-    {name: "Access Points", href: ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, keywords: "bssid ssid networks 802.11"},
-    {name: "Disconnections", href: ApiRoutes.DOT11.DISCO.INDEX, keywords: "deauthentication disassociation deauth 802.11"},
-    {name: "Channel Switches", href: ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX, keywords: "channel switch announcement csa ecsa 802.11"}
+    {name: "Access Points", href: ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, keywords: "bssid ssid networks 802.11"}
   ]},
+  {path: ["WiFi", "Channel Switches"], show: subsystem("dot11"), items: CHANNEL_SWITCH_MENU_ITEMS, keywords: "channel switch announcement csa ecsa 802.11"},
+  {path: ["WiFi", "Disconnections"], show: subsystem("dot11"), items: DISCO_MENU_ITEMS, keywords: "deauthentication disassociation deauth 802.11"},
   {path: ["WiFi", "Clients"], show: subsystem("dot11"), items: CLIENTS_MENU_ITEMS, keywords: "stations 802.11"},
   {path: ["WiFi", "Monitoring"], show: subsystem("dot11", "dot11_monitoring_manage"), items: MONITORING_MENU_ITEMS, keywords: "802.11"},
 

@@ -108,7 +108,13 @@ import CreateCustomBanditPage from "./components/dot11/monitoring/bandits/Create
 import CustomBanditDetailsPage from "./components/dot11/monitoring/bandits/CustomBanditDetailsPage";
 import EditCustomBanditPage from "./components/dot11/monitoring/bandits/EditCustomBanditPage";
 import DiscoPage from "./components/dot11/disco/DiscoPage";
+import DiscoAnomaliesPage from "./components/dot11/disco/anomalies/DiscoAnomaliesPage";
+import DiscoAnomalyDetailsPage from "./components/dot11/disco/anomalies/DiscoAnomalyDetailsPage";
+import DiscoSettingsPage from "./components/dot11/disco/DiscoSettingsPage";
+import DiscoSignalPage from "./components/dot11/disco/signal/DiscoSignalPage";
 import ChannelSwitchesPage from "./components/dot11/channelswitches/ChannelSwitchesPage";
+import ChannelSwitchSettingsPage from "./components/dot11/channelswitches/ChannelSwitchSettingsPage";
+import ChannelSwitchSignalPage from "./components/dot11/channelswitches/ChannelSwitchSignalPage";
 import ChannelSwitchConfigurationPage from "./components/dot11/monitoring/ChannelSwitchConfigurationPage";
 import ConfigureDiscoDetectionMethodPage
   from "./components/dot11/monitoring/disco/configuration/ConfigureDiscoDetectionMethodPage";
@@ -926,9 +932,19 @@ function App() {
 
                                 { /* 802.11/Disco. */}
                                 <Route path={ApiRoutes.DOT11.DISCO.INDEX} element={<DiscoPage />}/>
+                                <Route path={ApiRoutes.DOT11.DISCO.ANOMALIES.INDEX} element={<DiscoAnomaliesPage />}/>
+                                <Route path={ApiRoutes.DOT11.DISCO.ANOMALIES.DETAILS(':uuid')} element={<DiscoAnomalyDetailsPage />}/>
+                                <Route path={ApiRoutes.DOT11.DISCO.SIGNAL} element={<DiscoSignalPage />}/>
+                                <Route element={<ProtectedRoute execute={userHasPermission(userInformation, "dot11_monitoring_manage")} />}>
+                                  <Route path={ApiRoutes.DOT11.DISCO.SETTINGS} element={<DiscoSettingsPage />}/>
+                                </Route>
 
                                 { /* 802.11/Channel Switches. */}
                                 <Route path={ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX} element={<ChannelSwitchesPage />}/>
+                                <Route path={ApiRoutes.DOT11.CHANNEL_SWITCHES.SIGNAL} element={<ChannelSwitchSignalPage />}/>
+                                <Route element={<ProtectedRoute execute={userHasPermission(userInformation, "dot11_monitoring_manage")} />}>
+                                  <Route path={ApiRoutes.DOT11.CHANNEL_SWITCHES.SETTINGS} element={<ChannelSwitchSettingsPage />}/>
+                                </Route>
                               </Route>
 
                               { /* Bluetooth. */ }

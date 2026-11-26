@@ -8,6 +8,8 @@ import app.nzyme.core.dot11.channelswitches.ChannelSwitchMonitorRule;
 import app.nzyme.core.dot11.channelswitches.ChannelSwitchOutcome;
 import app.nzyme.core.dot11.channelswitches.ChannelSwitchRules;
 import app.nzyme.core.dot11.db.*;
+import app.nzyme.core.dot11.disco.DiscoAnomalies;
+import app.nzyme.core.dot11.signal.FrameSignalAnalysis;
 import app.nzyme.core.dot11.db.filters.Dot11BSSIDFilters;
 import app.nzyme.core.dot11.db.filters.Dot11ChannelSwitchFilters;
 import app.nzyme.core.dot11.db.filters.Dot11ConnectedClientFilters;
@@ -46,10 +48,13 @@ import com.google.common.collect.Sets;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.statement.Query;
 import org.jdbi.v3.core.statement.SqlStatement;
+import org.jdbi.v3.core.statement.StatementContext;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
 import java.sql.Array;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -67,6 +72,8 @@ public class Dot11 {
     }};
 
     private final NzymeNode nzyme;
+    private final DiscoAnomalies discoAnomalies;
+    private final FrameSignalAnalysis frameSignalAnalysis;
 
     public enum BssidOrderColumn {
 
@@ -260,6 +267,16 @@ public class Dot11 {
 
     public Dot11(NzymeNode nzyme) {
         this.nzyme = nzyme;
+        this.discoAnomalies = new DiscoAnomalies(nzyme);
+        this.frameSignalAnalysis = new FrameSignalAnalysis(nzyme);
+    }
+
+    public FrameSignalAnalysis frameSignalAnalysis() {
+        return frameSignalAnalysis;
+    }
+
+    public DiscoAnomalies discoAnomalies() {
+        return discoAnomalies;
     }
 
     public Dot11MacAddressMetadata getMacAddressMetadata(String macAddress, List<UUID> taps) {
@@ -995,7 +1012,7 @@ public class Dot11 {
                                 "AND b.tap_uuid IN (<taps>) " + filterFragment.whereSql() +
                                 "GROUP BY c.client_mac, b.bssid " +
                                 "HAVING c.client_mac IS NOT NULL " + filterFragment.havingSql() +
-                                "ORDER BY <order_column> <order_direction> " +
+                                "ORDER BY <order_column> <order_direction> NULLS LAST " +
                                 "LIMIT :limit OFFSET :offset")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
@@ -1515,7 +1532,8 @@ public class Dot11 {
                                 "FROM dot11_bssid_clients AS c " +
                                 "LEFT JOIN dot11_bssids AS b on b.id = c.bssid_id " +
                                 "LEFT JOIN taps AS t ON b.tap_uuid = t.uuid " +
-                                "WHERE c.client_mac = :client_mac AND b.tap_uuid IN (<taps>) " +
+                                "WHERE c.client_mac = :client_mac AND c.signal_strength_average IS NOT NULL " +
+                                "AND b.tap_uuid IN (<taps>) " +
                                 "AND b.created_at >= :tr_from AND b.created_at <= :tr_to " +
                                 "GROUP BY b.tap_uuid, t.name")
                         .bind("client_mac", clientMac)
@@ -1557,7 +1575,8 @@ public class Dot11 {
                                 "DATE_TRUNC(:date_trunc, b.created_at) AS bucket " +
                                 "FROM dot11_bssid_clients AS c " +
                                 "LEFT JOIN dot11_bssids AS b ON b.id = c.bssid_id " +
-                                "WHERE c.client_mac = :client_mac AND b.tap_uuid = :tap_uuid " +
+                                "WHERE c.client_mac = :client_mac AND c.signal_strength_average IS NOT NULL " +
+                                "AND b.tap_uuid = :tap_uuid " +
                                 "AND b.created_at >= :tr_from AND b.created_at <= :tr_to " +
                                 "GROUP BY bucket ORDER BY bucket DESC")
                         .bind("client_mac", clientMac)
@@ -1602,7 +1621,8 @@ public class Dot11 {
                                 "FROM dot11_bssid_clients AS c " +
                                 "LEFT JOIN dot11_bssids AS b on b.id = c.bssid_id " +
                                 "LEFT JOIN taps AS t ON tap_uuid = t.uuid " +
-                                "WHERE c.client_mac = :client_mac AND b.tap_uuid IN (<taps>) " +
+                                "WHERE c.client_mac = :client_mac AND c.signal_strength_average IS NOT NULL " +
+                                "AND b.tap_uuid IN (<taps>) " +
                                 "AND b.created_at >= :tr_from AND b.created_at <= :tr_to " +
                                 "GROUP BY b.tap_uuid, tap_name, bucket ORDER BY bucket DESC")
                         .bind("client_mac", clientMac)
@@ -2336,6 +2356,7 @@ public class Dot11 {
                 bindBssidScopedQuery(handle.createQuery("SELECT reason_code, SUM(frame_count) AS frame_count " +
                                 "FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND reason_code IS NOT NULL " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids) +
                                 "GROUP BY reason_code ORDER BY <order_column> <order_direction> " +
@@ -2363,6 +2384,7 @@ public class Dot11 {
         return nzyme.getDatabase().withHandle(handle ->
                 bindBssidScopedQuery(handle.createQuery("SELECT COUNT(DISTINCT reason_code) FROM dot11_disco_frames " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND reason_code IS NOT NULL " +
                                 "AND tap_uuid IN (<taps>) " + filterFragment.whereSql() + " " +
                                 discoBssidRestriction(bssids)),
                         timeRange, taps, filterFragment, bssids)
@@ -2686,6 +2708,82 @@ public class Dot11 {
         );
     }
 
+    public int closeChannelSwitchSignalJudgements(DateTime now, DateTime announcedBefore) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("UPDATE dot11_channel_switches SET signal_judged_at = :now " +
+                                "WHERE signal_judged_at IS NULL AND (signal_histograms IS NULL " +
+                                "OR created_at < :announced_before)")
+                        .bind("now", now)
+                        .bind("announced_before", announcedBefore)
+                        .execute()
+        );
+    }
+
+    public List<TenantId> findTenantsWithUnjudgedChannelSwitchSignals(DateTime announcedBefore) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT DISTINCT t.organization_id, t.tenant_id FROM taps AS t " +
+                                "WHERE t.deleted = false AND t.uuid IN (SELECT cs.tap_uuid " +
+                                "FROM dot11_channel_switches AS cs WHERE cs.signal_judged_at IS NULL " +
+                                "AND cs.created_at < :announced_before)")
+                        .bind("announced_before", announcedBefore)
+                        .map((rs, ctx) -> new TenantId(
+                                UUID.fromString(rs.getString("organization_id")),
+                                UUID.fromString(rs.getString("tenant_id"))
+                        ))
+                        .list()
+        );
+    }
+
+    public int judgeChannelSwitchSignals(List<UUID> taps, DateTime now, DateTime announcedAfter,
+                                         DateTime announcedBefore, int minimumDifference, int limit) {
+        if (taps.isEmpty()) {
+            return 0;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createUpdate("UPDATE dot11_channel_switches AS cs SET signal_judged_at = :now, " +
+                                "anomalies = CASE WHEN judged.mismatch AND NOT (:signal_mismatch = ANY(cs.anomalies)) " +
+                                "THEN array_append(cs.anomalies, :signal_mismatch) ELSE cs.anomalies END FROM (" +
+                                "WITH pending AS (SELECT id, tap_uuid, bssid, created_at, signal_histograms " +
+                                "FROM dot11_channel_switches WHERE signal_judged_at IS NULL " +
+                                "AND tap_uuid IN (<taps>) AND created_at >= :announced_after " +
+                                "AND created_at < :announced_before ORDER BY created_at LIMIT :limit), " +
+                                "frames AS (SELECT p.id, p.tap_uuid, p.bssid, " +
+                                "date_trunc('minute', p.created_at) AS minute, f.key::int AS frequency, " +
+                                "v.key::int AS signal FROM pending p " +
+                                "CROSS JOIN LATERAL jsonb_each(p.signal_histograms) f " +
+                                "CROSS JOIN LATERAL jsonb_each_text(f.value) v), " +
+                                "wanted AS (SELECT DISTINCT tap_uuid, bssid, frequency, minute FROM frames), " +
+                                FrameSignalAnalysis.beaconsCte("{tap} IN (<taps>) AND ({tap}, {bssid}, {frequency}) " +
+                                        "IN (SELECT tap_uuid, bssid, frequency FROM wanted)") + ", " +
+                                FrameSignalAnalysis.BEACON_MINUTES + ", " +
+                                "compared AS (SELECT w.tap_uuid, w.bssid, w.frequency, w.minute, " +
+                                "SUM(r.signal_sum)::float / SUM(r.frames) AS reference FROM wanted w " +
+                                "JOIN beacon_minutes r ON r.tap_uuid = w.tap_uuid AND r.bssid = w.bssid " +
+                                "AND r.frequency = w.frequency AND r.minute <= w.minute " +
+                                "AND r.minute >= w.minute - make_interval(mins => :reference_minutes) " +
+                                "GROUP BY w.tap_uuid, w.bssid, w.frequency, w.minute " +
+                                "HAVING SUM(r.frames) >= :minimum_reference_frames) " +
+                                "SELECT p.id, EXISTS (SELECT 1 FROM frames f JOIN compared c " +
+                                "ON c.tap_uuid = f.tap_uuid AND c.bssid = f.bssid AND c.frequency = f.frequency " +
+                                "AND c.minute = f.minute WHERE f.id = p.id " +
+                                "AND ABS(f.signal - c.reference) >= :minimum_difference) AS mismatch FROM pending p" +
+                                ") AS judged WHERE cs.id = judged.id AND cs.signal_judged_at IS NULL")
+                        .bindList("taps", taps)
+                        .bind("now", now)
+                        .bind("signal_mismatch", ChannelSwitchAnomaly.SIGNAL_MISMATCH.name())
+                        .bind("announced_after", announcedAfter)
+                        .bind("announced_before", announcedBefore)
+                        .bind("reference_from", announcedAfter.minusMinutes(FrameSignalAnalysis.REFERENCE_MINUTES + 1))
+                        .bind("reference_to", announcedBefore)
+                        .bind("reference_minutes", FrameSignalAnalysis.REFERENCE_MINUTES)
+                        .bind("minimum_reference_frames", FrameSignalAnalysis.MINIMUM_REFERENCE_FRAMES)
+                        .bind("minimum_difference", minimumDifference)
+                        .bind("limit", limit)
+                        .execute()
+        );
+    }
+
     private static final String CHANNEL_SWITCH_NETWORK_SELECTION_SQL =
             "WHERE created_at >= :tr_from AND created_at <= :tr_to AND tap_uuid IN (<taps>) " +
                     "AND bssid IN (<bssids>) ";
@@ -2973,7 +3071,8 @@ public class Dot11 {
                                           String frameType,
                                           int newChannel,
                                           @Nullable Integer frequency,
-                                          DateTime latest) { }
+                                          DateTime latest,
+                                          List<String> ssids) { }
 
     // One row per tap and BSSID, however many announcements a flood left behind.
     public List<AlertingChannelSwitches> findAlertingChannelSwitches(List<UUID> taps,
@@ -2985,10 +3084,74 @@ public class Dot11 {
             return Collections.emptyList();
         }
 
+        return nzyme.getDatabase().withHandle(handle -> alertingChannelSwitches(
+                handle, "cs.bssid IN (<bssids>)", "", taps, since, burstThreshold, disabledRules
+        ).bindList("bssids", bssids).map(Dot11::alertingChannelSwitches).list());
+    }
+
+    public List<AlertingChannelSwitches> findAlertingChannelSwitchesOfOtherNetworks(List<UUID> taps,
+                                                                                   UUID organizationId,
+                                                                                   UUID tenantId,
+                                                                                   DateTime since,
+                                                                                   int burstThreshold,
+                                                                                   Set<ChannelSwitchMonitorRule> disabledRules,
+                                                                                   int limit) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle -> alertingChannelSwitches(
+                handle,
+                "NOT EXISTS (SELECT 1 FROM dot11_monitored_networks AS mn " +
+                        "JOIN dot11_monitored_networks_bssids AS mb ON mb.monitored_network_id = mn.id " +
+                        "WHERE mn.organization_id = :organization_id AND mn.tenant_id = :tenant_id " +
+                        "AND UPPER(mb.bssid) = cs.bssid)",
+                "ORDER BY MAX(cs.frame_count) DESC, cs.bssid, cs.tap_uuid LIMIT :limit",
+                taps, since, burstThreshold, disabledRules
+        )
+                .bind("organization_id", organizationId)
+                .bind("tenant_id", tenantId)
+                .bind("limit", limit)
+                .map(Dot11::alertingChannelSwitches)
+                .list());
+    }
+
+    private static AlertingChannelSwitches alertingChannelSwitches(ResultSet rs, StatementContext ctx)
+            throws SQLException {
+        Array anomalies = rs.getArray("anomalies");
+        Array ssids = rs.getArray("ssids");
+
+        return new AlertingChannelSwitches(
+                UUID.fromString(rs.getString("tap_uuid")),
+                rs.getString("bssid"),
+                anomalies == null ? List.of() : Arrays.asList((String[]) anomalies.getArray()),
+                rs.getInt("peak_frames_per_second"),
+                rs.getBoolean("not_followed"),
+                new DateTime(rs.getTimestamp("earliest")),
+                rs.getString("frame_type"),
+                rs.getInt("new_channel"),
+                rs.getObject("frequency", Integer.class),
+                new DateTime(rs.getTimestamp("latest")),
+                ssids == null ? List.of() : Arrays.asList((String[]) ssids.getArray())
+        );
+    }
+
+    private static final int CHANNEL_SWITCH_SSIDS_PER_BSSID = 5;
+
+    private Query alertingChannelSwitches(Handle handle,
+                                          String selection,
+                                          String orderAndLimit,
+                                          List<UUID> taps,
+                                          DateTime since,
+                                          int burstThreshold,
+                                          Set<ChannelSwitchMonitorRule> disabledRules) {
         ChannelSwitchHighlight highlight = ChannelSwitchHighlight.monitor(disabledRules);
 
-        return nzyme.getDatabase().withHandle(handle ->
-                highlight.bind(handle.createQuery("SELECT cs.tap_uuid, cs.bssid, " +
+        return highlight.bind(handle.createQuery("SELECT g.*, (SELECT ARRAY_AGG(n.ssid) FROM (" +
+                                "SELECT DISTINCT s.ssid FROM dot11_ssids AS s WHERE s.tap_uuid = g.tap_uuid " +
+                                "AND s.bssid = g.bssid AND s.created_at > :ssids_since AND s.ssid IS NOT NULL " +
+                                "ORDER BY s.ssid LIMIT :ssids_limit) AS n) AS ssids FROM (" +
+                                "SELECT cs.tap_uuid, cs.bssid, " +
                                 "ARRAY_AGG(DISTINCT a.anomaly) FILTER (WHERE a.anomaly IS NOT NULL) AS anomalies, " +
                                 "MAX(cs.peak_frames_per_second) AS peak_frames_per_second, " +
                                 "COALESCE(BOOL_OR(cs.outcome IN (<not_followed_outcomes>)), false) AS not_followed, " +
@@ -2999,32 +3162,18 @@ public class Dot11 {
                                 "MAX(cs.created_at) AS latest " +
                                 "FROM dot11_channel_switches AS cs " +
                                 "LEFT JOIN LATERAL UNNEST(cs.anomalies) AS a(anomaly) ON true " +
-                                "WHERE cs.tap_uuid IN (<taps>) AND cs.bssid IN (<bssids>) AND " +
-                                highlight.conditionSql("cs.created_at > :since", "cs.outcome_at > :since") + " " +
-                                "GROUP BY cs.tap_uuid, cs.bssid"), burstThreshold)
+                                "WHERE cs.tap_uuid IN (<taps>) AND " + selection + " AND " +
+                                // A signal strength judgement adds an anomaly a minute or two after the announcement.
+                                highlight.conditionSql("(cs.created_at > :since OR cs.signal_judged_at > :since)",
+                                        "cs.outcome_at > :since") + " " +
+                                "GROUP BY cs.tap_uuid, cs.bssid " + orderAndLimit + ") AS g"), burstThreshold)
                         .bindList("taps", taps)
-                        .bindList("bssids", bssids)
                         .bind("since", since)
+                        .bind("ssids_since", since.minusMinutes(10))
+                        .bind("ssids_limit", CHANNEL_SWITCH_SSIDS_PER_BSSID)
                         .bindList("not_followed_outcomes", List.of(
                                 ChannelSwitchOutcome.STAYED.name(), ChannelSwitchOutcome.BOTH_CHANNELS.name()
-                        ))
-                        .map((rs, ctx) -> {
-                            Array anomalies = rs.getArray("anomalies");
-                            return new AlertingChannelSwitches(
-                                    UUID.fromString(rs.getString("tap_uuid")),
-                                    rs.getString("bssid"),
-                                    anomalies == null ? List.of() : Arrays.asList((String[]) anomalies.getArray()),
-                                    rs.getInt("peak_frames_per_second"),
-                                    rs.getBoolean("not_followed"),
-                                    new DateTime(rs.getTimestamp("earliest")),
-                                    rs.getString("frame_type"),
-                                    rs.getInt("new_channel"),
-                                    rs.getObject("frequency", Integer.class),
-                                    new DateTime(rs.getTimestamp("latest"))
-                            );
-                        })
-                        .list()
-        );
+                        ));
     }
 
     public Dot11DiscoMonitorMethodConfiguration getDiscoMonitorMethodConfiguration(long monitoredNetworkId) {

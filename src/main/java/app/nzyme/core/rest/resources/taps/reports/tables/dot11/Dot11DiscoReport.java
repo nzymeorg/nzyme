@@ -12,12 +12,15 @@ import java.util.List;
 public abstract class Dot11DiscoReport {
 
     public abstract List<Dot11DiscoFrameReport> frames();
+    public abstract List<Dot11FrameOverflowReport> overflow();
 
     // Taps older than the per-frame report send "deauth" and "disassoc" maps instead, which are ignored.
     @JsonCreator
-    public static Dot11DiscoReport create(@JsonProperty("frames") @Nullable List<Dot11DiscoFrameReport> frames) {
+    public static Dot11DiscoReport create(@JsonProperty("frames") @Nullable List<Dot11DiscoFrameReport> frames,
+                                          @JsonProperty("overflow") @Nullable List<Dot11FrameOverflowReport> overflow) {
         return builder()
                 .frames(frames == null ? Collections.emptyList() : frames)
+                .overflow(overflow == null ? Collections.emptyList() : overflow)
                 .build();
     }
 
@@ -28,6 +31,8 @@ public abstract class Dot11DiscoReport {
     @AutoValue.Builder
     public abstract static class Builder {
         public abstract Builder frames(List<Dot11DiscoFrameReport> frames);
+
+        public abstract Builder overflow(List<Dot11FrameOverflowReport> overflow);
 
         public abstract Dot11DiscoReport build();
     }

@@ -10,7 +10,10 @@ import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorC
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import usePageTitle from "../../../util/UsePageTitle";
 import RenderConditionally from "../../misc/RenderConditionally";
+import SectionMenuBar from "../../shared/SectionMenuBar";
+import ApiRoutes from "../../../util/ApiRoutes";
 import {CHANNEL_SWITCH_FILTER_FIELDS} from "./ChannelSwitchFilterFields";
+import {CHANNEL_SWITCH_MENU_ITEMS} from "./ChannelSwitchMenuItems";
 import ChannelSwitchFramesHistogram from "./ChannelSwitchFramesHistogram";
 import ChannelSwitchHistogram from "./ChannelSwitchHistogram";
 import ChannelSwitchAnnouncements from "./ChannelSwitchAnnouncements";
@@ -40,7 +43,7 @@ export default function ChannelSwitchesPage() {
       <React.Fragment>
         <div className="row">
           <div className="col-md-12">
-            <h1>Channel Switch Announcements</h1>
+            <SectionMenuBar items={CHANNEL_SWITCH_MENU_ITEMS} activeRoute={ApiRoutes.DOT11.CHANNEL_SWITCHES.INDEX} />
           </div>
         </div>
 

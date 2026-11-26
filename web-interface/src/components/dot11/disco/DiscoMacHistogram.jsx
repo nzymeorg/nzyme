@@ -6,10 +6,13 @@ import GenericWidgetLoadingSpinner from "../../widgets/GenericWidgetLoadingSpinn
 import TwoColumnHistogram from "../../widgets/histograms/TwoColumnHistogram";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 import {DISCO_FILTER_FIELDS} from "./DiscoFilterFields";
+import PivotLink from "../../shared/PivotLink";
+import {discoSignalLink} from "./signal/DiscoSignalLinks";
 
 const dot11Service = new Dot11Service();
 
-export default function DiscoMacHistogram({histogramType, columnTitle, timeRange, filters, setFilters, bssids, revision}) {
+export default function DiscoMacHistogram({histogramType, columnTitle, timeRange, filters, setFilters, bssids, revision,
+                                            signalPivot}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -44,6 +47,12 @@ export default function DiscoMacHistogram({histogramType, columnTitle, timeRange
                                setFilters ? {field: filterField, fields: DISCO_FILTER_FIELDS, setFilters: setFilters} : null,
                                null
                              ]}
+                             columnPivotElements={signalPivot ? [
+                               (row) => <PivotLink to={discoSignalLink([row.column_one.value], timeRange)}
+                                                   title="Signal strength investigation of this transmitter"
+                                                   icon={true}
+                                                   className="ms-2 small" />
+                             ] : null}
                              orderColumn={orderColumn}
                              setOrderColumn={setOrderColumn}
                              orderDirection={orderDirection}

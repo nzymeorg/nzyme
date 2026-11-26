@@ -15,7 +15,9 @@ public abstract class DiscoFrameEntry {
     public abstract String transmitter();
     public abstract String receiver();
     public abstract String bssid();
-    public abstract int reasonCode();
+    @Nullable
+    public abstract Integer reasonCode();
+    public abstract boolean isProtected();
     @Nullable
     public abstract Integer frequency();
     @Nullable
@@ -25,9 +27,11 @@ public abstract class DiscoFrameEntry {
     @Nullable
     public abstract Float signalStrengthAverage();
     public abstract long frameCount();
+    public abstract long retryFrames();
+    public abstract int pairSequenceNumbers();
     public abstract DateTime createdAt();
 
-    public static DiscoFrameEntry create(long id, UUID tapUuid, String discoType, String transmitter, String receiver, String bssid, int reasonCode, Integer frequency, Integer signalStrengthMin, Integer signalStrengthMax, Float signalStrengthAverage, long frameCount, DateTime createdAt) {
+    public static DiscoFrameEntry create(long id, UUID tapUuid, String discoType, String transmitter, String receiver, String bssid, Integer reasonCode, boolean isProtected, Integer frequency, Integer signalStrengthMin, Integer signalStrengthMax, Float signalStrengthAverage, long frameCount, long retryFrames, int pairSequenceNumbers, DateTime createdAt) {
         return builder()
                 .id(id)
                 .tapUuid(tapUuid)
@@ -36,11 +40,14 @@ public abstract class DiscoFrameEntry {
                 .receiver(receiver)
                 .bssid(bssid)
                 .reasonCode(reasonCode)
+                .isProtected(isProtected)
                 .frequency(frequency)
                 .signalStrengthMin(signalStrengthMin)
                 .signalStrengthMax(signalStrengthMax)
                 .signalStrengthAverage(signalStrengthAverage)
                 .frameCount(frameCount)
+                .retryFrames(retryFrames)
+                .pairSequenceNumbers(pairSequenceNumbers)
                 .createdAt(createdAt)
                 .build();
     }
@@ -63,7 +70,9 @@ public abstract class DiscoFrameEntry {
 
         public abstract Builder bssid(String bssid);
 
-        public abstract Builder reasonCode(int reasonCode);
+        public abstract Builder reasonCode(Integer reasonCode);
+
+        public abstract Builder isProtected(boolean isProtected);
 
         public abstract Builder frequency(Integer frequency);
 
@@ -74,6 +83,10 @@ public abstract class DiscoFrameEntry {
         public abstract Builder signalStrengthAverage(Float signalStrengthAverage);
 
         public abstract Builder frameCount(long frameCount);
+
+        public abstract Builder retryFrames(long retryFrames);
+
+        public abstract Builder pairSequenceNumbers(int pairSequenceNumbers);
 
         public abstract Builder createdAt(DateTime createdAt);
 

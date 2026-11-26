@@ -83,12 +83,14 @@ function ConnectedClientsTable(props) {
                   </td>
                   <td>{client.mac.oui ? client.mac.oui : <span className="text-muted">Unknown</span>}</td>
                   <td>
-                    <SignalStrength strength={client.signal_strength_average}
-                                    selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length}
-                                    filterElement={<FilterValueIcon setFilters={setFilters}
-                                                                    fields={CONNECTED_CLIENT_FILTER_FIELDS}
-                                                                    field="signal_strength"
-                                                                    value={Math.round(client.signal_strength_average)} />} />
+                    {client.signal_strength_average === null || client.signal_strength_average === undefined ?
+                        <span className="text-muted" title="The taps recorded no frames this client sent.">Unknown</span>
+                        : <SignalStrength strength={client.signal_strength_average}
+                                          selectedTapCount={selectedTaps === "*" ? null : selectedTaps.length}
+                                          filterElement={<FilterValueIcon setFilters={setFilters}
+                                                                          fields={CONNECTED_CLIENT_FILTER_FIELDS}
+                                                                          field="signal_strength"
+                                                                          value={Math.round(client.signal_strength_average)} />} />}
                   </td>
                   <td>
                     <Dot11MacAddress addressWithContext={client.connected_bssid}

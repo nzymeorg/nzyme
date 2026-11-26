@@ -12,6 +12,8 @@ import BSSIDChannelUsageHistogram from "./BSSIDChannelUsageHistogram";
 import DiscoPairsTable from "../disco/DiscoPairsTable";
 import DiscoHistogram from "../disco/DiscoHistogram";
 import ChannelSwitchAnnouncements from "../channelswitches/ChannelSwitchAnnouncements";
+import DiscoAnomalies from "../disco/anomalies/DiscoAnomalies";
+import {discoAnomaliesLink} from "../disco/signal/DiscoSignalLinks";
 import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import Dot11MacAddress from "../../shared/context/macs/Dot11MacAddress";
 import MacAddressContextLine from "../../shared/context/macs/details/MacAddressContextLine";
@@ -49,6 +51,7 @@ function BSSIDDetailsPage() {
   const [discoFramesTimeRange, setDiscoFramesTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [discoPairsTimeRange, setDiscoPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [channelSwitchesTimeRange, setChannelSwitchesTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "channel_switches");
+  const [discoAnomaliesTimeRange, setDiscoAnomaliesTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disco_anomalies");
 
   const [waterfallFrequency, setWaterfallFrequency] = useState(0);
 
@@ -453,6 +456,26 @@ function BSSIDDetailsPage() {
                 <ChannelSwitchAnnouncements bssids={[bssid.summary.bssid.address]}
                                             timeRange={channelSwitchesTimeRange}
                                             perPage={10} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Disconnection Anomalies"
+                                       urlKey="disco_anomalies"
+                                       timeRange={discoAnomaliesTimeRange}
+                                       setTimeRange={setDiscoAnomaliesTimeRange}
+                                       internalLink={discoAnomaliesLink(bssid.summary.bssid.address, null,
+                                           discoAnomaliesTimeRange)}
+                                       helpLink="https://go.nzyme.org/disco-anomalies" />
+
+                <DiscoAnomalies filters={macFilter("bssid", bssid.summary.bssid.address)}
+                                timeRange={discoAnomaliesTimeRange}
+                                perPage={10} />
               </div>
             </div>
           </div>

@@ -26,6 +26,8 @@ public class Dot11DiscoFilters implements SqlFilterProvider {
                 return GeneratedSql.create(numericMatch(bindId, "frequency", operator), "");
             case "signal_strength":
                 return GeneratedSql.create(numericMatch(bindId, "signal_strength_average", operator), "");
+            case "is_protected":
+                return GeneratedSql.create(booleanMatch(bindId, "is_protected", operator), "");
             case "is_broadcast":
                 return GeneratedSql.create(
                         booleanMatch(bindId, "(receiver = '" + Dot11.BROADCAST_MAC + "')", operator), ""

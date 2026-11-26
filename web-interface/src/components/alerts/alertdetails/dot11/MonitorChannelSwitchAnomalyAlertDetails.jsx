@@ -19,6 +19,7 @@ function MonitorChannelSwitchAnomalyAlertDetails(props) {
 
   const alert = props.alert;
   const attributes = alert.attributes;
+  const monitored = props.monitored !== false;
 
   const anomalies = attributes.anomalies ? attributes.anomalies.split(",") : [];
   const peakRate = parseInt(attributes.peak_frames_per_second, 10);
@@ -60,6 +61,11 @@ function MonitorChannelSwitchAnomalyAlertDetails(props) {
                   <dd>
                     <Link to={ApiRoutes.DOT11.NETWORKS.BSSIDS.DETAILS(attributes.bssid)}>{attributes.bssid}</Link>
                   </dd>
+                  {monitored ? null :
+                      <React.Fragment>
+                        <dt>Advertised Networks</dt>
+                        <dd>{attributes.ssids ? attributes.ssids : <span className="text-muted">None recorded</span>}</dd>
+                      </React.Fragment>}
                   <dt>Channel</dt>
                   <dd>{channel()}</dd>
                   <dt>Announced Channel</dt>
@@ -83,9 +89,9 @@ function MonitorChannelSwitchAnomalyAlertDetails(props) {
                 </dl>
 
                 <p className="mb-0 mt-2">
-                  Channel switch announcements for a monitored access point do not look like the access point sent
-                  them. Forged announcements move or disconnect clients, also on networks that protect their
-                  management frames.
+                  Channel switch announcements for {monitored ? "a monitored access point" : "an access point that is in "
+                    + "no monitored network"} do not look like the access point sent them. Forged announcements move
+                  or disconnect clients, also on networks that protect their management frames.
                 </p>
               </div>
             </div>
@@ -103,8 +109,11 @@ function MonitorChannelSwitchAnomalyAlertDetails(props) {
                 <ul className="mb-0">
                   <li>Two or more access points use the same BSSID.</li>
                   <li>An access point restarted shortly before it announced a switch.</li>
-                  <li>The threshold of the channel switch monitor is lower than the beacon rate of its access
-                    points.</li>
+                  <li>
+                    {monitored
+                        ? "The threshold of the channel switch monitor is lower than the beacon rate of its access points."
+                        : "The rate threshold for networks that are not monitored is lower than the beacon rate of the access point."}
+                  </li>
                   <li>An access point announced a switch and cancelled it, or returned to its channel within
                     minutes.</li>
                 </ul>

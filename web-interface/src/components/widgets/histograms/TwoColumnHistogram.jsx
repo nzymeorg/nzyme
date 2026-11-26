@@ -23,6 +23,16 @@ function TwoColumnHistogram(props) {
 
   const columnFilterElements = props.columnFilterElements ? props.columnFilterElements : [];
 
+  const columnPivotElements = props.columnPivotElements ? props.columnPivotElements : [];
+
+  const withPivot = (filter, index, row) => {
+    if (!columnPivotElements[index]) {
+      return filter;
+    }
+
+    return <React.Fragment>{filter}{columnPivotElements[index](row)}</React.Fragment>
+  }
+
   const orderColumn = props.orderColumn;
   const setOrderColumn = props.setOrderColumn;
   const orderDirection = props.orderDirection;
@@ -175,11 +185,11 @@ function TwoColumnHistogram(props) {
                     <td className="text-muted">{i+1}</td>
                     <td>
                       <HistogramValue value={d.column_one}
-                                      filterElement={filterElement(columnFilterElements[0], d.column_one)} />
+                                      filterElement={withPivot(filterElement(columnFilterElements[0], d.column_one), 0, d)} />
                     </td>
                     <td>
                       <HistogramValue value={d.column_two}
-                                      filterElement={filterElement(columnFilterElements[1], d.column_two)} />
+                                      filterElement={withPivot(filterElement(columnFilterElements[1], d.column_two), 1, d)} />
                     </td>
                   </tr>
               )

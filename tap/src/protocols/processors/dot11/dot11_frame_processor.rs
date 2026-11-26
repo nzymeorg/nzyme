@@ -4,13 +4,13 @@ use std::sync::{Arc, Mutex};
 
 use log::{error, info, trace};
 
-use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11ChannelSwitchActionFrame, Dot11DataFrame, Dot11DeauthenticationFrame, Dot11Frame, Dot11ProbeRequestFrame, FrameSubType};
+use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11ChannelSwitchActionFrame, Dot11ConnectionFrame, Dot11DataFrame, Dot11DeauthenticationFrame, Dot11Frame, Dot11ProbeRequestFrame, FrameSubType};
 use crate::alerting::alert_types::{Dot11Alert, AlertAttribute, Dot11AlertType};
 use crate::messagebus::bus::Bus;
 use crate::metrics::Metrics;
 use crate::wireless::dot11::frames::{Dot11DisassociationFrame, Dot11ProbeResponseFrame, PwnagotchiData};
-use crate::protocols::parsers::dot11::management::{action_frame_parser, disassociation_frame_parser, probe_response_frame_parser};
-use crate::protocols::parsers::dot11::data::data_frame_parser;
+use crate::protocols::parsers::dot11::management::{action_frame_parser, connection_frame_parser, disassociation_frame_parser, probe_response_frame_parser};
+use crate::protocols::parsers::dot11::data::{data_frame_parser, eapol_frame_parser};
 use crate::protocols::parsers::dot11::management::{beacon_frame_parser, deauthentication_frame_parser, probe_request_frame_parser};
 use crate::state::tables::dot11_table::Dot11Table;
 
@@ -77,18 +77,38 @@ impl Dot11FrameProcessor {
                 FrameSubType::QosDataCfAckCfPoll |
                 FrameSubType::QosCfPoll |
                 FrameSubType::QosCfAckCfPoll => {
+                    // Before the client statistics, so that a failure there does not lose a handshake message.
+                    match eapol_frame_parser::parse(&frame) {
+                        Ok(Some(frame)) => self.handle_connection_frame(frame),
+                        Ok(None) => {},
+                        Err(e) => trace!("Could not parse EAPOL frame: {}", e)
+                    }
+
                     match data_frame_parser::parse(&frame) {
                         Ok(frame) => self.handle_data_frame(frame),
                         Err(e) => trace!("Could not parse data frame: {}", e)
                     }
                 },
+                // Data subtypes nobody sends anymore, which receivers still take as data.
+                FrameSubType::Reserved if eapol_frame_parser::is_data_with_body(&frame.payload) => {
+                    match eapol_frame_parser::parse(&frame) {
+                        Ok(Some(frame)) => self.handle_connection_frame(frame),
+                        Ok(None) => {},
+                        Err(e) => trace!("Could not parse EAPOL frame: {}", e)
+                    }
+                },
+                FrameSubType::Authentication |
                 FrameSubType::AssociationRequest |
                 FrameSubType::AssociationResponse |
                 FrameSubType::ReAssociationRequest |
-                FrameSubType::ReAssociationResponse |
+                FrameSubType::ReAssociationResponse => {
+                    match connection_frame_parser::parse(&frame) {
+                        Ok(frame) => self.handle_connection_frame(frame),
+                        Err(e) => trace!("Could not parse connection frame: {}", e)
+                    }
+                },
                 FrameSubType::TimingAdvertisement |
                 FrameSubType::Atim |
-                FrameSubType::Authentication |
                 FrameSubType::ActionNoAck |
                 FrameSubType::Trigger |
                 FrameSubType::Tack |
@@ -158,6 +178,13 @@ impl Dot11FrameProcessor {
     fn handle_data_frame(&self, frame: Dot11DataFrame) {
         match self.dot11_table.lock() {
             Ok(table) => table.register_data_frame(frame),
+            Err(e) => error!("Could not acquire 802.11 table lock: {}", e)
+        }
+    }
+
+    fn handle_connection_frame(&self, frame: Dot11ConnectionFrame) {
+        match self.dot11_table.lock() {
+            Ok(table) => table.register_connection_frame(frame),
             Err(e) => error!("Could not acquire 802.11 table lock: {}", e)
         }
     }

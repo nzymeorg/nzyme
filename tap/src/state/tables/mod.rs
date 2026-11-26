@@ -7,6 +7,7 @@ pub mod tcp_table;
 pub mod udp_table;
 pub mod dot11_table;
 pub mod dot11_channel_switch_table;
+pub mod dot11_frame_tables;
 pub mod tables;
 pub mod table_helpers;
 pub mod uav_table;

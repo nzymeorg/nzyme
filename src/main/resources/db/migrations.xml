@@ -14019,4 +14019,221 @@
         </createIndex>
     </changeSet>
 
+    <changeSet id="add_protection_and_sequence_columns_to_dot11_disco_frames" author="lennartkoopmann">
+        <dropNotNullConstraint tableName="dot11_disco_frames" columnName="reason_code" columnDataType="integer" />
+
+        <addColumn tableName="dot11_disco_frames">
+            <column name="is_protected" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false" />
+            </column>
+            <column name="retry_frames" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="pair_sequence_numbers" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="integrity_frames" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="order_frames" type="integer" defaultValueNumeric="0">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamptz" />
+            <column name="last_seen" type="timestamptz" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_dot11_connection_frames" author="lennartkoopmann">
+        <createTable tableName="dot11_connection_frames">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_type" type="varchar(32)">
+                <constraints nullable="false" />
+            </column>
+            <column name="transmitter" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="receiver" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="algorithm" type="integer" />
+            <column name="transaction" type="integer" />
+            <column name="status_code" type="integer" />
+            <column name="frequency" type="integer" />
+            <column name="signal_strength_min" type="integer" />
+            <column name="signal_strength_max" type="integer" />
+            <column name="signal_strength_average" type="float" />
+            <column name="frame_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="retry_frames" type="integer">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_connection_frames" indexName="dot11_connection_frames_tap_uuid_created_at_idx">
+            <column name="tap_uuid" />
+            <column name="created_at" />
+        </createIndex>
+        <createIndex tableName="dot11_connection_frames" indexName="dot11_connection_frames_bssid_created_at_idx">
+            <column name="bssid" />
+            <column name="created_at" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="create_dot11_disco_anomalies" author="lennartkoopmann">
+        <createTable tableName="dot11_disco_anomalies">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="uuid" type="uuid" defaultValueComputed="gen_random_uuid()">
+                <constraints nullable="false" unique="true" uniqueConstraintName="dot11_disco_anomalies_uuid_key" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="anomaly_type" type="varchar(48)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="client" type="varchar(17)" />
+            <column name="first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="evaluated_until" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="frames_from_bssid" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="peak" type="integer" />
+            <column name="threshold" type="integer" />
+            <column name="reason_codes" type="integer[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_types" type="text[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="sample_clients" type="text[]">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_disco_anomalies" indexName="dot11_disco_anomalies_tap_uuid_last_seen_idx">
+            <column name="tap_uuid" />
+            <column name="last_seen" />
+        </createIndex>
+        <createIndex tableName="dot11_disco_anomalies" indexName="dot11_disco_anomalies_bssid_last_seen_idx">
+            <column name="bssid" />
+            <column name="last_seen" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_signal_strengths_to_dot11_disco_anomalies" author="lennartkoopmann">
+        <addColumn tableName="dot11_disco_anomalies">
+            <column name="signal_strength" type="float" />
+            <column name="reference_signal_strength" type="float" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_signal_histogram_to_dot11_disco_frames" author="lennartkoopmann">
+        <addColumn tableName="dot11_disco_frames">
+            <column name="signal_histogram" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_signal_by_frequency_to_dot11_clients" author="lennartkoopmann">
+        <addColumn tableName="dot11_clients">
+            <column name="signal_by_frequency" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_signal_by_frequency_to_dot11_bssid_clients" author="lennartkoopmann">
+        <dropDefaultValue tableName="dot11_bssid_clients" columnName="signal_strength_average" />
+        <dropDefaultValue tableName="dot11_bssid_clients" columnName="signal_strength_min" />
+        <dropDefaultValue tableName="dot11_bssid_clients" columnName="signal_strength_max" />
+        <dropNotNullConstraint tableName="dot11_bssid_clients" columnName="signal_strength_average" />
+        <dropNotNullConstraint tableName="dot11_bssid_clients" columnName="signal_strength_min" />
+        <dropNotNullConstraint tableName="dot11_bssid_clients" columnName="signal_strength_max" />
+
+        <addColumn tableName="dot11_bssid_clients">
+            <column name="signal_by_frequency" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="create_dot11_frame_overflows" author="lennartkoopmann">
+        <createTable tableName="dot11_frame_overflows">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_type" type="varchar(32)">
+                <constraints nullable="false" />
+            </column>
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+            <column name="frame_count" type="bigint">
+                <constraints nullable="false" />
+            </column>
+            <column name="first_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="last_seen" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="timestamptz">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_frame_overflows" indexName="dot11_frame_overflows_tap_uuid_created_at_idx">
+            <column name="tap_uuid" />
+            <column name="created_at" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_signal_judgement_to_dot11_channel_switches" author="lennartkoopmann">
+        <addColumn tableName="dot11_channel_switches">
+            <column name="signal_histograms" type="jsonb" />
+            <column name="signal_judged_at" type="timestamptz" />
+        </addColumn>
+
+        <createIndex tableName="dot11_channel_switches" indexName="dot11_channel_switches_signal_judged_at_idx">
+            <column name="signal_judged_at" />
+        </createIndex>
+    </changeSet>
+
 </databaseChangeLog>

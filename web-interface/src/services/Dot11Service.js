@@ -348,6 +348,79 @@ class Dot11Service {
         })
   }
 
+  findDiscoAnomalies(organizationId, tenantId, timeRange, filters, taps, orderColumn, orderDirection, limit, offset, setAnomalies) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/dot11/disco/anomalies",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          order_column: orderColumn, order_direction: orderDirection, limit: limit, offset: offset },
+        (response) => setAnomalies(response.data))
+  }
+
+  getDiscoAnomaliesHistogram(timeRange, filters, taps, setHistogram) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/dot11/disco/anomalies/histogram", { time_range: timeRange, filters: filters, taps: tapsList },
+        (response) => setHistogram(response.data))
+  }
+
+  findDiscoAnomaly(uuid, organizationId, tenantId, setAnomaly, onError = undefined) {
+    RESTClient.get(`/dot11/disco/anomalies/show/${uuid}`, { organization_id: organizationId, tenant_id: tenantId },
+        (response) => setAnomaly(response.data), onError)
+  }
+
+  findDiscoAnomalyConnectionFrames(uuid, organizationId, tenantId, limit, offset, setFrames, onError = undefined) {
+    RESTClient.get(`/dot11/disco/anomalies/show/${uuid}/frames/connection`,
+        { organization_id: organizationId, tenant_id: tenantId, limit: limit, offset: offset },
+        (response) => setFrames(response.data), onError)
+  }
+
+  getFrameSignalAnalysis(path, organizationId, tenantId, timeRange, filters, taps, limit, offset, setAnalysis, onError = undefined) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(path,
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          limit: limit, offset: offset },
+        (response) => setAnalysis(response.data), onError)
+  }
+
+  getFrameSignalCharts(path, organizationId, tenantId, timeRange, filters, taps, selection, setCharts, onError = undefined) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(path + "/charts",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, filters: filters, taps: tapsList,
+          charts: selection ? selection.join(",") : null },
+        (response) => setCharts(response.data), onError)
+  }
+
+  findFrameSignalTransmitters(path, organizationId, tenantId, timeRange, taps, limit, offset, setTransmitters, onError = undefined) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get(path + "/transmitters",
+        { organization_id: organizationId, tenant_id: tenantId, time_range: timeRange, taps: tapsList, limit: limit, offset: offset },
+        (response) => setTransmitters(response.data), onError)
+  }
+
+  getDiscoAnomalyDetectionConfiguration(organizationId, tenantId, setConfiguration) {
+    RESTClient.get(`/dot11/disco/anomalies/organization/${organizationId}/tenant/${tenantId}/configuration`, {},
+        (response) => setConfiguration(response.data))
+  }
+
+  updateDiscoAnomalyDetectionConfiguration(newConfig, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/dot11/disco/anomalies/organization/${organizationId}/tenant/${tenantId}/configuration`,
+        {change: newConfig}, successCallback, errorCallback)
+  }
+
+  getChannelSwitchAlertConfiguration(organizationId, tenantId, setConfiguration) {
+    RESTClient.get(`/dot11/channelswitches/organization/${organizationId}/tenant/${tenantId}/configuration`, {},
+        (response) => setConfiguration(response.data))
+  }
+
+  updateChannelSwitchAlertConfiguration(newConfig, organizationId, tenantId, successCallback, errorCallback) {
+    RESTClient.put(`/dot11/channelswitches/organization/${organizationId}/tenant/${tenantId}/configuration`,
+        {change: newConfig}, successCallback, errorCallback)
+  }
+
   getDiscoMacHistogram(histogramType, organizationId, tenantId, timeRange, filters, taps, bssids, orderColumn, orderDirection, limit, offset, setData) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
     const bssidList = bssids ? bssids.join(",") : null

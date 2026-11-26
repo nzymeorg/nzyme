@@ -25,8 +25,11 @@ public final class ChannelSwitchRules {
     // Long enough for a tap to hop through all of its channels at least once.
     public static final int OUTCOME_EVIDENCE_MINUTES = 5;
 
+    public static final int BURST_THRESHOLD_DEFAULT = 50;
     public static final int BURST_THRESHOLD_MINIMUM = 10;
     public static final int BURST_THRESHOLD_MAXIMUM = 1000;
+
+    private static final int CHANNEL_14_FREQUENCY = 2484;
 
     private enum Band { GHZ_2_4, GHZ_5, GHZ_6 }
 
@@ -42,16 +45,14 @@ public final class ChannelSwitchRules {
 
     @Nullable
     public static Integer newFrequency(Dot11ChannelSwitchReport report) {
-        return newFrequency(report.frequency(), report.newOperatingClass(), report.newChannel(),
-                channel14Usable(report.dsssOnly(), report.countryCode()));
+        return newFrequency(report.frequency(), report.newOperatingClass(), report.newChannel());
     }
 
-    // Empty if the band is unknown or the access point cannot operate on the channel.
+    // Empty if the band is unknown or has no such channel. Says nothing about who may operate there.
     @Nullable
     public static Integer newFrequency(@Nullable Integer frequency,
                                        @Nullable Integer operatingClass,
-                                       int channel,
-                                       boolean channel14Usable) {
+                                       int channel) {
         Band band = band(frequency, operatingClass);
         if (band == null) {
             return null;
@@ -60,7 +61,7 @@ public final class ChannelSwitchRules {
         return switch (band) {
             case GHZ_2_4 -> {
                 if (channel == 14) {
-                    yield channel14Usable ? 2484 : null;
+                    yield CHANNEL_14_FREQUENCY;
                 }
 
                 yield channel >= 1 && channel <= 13 ? 2407 + channel * 5 : null;
@@ -80,8 +81,13 @@ public final class ChannelSwitchRules {
                                            @Nullable Integer operatingClass,
                                            int channel,
                                            boolean channel14Usable) {
-        return band(frequency, operatingClass) != null
-                && newFrequency(frequency, operatingClass, channel, channel14Usable) == null;
+        if (band(frequency, operatingClass) == null) {
+            return false;
+        }
+
+        Integer newFrequency = newFrequency(frequency, operatingClass, channel);
+
+        return newFrequency == null || (newFrequency == CHANNEL_14_FREQUENCY && !channel14Usable);
     }
 
     private static boolean isFiveGhzChannel(int channel) {

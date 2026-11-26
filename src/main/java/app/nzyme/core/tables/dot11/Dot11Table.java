@@ -5,6 +5,7 @@ import app.nzyme.core.detection.alerts.AlertOrigin;
 import app.nzyme.core.detection.alerts.DetectionType;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.channelswitches.ChannelSwitchRules;
+import app.nzyme.core.dot11.disco.ConnectionFrameType;
 import app.nzyme.core.dot11.db.monitoring.*;
 import app.nzyme.core.dot11.bandits.Dot11BanditDescription;
 import app.nzyme.core.dot11.bandits.Dot11Bandits;
@@ -48,6 +49,7 @@ public class Dot11Table implements DataTable {
     private final Timer bssidReportTimer;
     private final Timer clientsReportTimer;
     private final Timer discoReportTimer;
+    private final Timer connectionFramesReportTimer;
     private final Timer channelSwitchReportTimer;
     private final Timer alertTimer;
 
@@ -63,6 +65,8 @@ public class Dot11Table implements DataTable {
                 .timer(MetricNames.DOT11_CLIENTS_REPORT_PROCESSING_TIMER);
         this.discoReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DOT11_DISCO_REPORT_PROCESSING_TIMER);
+        this.connectionFramesReportTimer = tablesService.getNzyme().getMetrics()
+                .timer(MetricNames.DOT11_CONNECTION_FRAMES_REPORT_PROCESSING_TIMER);
         this.channelSwitchReportTimer = tablesService.getNzyme().getMetrics()
                 .timer(MetricNames.DOT11_CHANNEL_SWITCH_REPORT_PROCESSING_TIMER);
         this.alertTimer = tablesService.getNzyme().getMetrics()
@@ -90,6 +94,11 @@ public class Dot11Table implements DataTable {
                 writeDisco(tap.get(), timestamp, report.disco());
             }
 
+            try (Timer.Context ignored2 = connectionFramesReportTimer.time()) {
+                writeConnectionFrames(tap.get(), timestamp, report.connectionFrames());
+                writeFrameOverflows(tap.get(), timestamp, report.disco().overflow(), report.connectionFrameOverflow());
+            }
+
             try (Timer.Context ignored2 = channelSwitchReportTimer.time()) {
                 writeChannelSwitches(tap.get(), timestamp, report.channelSwitches());
             }
@@ -113,9 +122,10 @@ public class Dot11Table implements DataTable {
             long clientDatabaseId = tablesService.getNzyme().getDatabase().withHandle(handle ->
                     handle.createQuery("INSERT INTO dot11_clients(tap_uuid, client_mac, client_mac_is_randomized, " +
                                     "wildcard_probe_requests, signal_strength_average, signal_strength_max, " +
-                                    "signal_strength_min, created_at) VALUES(:tap_uuid, :client_mac, " +
-                                    ":client_mac_is_randomized, :wildcard_probe_requests, :signal_strength_average, " +
-                                    ":signal_strength_max, :signal_strength_min, :created_at) RETURNING id")
+                                    "signal_strength_min, signal_by_frequency, created_at) VALUES(:tap_uuid, " +
+                                    ":client_mac, :client_mac_is_randomized, :wildcard_probe_requests, " +
+                                    ":signal_strength_average, :signal_strength_max, :signal_strength_min, " +
+                                    ":signal_by_frequency::jsonb, :created_at) RETURNING id")
                             .bind("tap_uuid", tap.uuid())
                             .bind("client_mac", clientMac)
                             .bind("client_mac_is_randomized", Tools.macAddressIsRandomized(clientMac))
@@ -123,6 +133,7 @@ public class Dot11Table implements DataTable {
                             .bind("signal_strength_average", report.signalStrength().average())
                             .bind("signal_strength_min", report.signalStrength().min())
                             .bind("signal_strength_max", report.signalStrength().max())
+                            .bind("signal_by_frequency", signalByFrequencyJson(report.signalByFrequency()))
                             .bind("created_at", timestamp)
                             .mapTo(Long.class)
                             .one()
@@ -309,13 +320,16 @@ public class Dot11Table implements DataTable {
                 PreparedBatch bssidClientsBatch = handle.prepareBatch(
                         "INSERT INTO dot11_bssid_clients(bssid_id, client_mac, tx_frames, " +
                                 "tx_bytes, rx_frames, rx_bytes, signal_strength_average, " +
-                                "signal_strength_min, signal_strength_max) VALUES(:bssid_id, :client_mac, " +
-                                ":tx_frames, :tx_bytes, :rx_frames, :rx_bytes, :signal_strength_average, " +
-                                ":signal_strength_min, :signal_strength_max)");
+                                "signal_strength_min, signal_strength_max, signal_by_frequency) " +
+                                "VALUES(:bssid_id, :client_mac, :tx_frames, :tx_bytes, :rx_frames, :rx_bytes, " +
+                                ":signal_strength_average, :signal_strength_min, :signal_strength_max, " +
+                                ":signal_by_frequency::jsonb)");
 
                 for (Map.Entry<String, Dot11ClientStatisticsReport> client : report.clients().entrySet()) {
                     String mac = client.getKey();
                     Dot11ClientStatisticsReport stats = client.getValue();
+                    Dot11SignalStrengthReport signal = stats.signalStrength() != null
+                            && isSignalStrength(stats.signalStrength()) ? stats.signalStrength() : null;
 
                     if (!bssid.equals(mac)) { // Don't record BSSID itself.
                         bssidClientsBatch
@@ -325,9 +339,10 @@ public class Dot11Table implements DataTable {
                                 .bind("tx_bytes", stats.txBytes())
                                 .bind("rx_frames", stats.rxFrames())
                                 .bind("rx_bytes", stats.rxBytes())
-                                .bind("signal_strength_average", stats.signalStrength().average())
-                                .bind("signal_strength_min", stats.signalStrength().average())
-                                .bind("signal_strength_max", stats.signalStrength().average())
+                                .bind("signal_strength_average", signal == null ? null : signal.average())
+                                .bind("signal_strength_min", signal == null ? null : signal.min())
+                                .bind("signal_strength_max", signal == null ? null : signal.max())
+                                .bind("signal_by_frequency", signalByFrequencyJson(stats.signalByFrequency()))
                                 .add();
                     }
                 }
@@ -617,49 +632,299 @@ public class Dot11Table implements DataTable {
         }
     }
 
+    private static final int MAX_DISCO_FRAMES_PER_REPORT = 2500;
+    private static final int MAX_CONNECTION_FRAMES_PER_REPORT = 5000;
+    private static final long MAX_FRAME_AGE_MS = 120000;
+
     private void writeDisco(Tap tap, DateTime timestamp, Dot11DiscoReport disco) {
-        if (disco.frames().isEmpty()) {
+        List<Dot11DiscoFrameReport> frames = disco.frames();
+        if (frames.isEmpty()) {
+            return;
+        }
+
+        if (frames.size() > MAX_DISCO_FRAMES_PER_REPORT) {
+            LOG.warn("Tap [{}] reported <{}> disconnection frame records. Recording the first <{}>.",
+                    tap.uuid(), frames.size(), MAX_DISCO_FRAMES_PER_REPORT);
+            frames = frames.subList(0, MAX_DISCO_FRAMES_PER_REPORT);
+        }
+
+        List<Dot11DiscoFrameReport> valid = frames.stream().filter(Dot11Table::isValidDiscoFrame).toList();
+        if (valid.size() < frames.size()) {
+            LOG.warn("Tap [{}] reported <{}> invalid disconnection frame records. Skipping them.",
+                    tap.uuid(), frames.size() - valid.size());
+        }
+
+        if (valid.isEmpty()) {
             return;
         }
 
         tablesService.getNzyme().getDatabase().useHandle(handle -> {
             PreparedBatch batch = handle.prepareBatch(
                     "INSERT INTO dot11_disco_frames(tap_uuid, disco_type, transmitter, receiver, bssid, " +
-                            "reason_code, frequency, signal_strength_min, signal_strength_max, " +
-                            "signal_strength_average, frame_count, created_at) VALUES(:tap_uuid, :disco_type, " +
-                            ":transmitter, :receiver, :bssid, :reason_code, :frequency, :signal_strength_min, " +
-                            ":signal_strength_max, :signal_strength_average, :frame_count, :created_at)"
+                            "reason_code, is_protected, frequency, signal_strength_min, signal_strength_max, " +
+                            "signal_strength_average, frame_count, retry_frames, pair_sequence_numbers, " +
+                            "integrity_frames, order_frames, signal_histogram, first_seen, last_seen, created_at) " +
+                            "VALUES(:tap_uuid, :disco_type, " +
+                            ":transmitter, :receiver, :bssid, :reason_code, :is_protected, :frequency, " +
+                            ":signal_strength_min, :signal_strength_max, :signal_strength_average, :frame_count, " +
+                            ":retry_frames, :pair_sequence_numbers, :integrity_frames, :order_frames, " +
+                            ":signal_histogram::jsonb, :first_seen, :last_seen, :created_at)"
             );
 
-            for (Dot11DiscoFrameReport frame : disco.frames()) {
-                Dot11.DiscoType discoType;
-                try {
-                    discoType = Dot11.DiscoType.valueOf(frame.discoType());
-                } catch (IllegalArgumentException e) {
-                    LOG.warn("Unknown disconnection frame type [{}] reported by tap [{}]. Skipping.",
-                            frame.discoType(), tap.uuid());
-                    continue;
-                }
-
+            for (Dot11DiscoFrameReport frame : valid) {
                 Dot11SignalStrengthReport signal = frame.signalStrength();
 
                 batch.bind("tap_uuid", tap.uuid())
-                        .bind("disco_type", discoType.name())
-                        .bind("transmitter", frame.transmitter())
-                        .bind("receiver", frame.receiver())
-                        .bind("bssid", frame.bssid())
-                        .bind("reason_code", frame.reasonCode())
+                        .bind("disco_type", frame.discoType())
+                        .bind("transmitter", frame.transmitter().toUpperCase())
+                        .bind("receiver", frame.receiver().toUpperCase())
+                        .bind("bssid", frame.bssid().toUpperCase())
+                        .bind("reason_code", frame.isProtected() ? null : frame.reasonCode())
+                        .bind("is_protected", frame.isProtected())
                         .bind("frequency", frame.frequency())
                         .bind("signal_strength_min", signal == null ? null : signal.min())
                         .bind("signal_strength_max", signal == null ? null : signal.max())
                         .bind("signal_strength_average", signal == null ? null : signal.average())
                         .bind("frame_count", frame.frameCount())
+                        .bind("retry_frames", frame.retryFrames())
+                        .bind("pair_sequence_numbers", frame.pairSequenceNumbers())
+                        .bind("integrity_frames", frame.integrityFrames())
+                        .bind("order_frames", frame.orderFrames())
+                        .bind("signal_histogram", signalHistogramJson(frame.signalHistogram()))
+                        .bind("first_seen", timestamp.minus(Math.min(frame.oldestFrameAgeMs(), MAX_FRAME_AGE_MS)))
+                        .bind("last_seen", timestamp.minus(Math.min(frame.newestFrameAgeMs(), MAX_FRAME_AGE_MS)))
                         .bind("created_at", timestamp)
                         .add();
             }
 
             batch.execute();
         });
+    }
+
+    private void writeConnectionFrames(Tap tap, DateTime timestamp, List<Dot11ConnectionFrameReport> frames) {
+        if (frames.isEmpty()) {
+            return;
+        }
+
+        if (frames.size() > MAX_CONNECTION_FRAMES_PER_REPORT) {
+            LOG.warn("Tap [{}] reported <{}> connection frame records. Recording the first <{}>.",
+                    tap.uuid(), frames.size(), MAX_CONNECTION_FRAMES_PER_REPORT);
+            frames = frames.subList(0, MAX_CONNECTION_FRAMES_PER_REPORT);
+        }
+
+        List<Dot11ConnectionFrameReport> valid = frames.stream().filter(Dot11Table::isValidConnectionFrame).toList();
+        if (valid.size() < frames.size()) {
+            LOG.warn("Tap [{}] reported <{}> invalid connection frame records. Skipping them.",
+                    tap.uuid(), frames.size() - valid.size());
+        }
+
+        if (valid.isEmpty()) {
+            return;
+        }
+
+        tablesService.getNzyme().getDatabase().useHandle(handle -> {
+            PreparedBatch batch = handle.prepareBatch(
+                    "INSERT INTO dot11_connection_frames(tap_uuid, frame_type, transmitter, receiver, bssid, " +
+                            "algorithm, transaction, status_code, frequency, signal_strength_min, " +
+                            "signal_strength_max, signal_strength_average, frame_count, retry_frames, first_seen, " +
+                            "last_seen, created_at) VALUES(:tap_uuid, :frame_type, :transmitter, :receiver, :bssid, " +
+                            ":algorithm, :transaction, :status_code, :frequency, :signal_strength_min, " +
+                            ":signal_strength_max, :signal_strength_average, :frame_count, :retry_frames, " +
+                            ":first_seen, :last_seen, :created_at)"
+            );
+
+            for (Dot11ConnectionFrameReport frame : valid) {
+                Dot11SignalStrengthReport signal = frame.signalStrength();
+
+                batch.bind("tap_uuid", tap.uuid())
+                        .bind("frame_type", frame.frameType())
+                        .bind("transmitter", frame.transmitter().toUpperCase())
+                        .bind("receiver", frame.receiver().toUpperCase())
+                        .bind("bssid", frame.bssid().toUpperCase())
+                        .bind("algorithm", frame.algorithm())
+                        .bind("transaction", frame.transaction())
+                        .bind("status_code", frame.statusCode())
+                        .bind("frequency", frame.frequency())
+                        .bind("signal_strength_min", signal == null ? null : signal.min())
+                        .bind("signal_strength_max", signal == null ? null : signal.max())
+                        .bind("signal_strength_average", signal == null ? null : signal.average())
+                        .bind("frame_count", frame.frameCount())
+                        .bind("retry_frames", frame.retryFrames())
+                        .bind("first_seen", timestamp.minus(Math.min(frame.oldestFrameAgeMs(), MAX_FRAME_AGE_MS)))
+                        .bind("last_seen", timestamp.minus(Math.min(frame.newestFrameAgeMs(), MAX_FRAME_AGE_MS)))
+                        .bind("created_at", timestamp)
+                        .add();
+            }
+
+            batch.execute();
+        });
+    }
+
+    private static boolean isValidDiscoFrame(Dot11DiscoFrameReport frame) {
+        return frame != null
+                && isDiscoType(frame.discoType())
+                && Tools.isValidMacAddress(frame.transmitter())
+                && Tools.isValidMacAddress(frame.receiver())
+                && Tools.isValidMacAddress(frame.bssid())
+                && (frame.isProtected() || isWord(frame.reasonCode()))
+                && (frame.frequency() == null || Dot11.frequencyToChannel(frame.frequency()) != -1)
+                && frame.frameCount() > 0
+                && isCount(frame.frameCount())
+                && frame.retryFrames() >= 0 && frame.retryFrames() <= frame.frameCount()
+                && frame.integrityFrames() >= 0 && frame.integrityFrames() <= frame.frameCount()
+                && frame.orderFrames() >= 0 && frame.orderFrames() <= frame.frameCount()
+                && isSignalHistogram(frame.signalHistogram(), frame.frameCount())
+                && frame.pairSequenceNumbers() >= 0 && frame.pairSequenceNumbers() <= 4096
+                && isFrameAge(frame.oldestFrameAgeMs(), frame.newestFrameAgeMs())
+                && (frame.signalStrength() == null || isSignalStrength(frame.signalStrength()));
+    }
+
+    private static final int MAX_FRAME_OVERFLOWS_PER_REPORT = 1000;
+    private static final Set<String> DISCO_FRAME_TYPES = Set.of("DEAUTHENTICATION", "DISASSOCIATION");
+
+    private void writeFrameOverflows(Tap tap, DateTime timestamp, List<Dot11FrameOverflowReport> disco,
+                                     List<Dot11FrameOverflowReport> connection) {
+        List<Dot11FrameOverflowReport> valid = Lists.newArrayList();
+        disco.stream().filter(o -> isValidFrameOverflow(o) && DISCO_FRAME_TYPES.contains(o.frameType()))
+                .forEach(valid::add);
+        connection.stream().filter(o -> isValidFrameOverflow(o) && ConnectionFrameType.isKnown(o.frameType()))
+                .forEach(valid::add);
+
+        if (valid.size() < disco.size() + connection.size()) {
+            LOG.warn("Tap [{}] reported <{}> invalid frame overflow records. Skipping them.",
+                    tap.uuid(), disco.size() + connection.size() - valid.size());
+        }
+
+        if (valid.isEmpty()) {
+            return;
+        }
+
+        if (valid.size() > MAX_FRAME_OVERFLOWS_PER_REPORT) {
+            LOG.warn("Tap [{}] reported <{}> frame overflow records. Recording the first <{}>.",
+                    tap.uuid(), valid.size(), MAX_FRAME_OVERFLOWS_PER_REPORT);
+            valid = valid.subList(0, MAX_FRAME_OVERFLOWS_PER_REPORT);
+        }
+
+        List<Dot11FrameOverflowReport> overflows = valid;
+        tablesService.getNzyme().getDatabase().useHandle(handle -> {
+            PreparedBatch batch = handle.prepareBatch(
+                    "INSERT INTO dot11_frame_overflows(tap_uuid, frame_type, bssid, frame_count, first_seen, " +
+                            "last_seen, created_at) VALUES(:tap_uuid, :frame_type, :bssid, :frame_count, " +
+                            ":first_seen, :last_seen, :created_at)"
+            );
+
+            for (Dot11FrameOverflowReport overflow : overflows) {
+                batch.bind("tap_uuid", tap.uuid())
+                        .bind("frame_type", overflow.frameType())
+                        .bind("bssid", overflow.bssid().toUpperCase())
+                        .bind("frame_count", overflow.frameCount())
+                        .bind("first_seen", timestamp.minus(Math.min(overflow.oldestFrameAgeMs(), MAX_FRAME_AGE_MS)))
+                        .bind("last_seen", timestamp.minus(Math.min(overflow.newestFrameAgeMs(), MAX_FRAME_AGE_MS)))
+                        .bind("created_at", timestamp)
+                        .add();
+            }
+
+            batch.execute();
+        });
+    }
+
+    private static boolean isValidFrameOverflow(Dot11FrameOverflowReport overflow) {
+        return overflow != null
+                && overflow.frameType() != null
+                && Tools.isValidMacAddress(overflow.bssid())
+                && overflow.frameCount() > 0
+                && isCount(overflow.frameCount())
+                && isFrameAge(overflow.oldestFrameAgeMs(), overflow.newestFrameAgeMs());
+    }
+
+    private static boolean isValidConnectionFrame(Dot11ConnectionFrameReport frame) {
+        return frame != null
+                && ConnectionFrameType.isKnown(frame.frameType())
+                && Tools.isValidMacAddress(frame.transmitter())
+                && Tools.isValidMacAddress(frame.receiver())
+                && Tools.isValidMacAddress(frame.bssid())
+                && (frame.algorithm() == null || isWord(frame.algorithm()))
+                && (frame.transaction() == null || isWord(frame.transaction()))
+                && (frame.statusCode() == null || isWord(frame.statusCode()))
+                && (frame.frequency() == null || Dot11.frequencyToChannel(frame.frequency()) != -1)
+                && frame.frameCount() > 0
+                && isCount(frame.frameCount())
+                && frame.retryFrames() >= 0 && frame.retryFrames() <= frame.frameCount()
+                && isFrameAge(frame.oldestFrameAgeMs(), frame.newestFrameAgeMs())
+                && (frame.signalStrength() == null || isSignalStrength(frame.signalStrength()));
+    }
+
+    // Not every frame comes with a signal strength, so the histogram can hold fewer frames than the record.
+    private static boolean isSignalHistogram(@Nullable Map<Integer, Long> histogram, long frameCount) {
+        if (histogram == null) {
+            return true;
+        }
+
+        long frames = 0;
+        for (Map.Entry<Integer, Long> entry : histogram.entrySet()) {
+            if (entry.getKey() == null || entry.getKey() < -128 || entry.getKey() > 127
+                    || entry.getValue() == null || entry.getValue() <= 0 || entry.getValue() > frameCount) {
+                return false;
+            }
+
+            frames += entry.getValue();
+        }
+
+        return frames <= frameCount;
+    }
+
+    private static final int MAX_CLIENT_SIGNAL_FREQUENCIES = 32;
+
+    @Nullable
+    private String signalByFrequencyJson(@Nullable Map<Integer, Dot11FrequencySignalStrengthReport> byFrequency) {
+        if (byFrequency == null) {
+            return null;
+        }
+
+        Map<Integer, List<Number>> valid = new TreeMap<>();
+        for (Map.Entry<Integer, Dot11FrequencySignalStrengthReport> entry : byFrequency.entrySet()) {
+            Dot11FrequencySignalStrengthReport signal = entry.getValue();
+
+            if (valid.size() >= MAX_CLIENT_SIGNAL_FREQUENCIES || entry.getKey() == null || signal == null
+                    || Dot11.frequencyToChannel(entry.getKey()) == -1 || signal.frames() <= 0 || !isCount(signal.frames())
+                    || signal.min() < -128 || signal.min() > signal.max() || signal.max() > 127
+                    || !Float.isFinite(signal.average())
+                    || signal.average() < signal.min() - 1 || signal.average() > signal.max() + 1) {
+                continue;
+            }
+
+            valid.put(entry.getKey(), List.of(
+                    Math.round(signal.average() * 10) / 10.0, signal.min(), signal.max(), signal.frames()
+            ));
+        }
+
+        return valid.isEmpty() ? null : om.writeValueAsString(valid);
+    }
+
+    @Nullable
+    private String signalHistogramJson(@Nullable Map<Integer, Long> histogram) {
+        if (histogram == null || histogram.isEmpty()) {
+            return null;
+        }
+
+        return om.writeValueAsString(new TreeMap<>(histogram));
+    }
+
+    private static boolean isDiscoType(String discoType) {
+        try {
+            Dot11.DiscoType.valueOf(discoType);
+            return true;
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return false;
+        }
+    }
+
+    private static boolean isWord(@Nullable Integer value) {
+        return value != null && value >= 0 && value <= 65535;
+    }
+
+    private static boolean isFrameAge(long oldest, long newest) {
+        return newest >= 0 && oldest >= newest;
     }
 
     private static final int MAX_CHANNEL_SWITCHES_PER_REPORT = 1000;
@@ -694,17 +959,23 @@ public class Dot11Table implements DataTable {
                             "switch_mode, frequency, new_operating_class, new_channel, new_frequency, count_min, " +
                             "count_max, frame_count, peak_frames_per_second, timestamp_repetitions, " +
                             "timestamp_mismatch_frames, interleaved_beacons, trailing_element_frames, anomalies, " +
-                            "signal_strength_min, signal_strength_max, signal_strength_average, created_at) " +
+                            "signal_strength_min, signal_strength_max, signal_strength_average, " +
+                            "signal_histograms, signal_judged_at, created_at) " +
                             "VALUES(:tap_uuid, :bssid, :frame_type, :announcement_type, :switch_mode, :frequency, " +
                             ":new_operating_class, :new_channel, :new_frequency, :count_min, :count_max, " +
                             ":frame_count, :peak_frames_per_second, :timestamp_repetitions, " +
                             ":timestamp_mismatch_frames, :interleaved_beacons, :trailing_element_frames, " +
                             ":anomalies, :signal_strength_min, :signal_strength_max, :signal_strength_average, " +
-                            ":created_at)"
+                            ":signal_histograms::jsonb, :signal_judged_at, :created_at)"
             );
 
             for (Dot11ChannelSwitchReport cs : valid) {
                 Dot11SignalStrengthReport signal = cs.signalStrength();
+                String signalHistograms = cs.signalHistogram().isEmpty() ? null : om.writeValueAsString(
+                        cs.signalHistogram().entrySet().stream().collect(Collectors.toMap(
+                                Map.Entry::getKey, e -> new TreeMap<>(e.getValue()), (a, b) -> a, TreeMap::new
+                        ))
+                );
                 String[] anomalies = ChannelSwitchRules.anomalies(cs).stream()
                         .map(Enum::name)
                         .toArray(String[]::new);
@@ -730,12 +1001,36 @@ public class Dot11Table implements DataTable {
                         .bind("signal_strength_min", signal == null ? null : signal.min())
                         .bind("signal_strength_max", signal == null ? null : signal.max())
                         .bind("signal_strength_average", signal == null ? null : signal.average())
+                        .bind("signal_histograms", signalHistograms)
+                        // Without the signal strength of its frames, there is nothing left to judge later.
+                        .bind("signal_judged_at", signalHistograms == null ? timestamp : null)
                         .bind("created_at", timestamp)
                         .add();
             }
 
             batch.execute();
         });
+    }
+
+    private static final int MAX_SIGNAL_FREQUENCIES = 8;
+
+    private static boolean isSignalHistograms(Map<Integer, Map<Integer, Long>> histograms, long frameCount) {
+        if (histograms.size() > MAX_SIGNAL_FREQUENCIES) {
+            return false;
+        }
+
+        long frames = 0;
+        for (Map.Entry<Integer, Map<Integer, Long>> histogram : histograms.entrySet()) {
+            if (histogram.getKey() == null || Dot11.frequencyToChannel(histogram.getKey()) == -1
+                    || histogram.getValue() == null || histogram.getValue().isEmpty()
+                    || !isSignalHistogram(histogram.getValue(), frameCount)) {
+                return false;
+            }
+
+            frames += histogram.getValue().values().stream().mapToLong(Long::longValue).sum();
+        }
+
+        return frames <= frameCount;
     }
 
     private static final int MAX_DECLARED_FREQUENCIES = 8;
@@ -773,7 +1068,8 @@ public class Dot11Table implements DataTable {
                 && isCount(cs.timestampMismatchFrames())
                 && isCount(cs.interleavedBeacons())
                 && isCount(cs.trailingElementFrames())
-                && (cs.signalStrength() == null || isSignalStrength(cs.signalStrength()));
+                && (cs.signalStrength() == null || isSignalStrength(cs.signalStrength()))
+                && isSignalHistograms(cs.signalHistogram(), cs.frameCount());
     }
 
     private static boolean isByte(int value) {

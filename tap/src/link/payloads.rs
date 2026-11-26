@@ -292,6 +292,8 @@ pub struct Dot11TableReport {
     pub bssids: HashMap<String, BssidReport>,
     pub clients: HashMap<String, Dot11ClientReport>,
     pub disco: Dot11DiscoReport,
+    pub connection_frames: Vec<Dot11ConnectionFrameReport>,
+    pub connection_frame_overflow: Vec<Dot11FrameOverflowReport>,
     pub channel_switches: Vec<Dot11ChannelSwitchReport>,
     pub alerts: Vec<Dot11AlertReport>
 }
@@ -310,7 +312,8 @@ pub struct BssidReport {
 pub struct Dot11ClientReport {
     pub probe_request_ssids: HashMap<String, u128>,
     pub wildcard_probe_requests: u128,
-    pub signal_strength: SignalStrengthReport
+    pub signal_strength: SignalStrengthReport,
+    pub signal_by_frequency: HashMap<u16, FrequencySignalStrengthReport>
 }
 
 #[derive(Serialize)]
@@ -322,7 +325,17 @@ pub struct Dot11AlertReport {
 
 #[derive(Serialize)]
 pub struct Dot11DiscoReport {
-    pub frames: Vec<Dot11DiscoFrameReport>
+    pub frames: Vec<Dot11DiscoFrameReport>,
+    pub overflow: Vec<Dot11FrameOverflowReport>
+}
+
+#[derive(Serialize)]
+pub struct Dot11FrameOverflowReport {
+    pub bssid: String,
+    pub frame_type: String,
+    pub frame_count: u64,
+    pub oldest_frame_age_ms: u64,
+    pub newest_frame_age_ms: u64
 }
 
 #[derive(Serialize)]
@@ -331,9 +344,34 @@ pub struct Dot11DiscoFrameReport {
     pub transmitter: String,
     pub receiver: String,
     pub bssid: String,
-    pub reason_code: u16,
+    pub reason_code: Option<u16>,
+    pub protected: bool,
     pub frequency: Option<u16>,
-    pub frame_count: u128,
+    pub frame_count: u64,
+    pub retry_frames: u64,
+    pub pair_sequence_numbers: u32,
+    pub integrity_frames: u64,
+    pub order_frames: u64,
+    pub oldest_frame_age_ms: u64,
+    pub newest_frame_age_ms: u64,
+    pub signal_strength: Option<SignalStrengthReport>,
+    pub signal_histogram: HashMap<i8, u64>
+}
+
+#[derive(Serialize)]
+pub struct Dot11ConnectionFrameReport {
+    pub frame_type: String,
+    pub transmitter: String,
+    pub receiver: String,
+    pub bssid: String,
+    pub algorithm: Option<u16>,
+    pub transaction: Option<u16>,
+    pub status_code: Option<u16>,
+    pub frequency: Option<u16>,
+    pub frame_count: u64,
+    pub retry_frames: u64,
+    pub oldest_frame_age_ms: u64,
+    pub newest_frame_age_ms: u64,
     pub signal_strength: Option<SignalStrengthReport>
 }
 
@@ -356,7 +394,8 @@ pub struct Dot11ChannelSwitchReport {
     pub trailing_element_frames: u64,
     pub dsss_only: Option<bool>,
     pub country_code: Option<String>,
-    pub signal_strength: Option<SignalStrengthReport>
+    pub signal_strength: Option<SignalStrengthReport>,
+    pub signal_histogram: HashMap<u16, HashMap<i8, u64>>
 }
 
 #[derive(Serialize)]
@@ -416,7 +455,16 @@ pub struct Dot11ClientStatisticsReport {
     pub tx_bytes: u128,
     pub rx_frames: u128,
     pub rx_bytes: u128,
-    pub signal_strength: SignalStrengthReport
+    pub signal_strength: Option<SignalStrengthReport>,
+    pub signal_by_frequency: HashMap<u16, FrequencySignalStrengthReport>
+}
+
+#[derive(Serialize)]
+pub struct FrequencySignalStrengthReport {
+    pub min: i8,
+    pub max: i8,
+    pub average: f32,
+    pub frames: u64
 }
 
 #[derive(Serialize)]

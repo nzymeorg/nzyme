@@ -22,12 +22,15 @@ public class DiscoFrameEntryMapper implements RowMapper<DiscoFrameEntry> {
                 rs.getString("transmitter"),
                 rs.getString("receiver"),
                 rs.getString("bssid"),
-                rs.getInt("reason_code"),
+                rs.getObject("reason_code", Integer.class),
+                rs.getBoolean("is_protected"),
                 rs.getObject("frequency", Integer.class),
                 rs.getObject("signal_strength_min", Integer.class),
                 rs.getObject("signal_strength_max", Integer.class),
                 signalStrengthAverageIsNull ? null : signalStrengthAverage,
                 rs.getLong("frame_count"),
+                rs.getLong("retry_frames"),
+                rs.getInt("pair_sequence_numbers"),
                 new DateTime(rs.getTimestamp("created_at"))
         );
     }

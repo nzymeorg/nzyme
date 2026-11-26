@@ -87,7 +87,7 @@ public class AlertActions {
                  DOT11_MONITOR_FINGERPRINT, DOT11_MONITOR_SIGNAL_TRACK, DOT11_MONITOR_DISCO_ANOMALIES,
                  DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES, DOT11_MONITOR_MULTIPLE_CHANNELS,
                  DOT11_MONITOR_SIMILAR_LOOKING_SSID, DOT11_MONITOR_SSID_SUBSTRING, DOT11_UNAPPROVED_CLIENT,
-                 DOT11_UNAPPROVED_SSID, DOT11_PROBEREQ, DOT11_BANDIT_CONTACT -> {
+                 DOT11_UNAPPROVED_SSID, DOT11_PROBEREQ, DOT11_BANDIT_CONTACT, DOT11_CHANNEL_SWITCH_ANOMALIES -> {
                 if (allowed(scope, DOT11_PERMISSION, Subsystem.DOT11)) {
                     dot11(type, scope, actions);
                 }
@@ -130,6 +130,8 @@ public class AlertActions {
             case DOT11_UNAPPROVED_SSID -> unapprovedSsid(scope, actions);
             case DOT11_PROBEREQ -> actions.add(AlertAction.available(DOT11_OPEN_PROBE_REQUESTS));
             case DOT11_BANDIT_CONTACT -> customBandit(scope, actions);
+            case DOT11_CHANNEL_SWITCH_ANOMALIES ->
+                    actions.add(AlertAction.available(DOT11_OPEN_CHANNEL_SWITCH_SETTINGS));
             default -> monitoredNetwork(type, scope, actions);
         }
     }
@@ -225,8 +227,10 @@ public class AlertActions {
                 }
                 actions.add(AlertAction.available(DOT11_OPEN_MONITORED_NETWORK, "network_uuid", networkUuid));
             }
-            case DOT11_MONITOR_DISCO_ANOMALIES ->
-                    actions.add(AlertAction.available(DOT11_OPEN_DISCO_CONFIGURATION, "network_uuid", networkUuid));
+            // The alert of a recorded anomaly carries its type, the alert of the frame count threshold does not.
+            case DOT11_MONITOR_DISCO_ANOMALIES -> actions.add(scope.attribute("anomaly_type") == null
+                    ? AlertAction.available(DOT11_OPEN_DISCO_CONFIGURATION, "network_uuid", networkUuid)
+                    : AlertAction.available(DOT11_OPEN_DISCO_DETECTION_SETTINGS));
             case DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES -> actions.add(
                     AlertAction.available(DOT11_OPEN_CHANNEL_SWITCH_CONFIGURATION, "network_uuid", networkUuid));
             case DOT11_MONITOR_MULTIPLE_CHANNELS ->

@@ -1,7 +1,5 @@
 package app.nzyme.core.rest.resources.dot11;
 
-import app.nzyme.core.NzymeNode;
-import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.Dot11MacFrameCount;
 import app.nzyme.core.dot11.db.BSSIDPairFrameCount;
@@ -13,7 +11,6 @@ import app.nzyme.core.dot11.db.DiscoFrameEntry;
 import app.nzyme.core.dot11.db.DiscoFrequencyCount;
 import app.nzyme.core.dot11.db.DiscoHistogramEntry;
 import app.nzyme.core.dot11.db.DiscoReasonCodeCount;
-import app.nzyme.core.dot11.db.monitoring.MonitoredBSSID;
 import app.nzyme.core.dot11.db.monitoring.MonitoredSSID;
 import app.nzyme.core.dot11.monitoring.disco.db.Dot11DiscoMonitorMethodConfiguration;
 import app.nzyme.core.dot11.monitoring.disco.monitormethods.DiscoMonitorFactory;
@@ -22,11 +19,12 @@ import app.nzyme.core.rest.TapDataHandlingResource;
 import app.nzyme.core.rest.authentication.AuthenticatedUser;
 import app.nzyme.core.rest.requests.SimulateDiscoDetectionConfigRequest;
 import app.nzyme.core.rest.requests.UpdateDiscoDetectionConfigRequest;
-import app.nzyme.core.rest.responses.dot11.Dot11MacAddressContextResponse;
-import app.nzyme.core.rest.responses.dot11.Dot11MacAddressResponse;
-import app.nzyme.core.rest.responses.dot11.Dot11MacLinkMetadataResponse;
+import app.nzyme.core.dot11.signal.FrameSource;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoFrameDetailsResponse;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoFrameListResponse;
+import app.nzyme.core.rest.responses.dot11.signal.FrameSignalAnalysisResponse;
+import app.nzyme.core.rest.responses.dot11.signal.FrameSignalChartsResponse;
+import app.nzyme.core.rest.responses.dot11.signal.FrameSignalTransmitterListResponse;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoHistogramValueResponse;
 import app.nzyme.core.rest.responses.dot11.disco.DiscoMonitorMethodConfigurationResponse;
 import app.nzyme.core.rest.responses.dot11.disco.Dot11DiscoMonitorAnomalyDetailsResponse;
@@ -39,7 +37,6 @@ import app.nzyme.core.util.filters.Filters;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import tools.jackson.databind.ObjectMapper;
-import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
@@ -50,7 +47,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -114,7 +110,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
     public Response histogram(@Parameter(hidden = true) @Context SecurityContext sc,
                               @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                               @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                              @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                              @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                               @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                               @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId) {
         AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
@@ -159,7 +155,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
                            @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                            @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                            @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                           @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                           @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                            @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                            @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
                            @Parameter(description = "Sorting column. Omit to sort by time.") @QueryParam("order_column") @Nullable String orderColumnParam,
@@ -217,16 +213,104 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
                     f.transmitter().equals(f.bssid()),
                     f.receiver().equals(f.bssid()),
                     f.reasonCode(),
-                    Dot11ReasonCodes.name(f.reasonCode()),
+                    f.reasonCode() == null ? null : Dot11ReasonCodes.name(f.reasonCode()),
+                    f.isProtected(),
                     f.frequency(),
                     f.signalStrengthMin(),
                     f.signalStrengthMax(),
                     f.signalStrengthAverage(),
-                    f.frameCount()
+                    f.frameCount(),
+                    f.retryFrames(),
+                    f.pairSequenceNumbers()
             ));
         }
 
         return Response.ok(DiscoFrameListResponse.create(total, frames)).build();
+    }
+
+    @GET
+    @Path("/signal")
+    @Operation(operationId = "findFrameSignalAnalysis", summary = "Compare the signal strength of disconnection frames with their transmitters",
+            description = "Compares the signal strength of the recorded disconnection frames with the signal "
+                    + "strength of the stations they name as transmitter. The filters have to leave one or two "
+                    + "transmitters; with more, only their number is returned. A tap records a station at "
+                    + "another strength on every frequency it tunes to, so there is one finding per tap, "
+                    + "frequency and transmitter. Findings are sorted by importance: those with mismatches "
+                    + "first, then those that were compared by their largest difference, then those that could "
+                    + "not be compared. They are paginated, while the totals of the transmitters cover all of "
+                    + "them. An access point is compared with its beacons and probe responses on the same tap "
+                    + "and frequency, in the minute a frame was reported in and the five minutes before, which "
+                    + "is what the signal strength mismatch detection uses. A client is compared with the "
+                    + "nearest data frames, probe requests and connection frames it sent on the same tap and "
+                    + "frequency, at most 15 minutes away. A frame is a mismatch when it differs by the "
+                    + "configured threshold or more. The latest 25,000 frame records are evaluated.")
+    @ApiResponse(responseCode = "200", description = "Analysis found.",
+            content = @Content(schema = @Schema(implementation = FrameSignalAnalysisResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Page size too large.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = SIGNAL_TOO_MUCH_DATA, content = @Content)
+    public Response signal(@Parameter(hidden = true) @Context SecurityContext sc,
+                           @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                           @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                           @Parameter(description = SIGNAL_TAPS_DESCRIPTION) @QueryParam("taps") String taps,
+                           @Parameter(description = "Page size of the findings, 25 if omitted. Cannot exceed 100.") @QueryParam("limit") int limit,
+                           @Parameter(description = "Page offset of the findings.") @QueryParam("offset") int offset) {
+        return signalAnalysis(FrameSource.DISCONNECTION, sc, organizationId, tenantId, timeRangeParameter,
+                filtersParameter, taps, limit, offset);
+    }
+
+    @GET
+    @Path("/signal/charts")
+    @Operation(operationId = "findFrameSignalCharts", summary = "Chart the signal strength of disconnection frames next to their transmitters",
+            description = "Returns the disconnection frames of up to 10 combinations of tap and frequency with "
+                    + "their signal strength, next to the signal strength of what their transmitters are "
+                    + "compared with, for charting both over time. Without a selection, the 6 combinations of "
+                    + "the most important findings are returned. Each chart has at most 1,000 frame records, "
+                    + "and every record carries the signal strength it was compared with and a histogram of "
+                    + "the signal strength of every single frame if the tap reported one. The filters have to "
+                    + "leave one or two transmitters, as for the findings. The latest 25,000 frame records of "
+                    + "the selected charts are looked at, and a chart keeps the oldest 1,000 of its records.")
+    @ApiResponse(responseCode = "200", description = "Charts found.",
+            content = @Content(schema = @Schema(implementation = FrameSignalChartsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Malformed selection, or more than 10 charts selected.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = SIGNAL_TOO_MUCH_DATA, content = @Content)
+    public Response signalCharts(@Parameter(hidden = true) @Context SecurityContext sc,
+                                 @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                 @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                 @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
+                                 @Parameter(description = SIGNAL_TAPS_DESCRIPTION) @QueryParam("taps") String taps,
+                                 @Parameter(description = "Comma separated selection of up to 10 charts, each a tap UUID and a frequency in MHz joined by a colon. Omit for the charts of the most important findings.") @QueryParam("charts") @Nullable String chartsParameter) {
+        return signalCharts(FrameSource.DISCONNECTION, sc, organizationId, tenantId, timeRangeParameter,
+                filtersParameter, taps, chartsParameter);
+    }
+
+    @GET
+    @Path("/signal/transmitters")
+    @Operation(operationId = "findFrameSignalTransmitters", summary = "List transmitters of disconnection frames for a signal strength comparison",
+            description = "Returns the addresses named as transmitter of the most disconnection frames that were "
+                    + "recorded with a signal strength. Every address comes with the number of its receivers, "
+                    + "the time of its last frame and the number of frames its disconnection frames can be "
+                    + "compared with: beacons and probe responses for an access point, data frames, probe "
+                    + "requests and connection frames for a client, counted on the taps and frequencies its "
+                    + "disconnection frames were recorded on. Results are paginated.")
+    @ApiResponse(responseCode = "200", description = "Transmitters found.",
+            content = @Content(schema = @Schema(implementation = FrameSignalTransmitterListResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Page size too large.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Organization or tenant not found, or not accessible by the calling user.", content = @Content)
+    @ApiResponse(responseCode = "422", description = SIGNAL_TOO_MUCH_DATA, content = @Content)
+    public Response signalTransmitters(@Parameter(hidden = true) @Context SecurityContext sc,
+                                       @Parameter(description = "Organization UUID.") @QueryParam("organization_id") UUID organizationId,
+                                       @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
+                                       @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                       @Parameter(description = SIGNAL_TAPS_DESCRIPTION) @QueryParam("taps") String taps,
+                                       @Parameter(description = "Page size, 10 if omitted. Cannot exceed 25.") @QueryParam("limit") int limit,
+                                       @Parameter(description = "Page offset.") @QueryParam("offset") int offset) {
+        return signalTransmitters(FrameSource.DISCONNECTION, sc, organizationId, tenantId, timeRangeParameter, taps,
+                limit, offset);
     }
 
     @GET
@@ -245,7 +329,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
                                  @Parameter(description = "Address role to count: transmitters, receivers or bssids.") @PathParam("histogram_type") @NotEmpty String histogramTypeParam,
                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                  @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                 @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                                  @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                                  @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
                                  @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
@@ -322,7 +406,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
                           @Parameter(description = "Tenant UUID.") @QueryParam("tenant_id") UUID tenantId,
                           @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                           @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                          @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                          @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                           @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                           @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
                           @Parameter(description = "Sorting column, VALUE1, VALUE2 or VALUE3. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
@@ -395,7 +479,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
     public Response reasonCodes(@Parameter(hidden = true) @Context SecurityContext sc,
                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                 @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                                 @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                                 @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
                                 @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,
@@ -462,7 +546,7 @@ public class Dot11DiscoResource extends Dot11BssidScopedResource {
     public Response frequencies(@Parameter(hidden = true) @Context SecurityContext sc,
                                 @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
                                 @Parameter(description = FILTERS_DESCRIPTION) @QueryParam("filters") String filtersParameter,
-                                @Parameter(description = "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.") @QueryParam("taps") String taps,
+                                @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps,
                                 @Parameter(description = BSSIDS_DESCRIPTION) @QueryParam("bssids") @Nullable String bssidsParam,
                                 @Parameter(description = MONITORED_NETWORK_DESCRIPTION) @QueryParam("monitored_network_id") @Nullable UUID monitoredNetworkId,
                                 @Parameter(description = "Sorting column, KEY or VALUE. Defaults to the frame count.") @QueryParam("order_column") @Nullable String orderColumnParam,

@@ -176,10 +176,20 @@ const AlertActionDefinitions = {
     () => "Change the disconnection detection method of the monitored network.",
     (t) => ApiRoutes.DOT11.MONITORING.DISCO.CONFIGURATION(t.network_uuid)),
 
+  DOT11_OPEN_DISCO_DETECTION_SETTINGS: link(
+    "Open Disconnection Anomaly Settings",
+    () => "Turn detections of disconnection anomalies on or off and change their thresholds.",
+    () => ApiRoutes.DOT11.DISCO.SETTINGS),
+
   DOT11_OPEN_CHANNEL_SWITCH_CONFIGURATION: link(
     "Open Channel Switch Monitor Configuration",
     () => "Change the detection methods or the threshold of the channel switch monitor of the monitored network.",
     (t) => ApiRoutes.DOT11.MONITORING.CHANNEL_SWITCH_CONFIGURATION(t.network_uuid)),
+
+  DOT11_OPEN_CHANNEL_SWITCH_SETTINGS: link(
+    "Open Channel Switch Settings",
+    () => "Change the detection methods or the threshold for networks that are not monitored, or limit alerts to monitored networks.",
+    () => ApiRoutes.DOT11.CHANNEL_SWITCHES.SETTINGS),
 
   DOT11_OPEN_SIMILAR_SSID_CONFIGURATION: link(
     "Open Similar SSID Monitor Configuration",

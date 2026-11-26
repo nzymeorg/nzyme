@@ -36,6 +36,7 @@ public class FilterFactory {
             case "recon_scan_type_equals":
             case "spoofing_type_equals":
             case "disco_type_equals":
+            case "disco_anomaly_type_equals":
             case "channel_switch_frame_type_equals":
             case "channel_switch_outcome_equals":
             case "dhcp_spoofing_finding_type_equals":
@@ -66,6 +67,7 @@ public class FilterFactory {
             case "recon_scan_type_not_equals":
             case "spoofing_type_not_equals":
             case "disco_type_not_equals":
+            case "disco_anomaly_type_not_equals":
             case "channel_switch_frame_type_not_equals":
             case "channel_switch_outcome_not_equals":
             case "dhcp_spoofing_finding_type_not_equals":

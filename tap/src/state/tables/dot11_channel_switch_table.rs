@@ -20,6 +20,7 @@ pub const MAX_BEACON_STATES: usize = 10_000;
 // More are counted than reported, so that the channels with the most beacons are the ones that are reported.
 pub const MAX_DECLARED_FREQUENCIES: usize = 8;
 const MAX_COUNTED_DECLARED_FREQUENCIES: usize = 32;
+const MAX_SIGNAL_FREQUENCIES: usize = 8;
 
 // Longer than a tap takes to hop through all of its channels, or a BSSID is new again on every visit.
 const BEACON_STATE_TTL: Duration = Duration::from_secs(900);
@@ -70,6 +71,7 @@ pub struct ChannelSwitchAggregate {
     pub signal_max: i8,
     pub signal_sum: i64,
     pub signal_frames: u64,
+    pub signal_histogram: HashMap<u16, HashMap<i8, u64>>,
     pub trailing_element_frames: u64,
     pub timestamp_repetitions: u32,
     pub timestamp_mismatch_frames: u64,
@@ -93,6 +95,7 @@ impl ChannelSwitchAggregate {
             signal_max: 0,
             signal_sum: 0,
             signal_frames: 0,
+            signal_histogram: HashMap::new(),
             trailing_element_frames: 0,
             timestamp_repetitions: 0,
             timestamp_mismatch_frames: 0,
@@ -106,7 +109,11 @@ impl ChannelSwitchAggregate {
         }
     }
 
-    fn register_frame(&mut self, announcement: &ChannelSwitchAnnouncement, signal: Option<i8>, now: Instant) {
+    fn register_frame(&mut self,
+                      announcement: &ChannelSwitchAnnouncement,
+                      tuned_frequency: Option<u16>,
+                      signal: Option<i8>,
+                      now: Instant) {
         self.frame_count += 1;
         self.count_min = self.count_min.min(announcement.switch_count);
         self.count_max = self.count_max.max(announcement.switch_count);
@@ -133,6 +140,13 @@ impl ChannelSwitchAggregate {
             }
             self.signal_sum += signal as i64;
             self.signal_frames += 1;
+
+            if let Some(tuned_frequency) = tuned_frequency {
+                if self.signal_histogram.len() < MAX_SIGNAL_FREQUENCIES
+                    || self.signal_histogram.contains_key(&tuned_frequency) {
+                    *self.signal_histogram.entry(tuned_frequency).or_default().entry(signal).or_insert(0) += 1;
+                }
+            }
         }
 
         while let Some(oldest) = self.recent_frames.front() {
@@ -233,7 +247,7 @@ impl ChannelSwitchTable {
             return;
         };
 
-        aggregate.register_frame(announcement, signal, now);
+        aggregate.register_frame(announcement, frequency, signal, now);
         aggregate.register_timestamp(timestamp);
         aggregate.interleaved_beacons += u64::from(interleaved_beacons);
 
@@ -267,7 +281,7 @@ impl ChannelSwitchTable {
             return;
         };
 
-        aggregate.register_frame(announcement, signal, now);
+        aggregate.register_frame(announcement, frequency, signal, now);
         aggregate.interleaved_beacons += u64::from(interleaved_beacons);
     }
 
@@ -460,6 +474,10 @@ impl ChannelSwitchTable {
         }).collect()
     }
 
+    pub fn has_beaconed_for(&self, bssid: &str, duration: Duration) -> bool {
+        self.known_since(bssid).is_some_and(|since| since.elapsed() >= duration)
+    }
+
     pub fn beacon_state_count(&self) -> usize {
         self.beacon_state_count
     }
@@ -497,7 +515,8 @@ impl ChannelSwitchTable {
                 trailing_element_frames: aggregate.trailing_element_frames,
                 dsss_only: aggregate.dsss_only,
                 country_code: aggregate.country_code.clone(),
-                signal_strength
+                signal_strength,
+                signal_histogram: aggregate.signal_histogram.clone()
             }
         }).collect()
     }
@@ -849,7 +868,50 @@ mod tests {
 
         let action = report.iter().find(|r| r.frame_type == "ACTION").unwrap();
         assert!(action.signal_strength.is_none());
+        assert!(action.signal_histogram.is_empty());
         assert_eq!(action.timestamp_repetitions, 0);
+    }
+
+    #[test]
+    fn records_the_signal_of_every_frame_by_tuned_frequency() {
+        let mut table = ChannelSwitchTable::default();
+        let now = Instant::now();
+
+        table.register_beacon(AP, Some(2437), Some(-40), 1, Some(&announcement(11, 3, false)), Some(2437), now);
+        table.register_beacon(AP, Some(2437), Some(-40), 2, Some(&announcement(11, 3, false)), Some(2437), now);
+        table.register_beacon(AP, Some(2437), Some(-70), 3, Some(&announcement(11, 3, false)), Some(2437), now);
+        table.register_beacon(AP, Some(2432), Some(-62), 4, Some(&announcement(11, 3, false)), Some(2437), now);
+        table.register_beacon(AP, Some(2432), None, 5, Some(&announcement(11, 3, false)), Some(2437), now);
+        table.register_beacon(AP, None, Some(-10), 6, Some(&announcement(11, 3, false)), Some(2437), now);
+
+        let report = table.to_report();
+        assert_eq!(report.len(), 1);
+        assert_eq!(report[0].frame_count, 6);
+        assert_eq!(report[0].signal_histogram.len(), 2);
+        assert_eq!(report[0].signal_histogram[&2437], HashMap::from([(-40, 2), (-70, 1)]));
+        assert_eq!(report[0].signal_histogram[&2432], HashMap::from([(-62, 1)]));
+
+        let json = serde_json::to_value(&report[0]).unwrap();
+        assert_eq!(json["signal_histogram"]["2437"]["-40"], 2);
+    }
+
+    #[test]
+    fn limits_the_tuned_frequencies_of_an_entry() {
+        let mut table = ChannelSwitchTable::default();
+        let now = Instant::now();
+
+        for i in 0..(MAX_SIGNAL_FREQUENCIES as u16 + 4) {
+            table.register_beacon(
+                AP, Some(5180 + i * 20), Some(-50), u64::from(i), Some(&announcement(36, 3, false)), Some(5180), now
+            );
+        }
+        table.register_beacon(AP, Some(5180), Some(-51), 99, Some(&announcement(36, 3, false)), Some(5180), now);
+
+        let report = table.to_report();
+        assert_eq!(report.len(), 1);
+        assert_eq!(report[0].frame_count, MAX_SIGNAL_FREQUENCIES as u64 + 5);
+        assert_eq!(report[0].signal_histogram.len(), MAX_SIGNAL_FREQUENCIES);
+        assert_eq!(report[0].signal_histogram[&5180], HashMap::from([(-50, 1), (-51, 1)]));
     }
 
     #[test]
@@ -1061,6 +1123,25 @@ mod tests {
         }
         assert_eq!(table.dropped_declared_frequencies, 10);
         assert_eq!(table.declared_frequencies()[AP][&2437], 10);
+    }
+
+    #[test]
+    fn knows_a_bssid_by_its_plain_beacons_across_reports() {
+        let mut table = ChannelSwitchTable::default();
+        let now = Instant::now();
+
+        table.register_frame(
+            "02:00:00:00:00:01", ChannelSwitchFrameType::Action, Some(2437), None, &announcement(11, 3, false), now
+        );
+        table.register_beacon(AP, Some(2437), None, 1, None, None, now);
+        table.end_report(now + Duration::from_secs(10));
+
+        assert!(table.has_beaconed_for(AP, Duration::ZERO));
+        assert!(!table.has_beaconed_for("02:00:00:00:00:01", Duration::ZERO));
+        assert!(!table.has_beaconed_for("02:00:00:00:00:02", Duration::ZERO));
+
+        table.end_report(now + BEACON_STATE_TTL + Duration::from_secs(1));
+        assert!(!table.has_beaconed_for(AP, Duration::ZERO));
     }
 
     #[test]

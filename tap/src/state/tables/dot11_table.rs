@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Mutex};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use log::error;
 
@@ -12,19 +12,23 @@ use crate::{
 };
 use crate::alerting::alert_types::Dot11Alert;
 use crate::state::tables::dot11_channel_switch_table::{ChannelSwitchFrameType, ChannelSwitchTable};
+use crate::state::tables::dot11_frame_tables::{ConnectionFrames, DiscoFrames, DiscoType};
 use crate::state::tables::table_helpers::{clear_mutex_hashmap, clear_mutex_vector};
-use crate::wireless::dot11::frames::{Dot11Capabilities, Dot11ChannelSwitchActionFrame, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
+use crate::wireless::dot11::frames::{DisconnectionFrameDetails, Dot11Capabilities, Dot11ChannelSwitchActionFrame, Dot11ConnectionFrame, Dot11DeauthenticationFrame, Dot11DisassociationFrame, Dot11ProbeResponseFrame, PmfMode, RadiotapHeader, TaggedParameters};
 use crate::link::leaderlink::Leaderlink;
 use crate::metrics::Metrics;
-use crate::link::payloads::{Dot11AlertReport, Dot11DiscoFrameReport, Dot11DiscoReport, PmfReport};
+use crate::link::payloads::{Dot11AlertReport, Dot11DiscoReport, FrequencySignalStrengthReport, PmfReport};
 use crate::wireless::dot11::frames::{Dot11BeaconFrame, Dot11DataFrame, Dot11DataFrameDirection, Dot11ProbeRequestFrame, FrameSubType, InfraStructureType, SecurityInformation};
+
+const KNOWN_ACCESS_POINT_MINIMUM_AGE: Duration = Duration::from_secs(300);
 
 pub struct Dot11Table {
     pub leaderlink: Arc<Mutex<Leaderlink>>,
     pub metrics: Arc<Mutex<Metrics>>,
     pub bssids: Mutex<HashMap<String, Bssid>>,
     pub clients: Mutex<HashMap<String, Client>>,
-    pub disco: DiscoTable,
+    pub disco: Mutex<DiscoFrames>,
+    pub connection_frames: Mutex<ConnectionFrames>,
     pub channel_switches: Mutex<ChannelSwitchTable>,
     pub alerts: Mutex<Vec<Dot11Alert>>
 }
@@ -42,7 +46,8 @@ pub struct Bssid {
 pub struct Client {
     pub probe_request_ssids: HashMap<String, u128>,
     pub wildcard_probe_requests: u128,
-    pub signal_strengths: Vec<i8>
+    pub signal_strengths: Vec<i8>,
+    pub signal_by_frequency: ClientSignalStrengths
 }
 
 #[derive(Debug)]
@@ -57,7 +62,64 @@ pub struct Dot11ClientStatistics {
     tx_bytes: u128,
     rx_frames: u128,
     rx_bytes: u128,
-    signal_strengths: Vec<i8>
+
+    // Only of frames the client sent. A frame sent to it arrives with the strength of the access point.
+    signal_strengths: ClientSignalStrengths
+}
+
+#[derive(Debug, Default)]
+pub struct ClientSignalStrengths {
+    by_frequency: HashMap<u16, FrequencySignalStrength>
+}
+
+#[derive(Debug)]
+struct FrequencySignalStrength {
+    min: i8,
+    max: i8,
+    sum: i64,
+    frames: u64
+}
+
+impl ClientSignalStrengths {
+
+    pub fn register(&mut self, frequency: u16, signal_strength: i8) {
+        let entry = self.by_frequency.entry(frequency).or_insert(FrequencySignalStrength {
+            min: signal_strength,
+            max: signal_strength,
+            sum: 0,
+            frames: 0
+        });
+
+        entry.min = entry.min.min(signal_strength);
+        entry.max = entry.max.max(signal_strength);
+        entry.sum += i64::from(signal_strength);
+        entry.frames += 1;
+    }
+
+    pub fn total(&self) -> Option<SignalStrengthReport> {
+        let frames: u64 = self.by_frequency.values().map(|f| f.frames).sum();
+        if frames == 0 {
+            return None;
+        }
+
+        Some(SignalStrengthReport {
+            min: self.by_frequency.values().map(|f| f.min).min()?,
+            max: self.by_frequency.values().map(|f| f.max).max()?,
+            average: self.by_frequency.values().map(|f| f.sum).sum::<i64>() as f32 / frames as f32
+        })
+    }
+
+    pub fn by_frequency(&self) -> HashMap<u16, FrequencySignalStrengthReport> {
+        self.by_frequency.iter()
+            .map(|(frequency, f)| (*frequency, FrequencySignalStrengthReport {
+                min: f.min,
+                max: f.max,
+                average: f.sum as f32 / f.frames as f32,
+                frames: f.frames
+            }))
+            .collect()
+    }
+
 }
 
 #[derive(Debug)]
@@ -73,57 +135,13 @@ pub struct AdvertisedNetwork {
     pub channel_statistics: HashMap<u16, HashMap<FrameSubType, Dot11ChannelStatistics>>
 }
 
-pub const MAX_DISCO_FRAME_ENTRIES: usize = 2500;
-
-#[derive(Debug, Default)]
-pub struct DiscoTable {
-    pub frames: Mutex<DiscoFrames>,
-}
-
-#[derive(Debug, Default)]
-pub struct DiscoFrames {
-    pub entries: HashMap<DiscoFrameKey, DiscoFrameAggregate>,
-    pub dropped_frames: u128
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum DiscoType {
-    Deauthentication,
-    Disassociation
-}
-
-impl DiscoType {
-    fn report_name(&self) -> String {
-        match self {
-            DiscoType::Deauthentication => "DEAUTHENTICATION".to_string(),
-            DiscoType::Disassociation => "DISASSOCIATION".to_string()
-        }
-    }
-}
-
-// The frequency is part of the key because the tap hops channels and sees the same pair on several of them.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DiscoFrameKey {
-    pub disco_type: DiscoType,
-    pub transmitter: String,
-    pub receiver: String,
-    pub bssid: String,
-    pub reason_code: u16,
-    pub frequency: Option<u16>
-}
-
-#[derive(Debug, Default)]
-pub struct DiscoFrameAggregate {
-    pub frame_count: u128,
-    pub signal_strengths: Vec<i8>
-}
-
 impl Dot11Table {
     pub fn new(leaderlink: Arc<Mutex<Leaderlink>>, metrics: Arc<Mutex<Metrics>>) -> Self {
         Self {
             bssids: Mutex::new(HashMap::new()),
             clients: Mutex::new(HashMap::new()),
-            disco: DiscoTable::default(),
+            disco: Mutex::new(DiscoFrames::default()),
+            connection_frames: Mutex::new(ConnectionFrames::default()),
             channel_switches: Mutex::new(ChannelSwitchTable::default()),
             alerts: Mutex::new(Vec::new()),
             leaderlink,
@@ -363,6 +381,10 @@ impl Dot11Table {
 
     pub fn register_probe_request_frame(&self, frame: Dot11ProbeRequestFrame) {
         let signal_strength: i8 = frame.header.antenna_signal.unwrap_or(0);
+        let frequency_signal = match (frame.header.frequency, frame.header.antenna_signal) {
+            (Some(frequency), Some(signal_strength)) => Some((frequency, signal_strength)),
+            _ => None
+        };
 
         match self.clients.lock() {
             Ok(mut clients) => {
@@ -391,6 +413,9 @@ impl Dot11Table {
 
                         // Update signal strength
                         client.signal_strengths.push(signal_strength);
+                        if let Some((frequency, signal_strength)) = frequency_signal {
+                            client.signal_by_frequency.register(frequency, signal_strength);
+                        }
                     },
                     None => {
                         // First time we are seeing this client.
@@ -403,12 +428,18 @@ impl Dot11Table {
                             None => (HashMap::new(), 1),
                         };
 
+                        let mut signal_by_frequency = ClientSignalStrengths::default();
+                        if let Some((frequency, signal_strength)) = frequency_signal {
+                            signal_by_frequency.register(frequency, signal_strength);
+                        }
+
                         clients.insert(
                             frame.transmitter,
                             Client {
                                 probe_request_ssids,
                                 wildcard_probe_requests,
-                                signal_strengths: vec![signal_strength]
+                                signal_strengths: vec![signal_strength],
+                                signal_by_frequency
                             }
                         );
                     }
@@ -419,7 +450,11 @@ impl Dot11Table {
     }
 
     pub fn register_data_frame(&self, frame: Dot11DataFrame) {
-        let signal_strength: i8 = frame.header.antenna_signal.unwrap_or(0);
+        let sent_by_client = frame.ds.direction == Dot11DataFrameDirection::Leaving;
+        let signal_strength = match (sent_by_client, frame.header.frequency, frame.header.antenna_signal) {
+            (true, Some(frequency), Some(signal_strength)) => Some((frequency, signal_strength)),
+            _ => None
+        };
 
         let (sta, tx_frames, tx_bytes, rx_frames, rx_bytes) = match frame.ds.direction {
             Dot11DataFrameDirection::Entering => {
@@ -452,16 +487,24 @@ impl Dot11Table {
                             client.tx_bytes += tx_bytes as u128;
                             client.rx_frames += rx_frames;
                             client.rx_bytes += rx_bytes as u128;
-                            client.signal_strengths.push(signal_strength);
+
+                            if let Some((frequency, signal_strength)) = signal_strength {
+                                client.signal_strengths.register(frequency, signal_strength);
+                            }
                         },
                         None => {
                             // First time seeing this client.
+                            let mut signal_strengths = ClientSignalStrengths::default();
+                            if let Some((frequency, signal_strength)) = signal_strength {
+                                signal_strengths.register(frequency, signal_strength);
+                            }
+
                             bssid.clients.insert(sta, Dot11ClientStatistics {
                                 tx_frames,
                                 tx_bytes: tx_bytes as u128,
                                 rx_frames,
                                 rx_bytes: rx_bytes as u128,
-                                signal_strengths: vec![signal_strength]
+                                signal_strengths
                             });
                         },
                     }
@@ -477,7 +520,7 @@ impl Dot11Table {
             frame.transmitter,
             frame.destination,
             frame.bssid,
-            frame.reason_code,
+            &frame.details,
             &frame.header
         );
     }
@@ -488,7 +531,7 @@ impl Dot11Table {
             frame.transmitter,
             frame.destination,
             frame.bssid,
-            frame.reason_code,
+            &frame.details,
             &frame.header
         );
     }
@@ -519,32 +562,38 @@ impl Dot11Table {
                             transmitter: String,
                             receiver: String,
                             bssid: String,
-                            reason_code: u16,
+                            details: &DisconnectionFrameDetails,
                             header: &RadiotapHeader) {
-        let key = DiscoFrameKey {
-            disco_type,
-            transmitter,
-            receiver,
-            bssid,
-            reason_code,
-            frequency: header.frequency
-        };
+        let is_known_access_point = self.knows_access_point(&bssid);
 
-        match self.disco.frames.lock() {
-            Ok(mut frames) => {
-                if !frames.entries.contains_key(&key) && frames.entries.len() >= MAX_DISCO_FRAME_ENTRIES {
-                    frames.dropped_frames += 1;
-                    return;
-                }
-
-                let aggregate = frames.entries.entry(key).or_default();
-                aggregate.frame_count += 1;
-
-                if let Some(signal_strength) = header.antenna_signal {
-                    aggregate.signal_strengths.push(signal_strength);
-                }
+        match self.disco.lock() {
+            Ok(mut disco) => {
+                disco.register(disco_type, transmitter, receiver, bssid, details, header, is_known_access_point)
             },
             Err(e) => error!("Could not acquire disco table: {}", e)
+        }
+    }
+
+    pub fn register_connection_frame(&self, frame: Dot11ConnectionFrame) {
+        let is_known_access_point = self.knows_access_point(&frame.bssid);
+
+        match self.connection_frames.lock() {
+            Ok(mut connection_frames) => connection_frames.register(frame, is_known_access_point),
+            Err(e) => error!("Could not acquire connection frames table mutex: {}", e)
+        }
+    }
+
+    /*
+     * An access point counts as known once it has been sending beacons for a while. One beacon is not enough: it
+     * could be sent right before the frames it is meant to make room for.
+     */
+    fn knows_access_point(&self, bssid: &str) -> bool {
+        match self.channel_switches.lock() {
+            Ok(channel_switches) => channel_switches.has_beaconed_for(bssid, KNOWN_ACCESS_POINT_MINIMUM_AGE),
+            Err(e) => {
+                error!("Could not acquire channel switch table mutex: {}", e);
+                false
+            }
         }
     }
 
@@ -659,20 +708,42 @@ impl Dot11Table {
         // Clean up.
         clear_mutex_hashmap(&self.bssids);
         clear_mutex_hashmap(&self.clients);
-        match self.disco.frames.lock() {
-            Ok(mut frames) => {
+        match self.disco.lock() {
+            Ok(mut disco) => {
                 match self.metrics.lock() {
                     Ok(mut metrics) => {
-                        metrics.set_gauge("tables.dot11.disco.frames.size", frames.entries.len() as i128);
-                        metrics.set_gauge("tables.dot11.disco.frames.dropped", frames.dropped_frames as i128);
+                        metrics.set_gauge("tables.dot11.disco.frames.size", disco.table.entries.len() as i128);
+                        metrics.set_gauge("tables.dot11.disco.frames.dropped", disco.table.dropped_frames as i128);
+                        metrics.set_gauge("tables.dot11.disco.frames.overflow", disco.table.overflow.len() as i128);
                     },
                     Err(e) => error!("Could not acquire metrics mutex: {}", e)
                 }
 
-                frames.entries.clear();
-                frames.dropped_frames = 0;
+                disco.clear();
             },
             Err(e) => error!("Could not acquire disco table mutex: {}", e)
+        }
+
+        match self.connection_frames.lock() {
+            Ok(mut connection_frames) => {
+                match self.metrics.lock() {
+                    Ok(mut metrics) => {
+                        metrics.set_gauge(
+                            "tables.dot11.connection_frames.size", connection_frames.table.entries.len() as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.connection_frames.dropped", connection_frames.table.dropped_frames as i128
+                        );
+                        metrics.set_gauge(
+                            "tables.dot11.connection_frames.overflow", connection_frames.table.overflow.len() as i128
+                        );
+                    },
+                    Err(e) => error!("Could not acquire metrics mutex: {}", e)
+                }
+
+                connection_frames.clear();
+            },
+            Err(e) => error!("Could not acquire connection frames table mutex: {}", e)
         }
 
         match self.channel_switches.lock() {
@@ -823,7 +894,8 @@ impl Dot11Table {
                         tx_bytes: stats.tx_bytes,
                         rx_frames: stats.rx_frames,
                         rx_bytes: stats.rx_bytes,
-                        signal_strength: calculate_1d_signal_strength_report(&stats.signal_strengths)
+                        signal_strength: stats.signal_strengths.total(),
+                        signal_by_frequency: stats.signal_strengths.by_frequency()
                     });
                 }
 
@@ -855,7 +927,8 @@ impl Dot11Table {
                             wildcard_probe_requests: info.wildcard_probe_requests,
                             signal_strength: calculate_1d_signal_strength_report(
                                 &info.signal_strengths
-                            )
+                            ),
+                            signal_by_frequency: info.signal_by_frequency.by_frequency()
                         }
                     );
                 }
@@ -863,7 +936,24 @@ impl Dot11Table {
             Err(e) => error!("Could not acquire BSSIDs table mutex: {}", e),
         }
 
-        let disco_report = self.disco_table_to_report();
+        // One instant for both, so that the frame ages of a report compare.
+        let now = Instant::now();
+
+        let disco_report = match self.disco.lock() {
+            Ok(disco) => disco.to_report(now),
+            Err(e) => {
+                error!("Could not acquire disco table mutex: {}", e);
+                Dot11DiscoReport { frames: Vec::new(), overflow: Vec::new() }
+            }
+        };
+
+        let (connection_frames_report, connection_frame_overflow_report) = match self.connection_frames.lock() {
+            Ok(connection_frames) => (connection_frames.to_report(now), connection_frames.overflow_report(now)),
+            Err(e) => {
+                error!("Could not acquire connection frames table mutex: {}", e);
+                (Vec::new(), Vec::new())
+            }
+        };
 
         let channel_switches_report = match self.channel_switches.lock() {
             Ok(channel_switches) => channel_switches.to_report(),
@@ -893,55 +983,15 @@ impl Dot11Table {
             bssids: bssid_report,
             clients: clients_report,
             disco: disco_report,
+            connection_frames: connection_frames_report,
+            connection_frame_overflow: connection_frame_overflow_report,
             channel_switches: channel_switches_report,
             alerts: alerts_report
         }
     }
-
-    fn disco_table_to_report(&self) -> Dot11DiscoReport {
-        let mut frames: Vec<Dot11DiscoFrameReport> = Vec::new();
-
-        match self.disco.frames.lock() {
-            Ok(table) => {
-                for (key, aggregate) in &table.entries {
-                    frames.push(
-                        Dot11DiscoFrameReport {
-                            disco_type: key.disco_type.report_name(),
-                            transmitter: key.transmitter.clone(),
-                            receiver: key.receiver.clone(),
-                            bssid: key.bssid.clone(),
-                            reason_code: key.reason_code,
-                            frequency: key.frequency,
-                            frame_count: aggregate.frame_count,
-                            signal_strength: calculate_signal_strength_report_from_list(&aggregate.signal_strengths)
-                        }
-                    );
-                }
-            },
-            Err(e) => error!("Could not acquire disco table mutex: {}", e)
-        }
-
-        Dot11DiscoReport { frames }
-    }
 }
 
 // yo this all below here needs some serious refactoring and dedup lmao
-
-fn calculate_signal_strength_report_from_list(signal_strengths: &[i8]) -> Option<SignalStrengthReport> {
-    if signal_strengths.is_empty() {
-        return None;
-    }
-
-    let min = *signal_strengths.iter().min().unwrap();
-    let max = *signal_strengths.iter().max().unwrap();
-    let sum: i128 = signal_strengths.iter().map(|s| *s as i128).sum();
-
-    Some(SignalStrengthReport {
-        min,
-        max,
-        average: sum as f32 / signal_strengths.len() as f32
-    })
-}
 
 fn calculate_signal_strength_report(signal_strengths: &HashMap<u16, Vec<i8>>) -> SignalStrengthReport {
     let mut sum: i128 = 0;
@@ -1029,4 +1079,35 @@ fn calculate_signal_histogram(signal_strengths: &HashMap<u16, Vec<i8>>) -> HashM
     }
 
     histograms
+}
+
+#[cfg(test)]
+mod client_signal_strength_tests {
+    use super::ClientSignalStrengths;
+
+    #[test]
+    fn a_client_that_sent_nothing_has_no_signal_strength() {
+        let strengths = ClientSignalStrengths::default();
+
+        assert!(strengths.total().is_none());
+        assert!(strengths.by_frequency().is_empty());
+    }
+
+    #[test]
+    fn signal_strength_is_kept_per_frequency() {
+        let mut strengths = ClientSignalStrengths::default();
+        strengths.register(2437, -60);
+        strengths.register(2437, -64);
+        strengths.register(2442, -80);
+
+        let total = strengths.total().unwrap();
+        assert_eq!((total.min, total.max), (-80, -60));
+        assert!((total.average - -68.0).abs() < 0.01);
+
+        let by_frequency = strengths.by_frequency();
+        assert_eq!(by_frequency.len(), 2);
+        assert_eq!((by_frequency[&2437].min, by_frequency[&2437].max, by_frequency[&2437].frames), (-64, -60, 2));
+        assert!((by_frequency[&2437].average - -62.0).abs() < 0.01);
+        assert_eq!((by_frequency[&2442].min, by_frequency[&2442].max, by_frequency[&2442].frames), (-80, -80, 1));
+    }
 }

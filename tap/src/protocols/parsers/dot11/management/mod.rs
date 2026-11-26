@@ -6,3 +6,5 @@ pub mod advertising_frame_parser_tools;
 pub mod disassociation_frame_parser;
 pub mod action_frame_parser;
 pub mod channel_switch_element_parser;
+pub mod management_frame_tools;
+pub mod connection_frame_parser;

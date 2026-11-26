@@ -45,11 +45,16 @@ public abstract class DiscoFrameDetailsResponse {
     @JsonProperty("receiver_is_bssid")
     public abstract boolean receiverIsBssid();
 
+    @Nullable
     @JsonProperty("reason_code")
-    public abstract int reasonCode();
+    public abstract Integer reasonCode();
 
+    @Nullable
     @JsonProperty("reason")
     public abstract String reason();
+
+    @JsonProperty("is_protected")
+    public abstract boolean isProtected();
 
     @Nullable
     @JsonProperty("frequency")
@@ -70,7 +75,13 @@ public abstract class DiscoFrameDetailsResponse {
     @JsonProperty("frame_count")
     public abstract long frameCount();
 
-    public static DiscoFrameDetailsResponse create(long id, UUID tapUuid, String tapName, DateTime timestamp, String discoType, Dot11MacLinkMetadataResponse transmitter, Dot11MacLinkMetadataResponse receiver, Dot11MacLinkMetadataResponse bssid, boolean isBroadcast, boolean transmitterIsBssid, boolean receiverIsBssid, int reasonCode, String reason, Integer frequency, Integer signalStrengthMin, Integer signalStrengthMax, Float signalStrengthAverage, long frameCount) {
+    @JsonProperty("retry_frames")
+    public abstract long retryFrames();
+
+    @JsonProperty("pair_sequence_numbers")
+    public abstract int pairSequenceNumbers();
+
+    public static DiscoFrameDetailsResponse create(long id, UUID tapUuid, String tapName, DateTime timestamp, String discoType, Dot11MacLinkMetadataResponse transmitter, Dot11MacLinkMetadataResponse receiver, Dot11MacLinkMetadataResponse bssid, boolean isBroadcast, boolean transmitterIsBssid, boolean receiverIsBssid, Integer reasonCode, String reason, boolean isProtected, Integer frequency, Integer signalStrengthMin, Integer signalStrengthMax, Float signalStrengthAverage, long frameCount, long retryFrames, int pairSequenceNumbers) {
         return builder()
                 .id(id)
                 .tapUuid(tapUuid)
@@ -85,11 +96,14 @@ public abstract class DiscoFrameDetailsResponse {
                 .receiverIsBssid(receiverIsBssid)
                 .reasonCode(reasonCode)
                 .reason(reason)
+                .isProtected(isProtected)
                 .frequency(frequency)
                 .signalStrengthMin(signalStrengthMin)
                 .signalStrengthMax(signalStrengthMax)
                 .signalStrengthAverage(signalStrengthAverage)
                 .frameCount(frameCount)
+                .retryFrames(retryFrames)
+                .pairSequenceNumbers(pairSequenceNumbers)
                 .build();
     }
 
@@ -121,7 +135,9 @@ public abstract class DiscoFrameDetailsResponse {
 
         public abstract Builder receiverIsBssid(boolean receiverIsBssid);
 
-        public abstract Builder reasonCode(int reasonCode);
+        public abstract Builder reasonCode(Integer reasonCode);
+
+        public abstract Builder isProtected(boolean isProtected);
 
         public abstract Builder reason(String reason);
 
@@ -134,6 +150,10 @@ public abstract class DiscoFrameDetailsResponse {
         public abstract Builder signalStrengthAverage(Float signalStrengthAverage);
 
         public abstract Builder frameCount(long frameCount);
+
+        public abstract Builder retryFrames(long retryFrames);
+
+        public abstract Builder pairSequenceNumbers(int pairSequenceNumbers);
 
         public abstract DiscoFrameDetailsResponse build();
     }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
 import jakarta.annotation.Nullable;
+import java.util.Collections;
+import java.util.Map;
 
 @AutoValue
 public abstract class Dot11ChannelSwitchReport {
@@ -31,6 +33,7 @@ public abstract class Dot11ChannelSwitchReport {
     public abstract String countryCode();
     @Nullable
     public abstract Dot11SignalStrengthReport signalStrength();
+    public abstract Map<Integer, Map<Integer, Long>> signalHistogram();
 
     @JsonCreator
     public static Dot11ChannelSwitchReport create(@JsonProperty("bssid") String bssid,
@@ -50,7 +53,8 @@ public abstract class Dot11ChannelSwitchReport {
                                                   @JsonProperty("trailing_element_frames") long trailingElementFrames,
                                                   @JsonProperty("dsss_only") @Nullable Boolean dsssOnly,
                                                   @JsonProperty("country_code") @Nullable String countryCode,
-                                                  @JsonProperty("signal_strength") @Nullable Dot11SignalStrengthReport signalStrength) {
+                                                  @JsonProperty("signal_strength") @Nullable Dot11SignalStrengthReport signalStrength,
+                                                  @JsonProperty("signal_histogram") @Nullable Map<Integer, Map<Integer, Long>> signalHistogram) {
         return builder()
                 .bssid(bssid)
                 .frameType(frameType)
@@ -70,6 +74,7 @@ public abstract class Dot11ChannelSwitchReport {
                 .dsssOnly(dsssOnly)
                 .countryCode(countryCode)
                 .signalStrength(signalStrength)
+                .signalHistogram(signalHistogram == null ? Collections.emptyMap() : signalHistogram)
                 .build();
     }
 
@@ -97,6 +102,8 @@ public abstract class Dot11ChannelSwitchReport {
         public abstract Builder dsssOnly(Boolean dsssOnly);
         public abstract Builder countryCode(String countryCode);
         public abstract Builder signalStrength(Dot11SignalStrengthReport signalStrength);
+
+        public abstract Builder signalHistogram(Map<Integer, Map<Integer, Long>> signalHistogram);
 
         public abstract Dot11ChannelSwitchReport build();
     }

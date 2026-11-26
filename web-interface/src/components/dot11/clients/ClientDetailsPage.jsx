@@ -23,6 +23,8 @@ import TransparentHostnamesTable from "../../shared/context/transparent/Transpar
 import {singleTapSelected} from "../../../util/Tools";
 import usePageTitle from "../../../util/UsePageTitle";
 import {useUrlTimeRange} from "../../shared/timerange/TimeRangeUrl";
+import DiscoAnomalies from "../disco/anomalies/DiscoAnomalies";
+import {macFilter} from "../../ethernet/assets/details/AssetProfileHelpers";
 
 const dot11Service = new Dot11Service();
 
@@ -36,6 +38,7 @@ function ClientDetailsPage() {
   const [client, setClient] = useState(null);
 
   const [discoPairsTimeRange, setDiscoPairsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
+  const [discoAnomaliesTimeRange, setDiscoAnomaliesTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "disco_anomalies");
 
   const [trilaterationTimeRange, setTrilaterationTimeRange] = useState(Presets.RELATIVE_MINUTES_15)
   const [trilaterationFloor, setTrilaterationFloor] = useState(null);
@@ -370,6 +373,24 @@ function ClientDetailsPage() {
                 <p className="mb-0 mt-3 text-muted">
                   The MAC address of this client is <span className="highlighted">highlighted.</span>
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title="Disconnection Anomalies"
+                                       urlKey="disco_anomalies"
+                                       timeRange={discoAnomaliesTimeRange}
+                                       setTimeRange={setDiscoAnomaliesTimeRange}
+                                       helpLink="https://go.nzyme.org/disco-anomalies" />
+
+                <DiscoAnomalies filters={macFilter("client", client.mac.address)}
+                                timeRange={discoAnomaliesTimeRange}
+                                perPage={10} />
               </div>
             </div>
           </div>

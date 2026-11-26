@@ -14,6 +14,7 @@ public enum ChannelSwitchMonitorRule {
     REPEATED_TIMESTAMP(ChannelSwitchAnomaly.REPEATED_TIMESTAMP),
     TIMESTAMP_MISMATCH(ChannelSwitchAnomaly.TIMESTAMP_MISMATCH),
     INTERLEAVED_BEACONS(ChannelSwitchAnomaly.INTERLEAVED_BEACONS),
+    SIGNAL_MISMATCH(ChannelSwitchAnomaly.SIGNAL_MISMATCH),
     BURST_RATE(null),
     NOT_FOLLOWED(null);
 

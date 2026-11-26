@@ -11,6 +11,9 @@ import {dot11FrequencyToChannel} from "../../../util/Tools";
 import {CHANNEL_SWITCH_FILTER_FIELDS} from "./ChannelSwitchFilterFields";
 import {channelSwitchFrameTypeToName, channelSwitchOutcomeToName} from "./ChannelSwitchNames";
 import ChannelSwitchAnomalies from "./ChannelSwitchAnomalies";
+import PivotLink from "../../shared/PivotLink";
+import {discoAnomalySignalTimeRange} from "../disco/signal/DiscoSignalLinks";
+import {channelSwitchSignalLink} from "./ChannelSwitchSignalLinks";
 
 export default function ChannelSwitchesTable(props) {
 
@@ -72,9 +75,18 @@ export default function ChannelSwitchesTable(props) {
     }
 
     // Every row is what one tap recorded, so its signal strength is valid with any number of taps selected.
-    return <SignalStrength strength={cs.signal_strength_average}
-                           selectedTapCount={1}
-                           filterElement={filterIcon("signal_strength", Math.round(cs.signal_strength_average))} />
+    return (
+        <React.Fragment>
+          <SignalStrength strength={cs.signal_strength_average}
+                          selectedTapCount={1}
+                          filterElement={filterIcon("signal_strength", Math.round(cs.signal_strength_average))} />
+          <PivotLink to={channelSwitchSignalLink([cs.bssid.mac.address],
+                             discoAnomalySignalTimeRange(cs.timestamp, cs.timestamp))}
+                     title="Signal strength investigation of this access point"
+                     icon={true}
+                     className="ms-2 small" />
+        </React.Fragment>
+    )
   }
 
   const outcome = (cs) => {

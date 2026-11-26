@@ -9,6 +9,7 @@ public enum ChannelSwitchAnomaly {
     REPEATED_TIMESTAMP(true),
     TIMESTAMP_MISMATCH(true),
     INTERLEAVED_BEACONS(true),
+    SIGNAL_MISMATCH(true),
     STATIC_COUNT(false),
     TRAILING_ELEMENT(false);
 

@@ -60,6 +60,7 @@ import {
 import {ALLOWED_RECON_SCAN_TYPE_VALUES, RECON_SCAN_TYPE_SELECT_OPTIONS} from "./validators/ReconScanTypeValidator";
 import {ALLOWED_SPOOFING_TYPE_VALUES, SPOOFING_TYPE_SELECT_OPTIONS} from "./validators/SpoofingTypeValidator";
 import {ALLOWED_DISCO_TYPE_VALUES, DISCO_TYPE_SELECT_OPTIONS} from "./validators/DiscoTypeValidator";
+import {ALLOWED_DISCO_ANOMALY_TYPE_VALUES, DISCO_ANOMALY_TYPE_SELECT_OPTIONS} from "./validators/DiscoAnomalyTypeValidator";
 import {
   ALLOWED_CHANNEL_SWITCH_ANOMALY_VALUES,
   ALLOWED_CHANNEL_SWITCH_FRAME_TYPE_VALUES,
@@ -277,6 +278,13 @@ export const FILTER_TYPE = {
       (value) => validateEnum(ALLOWED_DISCO_TYPE_VALUES, value)
     ],
     placeholder: "DEAUTHENTICATION"
+  },
+  DISCO_ANOMALY_TYPE: {
+    name: "disco_anomaly_type",
+    validators: [
+      (value) => validateEnum(ALLOWED_DISCO_ANOMALY_TYPE_VALUES, value)
+    ],
+    placeholder: "REPEATED_FRAMES"
   },
   CHANNEL_SWITCH_FRAME_TYPE: {
     name: "channel_switch_frame_type",
@@ -810,6 +818,24 @@ export const OPERATORS = {
     no_value: false,
     validators: [],
     options: DISCO_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DISCO_ANOMALY_TYPE_EQUALS: {
+    name: "disco_anomaly_type_equals",
+    sign: "==",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DISCO_ANOMALY_TYPE_SELECT_OPTIONS,
+    field_type: FIELD_TYPE.SELECT
+  },
+  DISCO_ANOMALY_TYPE_NOT_EQUALS: {
+    name: "disco_anomaly_type_not_equals",
+    sign: "!=",
+    placeholder: null,
+    no_value: false,
+    validators: [],
+    options: DISCO_ANOMALY_TYPE_SELECT_OPTIONS,
     field_type: FIELD_TYPE.SELECT
   },
   CHANNEL_SWITCH_FRAME_TYPE_EQUALS: {
@@ -1459,6 +1485,12 @@ export default function Filters(props) {
           setAllowedOperators([
             OPERATORS.DISCO_TYPE_EQUALS,
             OPERATORS.DISCO_TYPE_NOT_EQUALS
+          ])
+          break;
+        case FILTER_TYPE.DISCO_ANOMALY_TYPE:
+          setAllowedOperators([
+            OPERATORS.DISCO_ANOMALY_TYPE_EQUALS,
+            OPERATORS.DISCO_ANOMALY_TYPE_NOT_EQUALS
           ])
           break;
         case FILTER_TYPE.CHANNEL_SWITCH_FRAME_TYPE:

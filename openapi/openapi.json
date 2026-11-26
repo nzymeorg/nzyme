@@ -78,6 +78,9 @@
     "description" : "WiFi clients that taps recorded on the air. A client is connected if it was seen exchanging frames with an access point, and disconnected if it was only seen probing or sending frames that are not tied to a BSSID.",
     "name" : "Clients"
   }, {
+    "description" : "Nzyme looks for the patterns that forced disconnections leave behind: disconnection frames that a real access point or client would not send that way, frames that arrive with another signal strength than the access point they name, authentication floods and unexpected EAPOL frames. Each pattern a tap observed around one access point, and one client where it concerns a single client, is recorded as an anomaly that stays open while the pattern continues. Anomalies are recorded per tap and are retention cleaned with the other WiFi data. Detection runs every minute and records at most 200 new anomalies per run and tenant, those of monitored networks first.",
+    "name" : "Disconnection Anomalies"
+  }, {
     "description" : "Nzyme calls deauthentication and disassociation frames disconnection frames, or disco frames. They are a common part of WiFi attacks that kick clients off a network. These endpoints show the disconnection activity your taps recorded and manage the disconnection monitor of a monitored network.",
     "externalDocs" : {
       "description" : "Disconnection activity in the Nzyme documentation",
@@ -1819,7 +1822,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -1873,7 +1876,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -1915,7 +1918,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -1993,7 +1996,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -2081,7 +2084,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -2130,7 +2133,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -2176,7 +2179,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -4375,7 +4378,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -4480,7 +4483,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -4565,7 +4568,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -4670,7 +4673,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -4803,6 +4806,367 @@
           }
         },
         "summary" : "Get histogram of the channel switch monitor",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the settings of the tenant in two groups: whether alerts are raised for monitored networks only and the threshold of the signal strength mismatch detection, which applies to all networks, and the rate threshold and detection methods that apply to access points outside of monitored networks. Monitored networks carry their own rate threshold and methods. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "findChannelSwitchAlertConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelSwitchAlertConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the channel switch alert configuration of a tenant",
+        "tags" : [ "Channel Switch Announcements" ]
+      },
+      "put" : {
+        "description" : "Updates one or more alert settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. A change applies from the next run of the monitor, which looks at the last five minutes again, and does not touch existing alerts. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "updateChannelSwitchAlertConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains a key that is not part of the alert configuration, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the channel switch alert configuration of a tenant",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/signal" : {
+      "get" : {
+        "description" : "Compares the signal strength of the frames that announced a channel switch with the signal strength of the access points they were sent in the name of. The filters have to leave one or two access points; with more, only their number is returned. A tap records an access point at another strength on every frequency it tunes to, so there is one finding per tap, tuned frequency and access point. Findings are sorted by importance: those with mismatches first, then those that were compared by their largest difference, then those that could not be compared. They are paginated, while the totals of the access points cover all of them. An announcing frame is compared with the beacons and probe responses of the access point that carry no announcement, on the same tap and frequency, in the minute the announcement was reported in and the five minutes before, which is what the signal strength mismatch detection uses. A frame is a mismatch when it differs by the configured threshold or more. The latest 25,000 records are evaluated.",
+        "operationId" : "findChannelSwitchSignalAnalysis",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size of the findings, 25 if omitted. Cannot exceed 100.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset of the findings.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalAnalysisResponse"
+                }
+              }
+            },
+            "description" : "Analysis found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size too large."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "Compare the signal strength of channel switch announcements with their access points",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/signal/charts" : {
+      "get" : {
+        "description" : "Returns the announcing frames of up to 10 combinations of tap and tuned frequency with their signal strength, next to the signal strength of the beacons and probe responses of their access points that carry no announcement, for charting both over time. Without a selection, the 6 combinations of the most important findings are returned. Each chart has at most 1,000 records, and every record carries the signal strength it was compared with and a histogram of the signal strength of every single frame. The filters have to leave one or two access points, as for the findings.",
+        "operationId" : "findChannelSwitchSignalCharts",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated selection of up to 10 charts, each a tap UUID and a frequency in MHz joined by a colon. Omit for the charts of the most important findings.",
+          "in" : "query",
+          "name" : "charts",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalChartsResponse"
+                }
+              }
+            },
+            "description" : "Charts found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Malformed selection, or more than 10 charts selected."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "Chart the signal strength of channel switch announcements next to their access points",
+        "tags" : [ "Channel Switch Announcements" ]
+      }
+    },
+    "/api/dot11/channelswitches/signal/transmitters" : {
+      "get" : {
+        "description" : "Returns the access points with the most announcing frames that were recorded with a signal strength. Every access point comes with the time of its last announcement and the number of beacons and probe responses its announcing frames can be compared with, counted on the taps and frequencies they were recorded on. Announcements have no receiver, so the receiver count is always zero. Results are paginated.",
+        "operationId" : "findChannelSwitchSignalTransmitters",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size, 10 if omitted. Cannot exceed 25.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalTransmitterListResponse"
+                }
+              }
+            },
+            "description" : "Access points found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size too large."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "List access points with channel switch announcements for a signal strength comparison",
         "tags" : [ "Channel Switch Announcements" ]
       }
     },
@@ -4983,7 +5347,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5061,7 +5425,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5110,7 +5474,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5195,7 +5559,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5232,7 +5596,7 @@
             "minLength" : 1
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5282,7 +5646,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5427,6 +5791,423 @@
         },
         "summary" : "Get disconnected signal strength histogram of a client",
         "tags" : [ "Clients" ]
+      }
+    },
+    "/api/dot11/disco/anomalies" : {
+      "get" : {
+        "description" : "Returns the anomalies that were going on at any point inside the time range, with the number of anomalies per type. Sorts by the time an anomaly was last seen, descending, unless you pass a sorting column and direction. An anomaly lists at most 32 reason codes and 25 sample clients. The detection keeps the 10 pairs of stations with the most frames per tap, access point and detection in one run, and records at most 200 new anomalies per run.",
+        "operationId" : "findDiscoAnomalies",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: anomaly_type, bssid, client, frame_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to anomalies of these access points. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to anomalies of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Sorting column: ANOMALY_TYPE, BSSID, CLIENT, FRAME_COUNT, FIRST_SEEN or LAST_SEEN. Omit to sort by LAST_SEEN.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction, ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DiscoAnomalyListResponse"
+                }
+              }
+            },
+            "description" : "Anomalies found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown sorting column or direction, or page size above 250."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization, tenant or monitored network not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List disconnection anomalies",
+        "tags" : [ "Disconnection Anomalies" ]
+      }
+    },
+    "/api/dot11/disco/anomalies/histogram" : {
+      "get" : {
+        "description" : "Returns an object keyed by bucket timestamp with the number of anomalies that were first seen in each bucket, in total and per type. The bucket size is chosen automatically from the time range.",
+        "operationId" : "findDiscoAnomaliesHistogram",
+        "parameters" : [ {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder. Fields: anomaly_type, bssid, client, frame_count.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of BSSIDs. Narrows the result to anomalies of these access points. Ignored if a monitored network is passed.",
+          "in" : "query",
+          "name" : "bssids",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "UUID of a monitored network. Narrows the result to anomalies of all BSSIDs of that network.",
+          "in" : "query",
+          "name" : "monitored_network_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Histogram found. The response is an object keyed by bucket timestamp."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The monitored network is not accessible by the calling user."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Monitored network not found."
+          }
+        },
+        "summary" : "Get disconnection anomaly histogram",
+        "tags" : [ "Disconnection Anomalies" ]
+      }
+    },
+    "/api/dot11/disco/anomalies/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
+      "get" : {
+        "description" : "Returns the detection settings of the tenant in three groups: general settings, detections on disconnection frames, and detections on the authentication and EAPOL frames of clients that connect. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "findDiscoAnomalyDetectionConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DiscoDetectionConfigurationResponse"
+                }
+              }
+            },
+            "description" : "Configuration found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get the disconnection anomaly detection configuration of a tenant",
+        "tags" : [ "Disconnection Anomalies" ]
+      },
+      "put" : {
+        "description" : "Updates one or more detection settings of the tenant. Accepted keys are the keys returned by the configuration endpoint. A change applies from the next detection run, which looks at the last five minutes again, and does not touch recorded anomalies. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "updateDiscoAnomalyDetectionConfiguration",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenericConfigurationUpdateRequest"
+              }
+            }
+          },
+          "description" : "Map of configuration keys and their new values, wrapped in a change field.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Configuration updated."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The change is empty, contains a key that is not part of the detection configuration, or a value violates the constraints of its configuration key."
+          }
+        },
+        "summary" : "Update the disconnection anomaly detection configuration of a tenant",
+        "tags" : [ "Disconnection Anomalies" ]
+      }
+    },
+    "/api/dot11/disco/anomalies/show/{uuid}" : {
+      "get" : {
+        "description" : "Returns one anomaly. It is only found if a tap of the passed tenant that the calling user can access recorded it.",
+        "operationId" : "findDiscoAnomaly",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Anomaly UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DiscoAnomalyDetailsResponse"
+                }
+              }
+            },
+            "description" : "Anomaly found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Anomaly, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a disconnection anomaly",
+        "tags" : [ "Disconnection Anomalies" ]
+      }
+    },
+    "/api/dot11/disco/anomalies/show/{uuid}/frames/connection" : {
+      "get" : {
+        "description" : "Returns the authentication, association and EAPOL frames the tap of the anomaly recorded for its access point, and its client if it has one, from one minute before the anomaly was first seen until one minute after it was last seen, oldest first. Taps combine frames that share type, addresses, status and channel within a report interval into one record with a frame count.",
+        "operationId" : "findDiscoAnomalyConnectionFrames",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Anomaly UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page size. Cannot exceed 250.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionFrameListResponse"
+                }
+              }
+            },
+            "description" : "Frames found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size above 250."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Anomaly, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the connection frames around a disconnection anomaly",
+        "tags" : [ "Disconnection Anomalies" ]
       }
     },
     "/api/dot11/disco/config/detection" : {
@@ -5592,7 +6373,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5697,7 +6478,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5766,7 +6547,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -5896,7 +6677,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -6017,7 +6798,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -6122,7 +6903,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -6205,6 +6986,266 @@
           }
         },
         "summary" : "List top disconnection frame reason codes",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/signal" : {
+      "get" : {
+        "description" : "Compares the signal strength of the recorded disconnection frames with the signal strength of the stations they name as transmitter. The filters have to leave one or two transmitters; with more, only their number is returned. A tap records a station at another strength on every frequency it tunes to, so there is one finding per tap, frequency and transmitter. Findings are sorted by importance: those with mismatches first, then those that were compared by their largest difference, then those that could not be compared. They are paginated, while the totals of the transmitters cover all of them. An access point is compared with its beacons and probe responses on the same tap and frequency, in the minute a frame was reported in and the five minutes before, which is what the signal strength mismatch detection uses. A client is compared with the nearest data frames, probe requests and connection frames it sent on the same tap and frequency, at most 15 minutes away. A frame is a mismatch when it differs by the configured threshold or more. The latest 25,000 frame records are evaluated.",
+        "operationId" : "findFrameSignalAnalysis",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size of the findings, 25 if omitted. Cannot exceed 100.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset of the findings.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalAnalysisResponse"
+                }
+              }
+            },
+            "description" : "Analysis found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size too large."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "Compare the signal strength of disconnection frames with their transmitters",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/signal/charts" : {
+      "get" : {
+        "description" : "Returns the disconnection frames of up to 10 combinations of tap and frequency with their signal strength, next to the signal strength of what their transmitters are compared with, for charting both over time. Without a selection, the 6 combinations of the most important findings are returned. Each chart has at most 1,000 frame records, and every record carries the signal strength it was compared with and a histogram of the signal strength of every single frame if the tap reported one. The filters have to leave one or two transmitters, as for the findings. The latest 25,000 frame records of the selected charts are looked at, and a chart keeps the oldest 1,000 of its records.",
+        "operationId" : "findFrameSignalCharts",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON encoded filter definition as produced by the web interface filter builder.",
+          "in" : "query",
+          "name" : "filters",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated selection of up to 10 charts, each a tap UUID and a frequency in MHz joined by a colon. Omit for the charts of the most important findings.",
+          "in" : "query",
+          "name" : "charts",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalChartsResponse"
+                }
+              }
+            },
+            "description" : "Charts found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Malformed selection, or more than 10 charts selected."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "Chart the signal strength of disconnection frames next to their transmitters",
+        "tags" : [ "Disconnection Monitoring" ]
+      }
+    },
+    "/api/dot11/disco/signal/transmitters" : {
+      "get" : {
+        "description" : "Returns the addresses named as transmitter of the most disconnection frames that were recorded with a signal strength. Every address comes with the number of its receivers, the time of its last frame and the number of frames its disconnection frames can be compared with: beacons and probe responses for an access point, data frames, probe requests and connection frames for a client, counted on the taps and frequencies its disconnection frames were recorded on. Results are paginated.",
+        "operationId" : "findFrameSignalTransmitters",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include, or * for all taps of the tenant the user can access. Without it, the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page size, 10 if omitted. Cannot exceed 25.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FrameSignalTransmitterListResponse"
+                }
+              }
+            },
+            "description" : "Transmitters found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size too large."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The comparison did not finish within 30 seconds per statement. Select a shorter time range or fewer taps."
+          }
+        },
+        "summary" : "List transmitters of disconnection frames for a signal strength comparison",
         "tags" : [ "Disconnection Monitoring" ]
       }
     },
@@ -8787,7 +9828,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -8835,7 +9876,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -8872,7 +9913,7 @@
             "minLength" : 1
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -8921,7 +9962,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -8964,7 +10005,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9068,7 +10109,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9125,7 +10166,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9182,7 +10223,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9233,7 +10274,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9502,7 +10543,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9602,7 +10643,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9702,7 +10743,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -9756,7 +10797,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16177,7 +17218,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16271,7 +17312,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16343,7 +17384,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16397,7 +17438,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16432,7 +17473,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16513,7 +17554,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16554,7 +17595,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16610,7 +17651,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16684,7 +17725,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -16750,7 +17791,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -18157,7 +19198,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -18257,7 +19298,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -18464,7 +19505,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -18670,7 +19711,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20130,7 +21171,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20184,7 +21225,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20242,7 +21283,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20351,7 +21392,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20421,7 +21462,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20515,7 +21556,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20813,7 +21854,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20899,7 +21940,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -20979,7 +22020,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21027,7 +22068,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21069,7 +22110,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21127,7 +22168,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21185,7 +22226,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21273,7 +22314,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21353,7 +22394,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21433,7 +22474,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21481,7 +22522,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21549,7 +22590,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21596,7 +22637,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21684,7 +22725,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21788,7 +22829,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21842,7 +22883,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -21930,7 +22971,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22030,7 +23071,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22094,7 +23135,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22192,7 +23233,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22246,7 +23287,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22298,7 +23339,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22392,7 +23433,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22492,7 +23533,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22546,7 +23587,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22634,7 +23675,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22734,7 +23775,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -22799,7 +23840,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -24158,7 +25199,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -24212,7 +25253,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -24270,7 +25311,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -24370,7 +25411,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -24464,7 +25505,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -27031,7 +28072,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -27085,7 +28126,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -27143,7 +28184,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -27243,7 +28284,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -27337,7 +28378,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -29685,7 +30726,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -29739,7 +30780,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -29797,7 +30838,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -29897,7 +30938,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -29997,7 +31038,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30097,7 +31138,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30191,7 +31232,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30271,7 +31312,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30351,7 +31392,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30445,7 +31486,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30499,7 +31540,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30551,7 +31592,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30645,7 +31686,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30753,7 +31794,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30823,7 +31864,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -30923,7 +31964,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31007,7 +32048,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31066,7 +32107,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31130,7 +32171,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31260,7 +32301,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31314,7 +32355,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31372,7 +32413,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31472,7 +32513,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31572,7 +32613,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31672,7 +32713,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31772,7 +32813,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31866,7 +32907,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -31930,7 +32971,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -32849,7 +33890,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -32903,7 +33944,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -32961,7 +34002,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33070,7 +34111,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33140,7 +34181,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33234,7 +34275,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33328,7 +34369,7 @@
             "format" : "int32"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33382,7 +34423,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33440,7 +34481,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -33534,7 +34575,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -42106,7 +43147,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -42261,7 +43302,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -42390,7 +43431,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -42482,7 +43523,7 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Comma separated list of tap UUIDs to include. Omit for all taps the user can access.",
+          "description" : "Has no effect. The vectors of the timeline are returned whatever taps recorded them.",
           "in" : "query",
           "name" : "taps",
           "schema" : {
@@ -46317,6 +47358,23 @@
           }
         }
       },
+      "ChannelSwitchAlertConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "general" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "other_networks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          }
+        }
+      },
       "ChannelSwitchDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -46701,6 +47759,78 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ConnectedClientDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ConnectionFrameDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "algorithm" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frame_type" : {
+            "type" : "string"
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "receiver" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "retry_frames" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "signal_strength_average" : {
+            "type" : "number",
+            "format" : "float"
+          },
+          "status_code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "transaction" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "transmitter" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          }
+        }
+      },
+      "ConnectionFrameListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "frames" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectionFrameDetailsResponse"
             }
           },
           "total" : {
@@ -49310,6 +50440,165 @@
           }
         }
       },
+      "DiscoAnomalyDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "anomaly_type" : {
+            "type" : "string"
+          },
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "client" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frame_types" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "frames_from_bssid" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "is_ongoing" : {
+            "type" : "boolean"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "monitored_network_ssid" : {
+            "type" : "string"
+          },
+          "monitored_network_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "peak" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason_codes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiscoAnomalyReasonCodeResponse"
+            }
+          },
+          "reference_signal_strength" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "sample_clients" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "signal_strength" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "threshold" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "DiscoAnomalyListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "anomalies" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiscoAnomalyDetailsResponse"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "types" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiscoAnomalyTypeCountResponse"
+            }
+          }
+        }
+      },
+      "DiscoAnomalyReasonCodeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DiscoAnomalyTypeCountResponse" : {
+        "type" : "object",
+        "properties" : {
+          "anomalies" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DiscoDetectionConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "connections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "frames" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          },
+          "general" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+            }
+          }
+        }
+      },
       "DiscoFrameDetailsResponse" : {
         "type" : "object",
         "properties" : {
@@ -49334,6 +50623,13 @@
           "is_broadcast" : {
             "type" : "boolean"
           },
+          "is_protected" : {
+            "type" : "boolean"
+          },
+          "pair_sequence_numbers" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "reason" : {
             "type" : "string"
           },
@@ -49346,6 +50642,10 @@
           },
           "receiver_is_bssid" : {
             "type" : "boolean"
+          },
+          "retry_frames" : {
+            "type" : "integer",
+            "format" : "int64"
           },
           "signal_strength_average" : {
             "type" : "number",
@@ -50947,6 +52247,382 @@
             "type" : "integer",
             "format" : "int64",
             "description" : "Number of all entries that pass the filters, of which this is one page."
+          }
+        }
+      },
+      "FrameSignalAnalysisResponse" : {
+        "type" : "object",
+        "properties" : {
+          "access_point_reference_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "client_comparison_minutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "finding_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalFindingResponse"
+            }
+          },
+          "first_frame" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "is_truncated" : {
+            "type" : "boolean"
+          },
+          "last_frame" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "max_charts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max_frame_records" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max_sources" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalSourceResponse"
+            }
+          },
+          "threshold" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "FrameSignalChartResponse" : {
+        "type" : "object",
+        "properties" : {
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frames" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalFrameResponse"
+            }
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "is_truncated" : {
+            "type" : "boolean"
+          },
+          "references" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalReferenceResponse"
+            }
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "FrameSignalChartsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bucket_seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "charts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalChartResponse"
+            }
+          },
+          "default_charts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "is_truncated" : {
+            "type" : "boolean"
+          },
+          "max_frame_records" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max_frame_records_per_chart" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "max_sources" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "source_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalSourceResponse"
+            }
+          },
+          "threshold" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "FrameSignalFindingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "compared_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "compared_with" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "difference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frequency" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "largest_difference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "mismatch_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "signal" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "signal_max" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "signal_min" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tap_name" : {
+            "type" : "string"
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "transmitter" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FrameSignalFrameResponse" : {
+        "type" : "object",
+        "properties" : {
+          "difference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frame_type" : {
+            "type" : "string"
+          },
+          "is_broadcast" : {
+            "type" : "boolean"
+          },
+          "is_protected" : {
+            "type" : "boolean"
+          },
+          "new_channel" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reason_code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "receiver" : {
+            "type" : "string"
+          },
+          "reference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "signal" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "signal_histogram" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "signal_max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "signal_min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "transmitter" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FrameSignalReferenceBucketResponse" : {
+        "type" : "object",
+        "properties" : {
+          "average" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "bucket" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "max" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "samples" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "FrameSignalReferenceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "buckets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalReferenceBucketResponse"
+            }
+          },
+          "source" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FrameSignalSourceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "compared_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "difference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "largest_difference" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "mac" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "mismatch_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FrameSignalTransmitterListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "transmitters" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FrameSignalTransmitterResponse"
+            }
+          }
+        }
+      },
+      "FrameSignalTransmitterResponse" : {
+        "type" : "object",
+        "properties" : {
+          "comparison_frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "frame_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mac" : {
+            "$ref" : "#/components/schemas/Dot11MacLinkMetadataResponse"
+          },
+          "receiver_count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string"
           }
         }
       },

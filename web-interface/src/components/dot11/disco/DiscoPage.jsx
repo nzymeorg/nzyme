@@ -4,6 +4,9 @@ import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import {Presets} from "../../shared/timerange/TimeRange";
 import {useUrlTimeRange} from "../../shared/timerange/TimeRangeSelector";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
+import SectionMenuBar from "../../shared/SectionMenuBar";
+import ApiRoutes from "../../../util/ApiRoutes";
+import {DISCO_MENU_ITEMS} from "./DiscoMenuItems";
 import Filters from "../../shared/filtering/Filters";
 import useUrlFilters from "../../shared/filtering/useUrlFilters";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
@@ -75,7 +78,7 @@ export default function DiscoPage() {
       <React.Fragment>
         <div className="row">
           <div className="col-md-12">
-            <h1>Disconnection Activity</h1>
+            <SectionMenuBar items={DISCO_MENU_ITEMS} activeRoute={ApiRoutes.DOT11.DISCO.INDEX} />
           </div>
         </div>
 
@@ -150,7 +153,8 @@ export default function DiscoPage() {
                                      timeRange={timeRange}
                                      filters={filters}
                                      setFilters={setFilters}
-                                     revision={revision} />
+                                     revision={revision}
+                                     signalPivot={true} />
                 </div>
               </div>
             </div>
@@ -254,8 +258,8 @@ export default function DiscoPage() {
                                          helpLink="https://go.nzyme.org/disco-frames" />
 
                   <p className="text-muted">
-                    Taps combine frames that share type, addresses, reason code and channel within a report
-                    interval into one row. The frames column shows how many frames a row stands for.
+                    Taps combine frames that share type, addresses, reason code and channel within ten seconds into
+                    one row. The frames column shows how many frames a row stands for.
                   </p>
 
                   <DiscoFramesTable frames={frames}
@@ -266,6 +270,7 @@ export default function DiscoPage() {
                                     orderDirection={orderDirection}
                                     setOrderColumn={setOrderColumn}
                                     setOrderDirection={setOrderDirection}
+                                    signalTimeRange={timeRange}
                                     setFilters={setFilters} />
                 </div>
               </div>

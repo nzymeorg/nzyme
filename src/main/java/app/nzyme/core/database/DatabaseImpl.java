@@ -576,6 +576,24 @@ public class DatabaseImpl implements Database {
                 ));
 
                 tables.add(new DataTableInformation(
+                        "dot11_connection_frames",
+                        "SELECT COUNT(*) FROM dot11_connection_frames WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM dot11_connection_frames WHERE created_at < :since AND tap_uuid IN (<taps>)"
+                ));
+
+                tables.add(new DataTableInformation(
+                        "dot11_frame_overflows",
+                        "SELECT COUNT(*) FROM dot11_frame_overflows WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM dot11_frame_overflows WHERE created_at < :since AND tap_uuid IN (<taps>)"
+                ));
+
+                tables.add(new DataTableInformation(
+                        "dot11_disco_anomalies",
+                        "SELECT COUNT(*) FROM dot11_disco_anomalies WHERE tap_uuid IN (<taps>)",
+                        "DELETE FROM dot11_disco_anomalies WHERE last_seen < :since AND tap_uuid IN (<taps>)"
+                ));
+
+                tables.add(new DataTableInformation(
                         "dot11_channel_switches",
                         "SELECT COUNT(*) FROM dot11_channel_switches WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM dot11_channel_switches WHERE created_at < :since AND tap_uuid IN (<taps>)"
