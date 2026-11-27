@@ -627,6 +627,7 @@ pub fn health_indicator_name(id: &str) -> &str {
         "message_bus_message_stuck" => "Message stuck",
         "tap_file_permissions" => "Tap file permissions",
         "node_file_permissions" => "Node file permissions",
+        "node_heap" => "Node heap",
         "connect" => "Connect",
         other => other,
     }

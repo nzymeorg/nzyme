@@ -232,6 +232,7 @@ class SimpleLineChartBase extends React.Component {
           yaxis: {
             ticksuffix: this.props.ticksuffix ? this.props.ticksuffix : undefined,
             tickformat: this.props.tickformat ? this.props.tickformat : undefined,
+            range: this.props.yRange,
             fixedrange: true,
             title: this.props.yaxistitle,
             linecolor: colors.lines,

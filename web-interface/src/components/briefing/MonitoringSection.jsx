@@ -15,7 +15,7 @@ const HEALTH_NAMES = {
   tap_drop: "Tap drop", tap_buffer: "Tap buffer", tap_error: "Tap error", tasks_queue_task_stuck: "Task stuck",
   tasks_queue_task_failure: "Task failure", message_bus_message_failure: "Message failure",
   message_bus_message_stuck: "Message stuck", tap_file_permissions: "Tap file permissions",
-  node_file_permissions: "Node file permissions", connect: "Connect",
+  node_file_permissions: "Node file permissions", node_heap: "Node heap", connect: "Connect",
   asset_identity_backlog: "Asset identity backlog", segmentation_lag: "Segmentation lag",
   db_configuration: "DB configuration",
   db_vacuum: "DB vacuum", db_bloat: "DB bloat", db_performance: "DB performance",

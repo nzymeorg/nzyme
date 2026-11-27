@@ -56101,6 +56101,14 @@
           "deleted" : {
             "type" : "boolean"
           },
+          "gc_pause_time_percent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "heap_after_gc_percent" : {
+            "type" : "number",
+            "format" : "double"
+          },
           "heap_bytes_available" : {
             "type" : "integer",
             "format" : "int64"
@@ -56112,6 +56120,10 @@
           "heap_bytes_used" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "heap_status" : {
+            "type" : "string",
+            "enum" : [ "OK", "FULL", "GC_OVERHEAD", "MEMORY_PRESSURE", "EXHAUSTED", "NO_MEASUREMENTS" ]
           },
           "http_external_uri" : {
             "type" : "string"
@@ -56137,6 +56149,10 @@
           "memory_bytes_used" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "memory_pressure_percent" : {
+            "type" : "number",
+            "format" : "double"
           },
           "metrics_gauges" : {
             "type" : "object",

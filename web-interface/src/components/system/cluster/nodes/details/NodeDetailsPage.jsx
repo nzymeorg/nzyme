@@ -11,11 +11,13 @@ import CpuLoadIndicator from "./CpuLoadIndicator";
 import MemoryUseIndicator from "./MemoryUseIndicator";
 import TapReportStatisticsChart from "./TapReportStatisticsChart";
 import NodeClockWarning from "./NodeClockWarning";
+import NodeHeapWarning from "./NodeHeapWarning";
 import {toast} from "react-toastify";
 import NodeDeletedWarning from "./NodeDeletedWarning";
 import NodeTimers from "./NodeTimers";
 import NodeGauges from "./NodeGauges";
 import DatabasePoolCard from "./DatabasePoolCard";
+import NodeHeapHealthCard from "./NodeHeapHealthCard";
 import usePageTitle from "../../../../../util/UsePageTitle";
 
 const clusterService = new ClusterService()
@@ -83,6 +85,7 @@ function NodeDetailsPage() {
         <NodeDeletedWarning node={node} />
         <NodeInactiveWarning node={node} />
         <NodeClockWarning node={node} />
+        <NodeHeapWarning node={node} />
 
         <div className="row mt-3">
           <div className="col-6">
@@ -173,6 +176,12 @@ function NodeDetailsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-12">
+            <NodeHeapHealthCard node={node} />
           </div>
         </div>
 

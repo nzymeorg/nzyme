@@ -12,6 +12,7 @@ import TapBufferConsequence from "./consequences/TapBufferConsequence";
 import TapErrorConsequence from "./consequences/TapErrorConsequence";
 import TapFilePermissionsConsequence from "./consequences/TapFilePermissionsConsequence";
 import NodeFilePermissionsConsequence from "./consequences/NodeFilePermissionsConsequence";
+import NodeHeapConsequence from "./consequences/NodeHeapConsequence";
 import TLSExpirationConsequence from "./consequences/TLSExpirationConsequence";
 import TaskFailureConsequence from "./consequences/TaskFailureConsequence";
 import TaskStuckConsequence from "./consequences/TaskStuckConsequence";
@@ -73,6 +74,7 @@ function Consequences(props) {
         <TapErrorConsequence show={consequences.includes("tap_error")} />
         <TapFilePermissionsConsequence show={consequences.includes("tap_file_permissions")} />
         <NodeFilePermissionsConsequence show={consequences.includes("node_file_permissions")} />
+        <NodeHeapConsequence show={consequences.includes("node_heap")} />
         <TaskFailureConsequence show={consequences.includes("tasks_queue_task_failure")} />
         <TaskStuckConsequence show={consequences.includes("tasks_queue_task_stuck")} />
         <MessageFailureConsequence show={consequences.includes("message_bus_message_failure")} />

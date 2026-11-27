@@ -27,7 +27,12 @@ function NodeRow(props) {
           </td>
           <td>
             {numeral(node.heap_bytes_used).format("0.0b")} of {numeral(node.heap_bytes_total).format("0.0b")}{' '}
-            ({numeral((node.heap_bytes_used * 100.0) / node.heap_bytes_total).format("0.0")}%)
+            ({numeral((node.heap_bytes_used * 100.0) / node.heap_bytes_total).format("0.0")}%){' '}
+            {node.heap_status && node.heap_status !== "OK"
+                ? <i className={"fa-solid fa-warning "
+                    + (node.heap_status === "EXHAUSTED" ? "text-danger" : "text-warning")}
+                     title="Heap warning" />
+                : null}
           </td>
           <td>{node.clock_drift_ms < -5000 || node.clock_drift_ms > 5000
             ? <i className="fa-solid fa-warning text-danger" title="Clock drift detected"/>

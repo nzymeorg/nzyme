@@ -302,6 +302,13 @@ public enum SystemEventType {
             SystemEventScope.SYSTEM,
             "\"Database Transactions\" Health Indicator was toggled",
             "The state of the \"Database Transactions\" system health indicator has changed from a previously different state."
+    ),
+
+    HEALTH_INDICATOR_NODE_HEAP_TOGGLED(
+            SystemEventCategory.HEALTH_INDICATOR,
+            SystemEventScope.SYSTEM,
+            "\"Node Heap\" Health Indicator was toggled",
+            "The state of the \"Node Heap\" system health indicator has changed from a previously different state."
     );
 
     private final SystemEventCategory category;

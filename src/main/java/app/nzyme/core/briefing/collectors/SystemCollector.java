@@ -326,6 +326,7 @@ public class SystemCollector {
             case "message_bus_message_stuck" -> "A message on the message bus is stuck.";
             case "tap_file_permissions" -> "A tap has files with unsafe permissions.";
             case "node_file_permissions" -> "A node has files with unsafe permissions.";
+            case "node_heap" -> "A node is short on JVM heap or memory, or does not report its heap measurements.";
             case "connect" -> "Connect is enabled but the cluster cannot reach it or a node cannot update its Connect data.";
             case "asset_identity_backlog" -> "MAC change detection cannot keep up with the number of new assets.";
             case "segmentation_lag" -> "Segmentation is behind on evaluating recorded sessions.";
@@ -384,6 +385,7 @@ public class SystemCollector {
             case "message_bus_message_stuck" -> "Message Stuck";
             case "tap_file_permissions" -> "Tap File Permissions";
             case "node_file_permissions" -> "Node File Permissions";
+            case "node_heap" -> "Node Heap";
             case "connect" -> "Connect";
             case "asset_identity_backlog" -> "Asset Identity Backlog";
             case "segmentation_lag" -> "Segmentation Lag";

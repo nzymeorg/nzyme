@@ -43,6 +43,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -59,6 +60,8 @@ public class NodeManager {
     private long localCycle;
 
     private final NodeInformation nodeInformation;
+    private final GarbageCollectionMonitor garbageCollectionMonitor;
+    private final MemoryPressureMonitor memoryPressureMonitor;
 
     private final AtomicLong tapReportSize;
 
@@ -71,6 +74,8 @@ public class NodeManager {
         this.nzyme = nzyme;
 
         this.nodeInformation = new NodeInformation();
+        this.garbageCollectionMonitor = new GarbageCollectionMonitor();
+        this.memoryPressureMonitor = new MemoryPressureMonitor();
 
         this.tapReportSize = new AtomicLong(0);
         this.filePermissions = new NodeFilePermissions(nzyme.getConfiguration());
@@ -318,6 +323,19 @@ public class NodeManager {
             writeGauge(MetricExternalName.HEAP_BYTES_TOTAL.database_label, ni.heapTotal());
             writeGauge(MetricExternalName.HEAP_BYTES_AVAILABLE.database_label, ni.heapAvailable());
             writeGauge(MetricExternalName.HEAP_BYTES_USED.database_label, ni.heapUsed());
+
+            GarbageCollectionMonitor.Sample gc = garbageCollectionMonitor.sample();
+            writeGauge(MetricExternalName.GC_PAUSE_TIME_PERCENT.database_label, gc.pauseTimePercent());
+            if (gc.heapAfterCollectionPercent().isPresent()) {
+                writeGauge(MetricExternalName.HEAP_AFTER_GC_PERCENT.database_label,
+                        gc.heapAfterCollectionPercent().getAsDouble());
+            }
+
+            OptionalDouble memoryPressure = memoryPressureMonitor.sample();
+            if (memoryPressure.isPresent()) {
+                writeGauge(MetricExternalName.MEMORY_PRESSURE_PERCENT.database_label, memoryPressure.getAsDouble());
+            }
+
             writeGauge(MetricExternalName.CPU_SYSTEM_LOAD.database_label, ni.cpuSystemLoad());
             writeGauge(MetricExternalName.PROCESS_VIRTUAL_SIZE.database_label, ni.processVirtualSize());
             writeGauge(MetricExternalName.TAP_REPORT_SIZE.database_label, tapReportSize);
@@ -453,21 +471,25 @@ public class NodeManager {
                 }
             }
 
-        } catch(Exception e) {
+        } catch(Throwable e) {
             LOG.error("Could not write node metrics.", e);
         } finally {
             CountingAppender.resetCounts();
         }
 
-        // Retention clean old metrics.
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM node_metrics_gauges WHERE created_at < :created_at")
-                        .bind("created_at", DateTime.now().minusHours(24))
-                        .execute());
-        nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM node_metrics_timers WHERE created_at < :created_at")
-                        .bind("created_at", DateTime.now().minusHours(24))
-                        .execute());
+        // Nothing may escape from here, including errors: the executor would never run this again.
+        try {
+            nzyme.getDatabase().useHandle(handle ->
+                    handle.createUpdate("DELETE FROM node_metrics_gauges WHERE created_at < :created_at")
+                            .bind("created_at", DateTime.now().minusHours(24))
+                            .execute());
+            nzyme.getDatabase().useHandle(handle ->
+                    handle.createUpdate("DELETE FROM node_metrics_timers WHERE created_at < :created_at")
+                            .bind("created_at", DateTime.now().minusHours(24))
+                            .execute());
+        } catch(Throwable e) {
+            LOG.error("Could not retention clean node metrics.", e);
+        }
     }
 
     private double getLocalMetricsGaugeValue(MetricRegistry metrics, String metricName) {
@@ -691,6 +713,47 @@ public class NodeManager {
                 .bind("created_at", DateTime.now().minusMinutes(2))
                 .mapTo(Double.class)
                 .findOne();
+    }
+
+    public NodeHeap findHeapOfNode(Node node, Handle handle) {
+        DateTime now = DateTime.now();
+        DateTime window = now.minusMinutes(NodeHeap.WINDOW_MINUTES);
+
+        // A restart gives a node a new heap, but the memory pressure of the runs before describes the same host.
+        DateTime heapSince = node.processStartTime().isAfter(window) ? node.processStartTime() : window;
+
+        boolean established = node.processStartTime().isBefore(now.minusMinutes(NodeHeap.ESTABLISHED_AFTER_MINUTES));
+
+        return handle.createQuery("SELECT " +
+                        "AVG(metric_value) FILTER (WHERE metric_name = :pause_time AND created_at > :heap_since) " +
+                        "AS pause_time, " +
+                        "COUNT(*) FILTER (WHERE metric_name = :pause_time AND created_at > :heap_since) " +
+                        "AS pause_time_samples, " +
+                        "MIN(metric_value) FILTER (WHERE metric_name = :after_collection " +
+                        "AND created_at > :heap_since) AS after_collection, " +
+                        "COUNT(*) FILTER (WHERE metric_name = :after_collection AND created_at > :heap_since) " +
+                        "AS collection_samples, " +
+                        "AVG(metric_value) FILTER (WHERE metric_name = :memory_pressure) AS memory_pressure, " +
+                        "COUNT(*) FILTER (WHERE metric_name = :memory_pressure) AS memory_pressure_samples " +
+                        "FROM node_metrics_gauges WHERE node_id = :node_id " +
+                        "AND metric_name IN (:pause_time, :after_collection, :memory_pressure) " +
+                        "AND created_at > :window")
+                .bind("pause_time", MetricExternalName.GC_PAUSE_TIME_PERCENT.database_label)
+                .bind("after_collection", MetricExternalName.HEAP_AFTER_GC_PERCENT.database_label)
+                .bind("memory_pressure", MetricExternalName.MEMORY_PRESSURE_PERCENT.database_label)
+                .bind("node_id", node.uuid())
+                .bind("heap_since", heapSince)
+                .bind("window", window)
+                .map((rs, ctx) -> NodeHeap.judge(
+                        established,
+                        (Double) rs.getObject("pause_time"),
+                        rs.getLong("pause_time_samples"),
+                        (Double) rs.getObject("after_collection"),
+                        rs.getLong("collection_samples"),
+                        (Double) rs.getObject("memory_pressure"),
+                        rs.getLong("memory_pressure_samples")
+                ))
+                .one();
     }
 
     public List<TimerEntryAverage> findAverageTimerValuesOfNode(UUID nodeId, DateTime since) {

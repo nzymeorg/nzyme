@@ -3,6 +3,8 @@ package app.nzyme.core.distributed;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
 import org.joda.time.DateTime;
+
+import java.lang.management.ManagementFactory;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.GlobalMemory;
@@ -16,10 +18,6 @@ public class NodeInformation {
     private final CentralProcessor cpu;
     private final String osVersion;
 
-    private final long heapMax;
-    private final long heapFree;
-    private final long heapSize;
-
     public NodeInformation() {
         this.systemInfo = new SystemInfo();
         this.operatingSystem = this.systemInfo.getOperatingSystem();
@@ -27,15 +25,15 @@ public class NodeInformation {
 
         OperatingSystem.OSVersionInfo osV = this.operatingSystem.getVersionInfo();
         this.osVersion =  this.operatingSystem.getFamily() + " " + osV.getVersion() + " (" + osV.getBuildNumber() + ")";
-
-        this.heapMax = Runtime.getRuntime().maxMemory();
-        this.heapFree = Runtime.getRuntime().freeMemory();
-        this.heapSize = Runtime.getRuntime().totalMemory();
     }
 
     public Info collect() {
         GlobalMemory memory = systemInfo.getHardware().getMemory();
         OSProcess currentProcess = systemInfo.getOperatingSystem().getCurrentProcess();
+
+        long heapMax = Runtime.getRuntime().maxMemory();
+        long heapFree = Runtime.getRuntime().freeMemory();
+        long heapSize = Runtime.getRuntime().totalMemory();
 
         return Info.create(
                 memory.getTotal(),
@@ -46,7 +44,7 @@ public class NodeInformation {
                 heapSize-heapFree,
                 cpu.getSystemCpuLoad(250)*100,
                 cpu.getLogicalProcessorCount(),
-                new DateTime(currentProcess.getStartTime()),
+                new DateTime(ManagementFactory.getRuntimeMXBean().getStartTime()),
                 currentProcess.getVirtualSize(),
                 Joiner.on(", ").join(currentProcess.getArguments()),
                 osVersion

@@ -4,6 +4,7 @@ import app.nzyme.core.registry.RegistryChangeValidator;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.crypto.tls.TLSKeyAndCertificate;
 import app.nzyme.core.distributed.Node;
+import app.nzyme.core.distributed.NodeHeap;
 import app.nzyme.core.distributed.NodeRegistryKeys;
 import app.nzyme.core.distributed.database.metrics.GaugeHistogramBucket;
 import app.nzyme.core.distributed.MetricExternalName;
@@ -245,7 +246,9 @@ public class NodesResource {
         Map<String, GaugeResponse> gauges = Maps.newHashMap();
         Map<String, TimerResponse> timers = Maps.newHashMap();
 
-        nzyme.getDatabase().useHandle(handle -> {
+        boolean running = !node.deleted() && node.lastSeen().isAfter(DateTime.now().minusMinutes(2));
+
+        NodeHeap heap = nzyme.getDatabase().withHandle(handle -> {
             // Timers.
             timers.put("password_hashing", buildTimerResponse(nzyme.getNodeManager().findLatestActiveMetricsTimerValue(
                     node.uuid(), MetricExternalName.PASSWORD_HASHING_TIMER.database_label, handle)));
@@ -352,6 +355,8 @@ public class NodesResource {
             gauges.put("log_counts_fatal", GaugeResponse.create(nzyme.getNodeManager().findLatestActiveMetricsGaugeValue(
                     node.uuid(), MetricExternalName.LOG_COUNTS_FATAL.database_label, handle
             ).orElse(0D)));
+
+            return running ? nzyme.getNodeManager().findHeapOfNode(node, handle) : NodeHeap.none();
         });
 
         return NodeResponse.create(
@@ -368,6 +373,10 @@ public class NodesResource {
                 node.heapBytesTotal(),
                 node.heapBytesAvailable(),
                 node.heapBytesUsed(),
+                heap.status(),
+                heap.pauseTimePercent(),
+                heap.heapAfterCollectionPercent(),
+                heap.memoryPressurePercent(),
                 node.cpuSystemLoad(),
                 node.cpuThreadCount(),
                 node.processStartTime(),

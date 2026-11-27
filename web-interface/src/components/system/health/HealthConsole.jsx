@@ -50,6 +50,7 @@ function HealthConsole(props) {
 
           <div className="hc-row">
             <Indicator indicator={indicators.segmentation_lag} name="Segmentation Lag" />
+            <Indicator indicator={indicators.node_heap} name="Node Heap" />
           </div>
 
           <div style={{clear: "both"}} />

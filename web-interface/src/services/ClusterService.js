@@ -18,10 +18,10 @@ class ClusterService {
     RESTClient.delete('/system/cluster/nodes/show/' + nodeUuid, {}, successCallback)
   }
 
-  findGaugeMetricHistogramOfNode(nodeId, metricName, setHistogram) {
+  findGaugeMetricHistogramOfNode(nodeId, metricName, setHistogram, errorCallback = undefined, signal = undefined) {
     RESTClient.get('/system/cluster/nodes/show/' + nodeId + '/metrics/gauges/' + metricName + '/histogram', {}, function (response) {
       setHistogram(response.data)
-    })
+    }, errorCallback, signal)
   }
 
   findNodesConfiguration(setNodesConfiguration) {

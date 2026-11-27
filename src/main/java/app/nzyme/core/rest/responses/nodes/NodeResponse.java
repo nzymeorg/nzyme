@@ -1,9 +1,11 @@
 package app.nzyme.core.rest.responses.nodes;
 
+import app.nzyme.core.distributed.NodeHeap;
 import app.nzyme.core.rest.responses.metrics.GaugeResponse;
 import app.nzyme.core.rest.responses.metrics.TimerResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 
 import java.util.Map;
@@ -50,6 +52,21 @@ public abstract class NodeResponse {
     @JsonProperty("heap_bytes_used")
     public abstract long heapBytesUsed();
 
+    @JsonProperty("heap_status")
+    public abstract NodeHeap.Status heapStatus();
+
+    @Nullable
+    @JsonProperty("gc_pause_time_percent")
+    public abstract Double gcPauseTimePercent();
+
+    @Nullable
+    @JsonProperty("heap_after_gc_percent")
+    public abstract Double heapAfterGcPercent();
+
+    @Nullable
+    @JsonProperty("memory_pressure_percent")
+    public abstract Double memoryPressurePercent();
+
     @JsonProperty("cpu_system_load")
     public abstract double cpuSystemLoad();
 
@@ -95,7 +112,7 @@ public abstract class NodeResponse {
     @JsonProperty("metrics_gauges")
     public abstract Map<String, GaugeResponse> metricsGauges();
 
-    public static NodeResponse create(String uuid, String name, Boolean active, String httpListenUri, String httpExternalUri, String tlsCertFingerprint, DateTime tlsCertExpirationDate, long memoryBytesTotal, long memoryBytesAvailable, long memoryBytesUsed, long heapBytesTotal, long heapBytesAvailable, long heapBytesUsed, double cpuSystemLoad, int cpuThreadCount, DateTime processStartTime, long processVirtualSize, String processArguments, String osInformation, String version, DateTime lastSeen, boolean deleted, DateTime clock, long clockDriftMs, boolean isEphemeral, long cycle, Map<String, TimerResponse> metricsTimers, Map<String, GaugeResponse> metricsGauges) {
+    public static NodeResponse create(String uuid, String name, Boolean active, String httpListenUri, String httpExternalUri, String tlsCertFingerprint, DateTime tlsCertExpirationDate, long memoryBytesTotal, long memoryBytesAvailable, long memoryBytesUsed, long heapBytesTotal, long heapBytesAvailable, long heapBytesUsed, NodeHeap.Status heapStatus, Double gcPauseTimePercent, Double heapAfterGcPercent, Double memoryPressurePercent, double cpuSystemLoad, int cpuThreadCount, DateTime processStartTime, long processVirtualSize, String processArguments, String osInformation, String version, DateTime lastSeen, boolean deleted, DateTime clock, long clockDriftMs, boolean isEphemeral, long cycle, Map<String, TimerResponse> metricsTimers, Map<String, GaugeResponse> metricsGauges) {
         return builder()
                 .uuid(uuid)
                 .name(name)
@@ -110,6 +127,10 @@ public abstract class NodeResponse {
                 .heapBytesTotal(heapBytesTotal)
                 .heapBytesAvailable(heapBytesAvailable)
                 .heapBytesUsed(heapBytesUsed)
+                .heapStatus(heapStatus)
+                .gcPauseTimePercent(gcPauseTimePercent)
+                .heapAfterGcPercent(heapAfterGcPercent)
+                .memoryPressurePercent(memoryPressurePercent)
                 .cpuSystemLoad(cpuSystemLoad)
                 .cpuThreadCount(cpuThreadCount)
                 .processStartTime(processStartTime)
@@ -159,6 +180,14 @@ public abstract class NodeResponse {
         public abstract Builder heapBytesAvailable(long heapBytesAvailable);
 
         public abstract Builder heapBytesUsed(long heapBytesUsed);
+
+        public abstract Builder heapStatus(NodeHeap.Status heapStatus);
+
+        public abstract Builder gcPauseTimePercent(Double gcPauseTimePercent);
+
+        public abstract Builder heapAfterGcPercent(Double heapAfterGcPercent);
+
+        public abstract Builder memoryPressurePercent(Double memoryPressurePercent);
 
         public abstract Builder cpuSystemLoad(double cpuSystemLoad);
 
