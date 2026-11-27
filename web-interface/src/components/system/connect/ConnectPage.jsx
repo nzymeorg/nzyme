@@ -5,7 +5,8 @@ import EncryptedConfigurationValue from "../../configuration/EncryptedConfigurat
 import LoadingSpinner from "../../misc/LoadingSpinner";
 import ConnectService from "../../../services/ConnectService";
 import ConnectStatus from "./ConnectStatus";
-import ProvidedServices from "./ProvidedServices";
+import ProvidedData from "./ProvidedData";
+import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import usePageTitle from "../../../util/UsePageTitle";
 
 const connectService = new ConnectService();
@@ -66,22 +67,12 @@ export default function ConnectPage() {
         </div>
 
         <div className="row mt-3">
-          <div className="col-xl-12 col-xxl-6">
+          <div className="col-md-12">
             <div className="card">
               <div className="card-body">
-                <h3>Provided Services</h3>
+                <CardTitleWithControls title="Provided Data" />
 
-                <p>
-                  The following services are enabled for <strong>this</strong> Nzyme cluster. Services are managed
-                  using your account at <a href="https://connect.nzyme.org/" target="_blank">https://connect.nzyme.org/</a>.
-                </p>
-
-                {status.connection_summary !== "ok" ? <p>
-                  Note that this information may be outdated because your cluster is not currently connected
-                  to <em>Connect</em>.
-                </p> : null}
-
-                <ProvidedServices status={status}/>
+                <ProvidedData status={status} />
               </div>
             </div>
           </div>

@@ -52,8 +52,10 @@ public class ConnectResource {
     @Operation(operationId = "findConnectStatus", summary = "Get Nzyme Connect status",
             description = "The connection summary is disabled when Connect is turned off, never_connected when no "
                     + "report has ever been accepted, fail when the last accepted report is older than two minutes, "
-                    + "and ok otherwise. The response also lists the services Connect currently provides to this "
-                    + "cluster. Requires super administrator permissions.")
+                    + "and ok otherwise. The response also lists the data Connect provides to this cluster, as of "
+                    + "the last accepted report: ouis, bluetooth, uav, environment, and geoip_ipinfofree or "
+                    + "geoip_ipinfostandard depending on the IPinfo database the cluster receives. A data type that "
+                    + "is disabled in Connect is not listed. Requires super administrator permissions.")
     @ApiResponse(responseCode = "200", description = "Status found.",
             content = @Content(schema = @Schema(implementation = ConnectStatusResponse.class)))
     public Response status() {
