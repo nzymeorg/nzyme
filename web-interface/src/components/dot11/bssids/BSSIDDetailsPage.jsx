@@ -19,6 +19,7 @@ import Dot11MacAddress from "../../shared/context/macs/Dot11MacAddress";
 import MacAddressContextLine from "../../shared/context/macs/details/MacAddressContextLine";
 import TapBasedSignalStrengthTable from "../../shared/TapBasedSignalStrengthTable";
 import BSSIDSignalWaterfallChart from "./BSSIDSignalWaterfallChart";
+import BSSIDSiblings from "./BSSIDSiblings";
 import ReadOnlyTrilaterationResultFloorPlanWrapper
   from "../../shared/floorplan/ReadOnlyTrilaterationResultFloorPlanWrapper";
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
@@ -44,6 +45,7 @@ function BSSIDDetailsPage() {
   const [ssids, setSSIDs] = useState(null);
 
   const [ssidsTimeRange, setSsidsTimeRange] = useState(Presets.ALL_TIME);
+  const [siblingsTimeRange, setSiblingsTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [signalWaterfallTimeRange, setSignalWaterfallTimeRange] = useState(Presets.RELATIVE_HOURS_24);
   const [advertisementsBeaconTimeRange, setAdvertisementsBeaconTimeRange] = useUrlTimeRange(Presets.RELATIVE_HOURS_24, "beacon_advertisements");
   const [advertisementsProbeRespTimeRange, setAdvertisementsProbeRespTimeRange] =useUrlTimeRange(Presets.RELATIVE_HOURS_24, "proberesp_advertisements");
@@ -165,6 +167,8 @@ function BSSIDDetailsPage() {
     return <LoadingSpinner />
   }
 
+  const hasSsids = bssid.summary.advertised_ssid_names.length > 0;
+
   return (
       <React.Fragment>
         <div className="row">
@@ -251,6 +255,30 @@ function BSSIDDetailsPage() {
                                        setTimeRange={setSsidsTimeRange} />
 
                 {ssidsTable()}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row mt-3">
+          <div className="col-md-12">
+            <div className="card">
+              <div className="card-body">
+                <CardTitleWithControls title={hasSsids ? "Likely Related BSSIDs Without SSID" : "Likely Same Device"}
+                                       helpLink="https://go.nzyme.org/wifi-hidden-ssids-same-device"
+                                       timeRange={siblingsTimeRange}
+                                       setTimeRange={setSiblingsTimeRange} />
+
+                <p className="text-muted">
+                  {hasSsids
+                      ? "BSSIDs with a neighboring address that advertise no SSID are likely hidden networks of the same device."
+                      : "Other BSSIDs with a neighboring address are likely virtual access points of the same device."}
+                  {" "}An address is chosen by its sender, so this is a hint and no proof.
+                </p>
+
+                <BSSIDSiblings bssid={bssid.summary.bssid.address}
+                               timeRange={siblingsTimeRange}
+                               withoutSsidOnly={hasSsids} />
               </div>
             </div>
           </div>

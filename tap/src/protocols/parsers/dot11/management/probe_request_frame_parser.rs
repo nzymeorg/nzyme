@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::{bail, Error};
-use log::trace;
 
 use crate::helpers::network::to_mac_address_string;
+use crate::protocols::parsers::dot11::management::advertising_frame_parser_tools::read_first_ssid;
 use crate::wireless::dot11::frames::{Dot11Frame, Dot11ProbeRequestFrame};
 
 pub fn parse(frame: &Arc<Dot11Frame>) -> Result<Dot11ProbeRequestFrame, Error> {
@@ -12,34 +12,7 @@ pub fn parse(frame: &Arc<Dot11Frame>) -> Result<Dot11ProbeRequestFrame, Error> {
     }
 
     let transmitter = to_mac_address_string(&frame.payload[10..16]);
-    let mut ssid: Option<String> = None;
-
-    let mut cursor: usize = 24;
-    while cursor+2 <= frame.payload.len() {
-        let number = frame.payload[cursor];
-        let length = frame.payload[cursor+1] as usize;
-        cursor += 2;
-
-        if length == 0 {
-            // Wildcard SSID.
-            break;
-        }
-
-        if frame.payload.len() < cursor+length {
-            trace!("Invalid tag length reported. Not calculating any more tagged parameters for this frame.");
-            break;
-        }
-
-        let data = &frame.payload[cursor..cursor+length];
-        cursor += length;
-
-        if number == 0 {
-            let ssid_s = String::from_utf8_lossy(data).to_string();
-            if !ssid_s.trim().is_empty() {
-                ssid = Some(ssid_s);
-            }
-        }
-    }
+    let ssid = frame.payload.get(24..).and_then(read_first_ssid);
 
     Ok(Dot11ProbeRequestFrame {
         length: frame.length,
@@ -87,6 +60,14 @@ mod tests {
 
         assert_eq!(frame.transmitter, "02:11:22:33:44:55");
         assert_eq!(frame.ssid, Some("test".to_string()));
+    }
+
+    #[test]
+    fn first_ssid_element_decides() {
+        assert_eq!(parse(&probe_request(&[0, 0, 0, 4, b't', b'e', b's', b't'])).unwrap().ssid, None);
+        assert_eq!(parse(&probe_request(&[0, 4, b't', b'e', b's', b't', 0, 4, b'e', b'v', b'i', b'l'])).unwrap().ssid,
+                   Some("test".to_string()));
+        assert_eq!(parse(&probe_request(&[0, 3, 0, 0, 0])).unwrap().ssid, None);
     }
 
     #[test]

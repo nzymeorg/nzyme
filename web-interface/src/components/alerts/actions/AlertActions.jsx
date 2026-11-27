@@ -67,8 +67,16 @@ export default function AlertActions({alert, onActionCompleted = undefined}) {
       setRunning(null);
     }
 
-    call(() => {
+    call((result) => {
       finished();
+
+      // Someone else may have decided in the meantime. The reloaded actions show the state.
+      if (definition.changedNothing && definition.changedNothing(result)) {
+        toast.info("Nothing was changed.");
+        reload();
+        return;
+      }
+
       toast.success(definition.success);
       completed();
     }, (error) => {

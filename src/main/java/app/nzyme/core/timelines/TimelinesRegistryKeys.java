@@ -22,6 +22,13 @@ public class TimelinesRegistryKeys {
             false
     );
 
+    public static final RegistryKey DOT11_BSSID_TAPS_RECORDED_SINCE = RegistryKey.create(
+            "timelines_dot11_bssid_taps_recorded_since",
+            Optional.empty(),
+            Optional.empty(),
+            false
+    );
+
     public static final RegistryKey DOT11_EVENTS_RETENTION_TIME_DAYS = RegistryKey.create(
             "timelines_dot11_events_retention_time_days",
             Optional.of(new ArrayList<>() {{

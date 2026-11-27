@@ -25,6 +25,7 @@ import app.nzyme.core.ethernet.beacons.BeaconDetector;
 import app.nzyme.core.dot11.monitoring.Dot11MultipleChannelsMonitor;
 import app.nzyme.core.dot11.disco.DiscoAnomalyDetector;
 import app.nzyme.core.dot11.monitoring.channelswitches.Dot11ChannelSwitchMonitor;
+import app.nzyme.core.dot11.monitoring.ssids.HiddenAccessPointMonitor;
 import app.nzyme.core.ethernet.recon.ReconDetector;
 import app.nzyme.core.ethernet.spoofing.ArpSpoofingDetector;
 import app.nzyme.core.ethernet.spoofing.DhcpSpoofingDetector;
@@ -95,6 +96,7 @@ public class MetricNames {
     public static final String DOT11_CHANNEL_SWITCH_REPORT_PROCESSING_TIMER = name(Dot11Table.class, "channel-switch-report-processing-timing");
     public static final String DOT11_CHANNEL_SWITCH_MONITOR_RUN_TIMER = name(Dot11ChannelSwitchMonitor.class, "run-timing");
     public static final String DOT11_MULTIPLE_CHANNELS_MONITOR_RUN_TIMER = name(Dot11MultipleChannelsMonitor.class, "run-timing");
+    public static final String DOT11_HIDDEN_ACCESS_POINT_MONITOR_RUN_TIMER = name(HiddenAccessPointMonitor.class, "run-timing");
     public static final String DOT11_ALERT_PROCESSING_TIMER = name(Dot11Table.class, "alert-processing-timing");
 
     public static final String BLUETOOTH_TOTAL_REPORT_PROCESSING_TIMER = name(BluetoothTable.class, "total-report-processing-timing");

@@ -16,11 +16,15 @@ public abstract class SSIDMonitoringConfigurationResponse {
     @JsonProperty("dwell_time_minutes")
     public abstract ConfigurationEntryResponse dwellTimeMinutes();
 
-    public static SSIDMonitoringConfigurationResponse create(ConfigurationEntryResponse isEnabled, ConfigurationEntryResponse eventingIsEnabled, ConfigurationEntryResponse dwellTimeMinutes) {
+    @JsonProperty("hidden_access_points_enabled")
+    public abstract ConfigurationEntryResponse hiddenAccessPointsEnabled();
+
+    public static SSIDMonitoringConfigurationResponse create(ConfigurationEntryResponse isEnabled, ConfigurationEntryResponse eventingIsEnabled, ConfigurationEntryResponse dwellTimeMinutes, ConfigurationEntryResponse hiddenAccessPointsEnabled) {
         return builder()
                 .isEnabled(isEnabled)
                 .eventingIsEnabled(eventingIsEnabled)
                 .dwellTimeMinutes(dwellTimeMinutes)
+                .hiddenAccessPointsEnabled(hiddenAccessPointsEnabled)
                 .build();
     }
 
@@ -36,6 +40,8 @@ public abstract class SSIDMonitoringConfigurationResponse {
         public abstract Builder eventingIsEnabled(ConfigurationEntryResponse eventingIsEnabled);
 
         public abstract Builder dwellTimeMinutes(ConfigurationEntryResponse dwellTimeMinutes);
+
+        public abstract Builder hiddenAccessPointsEnabled(ConfigurationEntryResponse hiddenAccessPointsEnabled);
 
         public abstract SSIDMonitoringConfigurationResponse build();
     }

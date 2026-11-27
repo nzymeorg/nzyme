@@ -41,13 +41,25 @@ function BSSIDsPage() {
   const PER_PAGE = 75;
   const [page, setPage] = useState(1);
 
+  // Not part of the loading effect: that one also runs when the page changes and would send every page back to the first.
   useEffect(() => {
+    setPage(1);
+  }, [selectedTaps, filters, timeRange, orderColumn, orderDirection]);
+
+  useEffect(() => {
+    let current = true;
+
     setBSSIDs(null);
 
     if (monitorsReady) {
-      dot11Service.findAllBSSIDs(timeRange, filters, orderColumn, orderDirection, PER_PAGE, (page - 1) * PER_PAGE, selectedTaps, setBSSIDs);
-      setPage(1);
+      dot11Service.findAllBSSIDs(timeRange, filters, orderColumn, orderDirection, PER_PAGE, (page - 1) * PER_PAGE, selectedTaps, (response) => {
+        if (current) {
+          setBSSIDs(response);
+        }
+      });
     }
+
+    return () => { current = false; }
   }, [selectedTaps, filters, page, timeRange, revision, orderColumn, orderDirection, monitorsReady]);
 
   useEffect(() => {

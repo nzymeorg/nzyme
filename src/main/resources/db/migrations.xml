@@ -14242,4 +14242,117 @@
         </addColumn>
     </changeSet>
 
+    <changeSet id="create_dot11_known_hidden_access_points" author="lennartkoopmann">
+        <createTable tableName="dot11_known_hidden_access_points">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" unique="true"
+                             uniqueConstraintName="dot11_known_hidden_access_points_uuid_key" />
+            </column>
+
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="bssid" type="varchar(17)">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="is_approved" type="boolean" defaultValue="false">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="is_ignored" type="boolean" defaultValue="false">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="sibling_ssids" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="revealed_ssids" type="text[]">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="hints_refreshed_at" type="timestamp with time zone">
+                <constraints nullable="true" />
+            </column>
+
+            <column name="first_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_seen" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="dot11_known_hidden_access_points"
+                     indexName="dot11_known_hidden_access_points_org_tenant_id_bssid_key" unique="true">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="bssid" />
+        </createIndex>
+
+        <addForeignKeyConstraint baseTableName="dot11_known_hidden_access_points"
+                                 baseColumnNames="tenant_id"
+                                 constraintName="dot11_known_hidden_access_points_tenant_id_fkey"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onDelete="CASCADE" />
+    </changeSet>
+
+    <changeSet id="add_hidden_network_to_dot11_bssids" author="lennartkoopmann">
+        <addColumn tableName="dot11_bssids">
+            <column name="hidden_beacon_advertisements" type="bigint" />
+            <column name="hidden_proberesp_advertisements" type="bigint" />
+            <column name="hidden_channel_statistics" type="jsonb" />
+            <column name="hidden_signal_histogram" type="jsonb" />
+            <column name="hidden_declared_frequencies" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_taps_to_dot11_timeline_events" author="lennartkoopmann">
+        <addColumn tableName="dot11_timeline_events">
+            <column name="taps" type="integer[]" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_alert_taps_to_dot11_known_hidden_access_points" author="lennartkoopmann">
+        <addColumn tableName="dot11_known_hidden_access_points">
+            <column name="alert_taps" type="uuid[]" />
+            <column name="alert_taps_evaluated_at" type="timestamp with time zone" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="add_alert_taps_to_dot11_known_networks" author="lennartkoopmann">
+        <addColumn tableName="dot11_known_networks">
+            <column name="alert_taps" type="uuid[]" />
+            <column name="alert_taps_evaluated_at" type="timestamp with time zone" />
+        </addColumn>
+
+        <createIndex tableName="dot11_known_networks" indexName="dot11_known_networks_org_tenant_id_ssid_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+            <column name="ssid" />
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="add_dot11_ssids_ssid_created_at_idx" author="lennartkoopmann" runInTransaction="false">
+        <sql>
+            CREATE INDEX CONCURRENTLY dot11_ssids_ssid_created_at_idx
+                ON dot11_ssids (ssid, created_at);
+        </sql>
+        <rollback>
+            DROP INDEX CONCURRENTLY dot11_ssids_ssid_created_at_idx;
+        </rollback>
+    </changeSet>
+
 </databaseChangeLog>

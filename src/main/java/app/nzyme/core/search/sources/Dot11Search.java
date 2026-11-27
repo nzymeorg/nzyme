@@ -102,6 +102,24 @@ public class Dot11Search {
                             link("DOT11_MONITORED_CLIENTS", "uuid", text(row, "network_uuid"))
                     ));
                 }
+
+                SearchConditions hidden = new SearchConditions(term).mac("h.bssid");
+
+                for (Map<String, Object> row : rows(handle, "SELECT h.bssid, h.is_approved, h.last_seen "
+                        + "FROM dot11_known_hidden_access_points h "
+                        + "WHERE h.organization_id = :organization_id AND h.tenant_id = :tenant_id "
+                        + "AND " + hidden.sql() + " "
+                        + "ORDER BY h.last_seen DESC, h.bssid ASC LIMIT :cap", hidden, request)) {
+                    hits.add(hit(
+                            "DOT11_HIDDEN_ACCESS_POINT",
+                            text(row, "bssid"),
+                            "Hidden access point",
+                            facts(term).add("Approved", bool(row, "is_approved") ? "Yes" : "No").build(),
+                            time(row, "last_seen"),
+                            score(term, text(row, "bssid")),
+                            link("DOT11_HIDDEN_ACCESS_POINTS")
+                    ));
+                }
             }
 
             if (!term.isIdentifier()) {

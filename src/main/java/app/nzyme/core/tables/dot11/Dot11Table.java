@@ -267,20 +267,46 @@ public class Dot11Table implements DataTable {
 
                 String[] fingerprintsArr = report.fingerprints().toArray(new String[0]);
 
+                // A name that is empty once sanitized is no name. Its frames belong to the hidden network.
+                long hiddenSSIDFrames = count(report.hiddenSSIDFrames());
+                List<Dot11AdvertisedNetworkReport> hiddenNetworks = Lists.newArrayList();
+                if (report.hiddenNetwork() != null) {
+                    hiddenNetworks.add(report.hiddenNetwork());
+                }
+                for (Map.Entry<String, Dot11AdvertisedNetworkReport> network : report.advertisedNetworks().entrySet()) {
+                    if (Tools.sanitizeSSID(network.getKey()).isEmpty()) {
+                        hiddenSSIDFrames += count(network.getValue().beaconAdvertisements())
+                                + count(network.getValue().probeResponseAdvertisements());
+                        hiddenNetworks.add(network.getValue());
+                    }
+                }
+
+                HiddenNetwork hiddenNetwork = HiddenNetwork.of(hiddenNetworks, om);
+                checkHiddenNetworks(nzyme, monitoredSSIDs, bssid, hiddenNetworks, tap);
+
                 long bssidDatabaseId = handle.createQuery(
                         "INSERT INTO dot11_bssids(tap_uuid, bssid, oui, " +
                                 "signal_strength_average, signal_strength_max, signal_strength_min, " +
-                                "hidden_ssid_frames, fingerprints, declared_frequencies, created_at) " +
-                                "VALUES(:tap_uuid, :bssid, NULL, " +
+                                "hidden_ssid_frames, fingerprints, declared_frequencies, " +
+                                "hidden_beacon_advertisements, hidden_proberesp_advertisements, " +
+                                "hidden_channel_statistics, hidden_signal_histogram, hidden_declared_frequencies, " +
+                                "created_at) VALUES(:tap_uuid, :bssid, NULL, " +
                                 ":signal_strength_average, :signal_strength_max, :signal_strength_min, " +
                                 ":hidden_ssid_frames, :fingerprints, CAST(:declared_frequencies AS jsonb), " +
-                                ":created_at) RETURNING id")
+                                ":hidden_beacon_advertisements, :hidden_proberesp_advertisements, " +
+                                "CAST(:hidden_channel_statistics AS jsonb), CAST(:hidden_signal_histogram AS jsonb), " +
+                                "CAST(:hidden_declared_frequencies AS jsonb), :created_at) RETURNING id")
+                        .bind("hidden_beacon_advertisements", hiddenNetwork.beaconAdvertisements())
+                        .bind("hidden_proberesp_advertisements", hiddenNetwork.probeResponseAdvertisements())
+                        .bind("hidden_channel_statistics", hiddenNetwork.channelStatistics())
+                        .bind("hidden_signal_histogram", hiddenNetwork.signalHistogram())
+                        .bind("hidden_declared_frequencies", hiddenNetwork.declaredFrequencies())
                         .bind("tap_uuid", tap.uuid())
                         .bind("bssid", bssid)
                         .bind("signal_strength_average", report.signalStrength().average())
                         .bind("signal_strength_max", report.signalStrength().max())
                         .bind("signal_strength_min", report.signalStrength().min())
-                        .bind("hidden_ssid_frames", report.hiddenSSIDFrames())
+                        .bind("hidden_ssid_frames", hiddenSSIDFrames)
                         .bindBySqlType("fingerprints", fingerprintsArr, Types.ARRAY)
                         .bind("declared_frequencies", declaredFrequenciesJson(
                                 declaredFrequencies(report.declaredFrequencies(), MAX_DECLARED_FREQUENCIES_OF_BSSID)
@@ -562,81 +588,137 @@ public class Dot11Table implements DataTable {
                         );
                     }
                 } else {
-                    // Expected BSSID. Compare fingerprints.
-                    if (monitoredSSID.enabledUnexpectedFingerprint()) {
-                        for (String observedFingerprint : task.ssidReport().fingerprints()) {
-                            if (!monitoredBSSID.fingerprints().contains(observedFingerprint)) {
-                                // Unexpected fingerprint.
-                                Map<String, String> attributes = Maps.newHashMap();
-                                attributes.put("bssid", task.bssid());
-                                attributes.put("fingerprint", observedFingerprint);
-
-                                nzyme.getDetectionAlertService().raiseAlert(
-                                        task.tap().organizationId(),
-                                        task.tap().tenantId(),
-                                        monitoredSSID.uuid(),
-                                        AlertOrigin.tap(task.tap().uuid()),
-                                        DetectionType.DOT11_MONITOR_FINGERPRINT,
-                                        Subsystem.DOT11,
-                                        "Monitored network \"" + monitoredSSID.ssid() + "\" advertised " +
-                                                "with unexpected fingerprint \"" + observedFingerprint + "\".",
-                                        attributes,
-                                        Set.of("bssid", "fingerprint")
-                                );
-                            }
-                        }
-                    }
+                    checkFingerprints(nzyme, monitoredSSID, monitoredBSSID, task.bssid(),
+                            task.ssidReport().fingerprints(), task.tap());
                 }
 
-                if (monitoredSSID.enabledUnexpectedChannel()) {
-                    // Taps decode frames of neighboring channels, so the tuned frequency says nothing here.
-                    for (Integer frequency : declaredFrequencies.keySet()) {
-                        if (!monitoredSSID.channels().contains(frequency)) {
-                            // Unexpected channel.
-                            Map<String, String> attributes = Maps.newHashMap();
-                            attributes.put("frequency", String.valueOf(frequency));
-
-                            nzyme.getDetectionAlertService().raiseAlert(
-                                    task.tap().organizationId(),
-                                    task.tap().tenantId(),
-                                    monitoredSSID.uuid(),
-                                    AlertOrigin.tap(task.tap().uuid()),
-                                    DetectionType.DOT11_MONITOR_CHANNEL,
-                                    Subsystem.DOT11,
-                                    "Monitored network \"" + monitoredSSID.ssid() + "\" advertised on " +
-                                            "unexpected frequency " + frequency + "MHz",
-                                    attributes,
-                                    Set.of("frequency")
-                            );
-                        }
-                    }
-                }
-
-                if (monitoredSSID.enabledUnexpectedSecuritySuites()) {
-                    for (Dot11SecurityInformationReport security : task.ssidReport().security()) {
-                        String suite = Dot11.securitySuitesToIdentifier(security);
-                        if (!Dot11.isMonitoredSecuritySuite(monitoredSSID.securitySuites(), suite)) {
-                            Map<String, String> attributes = Maps.newHashMap();
-                            attributes.put("suite", suite);
-
-                            nzyme.getDetectionAlertService().raiseAlert(
-                                    task.tap().organizationId(),
-                                    task.tap().tenantId(),
-                                    monitoredSSID.uuid(),
-                                    AlertOrigin.tap(task.tap().uuid()),
-                                    DetectionType.DOT11_MONITOR_SECURITY_SUITE,
-                                    Subsystem.DOT11,
-                                    "Monitored network \"" + monitoredSSID.ssid() + "\" advertised with " +
-                                            "unexpected security suites \"" + suite + "\"",
-                                    attributes,
-                                    Set.of("suite")
-                            );
-                        }
-                    }
-                }
+                checkChannels(nzyme, monitoredSSID, declaredFrequencies.keySet(), task.tap());
+                checkSecuritySuites(nzyme, monitoredSSID, task.ssidReport().security(), task.tap());
             }
         } catch(Exception e) {
             LOG.error("Could not write SSID.", e);
+        }
+    }
+
+    // Frames without a network name cannot be matched by name. They are held to what is expected of their BSSID.
+    private void checkHiddenNetworks(NzymeNode nzyme,
+                                     Map<String, PreLoadedMonitoredSSID> monitoredSSIDs,
+                                     String bssid,
+                                     List<Dot11AdvertisedNetworkReport> hiddenNetworks,
+                                     Tap tap) {
+        if (hiddenNetworks.isEmpty()) {
+            return;
+        }
+
+        for (PreLoadedMonitoredSSID monitoredSSID : monitoredSSIDs.values()) {
+            PreLoadedMonitoredBSSID monitoredBSSID = monitoredSSID.bssids().get(bssid);
+            if (monitoredBSSID == null) {
+                continue;
+            }
+
+            for (Dot11AdvertisedNetworkReport hiddenNetwork : hiddenNetworks) {
+                try {
+                    checkFingerprints(nzyme, monitoredSSID, monitoredBSSID, bssid, hiddenNetwork.fingerprints(), tap);
+                    checkChannels(nzyme, monitoredSSID, declaredFrequencies(
+                            hiddenNetwork.declaredFrequencies(), MAX_DECLARED_FREQUENCIES_OF_SSID
+                    ).keySet(), tap);
+                    checkSecuritySuites(nzyme, monitoredSSID, hiddenNetwork.security(), tap);
+                } catch (Exception e) {
+                    LOG.error("Could not check frames without SSID of monitored BSSID [{}].", bssid, e);
+                }
+            }
+        }
+    }
+
+    private void checkFingerprints(NzymeNode nzyme,
+                                   PreLoadedMonitoredSSID monitoredSSID,
+                                   PreLoadedMonitoredBSSID monitoredBSSID,
+                                   String bssid,
+                                   List<String> fingerprints,
+                                   Tap tap) {
+        if (!monitoredSSID.enabledUnexpectedFingerprint()) {
+            return;
+        }
+
+        for (String observedFingerprint : fingerprints) {
+            if (!monitoredBSSID.fingerprints().contains(observedFingerprint)) {
+                Map<String, String> attributes = Maps.newHashMap();
+                attributes.put("bssid", bssid);
+                attributes.put("fingerprint", observedFingerprint);
+
+                nzyme.getDetectionAlertService().raiseAlert(
+                        tap.organizationId(),
+                        tap.tenantId(),
+                        monitoredSSID.uuid(),
+                        AlertOrigin.tap(tap.uuid()),
+                        DetectionType.DOT11_MONITOR_FINGERPRINT,
+                        Subsystem.DOT11,
+                        "Monitored network \"" + monitoredSSID.ssid() + "\" advertised " +
+                                "with unexpected fingerprint \"" + observedFingerprint + "\".",
+                        attributes,
+                        Set.of("bssid", "fingerprint")
+                );
+            }
+        }
+    }
+
+    // Taps decode frames of neighboring channels, so only the frequencies a frame declares are judged.
+    private void checkChannels(NzymeNode nzyme,
+                               PreLoadedMonitoredSSID monitoredSSID,
+                               Collection<Integer> declaredFrequencies,
+                               Tap tap) {
+        if (!monitoredSSID.enabledUnexpectedChannel()) {
+            return;
+        }
+
+        for (Integer frequency : declaredFrequencies) {
+            if (!monitoredSSID.channels().contains(frequency)) {
+                Map<String, String> attributes = Maps.newHashMap();
+                attributes.put("frequency", String.valueOf(frequency));
+
+                nzyme.getDetectionAlertService().raiseAlert(
+                        tap.organizationId(),
+                        tap.tenantId(),
+                        monitoredSSID.uuid(),
+                        AlertOrigin.tap(tap.uuid()),
+                        DetectionType.DOT11_MONITOR_CHANNEL,
+                        Subsystem.DOT11,
+                        "Monitored network \"" + monitoredSSID.ssid() + "\" advertised on " +
+                                "unexpected frequency " + frequency + "MHz",
+                        attributes,
+                        Set.of("frequency")
+                );
+            }
+        }
+    }
+
+    private void checkSecuritySuites(NzymeNode nzyme,
+                                     PreLoadedMonitoredSSID monitoredSSID,
+                                     List<Dot11SecurityInformationReport> securitySettings,
+                                     Tap tap) {
+        if (!monitoredSSID.enabledUnexpectedSecuritySuites()) {
+            return;
+        }
+
+        for (Dot11SecurityInformationReport security : securitySettings) {
+            String suite = Dot11.securitySuitesToIdentifier(security);
+            if (!Dot11.isMonitoredSecuritySuite(monitoredSSID.securitySuites(), suite)) {
+                Map<String, String> attributes = Maps.newHashMap();
+                attributes.put("suite", suite);
+
+                nzyme.getDetectionAlertService().raiseAlert(
+                        tap.organizationId(),
+                        tap.tenantId(),
+                        monitoredSSID.uuid(),
+                        AlertOrigin.tap(tap.uuid()),
+                        DetectionType.DOT11_MONITOR_SECURITY_SUITE,
+                        Subsystem.DOT11,
+                        "Monitored network \"" + monitoredSSID.ssid() + "\" advertised with " +
+                                "unexpected security suites \"" + suite + "\"",
+                        attributes,
+                        Set.of("suite")
+                );
+            }
         }
     }
 
@@ -1043,6 +1125,85 @@ public class Dot11Table implements DataTable {
 
     private static final int MAX_DECLARED_FREQUENCIES_OF_BSSID = 8;
     private static final int MAX_DECLARED_FREQUENCIES_OF_SSID = 16;
+    private static final int MAX_FREQUENCIES_OF_HIDDEN_NETWORK = 16;
+
+    // What a tap recorded of frames without a network name, as it is stored with the BSSID. All null without such frames.
+    private record HiddenNetwork(@Nullable Long beaconAdvertisements,
+                                 @Nullable Long probeResponseAdvertisements,
+                                 @Nullable String channelStatistics,
+                                 @Nullable String signalHistogram,
+                                 @Nullable String declaredFrequencies) {
+
+        private static HiddenNetwork of(List<Dot11AdvertisedNetworkReport> networks, ObjectMapper om) {
+            if (networks.isEmpty()) {
+                return new HiddenNetwork(null, null, null, null, null);
+            }
+
+            long beacons = 0;
+            long probeResponses = 0;
+            Map<Integer, long[]> statistics = Maps.newTreeMap();
+            Map<Integer, Map<Integer, Long>> histogram = Maps.newTreeMap();
+            Map<Integer, Long> declared = Maps.newHashMap();
+
+            for (Dot11AdvertisedNetworkReport network : networks) {
+                beacons += count(network.beaconAdvertisements());
+                probeResponses += count(network.probeResponseAdvertisements());
+
+                network.channelStatistics().forEach((frequency, types) -> {
+                    if (frequency == null || types == null || Dot11.frequencyToChannel(frequency.intValue()) == -1) {
+                        return;
+                    }
+
+                    long[] sum = statistics.computeIfAbsent(frequency.intValue(), f -> new long[2]);
+                    types.values().stream()
+                            .filter(stats -> stats != null && isCount(stats.frames()) && stats.bytes() >= 0)
+                            .forEach(stats -> {
+                                sum[0] += stats.frames();
+                                sum[1] = stats.bytes() > Long.MAX_VALUE - sum[1] ? Long.MAX_VALUE : sum[1] + stats.bytes();
+                            });
+                });
+
+                network.signalHistogram().forEach((frequency, signals) -> {
+                    if (frequency == null || signals == null || Dot11.frequencyToChannel(frequency.intValue()) == -1) {
+                        return;
+                    }
+
+                    Map<Integer, Long> sum = histogram.computeIfAbsent(frequency.intValue(), f -> Maps.newTreeMap());
+                    signals.forEach((signal, frames) -> {
+                        if (signal != null && frames != null && signal >= -128 && signal <= 127 && isCount(frames)) {
+                            sum.merge(signal.intValue(), frames, Long::sum);
+                        }
+                    });
+                });
+
+                network.declaredFrequencies().forEach((frequency, frames) -> {
+                    if (frequency != null && frames != null && isCount(frames)) {
+                        declared.merge(frequency, frames, Long::sum);
+                    }
+                });
+            }
+
+            // The frequencies with the most frames are kept. The histogram only holds frequencies that have statistics.
+            Map<Integer, Map<String, Long>> keptStatistics = Maps.newTreeMap();
+            statistics.entrySet().stream()
+                    .filter(e -> e.getValue()[0] > 0)
+                    .sorted(Comparator.<Map.Entry<Integer, long[]>>comparingLong(e -> e.getValue()[0]).reversed()
+                            .thenComparing(Map.Entry::getKey))
+                    .limit(MAX_FREQUENCIES_OF_HIDDEN_NETWORK)
+                    .forEach(e -> keptStatistics.put(e.getKey(), Map.of("frames", e.getValue()[0], "bytes", e.getValue()[1])));
+            histogram.keySet().retainAll(keptStatistics.keySet());
+            histogram.values().removeIf(Map::isEmpty);
+
+            return new HiddenNetwork(
+                    beacons,
+                    probeResponses,
+                    keptStatistics.isEmpty() ? null : om.writeValueAsString(keptStatistics),
+                    histogram.isEmpty() ? null : om.writeValueAsString(histogram),
+                    declaredFrequenciesJson(Dot11Table.declaredFrequencies(declared, MAX_DECLARED_FREQUENCIES_OF_SSID))
+            );
+        }
+
+    }
 
     private static Map<Integer, Long> declaredFrequencies(Map<Integer, Long> reported, int limit) {
         Map<Integer, Long> declared = Maps.newLinkedHashMap();
@@ -1096,6 +1257,10 @@ public class Dot11Table implements DataTable {
 
     private static boolean isCount(long value) {
         return value >= 0 && value <= Integer.MAX_VALUE;
+    }
+
+    private static long count(long value) {
+        return isCount(value) ? value : 0;
     }
 
     private static boolean isSignalStrength(Dot11SignalStrengthReport signal) {

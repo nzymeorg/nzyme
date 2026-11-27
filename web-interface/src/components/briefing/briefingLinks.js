@@ -80,6 +80,7 @@ export function resolveBriefingLink(link, window) {
     case "DOT11_MONITORED_NETWORK": return ApiRoutes.DOT11.MONITORING.SSID_DETAILS(p.uuid);
     case "DOT11_MONITORED_CLIENTS": return ApiRoutes.DOT11.MONITORING.CLIENTS_CONFIGURATION(p.uuid);
     case "DOT11_KNOWN_NETWORKS": return ApiRoutes.DOT11.MONITORING.SSIDS.INDEX;
+    case "DOT11_HIDDEN_ACCESS_POINTS": return ApiRoutes.DOT11.MONITORING.SSIDS.HIDDEN_ACCESS_POINTS;
     case "ETHERNET_ASSETS": return withRange(ApiRoutes.ETHERNET.ASSETS.INDEX, window);
     case "ETHERNET_ASSET": return ApiRoutes.ETHERNET.ASSETS.DETAILS(p.uuid);
     case "BEACONS": return withRange(ApiRoutes.ETHERNET.BEACONS.INDEX, window);
@@ -133,6 +134,7 @@ const LINK_LABELS = {
   DOT11_DISCO: "Disconnection activity", DOT11_MONITORING: "Monitored networks",
   DOT11_MONITORING_CREATE: "Add monitored network", DOT11_MONITORED_NETWORK: "Network configuration",
   DOT11_MONITORED_CLIENTS: "Client monitoring", DOT11_KNOWN_NETWORKS: "Known networks",
+  DOT11_HIDDEN_ACCESS_POINTS: "Hidden access points",
   ETHERNET_ASSETS: "Assets", ETHERNET_ASSET: "Asset", BEACONS: "Beacons", BEACON: "Beacon",
   RECON_SCANS: "Recon scans", RECON_SCAN: "Scan", SPOOFING_ARP: "ARP and NDP spoofing", SPOOFING_DHCP: "DHCP servers and routers",
   SPOOFING_DNS: "DNS spoofing", SPOOFING_NAMERES: "Name resolution spoofing",

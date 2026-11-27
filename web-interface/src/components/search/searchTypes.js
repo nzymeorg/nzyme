@@ -24,6 +24,7 @@ const ICONS = {
   DOT11_MONITORED_NETWORK: "fa-solid fa-shield-halved",
   DOT11_KNOWN_CLIENT: "fa-solid fa-shield-halved",
   DOT11_KNOWN_NETWORK: "fa-solid fa-shield-halved",
+  DOT11_HIDDEN_ACCESS_POINT: "fa-solid fa-shield-halved",
   DOT11_MONITORED_PROBE_REQUEST: "fa-solid fa-shield-halved",
   DOT11_BANDIT: "fa-solid fa-shield-halved",
   DOT11_BSSID: "fa-solid fa-tower-cell",

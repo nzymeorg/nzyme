@@ -513,6 +513,13 @@ public class FrameSignalAnalysis {
                 "WHERE b.created_at >= :reference_from AND b.created_at < :reference_to AND " +
                 scope.replace("{tap}", "b.tap_uuid").replace("{bssid}", "b.bssid").replace("{frequency}", "h.frequency") +
                 " UNION ALL " +
+                "SELECT b.tap_uuid, b.bssid, f.key::int, b.created_at, v.key::int, v.value::bigint " +
+                "FROM dot11_bssids b CROSS JOIN LATERAL jsonb_each(b.hidden_signal_histogram) f " +
+                "CROSS JOIN LATERAL jsonb_each_text(f.value) v " +
+                "WHERE b.created_at >= :reference_from AND b.created_at < :reference_to " +
+                "AND b.hidden_signal_histogram IS NOT NULL AND " +
+                scope.replace("{tap}", "b.tap_uuid").replace("{bssid}", "b.bssid").replace("{frequency}", "f.key::int") +
+                " UNION ALL " +
                 "SELECT a.tap_uuid, a.bssid, f.key::int, a.created_at, v.key::int, -(v.value::bigint) " +
                 "FROM dot11_channel_switches a CROSS JOIN LATERAL jsonb_each(a.signal_histograms) f " +
                 "CROSS JOIN LATERAL jsonb_each_text(f.value) v " +

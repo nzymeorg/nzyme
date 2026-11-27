@@ -7451,6 +7451,249 @@
         "tags" : [ "Trilateration" ]
       }
     },
+    "/api/dot11/monitoring/hiddenaccesspoints/organization/{organization_id}/tenant/{tenant_id}" : {
+      "delete" : {
+        "description" : "Deletes every hidden access point record of the tenant, including approved and ignored ones. Each reappears as a new, unapproved access point the next time it is observed. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "deleteHiddenAccessPoints",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnownNetworksBulkActionResponse"
+                }
+              }
+            },
+            "description" : "Hidden access points deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Delete all hidden access points of a tenant",
+        "tags" : [ "Monitoring" ]
+      },
+      "get" : {
+        "description" : "Returns the access points that SSID monitoring recorded because they advertise without a network name, with their approval and ignore status. Recording is off by default and is enabled in the SSID monitoring configuration. An access point is recorded once it was active for the dwell time of SSID monitoring. Sorted by BSSID ascending unless both sorting parameters are passed. Access points that have not been seen for 30 days are deleted automatically. A tenant holds at most 10,000 hidden access points, and new ones are not recorded while it does. The page size is limited to 250. Requires the dot11_monitoring_manage feature permission.",
+        "externalDocs" : {
+          "description" : "SSID monitoring in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/wifi-ssid-monitoring"
+        },
+        "operationId" : "findHiddenAccessPoints",
+        "parameters" : [ {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Sorting column. One of BSSID, STATUS, FIRST_SEEN, LAST_SEEN. Case insensitive.",
+          "in" : "query",
+          "name" : "order_column",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sorting direction: ASC or DESC.",
+          "in" : "query",
+          "name" : "order_direction",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HiddenAccessPointsListResponse"
+                }
+              }
+            },
+            "description" : "Hidden access points found."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Page size is not between 1 and 250, the offset is negative, or the sorting parameters are invalid."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List hidden access points of a tenant",
+        "tags" : [ "Monitoring" ]
+      }
+    },
+    "/api/dot11/monitoring/hiddenaccesspoints/organization/{organization_id}/tenant/{tenant_id}/approve" : {
+      "put" : {
+        "description" : "Approves every hidden access point of the tenant that is neither approved nor ignored. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "approveHiddenAccessPoints",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnownNetworksBulkActionResponse"
+                }
+              }
+            },
+            "description" : "Hidden access points approved."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Approve all hidden access points of a tenant",
+        "tags" : [ "Monitoring" ]
+      }
+    },
+    "/api/dot11/monitoring/hiddenaccesspoints/organization/{organization_id}/tenant/{tenant_id}/many/{action}" : {
+      "put" : {
+        "description" : "Applies one action to every hidden access point in the list that belongs to the tenant. APPROVE and IGNORE only apply to access points that are neither approved nor ignored, REVOKE only to approved and UNIGNORE only to ignored access points. Approved and ignored access points do not trigger new alerts and their existing alerts become inactive within a few minutes. DELETE removes the records, and a deleted access point reappears as a new, unapproved one the next time it is observed. Access points the action does not apply to and unknown UUIDs are skipped. At most 250 UUIDs per call. Requires the dot11_monitoring_manage feature permission.",
+        "operationId" : "applyToHiddenAccessPoints",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "APPROVE, REVOKE, IGNORE, UNIGNORE or DELETE. Case insensitive.",
+          "in" : "path",
+          "name" : "action",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UUIDListRequest"
+              }
+            }
+          },
+          "description" : "The UUIDs of the hidden access points.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/KnownNetworksBulkActionResponse"
+                }
+              }
+            },
+            "description" : "Action applied."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Unknown action, missing request body or more than 250 UUIDs."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Approve, ignore or delete hidden access points",
+        "tags" : [ "Monitoring" ]
+      }
+    },
     "/api/dot11/monitoring/networks/organization/{organization_id}/tenant/{tenant_id}" : {
       "delete" : {
         "description" : "Deletes every known network record of the tenant, including approved and ignored networks. Requires the dot11_monitoring_manage feature permission.",
@@ -7641,7 +7884,7 @@
     },
     "/api/dot11/monitoring/networks/organization/{organization_id}/tenant/{tenant_id}/configuration" : {
       "get" : {
-        "description" : "Returns whether SSID monitoring and event generation are enabled, plus the dwell time in minutes that an SSID has to be active within the last 24 hours before Nzyme adds it to the known networks. The dwell time defaults to 5 minutes. Values use the generic configuration entry format of the web interface. Requires the dot11_monitoring_manage feature permission.",
+        "description" : "Returns whether SSID monitoring and event generation are enabled, plus the dwell time in minutes that an SSID has to be active within the last 24 hours before Nzyme adds it to the known networks. The dwell time defaults to 5 minutes. Also returns whether access points that advertise without a network name are recorded, which is off by default and only has an effect while SSID monitoring is enabled. Values use the generic configuration entry format of the web interface. Requires the dot11_monitoring_manage feature permission.",
         "externalDocs" : {
           "description" : "SSID monitoring in the Nzyme documentation",
           "url" : "https://go.nzyme.org/wifi-ssid-monitoring"
@@ -7688,7 +7931,7 @@
         "tags" : [ "Monitoring" ]
       },
       "put" : {
-        "description" : "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled and dot11_ssid_monitoring_dwell_time_minutes in the change map, as reported by the configuration endpoint. Nzyme only collects known networks while monitoring is enabled and only creates alerts while eventing is enabled. Requires the dot11_monitoring_manage feature permission.",
+        "description" : "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled, dot11_ssid_monitoring_dwell_time_minutes and dot11_ssid_monitoring_hidden_access_points_enabled in the change map, as reported by the configuration endpoint. Nzyme only collects known networks while monitoring is enabled, only records hidden access points while that is enabled as well, and only creates alerts while eventing is enabled. Requires the dot11_monitoring_manage feature permission.",
         "externalDocs" : {
           "description" : "SSID monitoring in the Nzyme documentation",
           "url" : "https://go.nzyme.org/wifi-ssid-monitoring"
@@ -9781,7 +10024,7 @@
     },
     "/api/dot11/networks/bssids" : {
       "get" : {
-        "description" : "Returns all BSSIDs that the selected taps recorded in the time range, with a summary of their SSIDs, security protocols, fingerprints and client counts. Sorts by average signal strength descending unless you pass a sorting column and direction.",
+        "description" : "Returns all BSSIDs that the selected taps recorded in the time range, with a summary of their SSIDs, security protocols, fingerprints and client counts. Sorts by average signal strength descending unless you pass a sorting column and direction. A BSSID without an SSID of its own carries the SSIDs of BSSIDs that are likely the same device. That hint is taken from the last 24 hours of the time range and for at most 100 such BSSIDs of a page.",
         "operationId" : "findDot11Bssids",
         "parameters" : [ {
           "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
@@ -10029,6 +10272,62 @@
           }
         },
         "summary" : "List active channels of a BSSID",
+        "tags" : [ "Networks" ]
+      }
+    },
+    "/api/dot11/networks/bssids/show/{bssid}/siblings" : {
+      "get" : {
+        "description" : "Returns the other BSSIDs that the selected taps recorded in the time range and whose address differs from this one only in the first octet and the lower half of the last octet, with the SSIDs they advertised. Devices derive the addresses of their virtual access points this way. The address is chosen by the sender, so this is a hint and no proof. At most 50 BSSIDs are returned, those seen last first. With without_ssid_only, only BSSIDs that advertised no SSID in the time range are returned, which are the hidden networks of the device.",
+        "operationId" : "findDot11BssidSiblings",
+        "parameters" : [ {
+          "description" : "BSSID MAC address.",
+          "in" : "path",
+          "name" : "bssid",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only return BSSIDs that advertised no SSID in the time range.",
+          "in" : "query",
+          "name" : "without_ssid_only",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccessPointSiblingsResponse"
+                }
+              }
+            },
+            "description" : "Siblings found. The list is empty if there are none."
+          },
+          "400" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The BSSID is not a MAC address."
+          }
+        },
+        "summary" : "List BSSIDs that are likely the same device",
         "tags" : [ "Networks" ]
       }
     },
@@ -43012,7 +43311,7 @@
     },
     "/api/timelines/show/type/{addressType}/address/{address}" : {
       "get" : {
-        "description" : "Returns the events recorded for this address in the requested time range, newest first, together with an activity histogram and the event retention time of the tenant. All taps of the tenant are considered, no matter which taps the user selected elsewhere. For BSSID addresses the response also lists advertised SSIDs, fingerprints and the taps that recorded the address.",
+        "description" : "Returns the events recorded for this address in the requested time range, newest first, together with an activity histogram and the event retention time of the tenant. All taps of the tenant are considered, no matter which taps the user selected elsewhere. For BSSID addresses the response also lists advertised SSIDs, fingerprints and the taps that recorded the address in the time range. They are taken from recorded 802.11 data and, for the part of the time range that is older than its retention time, from the events of the timeline.",
         "operationId" : "findTimeline",
         "parameters" : [ {
           "description" : "Type of the address: DOT11_BSSID or DOT11_SSID.",
@@ -44121,6 +44420,41 @@
           }
         },
         "required" : [ "fingerprint" ]
+      },
+      "AccessPointSiblingResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacAddressResponse"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "ssids" : {
+            "type" : "array",
+            "description" : "Up to 5 SSIDs the BSSID advertised in the time range, those in the most reports first. Empty if it only advertised without a network name.",
+            "items" : {
+              "type" : "string",
+              "description" : "Up to 5 SSIDs the BSSID advertised in the time range, those in the most reports first. Empty if it only advertised without a network name."
+            }
+          }
+        }
+      },
+      "AccessPointSiblingsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "limited" : {
+            "type" : "boolean",
+            "description" : "True if more than 50 siblings were recorded. The list then holds the 50 seen last."
+          },
+          "siblings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AccessPointSiblingResponse"
+            }
+          }
+        }
       },
       "ActiveChannelDetailsResponse" : {
         "type" : "object",
@@ -46009,6 +46343,14 @@
           "last_seen" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "likely_same_device_ssids" : {
+            "type" : "array",
+            "description" : "Up to 5 SSIDs advertised by access points with a neighboring address, which are likely the same device. Only filled in the list of BSSIDs, and there only for BSSIDs without an SSID of their own. A hint only.",
+            "items" : {
+              "type" : "string",
+              "description" : "Up to 5 SSIDs advertised by access points with a neighboring address, which are likely the same device. Only filled in the list of BSSIDs, and there only for BSSIDs without an SSID of their own. A hint only."
+            }
           },
           "security_protocols" : {
             "type" : "array",
@@ -52791,6 +53133,76 @@
           }
         }
       },
+      "HiddenAccessPointDetailsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "bssid" : {
+            "$ref" : "#/components/schemas/Dot11MacAddressResponse"
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "is_approved" : {
+            "type" : "boolean"
+          },
+          "is_ignored" : {
+            "type" : "boolean"
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "organization_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "revealed_ssids" : {
+            "type" : "array",
+            "description" : "Up to 5 SSIDs the access point itself sent in the last 24 hours, usually in probe responses. A hint only. Refreshed once per hour.",
+            "items" : {
+              "type" : "string",
+              "description" : "Up to 5 SSIDs the access point itself sent in the last 24 hours, usually in probe responses. A hint only. Refreshed once per hour."
+            }
+          },
+          "sibling_ssids" : {
+            "type" : "array",
+            "description" : "Up to 5 SSIDs advertised in the last 24 hours by access points with a neighboring address, which are likely the same device. A hint only. Refreshed once per hour.",
+            "items" : {
+              "type" : "string",
+              "description" : "Up to 5 SSIDs advertised in the last 24 hours by access points with a neighboring address, which are likely the same device. A hint only. Refreshed once per hour."
+            }
+          },
+          "tenant_id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "HiddenAccessPointsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "access_points" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HiddenAccessPointDetailsResponse"
+            }
+          },
+          "maximum" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of hidden access points a tenant can hold. New ones are not recorded while the total is at this number."
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "HistogramValueStructureResponse" : {
         "type" : "object",
         "properties" : {
@@ -53749,7 +54161,7 @@
           "affected" : {
             "type" : "integer",
             "format" : "int32",
-            "description" : "Number of known networks the action was applied to."
+            "description" : "Number of entries the action was applied to."
           }
         }
       },
@@ -57879,6 +58291,9 @@
           "eventing_is_enabled" : {
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
           },
+          "hidden_access_points_enabled" : {
+            "$ref" : "#/components/schemas/ConfigurationEntryResponse"
+          },
           "is_enabled" : {
             "$ref" : "#/components/schemas/ConfigurationEntryResponse"
           }
@@ -60835,6 +61250,23 @@
               "type" : "string"
             }
           },
+          "has_hidden_ssid" : {
+            "type" : "boolean",
+            "description" : "True if the BSSID advertised without a network name in the time range."
+          },
+          "limited_lists" : {
+            "type" : "array",
+            "description" : "The lists of \"ssids\", \"fingerprints\" and \"taps\" for which timeline events hold more values than list_limit. Only list_limit values of the events are part of such a list.",
+            "items" : {
+              "type" : "string",
+              "description" : "The lists of \"ssids\", \"fingerprints\" and \"taps\" for which timeline events hold more values than list_limit. Only list_limit values of the events are part of such a list."
+            }
+          },
+          "list_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The largest number of values that is read from timeline events for each list."
+          },
           "retention_days" : {
             "type" : "integer",
             "format" : "int32"
@@ -60850,6 +61282,16 @@
             "items" : {
               "$ref" : "#/components/schemas/TapHighLevelInformationDetailsResponse"
             }
+          },
+          "taps_complete_since" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Set if the time range starts before this moment. Before it, only taps that had the strongest signal of the BSSID at some point are known."
+          },
+          "taps_retention_days" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Set if taps_complete_since is the start of the retention time of recorded 802.11 data, in days. Not set if it is the moment timelines started to record the taps of a BSSID."
           },
           "total" : {
             "type" : "integer",

@@ -10,6 +10,7 @@ import app.nzyme.core.dot11.db.DiscoHistogramEntry;
 import app.nzyme.core.dot11.db.monitoring.MonitoredBSSID;
 import app.nzyme.core.dot11.db.monitoring.MonitoredChannel;
 import app.nzyme.core.dot11.db.monitoring.MonitoredSSID;
+import app.nzyme.core.dot11.hidden.HiddenAccessPoints;
 import app.nzyme.core.rest.responses.briefing.*;
 import app.nzyme.core.taps.db.metrics.Dot11FrequencyAndChannelWidthEntry;
 import app.nzyme.core.util.Bucketing;
@@ -55,6 +56,8 @@ public class Dot11Collector {
     private Map<String, List<Integer>> missingFrequenciesByNetwork;
     private long knownNetworksPending;
     private long knownNetworksNew;
+    private long hiddenAccessPointsPending;
+    private long hiddenAccessPointsNew;
 
     public Dot11Collector(BriefingContext ctx, AlertsCollector alerts) {
         this.ctx = ctx;
@@ -112,6 +115,14 @@ public class Dot11Collector {
                     knownNetworksPending + " " + plural(knownNetworksPending, "SSID waits", "SSIDs wait") + " for approval",
                     knownNetworksNew + " of them first seen in this window.",
                     knownNetworksPending, null, BriefingLinks.to("DOT11_KNOWN_NETWORKS")));
+        }
+
+        if (hiddenAccessPointsPending > 0) {
+            items.add(BriefingItems.attention(BriefingSeverity.NOTICE, "approval", "DOT11",
+                    hiddenAccessPointsPending + " hidden " + plural(hiddenAccessPointsPending,
+                            "access point waits", "access points wait") + " for approval",
+                    hiddenAccessPointsNew + " of them first seen in this window.",
+                    hiddenAccessPointsPending, null, BriefingLinks.to("DOT11_HIDDEN_ACCESS_POINTS")));
         }
 
         for (Map.Entry<String, List<Integer>> missing : missingFrequenciesByNetwork.entrySet()) {
@@ -200,6 +211,24 @@ public class Dot11Collector {
                     knownNetworkMonitoring ? "Known network monitoring is on" : "Known network monitoring is off",
                     knownNetworkMonitoring ? null : "New SSIDs showing up in range are not flagged for approval.",
                     BriefingLinks.to("DOT11_KNOWN_NETWORKS")));
+
+            if (knownNetworkMonitoring) {
+                boolean hiddenAccessPoints = ctx.nzyme().getDatabaseCoreRegistry()
+                        .getValue(KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.key(), ctx.organizationId(),
+                                ctx.tenantId())
+                        .map(Boolean::parseBoolean).orElse(false);
+                if (hiddenAccessPoints && ctx.nzyme().getDot11().hiddenAccessPoints()
+                        .count(ctx.organizationId(), ctx.tenantId()) >= HiddenAccessPoints.MAX_ENTRIES_PER_TENANT) {
+                    checks.add(BriefingItems.warn("dot11_hidden_access_points", "Hidden access point list is full",
+                            "New hidden access points are not recorded until others are deleted.",
+                            BriefingLinks.to("DOT11_HIDDEN_ACCESS_POINTS")));
+                } else {
+                    checks.add(BriefingItems.check("dot11_hidden_access_points", hiddenAccessPoints ? "OK" : "INFO",
+                            hiddenAccessPoints ? "Hidden access point recording is on" : "Hidden access point recording is off",
+                            hiddenAccessPoints ? null : "Access points that hide their network name are not flagged for approval.",
+                            BriefingLinks.to("DOT11_KNOWN_NETWORKS")));
+                }
+            }
 
             long clientMonitoring = networks.stream().filter(n -> n.network().enabledClientMonitoring()).count();
             checks.add(BriefingItems.check("dot11_client_monitoring", clientMonitoring > 0 ? "OK" : "INFO",
@@ -333,10 +362,17 @@ public class Dot11Collector {
     private void loadApprovals() {
         knownNetworksPending = 0;
         knownNetworksNew = 0;
+        hiddenAccessPointsPending = 0;
+        hiddenAccessPointsNew = 0;
 
         if (!ctx.canManageDot11Monitoring()) {
             return;
         }
+
+        HiddenAccessPoints hidden = ctx.nzyme().getDot11().hiddenAccessPoints();
+        hiddenAccessPointsPending = hidden.countPending(ctx.organizationId(), ctx.tenantId());
+        hiddenAccessPointsNew = hidden.countPendingFirstSeenBetween(ctx.organizationId(), ctx.tenantId(),
+                ctx.window().from(), ctx.window().to());
 
         knownNetworksPending = ctx.nzyme().getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT COUNT(*) FROM dot11_known_networks WHERE organization_id = :organization_id " +

@@ -39,6 +39,7 @@ pub struct Dot11Table {
 #[derive(Debug)]
 pub struct Bssid {
     pub advertised_networks: HashMap<String, AdvertisedNetwork>,
+    pub hidden_network: Option<AdvertisedNetwork>,
     pub clients: HashMap<String, Dot11ClientStatistics>,
     pub hidden_ssid_frames: u128,
     pub signal_strengths: Vec<i8>,
@@ -125,7 +126,7 @@ impl ClientSignalStrengths {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AdvertisedNetwork {
     pub security: Vec<SecurityInformation>,
     pub beacon_advertisements: u128,
@@ -139,7 +140,66 @@ pub struct AdvertisedNetwork {
     pub declared_frequencies: HashMap<u16, u64>
 }
 
+pub struct AdvertisementFrame<'a> {
+    pub frame_type: FrameSubType,
+    pub length: usize,
+    pub frequency: Option<u16>,
+    pub signal_strength: i8,
+    pub declared_frequency: Option<u16>,
+    pub tagged_parameters: &'a TaggedParameters,
+    pub security: Vec<SecurityInformation>,
+    pub has_wps: bool,
+    pub fingerprint: &'a str,
+    pub infrastructure_type: InfraStructureType
+}
+
 impl AdvertisedNetwork {
+
+    // False if the declared frequency of the frame was not counted because the network holds too many already.
+    fn register_frame(&mut self, frame: AdvertisementFrame) -> bool {
+        for security in frame.security {
+            if !self.security.contains(&security) {
+                self.security.push(security);
+            }
+        }
+
+        if !self.wps.contains(&frame.has_wps) {
+            self.wps.push(frame.has_wps);
+        }
+
+        if !self.fingerprints.iter().any(|f| f == frame.fingerprint) {
+            self.fingerprints.push(frame.fingerprint.to_string());
+        }
+
+        if let Some(rates) = &frame.tagged_parameters.supported_rates {
+            Dot11Table::update_existing_ssid_rates(self, rates);
+        }
+
+        if let Some(rates) = &frame.tagged_parameters.extended_supported_rates {
+            Dot11Table::update_existing_ssid_rates(self, rates);
+        }
+
+        if !self.infrastructure_types.contains(&frame.infrastructure_type) {
+            self.infrastructure_types.push(frame.infrastructure_type);
+        }
+
+        if let Some(frequency) = frame.frequency {
+            self.signal_strengths.entry(frequency).or_default().push(frame.signal_strength);
+        }
+
+        match frame.frame_type {
+            FrameSubType::Beacon => self.beacon_advertisements += 1,
+            FrameSubType::ProbeResponse => self.proberesp_advertisements += 1,
+            _ => {}
+        };
+
+        Dot11Table::update_existing_channel_statistics(frame.frame_type, frame.frequency, frame.length, self);
+
+        match frame.declared_frequency {
+            Some(frequency) => self.register_declared_frequency(frequency),
+            None => true
+        }
+    }
 
     fn register_declared_frequency(&mut self, frequency: u16) -> bool {
         if self.declared_frequencies.len() >= MAX_DECLARED_FREQUENCIES_PER_NETWORK
@@ -345,6 +405,24 @@ impl Dot11Table {
                             None => {
                                 // No SSID.
                                 bssid.hidden_ssid_frames += 1;
+
+                                let counted = bssid.hidden_network.get_or_insert_with(AdvertisedNetwork::default)
+                                    .register_frame(AdvertisementFrame {
+                                        frame_type,
+                                        length,
+                                        frequency: header.frequency,
+                                        signal_strength,
+                                        declared_frequency,
+                                        tagged_parameters: &tagged_parameters,
+                                        security,
+                                        has_wps,
+                                        fingerprint: &fingerprint,
+                                        infrastructure_type: capabilities.infrastructure_type
+                                    });
+
+                                if !counted {
+                                    self.dropped_declared_frequencies.fetch_add(1, Ordering::Relaxed);
+                                }
                             }
                         }
 
@@ -363,7 +441,7 @@ impl Dot11Table {
                                 _ => (0,0)
                             };
 
-                        let (advertised_networks, hidden_ssid_frames) = match tagged_parameters.ssid {
+                        let (advertised_networks, hidden_network) = match tagged_parameters.ssid {
                             Some(ssid) => (
                                 HashMap::from([(
                                     ssid,
@@ -389,16 +467,33 @@ impl Dot11Table {
                                             .collect()
                                     },
                                 )]),
-                                0,
+                                None,
                             ),
-                            None => (HashMap::new(), 1),
+                            None => {
+                                let mut network = AdvertisedNetwork::default();
+                                network.register_frame(AdvertisementFrame {
+                                    frame_type,
+                                    length,
+                                    frequency: header.frequency,
+                                    signal_strength,
+                                    declared_frequency,
+                                    tagged_parameters: &tagged_parameters,
+                                    security,
+                                    has_wps,
+                                    fingerprint: &fingerprint,
+                                    infrastructure_type: capabilities.infrastructure_type
+                                });
+
+                                (HashMap::new(), Some(network))
+                            }
                         };
 
                         bssids.insert(
                             transmitter,
                             Bssid {
                                 advertised_networks,
-                                hidden_ssid_frames,
+                                hidden_ssid_frames: if hidden_network.is_some() { 1 } else { 0 },
+                                hidden_network,
                                 clients: HashMap::new(),
                                 signal_strengths: vec![signal_strength],
                                 fingerprints: vec![fingerprint]
@@ -838,93 +933,7 @@ impl Dot11Table {
                 let mut advertised_networks: HashMap<String, AdvertisedNetworkReport> =
                     HashMap::new();
                 for (ssid, netinfo) in &info.advertised_networks {
-                    let mut netsec_report: Vec<SecurityInformationReport> = Vec::new();
-
-                    for netsecinfo in &netinfo.security {
-                        let mut protocols: Vec<String> = Vec::new();
-                        for protocol in &netsecinfo.protocols {
-                            protocols.push(protocol.to_string());
-                        }
-
-                        let suites: Dot11CipherSuites = match &netsecinfo.suites {
-                            Some(suite) => {
-                                let mut pairwise_ciphers: Vec<String> = Vec::new();
-                                for cipher in &suite.pairwise_ciphers {
-                                    pairwise_ciphers.push(cipher.to_string());
-                                }
-
-                                let mut key_management_modes: Vec<String> = Vec::new();
-                                for mode in &suite.key_management_modes {
-                                    key_management_modes.push(mode.to_string());
-                                }
-
-                                Dot11CipherSuites {
-                                    group_cipher: suite.group_cipher.to_string(),
-                                    pairwise_ciphers,
-                                    key_management_modes
-                                }
-                            },
-                            None => Dot11CipherSuites {
-                                group_cipher: "".to_string(),
-                                pairwise_ciphers: Vec::new(),
-                                key_management_modes: Vec::new(),
-                            },
-                        };
-
-                        let pmf = match netsecinfo.pmf {
-                            PmfMode::Required => PmfReport::Required,
-                            PmfMode::Optional => PmfReport::Optional,
-                            PmfMode::Disabled => PmfReport::Disabled,
-                            PmfMode::Unavailable => PmfReport::Unavailable
-                        };
-
-                        netsec_report.push(SecurityInformationReport {
-                            protocols,
-                            suites,
-                            pmf,
-                            operating_channel_validation: netsecinfo.operating_channel_validation,
-                            beacon_protection: netsecinfo.beacon_protection
-                        });
-                    }
-
-                    let mut channel_statistics = HashMap::new();
-                    for (frequency, frame_types) in &netinfo.channel_statistics {
-                        let mut frame_type_summary = HashMap::new();
-                        for (frame_type, stats) in frame_types {
-                            frame_type_summary.insert(
-                                frame_type.to_string().to_lowercase(),
-                                Dot11ChannelStatisticsReport {
-                                    frames: stats.frames,
-                                    bytes: stats.bytes
-                                });
-                        }
-
-                        channel_statistics.insert(*frequency, frame_type_summary);
-                    }
-
-                    let mut infrastructure_types: Vec<String> = Vec::new();
-                    for t in &netinfo.infrastructure_types {
-                        infrastructure_types.push(t.to_string());
-                    }
-
-                    advertised_networks.insert(
-                        ssid.clone(),
-                        AdvertisedNetworkReport {
-                            security: netsec_report,
-                            fingerprints: netinfo.fingerprints.clone(),
-                            beacon_advertisements: netinfo.beacon_advertisements,
-                            proberesp_advertisements: netinfo.proberesp_advertisements,
-                            rates: netinfo.rates.clone(),
-                            wps: netinfo.wps.clone(),
-                            signal_strength: calculate_signal_strength_report(
-                                &netinfo.signal_strengths,
-                            ),
-                            signal_histogram: calculate_signal_histogram(&netinfo.signal_strengths),
-                            infrastructure_types,
-                            channel_statistics,
-                            declared_frequencies: netinfo.declared_frequencies.clone()
-                        },
-                    );
+                    advertised_networks.insert(ssid.clone(), advertised_network_report(netinfo));
                 }
 
                 let mut clients = HashMap::new();
@@ -945,6 +954,7 @@ impl Dot11Table {
                         advertised_networks,
                         clients,
                         hidden_ssid_frames: info.hidden_ssid_frames,
+                        hidden_network: info.hidden_network.as_ref().map(advertised_network_report),
                         signal_strength: calculate_1d_signal_strength_report(
                             &info.signal_strengths,
                         ),
@@ -1090,6 +1100,93 @@ fn calculate_1d_signal_strength_report(signal_strengths: &Vec<i8>) -> SignalStre
     }
 }
 
+fn advertised_network_report(netinfo: &AdvertisedNetwork) -> AdvertisedNetworkReport {
+    let mut netsec_report: Vec<SecurityInformationReport> = Vec::new();
+
+    for netsecinfo in &netinfo.security {
+        let mut protocols: Vec<String> = Vec::new();
+        for protocol in &netsecinfo.protocols {
+            protocols.push(protocol.to_string());
+        }
+
+        let suites: Dot11CipherSuites = match &netsecinfo.suites {
+            Some(suite) => {
+                let mut pairwise_ciphers: Vec<String> = Vec::new();
+                for cipher in &suite.pairwise_ciphers {
+                    pairwise_ciphers.push(cipher.to_string());
+                }
+
+                let mut key_management_modes: Vec<String> = Vec::new();
+                for mode in &suite.key_management_modes {
+                    key_management_modes.push(mode.to_string());
+                }
+
+                Dot11CipherSuites {
+                    group_cipher: suite.group_cipher.to_string(),
+                    pairwise_ciphers,
+                    key_management_modes
+                }
+            },
+            None => Dot11CipherSuites {
+                group_cipher: "".to_string(),
+                pairwise_ciphers: Vec::new(),
+                key_management_modes: Vec::new(),
+            },
+        };
+
+        let pmf = match netsecinfo.pmf {
+            PmfMode::Required => PmfReport::Required,
+            PmfMode::Optional => PmfReport::Optional,
+            PmfMode::Disabled => PmfReport::Disabled,
+            PmfMode::Unavailable => PmfReport::Unavailable
+        };
+
+        netsec_report.push(SecurityInformationReport {
+            protocols,
+            suites,
+            pmf,
+            operating_channel_validation: netsecinfo.operating_channel_validation,
+            beacon_protection: netsecinfo.beacon_protection
+        });
+    }
+
+    let mut channel_statistics = HashMap::new();
+    for (frequency, frame_types) in &netinfo.channel_statistics {
+        let mut frame_type_summary = HashMap::new();
+        for (frame_type, stats) in frame_types {
+            frame_type_summary.insert(
+                frame_type.to_string().to_lowercase(),
+                Dot11ChannelStatisticsReport {
+                    frames: stats.frames,
+                    bytes: stats.bytes
+                });
+        }
+
+        channel_statistics.insert(*frequency, frame_type_summary);
+    }
+
+    let mut infrastructure_types: Vec<String> = Vec::new();
+    for t in &netinfo.infrastructure_types {
+        infrastructure_types.push(t.to_string());
+    }
+
+    AdvertisedNetworkReport {
+        security: netsec_report,
+        fingerprints: netinfo.fingerprints.clone(),
+        beacon_advertisements: netinfo.beacon_advertisements,
+        proberesp_advertisements: netinfo.proberesp_advertisements,
+        rates: netinfo.rates.clone(),
+        wps: netinfo.wps.clone(),
+        signal_strength: calculate_signal_strength_report(
+            &netinfo.signal_strengths,
+        ),
+        signal_histogram: calculate_signal_histogram(&netinfo.signal_strengths),
+        infrastructure_types,
+        channel_statistics,
+        declared_frequencies: netinfo.declared_frequencies.clone()
+    }
+}
+
 fn calculate_signal_histogram(signal_strengths: &HashMap<u16, Vec<i8>>) -> HashMap<u16, HashMap<i8, u128>> {
     let mut histograms: HashMap<u16, HashMap<i8, u128>> = HashMap::new();
 
@@ -1167,6 +1264,75 @@ mod declared_frequency_tests {
         assert_eq!(network.declared_frequencies.len(), MAX_DECLARED_FREQUENCIES_PER_NETWORK);
         assert_eq!(network.declared_frequencies[&5180], 2);
         assert!(!network.declared_frequencies.contains_key(&2412));
+    }
+}
+
+#[cfg(test)]
+mod hidden_network_tests {
+    use crate::wireless::dot11::frames::{FrameSubType, InfraStructureType, TaggedParameters};
+
+    use super::{advertised_network_report, AdvertisedNetwork, AdvertisementFrame};
+
+    fn parameters(rates: Option<Vec<f32>>) -> TaggedParameters {
+        TaggedParameters {
+            ssid: None,
+            supported_rates: rates,
+            extended_supported_rates: Some(vec![54.0]),
+            country_information: None,
+            pwnagotchi_data: None,
+            channel_switch: None,
+            current_frequency: None,
+            ht_capabilities: None,
+            extended_capabilities: None
+        }
+    }
+
+    fn frame<'a>(frame_type: FrameSubType, frequency: Option<u16>, signal_strength: i8, declared_frequency: Option<u16>,
+                 tagged_parameters: &'a TaggedParameters, fingerprint: &'a str) -> AdvertisementFrame<'a> {
+        AdvertisementFrame {
+            frame_type,
+            length: 200,
+            frequency,
+            signal_strength,
+            declared_frequency,
+            tagged_parameters,
+            security: Vec::new(),
+            has_wps: false,
+            fingerprint,
+            infrastructure_type: InfraStructureType::AccessPoint
+        }
+    }
+
+    #[test]
+    fn frames_without_a_name_are_kept_with_the_detail_of_a_named_network() {
+        let tagged = parameters(Some(vec![1.0, 2.0]));
+        let mut network = AdvertisedNetwork::default();
+
+        assert!(network.register_frame(frame(FrameSubType::Beacon, Some(2437), -60, Some(2437), &tagged, "aa")));
+        assert!(network.register_frame(frame(FrameSubType::Beacon, Some(2437), -62, Some(2437), &tagged, "aa")));
+        assert!(network.register_frame(frame(FrameSubType::Beacon, Some(2432), -70, Some(2437), &tagged, "bb")));
+        assert!(network.register_frame(frame(FrameSubType::ProbeResponse, Some(2437), -60, None, &tagged, "aa")));
+        assert!(network.register_frame(frame(FrameSubType::Beacon, None, -55, None, &tagged, "aa")));
+
+        let report = advertised_network_report(&network);
+
+        assert_eq!(report.beacon_advertisements, 4);
+        assert_eq!(report.proberesp_advertisements, 1);
+        assert_eq!(report.fingerprints, vec!["aa".to_string(), "bb".to_string()]);
+        assert_eq!(report.rates, vec![1.0, 2.0, 54.0]);
+        assert_eq!(report.wps, vec![false]);
+        assert_eq!(report.infrastructure_types.len(), 1);
+        assert_eq!(report.declared_frequencies[&2437], 3);
+
+        assert_eq!(report.signal_histogram[&2437][&-60], 2);
+        assert_eq!(report.signal_histogram[&2437][&-62], 1);
+        assert_eq!(report.signal_histogram[&2432][&-70], 1);
+        assert_eq!(report.signal_histogram.len(), 2);
+
+        assert_eq!(report.channel_statistics[&2437]["beacon"].frames, 2);
+        assert_eq!(report.channel_statistics[&2437]["beacon"].bytes, 400);
+        assert_eq!(report.channel_statistics[&2437]["proberesponse"].frames, 1);
+        assert_eq!(report.channel_statistics[&2432]["beacon"].frames, 1);
     }
 }
 

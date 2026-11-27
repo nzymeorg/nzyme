@@ -15,6 +15,8 @@ import {translateInfrastructureType} from "../util/InfrastructureTypeTranslator"
 
 const dot11Service = new Dot11Service();
 
+const truncated = (text) => text.length > 50 ? text.slice(0, 49) + "\u2026" : text;
+
 function BSSIDRow(props) {
   const tapContext = useContext(TapContext);
 
@@ -71,6 +73,10 @@ function BSSIDRow(props) {
           </td>
           <td>
             { bssid.has_hidden_ssid_advertisements || bssid.advertised_ssid_names.length === 0 ? <span className="text-muted">&lt;hidden&gt;</span> : null }{ bssid.has_hidden_ssid_advertisements && bssid.advertised_ssid_names.length > 0 ? ", " : null }
+            { bssid.advertised_ssid_names.length === 0 && bssid.likely_same_device_ssids.length > 0 ?
+                <span className="text-muted" title="SSIDs of BSSIDs with a neighboring address">
+                  {' '}(likely same device as {truncated(bssid.likely_same_device_ssids.join(", "))})
+                </span> : null }
             <SSIDsList ssids={bssid.advertised_ssid_names} setFilters={setFilters} filterFields={BSSID_FILTER_FIELDS} filterFieldName="advertised_ssid" />
           </td>
           <td>

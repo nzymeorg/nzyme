@@ -1,6 +1,8 @@
 package app.nzyme.core.rest.resources.timelines;
 
 import app.nzyme.core.NzymeNode;
+import app.nzyme.core.database.DataCategory;
+import app.nzyme.core.database.DatabaseTools;
 import app.nzyme.core.floorplans.db.TenantLocationEntry;
 import app.nzyme.core.floorplans.db.TenantLocationFloorEntry;
 import app.nzyme.core.rest.RestTools;
@@ -10,7 +12,6 @@ import app.nzyme.core.rest.responses.timelines.TimelineActivityHistogramBucketRe
 import app.nzyme.core.rest.responses.timelines.TimelineActivityHistogramResponse;
 import app.nzyme.core.rest.responses.timelines.TimelineEventDetailsResponse;
 import app.nzyme.core.rest.responses.timelines.TimelineResponse;
-import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.taps.Tap;
 import app.nzyme.core.timelines.TimelineAddressType;
 import app.nzyme.core.timelines.Timelines;
@@ -23,6 +24,7 @@ import app.nzyme.core.util.Tools;
 import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -37,6 +39,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.joda.time.DateTime;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.DateTimeFeature;
@@ -45,8 +48,11 @@ import tools.jackson.datatype.joda.JodaModule;
 
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -77,7 +83,8 @@ public class TimelinesResource extends UserAuthenticatedResource {
                     + "together with an activity histogram and the event retention time of the tenant. All taps of "
                     + "the tenant are considered, no matter which taps the user selected elsewhere. For BSSID "
                     + "addresses the response also lists advertised SSIDs, fingerprints and the taps that recorded "
-                    + "the address.")
+                    + "the address in the time range. They are taken from recorded 802.11 data and, for the part of "
+                    + "the time range that is older than its retention time, from the events of the timeline.")
     @ApiResponse(responseCode = "200", description = "Timeline found.",
             content = @Content(schema = @Schema(implementation = TimelineResponse.class)))
     @ApiResponse(responseCode = "403", description = "Organization or tenant not accessible by the calling user.", content = @Content)
@@ -123,15 +130,47 @@ public class TimelinesResource extends UserAuthenticatedResource {
                 .stream().map(Tap::uuid).toList();
 
         List<String> ssids;
+        boolean hasHiddenSsid;
         List<String> fingerprints;
         List<TapHighLevelInformationDetailsResponse> recordingTaps;
+        DateTime tapsCompleteSince = null;
+        Integer tapsRetentionDays = null;
+        List<String> limitedLists = Collections.emptyList();
         if (addressType == TimelineAddressType.DOT11_BSSID) {
-            ssids = nzyme.getDot11().findSSIDsAdvertisedByBSSID(address, tenantTapIds, timeRange);
-            fingerprints = nzyme.getDot11().findFingerprintsOfBSSID(address, timeRange, tenantTapIds);
+            /*
+             * Recorded reports are deleted long before events are. What they hold of the time range is complete, and
+             * what the events hold covers the part of the time range that the reports no longer do.
+             */
+            Timelines.RecordedBssidState recorded = timelines
+                    .findRecordedBssidState(organizationId, tenantId, address, timeRange);
+
+            limitedLists = Lists.newArrayList(recorded.limited());
+
+            Set<String> allSsids = Sets.newTreeSet(recorded.ssids());
+            allSsids.addAll(nzyme.getDot11().findSSIDsAdvertisedByBSSID(address, tenantTapIds, timeRange));
+            ssids = Lists.newArrayList(allSsids);
+
+            // An access point that was seen sent a name or none. One that was never known by a name sent none.
+            hasHiddenSsid = nzyme.getDot11().bssidAdvertisedWithoutSsid(address, timeRange, tenantTapIds)
+                    || (recorded.active() && !recorded.knowsSsids() && ssids.isEmpty());
+
+            Set<String> allFingerprints = Sets.newTreeSet(recorded.fingerprints());
+            nzyme.getDot11().findFingerprintsOfBSSID(address, timeRange, tenantTapIds).stream()
+                    .filter(Objects::nonNull)
+                    .forEach(allFingerprints::add);
+            fingerprints = Lists.newArrayList(allFingerprints);
+
+            Set<UUID> tapIds = Sets.newLinkedHashSet();
+            nzyme.getDot11().findBSSIDSignalStrengthPerTap(address, timeRange, tenantTapIds)
+                    .forEach(tap -> tapIds.add(tap.tapUuid()));
+            int tapsOfReports = tapIds.size();
+            recorded.taps().stream()
+                    .filter(tenantTapIds::contains)
+                    .forEach(tapIds::add);
+
             recordingTaps = Lists.newArrayList();
-            for (TapBasedSignalStrengthResult recordingTap : nzyme.getDot11()
-                    .findBSSIDSignalStrengthPerTap(address, timeRange, tenantTapIds)) {
-                Optional<Tap> tap = nzyme.getTapManager().findTap(recordingTap.tapUuid());
+            for (UUID tapId : tapIds) {
+                Optional<Tap> tap = nzyme.getTapManager().findTap(tapId);
 
                 if (tap.isEmpty()) {
                     continue;
@@ -166,8 +205,28 @@ public class TimelinesResource extends UserAuthenticatedResource {
                         Tools.isTapActive(tap.get().lastReport())
                 ));
             }
+
+            // Taps of reports come by signal strength. Events hold no signal strength, so their taps follow by name.
+            if (recordingTaps.size() > tapsOfReports) {
+                recordingTaps.subList(tapsOfReports, recordingTaps.size()).sort(Comparator.comparing(
+                        TapHighLevelInformationDetailsResponse::name, String.CASE_INSENSITIVE_ORDER
+                ));
+            }
+
+            // Every tap is known as far back as reports are kept, or events with their taps, whichever reaches further.
+            int dataRetentionDays = DatabaseTools
+                    .getDataCategoryRetentionTimeDays(nzyme, DataCategory.DOT11, organizationId, tenantId);
+            DateTime reportsSince = DateTime.now().minusDays(dataRetentionDays);
+            Optional<DateTime> recordedSince = tapsRecordedSince(organizationId, tenantId)
+                    .filter(since -> since.isBefore(reportsSince));
+
+            if (timeRange.from().isBefore(recordedSince.orElse(reportsSince))) {
+                tapsCompleteSince = recordedSince.orElse(reportsSince);
+                tapsRetentionDays = recordedSince.isPresent() ? null : dataRetentionDays;
+            }
         } else {
             ssids = Collections.emptyList();
+            hasHiddenSsid = false;
             fingerprints = Collections.emptyList();
             recordingTaps = Collections.emptyList();
         }
@@ -204,10 +263,25 @@ public class TimelinesResource extends UserAuthenticatedResource {
                 total,
                 events,
                 ssids,
+                hasHiddenSsid,
                 fingerprints,
                 recordingTaps,
+                tapsCompleteSince,
+                tapsRetentionDays,
+                limitedLists,
+                Timelines.MAX_RECORDED_VALUES,
                 activityHistogramResponse
         )).build();
+    }
+
+    private Optional<DateTime> tapsRecordedSince(UUID organizationId, UUID tenantId) {
+        try {
+            return nzyme.getDatabaseCoreRegistry()
+                    .getValue(TimelinesRegistryKeys.DOT11_BSSID_TAPS_RECORDED_SINCE.key(), organizationId, tenantId)
+                    .map(value -> new DateTime(Long.parseLong(value)));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
 }

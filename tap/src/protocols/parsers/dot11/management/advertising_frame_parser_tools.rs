@@ -56,6 +56,40 @@ pub struct TaggedParameterParserData {
     pub tags: Vec<Tag>
 }
 
+// None for a hidden SSID. Some access points send it empty, others as NULL bytes of its length.
+fn read_ssid(data: &[u8]) -> Option<String> {
+    let ssid = String::from_utf8_lossy(data).to_string();
+
+    if ssid.chars().all(|c| c.is_whitespace() || c.is_control()) {
+        None
+    } else {
+        Some(ssid)
+    }
+}
+
+// The SSID of a frame is that of its first SSID element. Clients ignore any further one, and so does the tap.
+pub(crate) fn read_first_ssid(elements: &[u8]) -> Option<String> {
+    let mut cursor = 0;
+
+    while cursor + 2 <= elements.len() {
+        let number = elements[cursor];
+        let length = elements[cursor + 1] as usize;
+        cursor += 2;
+
+        if elements.len() < cursor + length {
+            return None;
+        }
+
+        if number == 0 {
+            return read_ssid(&elements[cursor..cursor + length]);
+        }
+
+        cursor += length;
+    }
+
+    None
+}
+
 #[allow(clippy::single_match)]
 pub fn parse_tagged_parameters(payload: &[u8],
                                bssid: String,
@@ -63,7 +97,7 @@ pub fn parse_tagged_parameters(payload: &[u8],
                                frequency: Option<u16>,
                                bus: Arc<Bus>,
                                metrics: Arc<Mutex<Metrics>>) -> Result<TaggedParameterParserData, Error> {
-    let mut ssid: Option<String> = Option::None;
+    let ssid = payload.get(36..).and_then(read_first_ssid);
     let mut supported_rates: Option<Vec<f32>> = Option::None;
     let mut extended_supported_rates: Option<Vec<f32>> = Option::None;
     let mut country_information: Option<CountryInformation> = Option::None;
@@ -99,13 +133,6 @@ pub fn parse_tagged_parameters(payload: &[u8],
             cursor += length;
 
             match number {
-                0 => {
-                    // SSID.
-                    let ssid_s = String::from_utf8_lossy(data).to_string();
-                    if !ssid_s.trim().is_empty() {
-                        ssid = Option::Some(ssid_s);
-                    }
-                },
                 1 => {
                     // Supported rates.
                     supported_rates = Option::Some(parse_supported_rates(data));
@@ -658,6 +685,36 @@ pub fn decide_encryption_protocol(capabilities: &Dot11Capabilities,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn empty_and_null_byte_ssids_are_hidden() {
+        assert_eq!(read_ssid(&[]), None);
+        assert_eq!(read_ssid(&[0, 0, 0, 0, 0]), None);
+        assert_eq!(read_ssid(b"   "), None);
+        assert_eq!(read_ssid(&[0, 0x20, 0]), None);
+        assert_eq!(read_ssid(b"corp"), Some("corp".to_string()));
+        assert_eq!(read_ssid(b" corp "), Some(" corp ".to_string()));
+        assert_eq!(read_ssid(&[b'a', 0, b'b']), Some("a\0b".to_string()));
+    }
+
+    #[test]
+    fn first_ssid_element_decides() {
+        let rates = [1, 1, 0x82];
+        let named = |name: &[u8]| [&[0, name.len() as u8], name].concat();
+
+        assert_eq!(read_first_ssid(&named(b"corp")), Some("corp".to_string()));
+        assert_eq!(read_first_ssid(&[named(b"corp"), rates.to_vec(), named(b"")].concat()), Some("corp".to_string()));
+        assert_eq!(read_first_ssid(&[named(b"corp"), named(&[0, 0, 0, 0])].concat()), Some("corp".to_string()));
+        assert_eq!(read_first_ssid(&[named(b"corp"), named(b"evil")].concat()), Some("corp".to_string()));
+        assert_eq!(read_first_ssid(&[named(b""), named(b"corp")].concat()), None);
+        assert_eq!(read_first_ssid(&[named(&[0, 0, 0, 0]), named(b"corp")].concat()), None);
+        assert_eq!(read_first_ssid(&[rates.to_vec(), named(b"corp")].concat()), Some("corp".to_string()));
+        assert_eq!(read_first_ssid(&rates), None);
+        assert_eq!(read_first_ssid(&[]), None);
+        assert_eq!(read_first_ssid(&[0]), None);
+        assert_eq!(read_first_ssid(&[0, 4, b'c', b'o']), None);
+        assert_eq!(read_first_ssid(&[1, 9, 0x82, 0, 4, b'c', b'o', b'r', b'p']), None);
+    }
 
     #[test]
     fn reads_operating_channel_validation_from_rsn_capabilities() {

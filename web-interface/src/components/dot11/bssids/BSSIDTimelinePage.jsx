@@ -16,6 +16,7 @@ import TimelineFilters from "../../shared/timelines/TimelineFilters";
 import TimelineTapTable from "../../shared/timelines/TimelineTapTable";
 import TruncatedList from "../../shared/TruncatedList";
 import {toast} from "react-toastify";
+import moment from "moment";
 import {TimelineActivityHistogram} from "../../shared/timelines/TimelineActivityHistogram";
 
 const dot11Service = new Dot11Service();
@@ -99,6 +100,22 @@ export default function BSSIDTimelinePage() {
     return <LoadingSpinner />
   }
 
+  const ssids = (events.has_hidden_ssid ? [<span key="hidden" className="text-muted">&lt;hidden&gt;</span>] : [])
+      .concat(events.ssids);
+
+  const limited = (list, noun) => {
+    if (!events.limited_lists.includes(list)) {
+      return null;
+    }
+
+    return (
+        <p className="text-muted mt-2 mb-0">
+          Timeline events hold more {noun} of this BSSID. Only {events.list_limit.toLocaleString("en-US")} of them
+          are listed.
+        </p>
+    )
+  }
+
   return (
     <React.Fragment>
       <div className="row">
@@ -154,11 +171,26 @@ export default function BSSIDTimelinePage() {
         <div className="col-12">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Taps" slim={true} />
+              <CardTitleWithControls title="Taps" slim={true} helpLink="https://go.nzyme.org/wifi-timelines-lists" />
 
               <p>The following taps observed the BSSID in the selected timeframe:</p>
 
               <TimelineTapTable taps={events.taps} />
+
+              {events.taps_complete_since && events.taps_retention_days ?
+                  <p className="text-muted mt-2 mb-0">
+                    Taps that never had the strongest signal of the BSSID are only listed for the
+                    last {events.taps_retention_days} days, which is the configured retention time of WiFi data.
+                  </p> : null}
+
+              {events.taps_complete_since && !events.taps_retention_days ?
+                  <p className="text-muted mt-2 mb-0">
+                    Taps that never had the strongest signal of the BSSID are only listed
+                    since {moment(events.taps_complete_since).format("YYYY-MM-DD HH:mm")}, when timelines started to
+                    record them.
+                  </p> : null}
+
+              {limited("taps", "taps")}
             </div>
           </div>
         </div>
@@ -168,11 +200,14 @@ export default function BSSIDTimelinePage() {
         <div className="col-5">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="SSIDs" slim={true} />
+              <CardTitleWithControls title="SSIDs" slim={true} helpLink="https://go.nzyme.org/wifi-timelines-lists" />
 
               <p>SSIDs advertised by the BSSID in the selected timeframe:</p>
 
-              <TruncatedList items={events.ssids} limit={5} />
+              {ssids.length === 0 ? <span className="text-muted">None</span>
+                  : <TruncatedList items={ssids} limit={5} />}
+
+              {limited("ssids", "SSIDs")}
             </div>
           </div>
         </div>
@@ -180,11 +215,14 @@ export default function BSSIDTimelinePage() {
         <div className="col-7">
           <div className="card">
             <div className="card-body">
-              <CardTitleWithControls title="Fingerprints" slim={true} />
+              <CardTitleWithControls title="Fingerprints" slim={true} helpLink="https://go.nzyme.org/wifi-timelines-lists" />
 
               <p>Fingerprints of the BSSID in the selected timeframe:</p>
 
-              <TruncatedList items={events.fingerprints} limit={5} />
+              {events.fingerprints.length === 0 ? <span className="text-muted">None</span>
+                  : <TruncatedList items={events.fingerprints} limit={5} />}
+
+              {limited("fingerprints", "fingerprints")}
             </div>
           </div>
         </div>

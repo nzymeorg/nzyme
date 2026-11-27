@@ -6,12 +6,15 @@ import app.nzyme.core.timelines.db.TimelineActivityHistogramBucket;
 import app.nzyme.core.timelines.db.TimelineEventEntry;
 import app.nzyme.core.util.Bucketing;
 import app.nzyme.core.util.TimeRange;
+import com.google.common.collect.Sets;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.cfg.DateTimeFeature;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.datatype.joda.JodaModule;
 
+import java.sql.Types;
 import java.util.*;
 
 public class Timelines {
@@ -36,11 +39,25 @@ public class Timelines {
                                         TimelineEventType eventType,
                                         Map<String, Object> eventDetails,
                                         DateTime timestamp) {
+        writeDot11TimelineEvent(organizationId, tenantId, addressType, address, eventType, eventDetails, timestamp, null);
+    }
+
+    // The taps are the database IDs of the taps that recorded the address in the run the event is from.
+    public void writeDot11TimelineEvent(UUID organizationId,
+                                        UUID tenantId,
+                                        TimelineAddressType addressType,
+                                        String address,
+                                        TimelineEventType eventType,
+                                        Map<String, Object> eventDetails,
+                                        DateTime timestamp,
+                                        @Nullable Collection<Long> taps) {
         nzyme.getDatabase().useHandle(handle ->
                 handle.createUpdate("INSERT INTO dot11_timeline_events(uuid, organization_id, tenant_id, " +
-                                "address, address_type, event_type, event_details, timestamp) " +
+                                "address, address_type, event_type, event_details, timestamp, taps) " +
                                 "VALUES(:uuid, :organization_id, :tenant_id, :address, :address_type, " +
-                                ":event_type, :event_details::jsonb, :timestamp)")
+                                ":event_type, :event_details::jsonb, :timestamp, :taps)")
+                        .bindBySqlType("taps", taps == null ? null
+                                : taps.stream().map(Long::intValue).sorted().toArray(Integer[]::new), Types.ARRAY)
                         .bind("uuid", UUID.randomUUID())
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
@@ -328,6 +345,128 @@ public class Timelines {
                 totalsByEventType,
                 buckets
         );
+    }
+
+    public static final int MAX_RECORDED_VALUES = 1000;
+
+    // The limited kinds are those of "ssids", "fingerprints" and "taps" that hold more values than are returned.
+    public record RecordedBssidState(boolean active,
+                                     boolean knowsSsids,
+                                     Set<String> ssids,
+                                     Set<String> fingerprints,
+                                     Set<UUID> taps,
+                                     Set<String> limited) { }
+
+    /*
+     * Every state the events show a BSSID in during a time range. That includes the state from before the range if
+     * the BSSID was seen in the range before its first change, because a BSSID that comes back unchanged writes no
+     * event. All events of one run carry the same timestamp.
+     */
+    public RecordedBssidState findRecordedBssidState(UUID organizationId,
+                                                     UUID tenantId,
+                                                     String bssid,
+                                                     TimeRange timeRange) {
+        String ofAddress = "organization_id = :organization_id AND tenant_id = :tenant_id " +
+                "AND address_type = :address_type AND address = :address ";
+        String listOf = "jsonb_array_elements_text(CASE WHEN jsonb_typeof(s.event_details -> '%1$s') = 'array' " +
+                "THEN s.event_details -> '%1$s' ELSE '[]'::jsonb END)";
+
+        Set<String> ssids = Sets.newTreeSet();
+        Set<String> fingerprints = Sets.newTreeSet();
+        Set<UUID> taps = Sets.newHashSet();
+        Set<String> limited = Sets.newTreeSet();
+        boolean[] flags = new boolean[2];
+
+        nzyme.getDatabase().useHandle(handle ->
+                handle.createQuery("WITH active AS (SELECT EXISTS (SELECT 1 FROM dot11_timeline_events WHERE " + ofAddress +
+                                "AND timestamp >= :tr_from AND timestamp <= :tr_to) AS active), " +
+                                "states AS (SELECT event_type, event_details FROM dot11_timeline_events WHERE " + ofAddress +
+                                "AND event_type IN (<types>) AND timestamp >= :tr_from AND timestamp <= :tr_to " +
+                                "UNION ALL " +
+                                "SELECT e.event_type, e.event_details FROM unnest(ARRAY[<types>]) AS t(event_type) " +
+                                "CROSS JOIN LATERAL (SELECT event_type, event_details FROM dot11_timeline_events " +
+                                "WHERE " + ofAddress + "AND event_type = t.event_type AND timestamp < :tr_from " +
+                                "ORDER BY timestamp DESC LIMIT 1) e " +
+                                "WHERE EXISTS (SELECT 1 FROM dot11_timeline_events AS seen WHERE " + ofAddress +
+                                "AND seen.timestamp >= :tr_from AND seen.timestamp <= :tr_to AND seen.timestamp < " +
+                                "COALESCE((SELECT MIN(timestamp) FROM dot11_timeline_events WHERE " + ofAddress +
+                                "AND event_type = t.event_type AND timestamp >= :tr_from AND timestamp <= :tr_to), " +
+                                "'infinity'))), " +
+                                "recorded AS (" +
+                                "SELECT 'ssid' AS kind, v.value FROM states s CROSS JOIN LATERAL " +
+                                String.format(listOf, "known_ssids") + " AS v(value) WHERE s.event_type = :ssid_type " +
+                                "UNION SELECT 'fingerprint', v.value FROM states s CROSS JOIN LATERAL " +
+                                String.format(listOf, "known_fingerprints") + " AS v(value) " +
+                                "WHERE s.event_type = :fingerprint_type " +
+                                "UNION SELECT 'tap', s.event_details ->> 'strongest_tap_uuid' FROM states s " +
+                                "WHERE s.event_type = :tap_type AND s.event_details ->> 'strongest_tap_uuid' IS NOT NULL " +
+                                "UNION SELECT 'tap', t.uuid::text FROM dot11_timeline_events e " +
+                                "CROSS JOIN LATERAL unnest(e.taps) AS recorded_by(tap_id) " +
+                                "JOIN taps t ON t.id = recorded_by.tap_id AND t.organization_id = e.organization_id " +
+                                "AND t.tenant_id = e.tenant_id WHERE e.organization_id = :organization_id " +
+                                "AND e.tenant_id = :tenant_id AND e.address_type = :address_type " +
+                                "AND e.address = :address AND e.timestamp >= :tr_from AND e.timestamp <= :tr_to " +
+                                "AND e.taps IS NOT NULL " +
+                                "UNION SELECT 'knows_ssids', '' WHERE EXISTS (SELECT 1 FROM dot11_timeline_events " +
+                                "WHERE " + ofAddress + "AND event_type = :ssid_type) " +
+                                "UNION SELECT 'active', '' FROM active WHERE active) " +
+                                "SELECT kind, value FROM (SELECT r.*, row_number() OVER (PARTITION BY r.kind " +
+                                "ORDER BY r.value) AS position FROM recorded r WHERE r.value IS NOT NULL) ranked " +
+                                "WHERE position <= :limit + 1")
+                        .bind("organization_id", organizationId)
+                        .bind("tenant_id", tenantId)
+                        .bind("address_type", TimelineAddressType.DOT11_BSSID)
+                        .bind("address", bssid)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindList("types", List.of(
+                                TimelineEventType.DOT11_BSSID_SSID_DIFF.name(),
+                                TimelineEventType.DOT11_BSSID_FINGERPRINT_DIFF.name(),
+                                TimelineEventType.DOT11_BSSID_STRONGEST_TAP.name()
+                        ))
+                        .bind("ssid_type", TimelineEventType.DOT11_BSSID_SSID_DIFF.name())
+                        .bind("fingerprint_type", TimelineEventType.DOT11_BSSID_FINGERPRINT_DIFF.name())
+                        .bind("tap_type", TimelineEventType.DOT11_BSSID_STRONGEST_TAP.name())
+                        .bind("limit", MAX_RECORDED_VALUES)
+                        .map((rs, ctx) -> {
+                            String value = rs.getString("value");
+
+                            switch (rs.getString("kind")) {
+                                case "ssid" -> {
+                                    if (ssids.size() < MAX_RECORDED_VALUES) {
+                                        ssids.add(value);
+                                    } else {
+                                        limited.add("ssids");
+                                    }
+                                }
+                                case "fingerprint" -> {
+                                    if (fingerprints.size() < MAX_RECORDED_VALUES) {
+                                        fingerprints.add(value);
+                                    } else {
+                                        limited.add("fingerprints");
+                                    }
+                                }
+                                case "tap" -> {
+                                    if (taps.size() >= MAX_RECORDED_VALUES) {
+                                        limited.add("taps");
+                                        break;
+                                    }
+
+                                    try {
+                                        taps.add(UUID.fromString(value));
+                                    } catch (IllegalArgumentException ignored) { }
+                                }
+                                case "active" -> flags[0] = true;
+                                case "knows_ssids" -> flags[1] = true;
+                                default -> { }
+                            }
+
+                            return true;
+                        })
+                        .list()
+        );
+
+        return new RecordedBssidState(flags[0], flags[1], ssids, fingerprints, taps, limited);
     }
 
     public Optional<TimelineEventEntry> findLatestEventOfTypeAndAddress(UUID organizationId,

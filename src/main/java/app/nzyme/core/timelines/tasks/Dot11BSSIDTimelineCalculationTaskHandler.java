@@ -6,6 +6,7 @@ import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.BSSIDSummary;
 import app.nzyme.core.security.authentication.db.TapPermissionEntry;
 import app.nzyme.core.security.authentication.db.TenantEntry;
+import app.nzyme.core.shared.db.TapBasedSignalStrengthResult;
 import app.nzyme.core.timelines.TimelineAddressType;
 import app.nzyme.core.timelines.TimelineEventType;
 import app.nzyme.core.timelines.Timelines;
@@ -29,8 +30,13 @@ import org.joda.time.DateTime;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+
+import static app.nzyme.core.timelines.Timelines.EVENT_HORIZON_MINUTES;
 
 public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
 
@@ -64,10 +70,29 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
 
             // For each tenant, find each currently active BSSID and write either a MARK (it's been seen) or an event if there are any.
             for (TenantEntry tenant : nzyme.getAuthenticationService().findAllTenantsOfAllOrganizations()) {
-                List<UUID> taps = nzyme.getAuthenticationService()
-                        .findAllTapsOfTenant(tenant.organizationUuid(), tenant.uuid())
-                        .stream()
-                        .map(TapPermissionEntry::uuid).toList();
+                List<TapPermissionEntry> tenantTaps = nzyme.getAuthenticationService()
+                        .findAllTapsOfTenant(tenant.organizationUuid(), tenant.uuid());
+                List<UUID> taps = tenantTaps.stream().map(TapPermissionEntry::uuid).toList();
+                Map<UUID, Long> tapIds = tenantTaps.stream()
+                        .collect(Collectors.toMap(TapPermissionEntry::uuid, TapPermissionEntry::id, (a, b) -> a));
+
+                /*
+                 * Timelines know which taps recorded a BSSID from this moment on, and say so for time ranges before
+                 * it. Written under a lock: the registry does not keep two nodes from writing the same key twice.
+                 */
+                nzyme.getDatabase().useTransaction(handle -> {
+                    handle.createQuery("SELECT pg_advisory_xact_lock(hashtext(:key))::text")
+                            .bind("key", TimelinesRegistryKeys.DOT11_BSSID_TAPS_RECORDED_SINCE.key() + ":"
+                                    + tenant.organizationUuid() + ":" + tenant.uuid())
+                            .mapTo(String.class)
+                            .list();
+
+                    if (nzyme.getDatabaseCoreRegistry().getValue(TimelinesRegistryKeys.DOT11_BSSID_TAPS_RECORDED_SINCE.key(),
+                            tenant.organizationUuid(), tenant.uuid()).isEmpty()) {
+                        nzyme.getDatabaseCoreRegistry().setValue(TimelinesRegistryKeys.DOT11_BSSID_TAPS_RECORDED_SINCE.key(),
+                                String.valueOf(now.getMillis()), tenant.organizationUuid(), tenant.uuid());
+                    }
+                });
 
                 for (BSSIDSummary bssid : nzyme.getDot11().findBSSIDs(
                         TimeRange.create(now.minusMinutes(1), now, false),
@@ -79,6 +104,14 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                         taps)) {
                     try(Timer.Context ignored2 = individualTimer.time()) {
                         int eventsWritten = 0;
+
+                        List<TapBasedSignalStrengthResult> recordedBy = nzyme.getDot11().findBSSIDSignalStrengthPerTap(
+                                bssid.bssid(), TimeRange.create(now.minusMinutes(EVENT_HORIZON_MINUTES), now, false), taps
+                        );
+                        List<Long> recordingTaps = recordedBy.stream()
+                                .map(tap -> tapIds.get(tap.tapUuid()))
+                                .filter(Objects::nonNull)
+                                .toList();
 
                         // Active channel.
                         Dot11BSSIDActiveChannelResolver channel = new Dot11BSSIDActiveChannelResolver(
@@ -94,7 +127,8 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                                     bssid.bssid(),
                                     TimelineEventType.DOT11_BSSID_ACTIVE_CHANNEL,
                                     channelResult.get().payload(),
-                                    now
+                                    now,
+                                    recordingTaps
                             );
                             eventsWritten++;
                         }
@@ -113,7 +147,8 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                                     bssid.bssid(),
                                     TimelineEventType.DOT11_BSSID_SSID_DIFF,
                                     ssidsResult.get().payload(),
-                                    now
+                                    now,
+                                    recordingTaps
                             );
                             eventsWritten++;
                         }
@@ -132,7 +167,8 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                                     bssid.bssid(),
                                     TimelineEventType.DOT11_BSSID_FINGERPRINT_DIFF,
                                     fingerprintsResult.get().payload(),
-                                    now
+                                    now,
+                                    recordingTaps
                             );
                             eventsWritten++;
                         }
@@ -141,7 +177,7 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                         Dot11BSSIDStrongestTapResolver strongestTap = new Dot11BSSIDStrongestTapResolver(
                                 nzyme, tenant.organizationUuid(), tenant.uuid()
                         );
-                        Optional<ResolverResult> strongestTapResult = strongestTap.resolve(bssid.bssid(), taps);
+                        Optional<ResolverResult> strongestTapResult = strongestTap.resolve(bssid.bssid(), recordedBy);
 
                         if (strongestTapResult.isPresent()) {
                             timelines.writeDot11TimelineEvent(
@@ -151,7 +187,8 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                                     bssid.bssid(),
                                     TimelineEventType.DOT11_BSSID_STRONGEST_TAP,
                                     strongestTapResult.get().payload(),
-                                    now
+                                    now,
+                                    recordingTaps
                             );
                             eventsWritten++;
                         }
@@ -165,7 +202,8 @@ public class Dot11BSSIDTimelineCalculationTaskHandler implements TaskHandler {
                                     bssid.bssid(),
                                     TimelineEventType.MARK,
                                     Collections.emptyMap(),
-                                    now
+                                    now,
+                                    recordingTaps
                             );
                         }
 

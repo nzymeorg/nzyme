@@ -373,7 +373,9 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @Operation(operationId = "findSsidMonitoringConfiguration", summary = "Get SSID monitoring configuration of a tenant",
             description = "Returns whether SSID monitoring and event generation are enabled, plus the dwell time in "
                     + "minutes that an SSID has to be active within the last 24 hours before Nzyme adds it to the "
-                    + "known networks. The dwell time defaults to 5 minutes. Values use the generic configuration "
+                    + "known networks. The dwell time defaults to 5 minutes. Also returns whether access points "
+                    + "that advertise without a network name are recorded, which is off by default and only has an "
+                    + "effect while SSID monitoring is enabled. Values use the generic configuration "
                     + "entry format of the web interface. Requires the dot11_monitoring_manage feature permission.",
             externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
                     url = "https://go.nzyme.org/wifi-ssid-monitoring"))
@@ -395,10 +397,12 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
                 KnownSSIDsRegistryKeys.EVENTING_IS_ENABLED.key(), organizationId, tenantId
         );
 
-        int dwellTimeMinutes = nzyme.getDatabaseCoreRegistry()
-                .getValue(KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES.key(), organizationId, tenantId)
-                .map(Integer::valueOf)
-                .orElse(5);
+        int dwellTimeMinutes = KnownSSIDsRegistryKeys.dwellTimeMinutes(nzyme.getDatabaseCoreRegistry()
+                .getValue(KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES.key(), organizationId, tenantId));
+
+        Optional<String> hiddenAccessPointsEnabled = nzyme.getDatabaseCoreRegistry().getValue(
+                KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.key(), organizationId, tenantId
+        );
 
         SSIDMonitoringConfigurationResponse configuration = SSIDMonitoringConfigurationResponse.create(
                 ConfigurationEntryResponse.create(
@@ -430,6 +434,16 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
                         KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES.requiresRestart(),
                         KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES.constraints().orElse(Collections.emptyList()),
                         "wifi-ssid-monitoring"
+                ),
+                ConfigurationEntryResponse.create(
+                        KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.key(),
+                        "Record hidden access points",
+                        hiddenAccessPointsEnabled.isPresent() && hiddenAccessPointsEnabled.get().equals("true"),
+                        ConfigurationEntryValueType.BOOLEAN,
+                        KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.defaultValue().orElse(null),
+                        KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.requiresRestart(),
+                        KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED.constraints().orElse(Collections.emptyList()),
+                        "wifi-ssid-monitoring"
                 )
         );
 
@@ -440,10 +454,12 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
     @RESTSecured(value = PermissionLevel.ANY, featurePermissions = { "dot11_monitoring_manage" })
     @Path("/organization/{organization_id}/tenant/{tenant_id}/configuration")
     @Operation(operationId = "updateSsidMonitoringConfiguration", summary = "Update SSID monitoring configuration of a tenant",
-            description = "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled and "
-                    + "dot11_ssid_monitoring_dwell_time_minutes in the change map, as reported by the configuration "
-                    + "endpoint. Nzyme only collects known networks while monitoring is enabled and only creates alerts "
-                    + "while eventing is enabled. Requires the dot11_monitoring_manage feature permission.",
+            description = "Accepts the keys dot11_ssid_monitoring_enabled, dot11_ssid_monitoring_eventing_enabled, "
+                    + "dot11_ssid_monitoring_dwell_time_minutes and dot11_ssid_monitoring_hidden_access_points_enabled "
+                    + "in the change map, as reported by the configuration endpoint. Nzyme only collects known "
+                    + "networks while monitoring is enabled, only records hidden access points while that is enabled "
+                    + "as well, and only creates alerts while eventing is enabled. "
+                    + "Requires the dot11_monitoring_manage feature permission.",
             externalDocs = @ExternalDocumentation(description = "SSID monitoring in the Nzyme documentation",
                     url = "https://go.nzyme.org/wifi-ssid-monitoring"))
     @ApiResponse(responseCode = "200", description = "Configuration updated.", content = @Content)
@@ -467,11 +483,19 @@ public class Dot11MonitoredSSIDsResource extends UserAuthenticatedResource {
         Optional<List<RegistryChangeValidator.Change>> changes = RegistryChangeValidator
                 .allowing(KnownSSIDsRegistryKeys.IS_ENABLED,
                         KnownSSIDsRegistryKeys.EVENTING_IS_ENABLED,
-                        KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES)
+                        KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES,
+                        KnownSSIDsRegistryKeys.HIDDEN_ACCESS_POINTS_ENABLED)
                 .validate(req.change());
 
         if (changes.isEmpty()) {
             return Response.status(422).build();
+        }
+
+        for (RegistryChangeValidator.Change c : changes.get()) {
+            if (c.key().equals(KnownSSIDsRegistryKeys.DWELL_TIME_MINUTES.key()) && !c.value().matches("\\d{1,9}")) {
+                LOG.info("Dwell time [{}] is no whole number of minutes.", c.value());
+                return Response.status(422).build();
+            }
         }
 
         for (RegistryChangeValidator.Change c : changes.get()) {

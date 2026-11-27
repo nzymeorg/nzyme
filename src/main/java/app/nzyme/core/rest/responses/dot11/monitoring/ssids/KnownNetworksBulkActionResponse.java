@@ -7,7 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @AutoValue
 public abstract class KnownNetworksBulkActionResponse {
 
-    @Schema(description = "Number of known networks the action was applied to.")
+    @Schema(description = "Number of entries the action was applied to.")
     @JsonProperty("affected")
     public abstract int affected();
 

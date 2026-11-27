@@ -435,7 +435,8 @@ const ApiRoutes = {
         EDIT: (id) => `/dot11/monitoring/proberequests/edit/${id}`
       },
       SSIDS: {
-        INDEX: "/dot11/monitoring/ssids"
+        INDEX: "/dot11/monitoring/ssids",
+        HIDDEN_ACCESS_POINTS: "/dot11/monitoring/ssids#hidden-access-points"
       },
       MONITORS: {
         INDEX: "/dot11/monitoring/monitors"

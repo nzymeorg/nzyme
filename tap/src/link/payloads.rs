@@ -303,6 +303,7 @@ pub struct BssidReport {
     pub advertised_networks: HashMap<String, AdvertisedNetworkReport>,
     pub clients: HashMap<String, Dot11ClientStatisticsReport>,
     pub hidden_ssid_frames: u128,
+    pub hidden_network: Option<AdvertisedNetworkReport>,
     pub signal_strength: SignalStrengthReport,
     pub fingerprints: Vec<String>,
     pub declared_frequencies: HashMap<u16, u64>

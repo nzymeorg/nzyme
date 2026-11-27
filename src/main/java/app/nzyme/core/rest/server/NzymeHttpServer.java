@@ -209,6 +209,7 @@ public class NzymeHttpServer {
         resourceConfig.register(BluetoothDevicesResource.class);
         resourceConfig.register(Dot11MonitoredProbeRequestResource.class);
         resourceConfig.register(Dot11MonitoredSSIDsResource.class);
+        resourceConfig.register(Dot11HiddenAccessPointsResource.class);
         resourceConfig.register(UavResource.class);
         resourceConfig.register(DHCPResource.class);
         resourceConfig.register(DHCPFingerprintExclusionsResource.class);

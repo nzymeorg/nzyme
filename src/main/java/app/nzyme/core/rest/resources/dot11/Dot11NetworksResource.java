@@ -3,6 +3,7 @@ package app.nzyme.core.rest.resources.dot11;
 import app.nzyme.core.NzymeNode;
 import app.nzyme.core.context.db.MacAddressContextEntry;
 import app.nzyme.core.database.OrderDirection;
+import app.nzyme.core.dot11.AccessPointSiblings;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.*;
 import app.nzyme.core.dot11.tracks.Track;
@@ -24,6 +25,7 @@ import app.nzyme.plugin.rest.security.PermissionLevel;
 import app.nzyme.plugin.rest.security.RESTSecured;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -43,6 +45,8 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.joda.time.DateTime;
 
 import java.util.*;
@@ -54,6 +58,10 @@ import java.util.*;
 @Tag(name = "Networks", description = "Access points, BSSIDs and SSIDs that taps recorded on the air. "
         + "Use these endpoints to explore the WiFi networks around your taps and their signal behavior.")
 public class Dot11NetworksResource extends TapDataHandlingResource {
+
+    private static final Logger LOG = LogManager.getLogger(Dot11NetworksResource.class);
+
+    private static final int SIBLING_HINT_HOURS = 24;
 
     private final static List<Integer> DEFAULT_X_VALUES = Lists.newArrayList();
 
@@ -71,7 +79,9 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
     @Operation(operationId = "findDot11Bssids", summary = "List recorded BSSIDs",
             description = "Returns all BSSIDs that the selected taps recorded in the time range, with a summary of "
                     + "their SSIDs, security protocols, fingerprints and client counts. Sorts by average signal "
-                    + "strength descending unless you pass a sorting column and direction.")
+                    + "strength descending unless you pass a sorting column and direction. A BSSID without an SSID "
+                    + "of its own carries the SSIDs of BSSIDs that are likely the same device. That hint is taken "
+                    + "from the last 24 hours of the time range and for at most 100 such BSSIDs of a page.")
     @ApiResponse(responseCode = "200", description = "BSSIDs found.",
             content = @Content(schema = @Schema(implementation = BSSIDListResponse.class)))
     @ApiResponse(responseCode = "400", description = "Unknown sorting column or direction.", content = @Content)
@@ -101,14 +111,19 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
 
         List<BSSIDSummaryDetailsResponse> bssids = Lists.newArrayList();
         long total = nzyme.getDot11().countBSSIDs(timeRange, filters, tapUuids);
-        for (BSSIDSummary bssid : nzyme.getDot11().findBSSIDs(
+        List<BSSIDSummary> summaries = nzyme.getDot11().findBSSIDs(
                 timeRange,
                 filters,
                 orderColumn,
                 orderDirection,
                 limit,
                 offset,
-                tapUuids)) {
+                tapUuids
+        );
+
+        Map<String, AccessPointSiblings.Siblings> siblings = siblingsOfHiddenBssids(summaries, timeRange, tapUuids);
+
+        for (BSSIDSummary bssid : summaries) {
             Optional<MacAddressContextEntry> bssidContext = nzyme.getContextService().findMacAddressContext(
                     bssid.bssid(),
                     authenticatedUser.getOrganizationId(),
@@ -136,11 +151,91 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
                     bssid.fingerprints(),
                     bssid.ssids(),
                     bssid.hiddenSSIDFrames() > 0,
-                    bssid.infrastructureTypes()
+                    bssid.infrastructureTypes(),
+                    siblings.containsKey(bssid.bssid()) ? siblings.get(bssid.bssid()).ssids() : List.of()
             ));
         }
 
         return Response.ok(BSSIDListResponse.create(total, bssids)).build();
+    }
+
+    // A hint next to rows without a name. The list is returned without it if the lookup fails or takes too long.
+    private Map<String, AccessPointSiblings.Siblings> siblingsOfHiddenBssids(List<BSSIDSummary> summaries,
+                                                                            TimeRange timeRange,
+                                                                            List<UUID> tapUuids) {
+        List<String> hidden = summaries.stream()
+                .filter(summary -> summary.ssids().isEmpty())
+                .map(BSSIDSummary::bssid)
+                .toList();
+
+        if (hidden.isEmpty()) {
+            return Map.of();
+        }
+
+        DateTime to = timeRange.to().isAfterNow() ? DateTime.now() : timeRange.to();
+        DateTime from = to.minusHours(SIBLING_HINT_HOURS);
+
+        try {
+            return nzyme.getDot11().accessPointSiblings().find(
+                    hidden,
+                    TimeRange.create(from.isBefore(timeRange.from()) ? timeRange.from() : from, to, false),
+                    tapUuids
+            );
+        } catch (Exception e) {
+            LOG.warn("Could not look up likely same devices of BSSIDs without SSID.", e);
+            return Map.of();
+        }
+    }
+
+    @GET
+    @Path("/bssids/show/{bssid}/siblings")
+    @Operation(operationId = "findDot11BssidSiblings", summary = "List BSSIDs that are likely the same device",
+            description = "Returns the other BSSIDs that the selected taps recorded in the time range and whose "
+                    + "address differs from this one only in the first octet and the lower half of the last octet, "
+                    + "with the SSIDs they advertised. Devices derive the addresses of their virtual access points "
+                    + "this way. The address is chosen by the sender, so this is a hint and no proof. At most 50 "
+                    + "BSSIDs are returned, those seen last first. With without_ssid_only, only BSSIDs that "
+                    + "advertised no SSID in the time range are returned, which are the hidden networks of the device.")
+    @ApiResponse(responseCode = "200", description = "Siblings found. The list is empty if there are none.",
+            content = @Content(schema = @Schema(implementation = AccessPointSiblingsResponse.class)))
+    @ApiResponse(responseCode = "400", description = "The BSSID is not a MAC address.", content = @Content)
+    public Response bssidSiblings(@Parameter(hidden = true) @Context SecurityContext sc,
+                                  @Parameter(description = "BSSID MAC address.") @PathParam("bssid") String bssidParam,
+                                  @Parameter(description = "Time range selector. Accepts the same format as the web interface time range picker.") @QueryParam("time_range") @Valid String timeRangeParameter,
+                                  @Parameter(description = "Only return BSSIDs that advertised no SSID in the time range.") @QueryParam("without_ssid_only") boolean withoutSsidOnly,
+                                  @Parameter(description = "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.") @QueryParam("taps") String taps) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+        List<UUID> tapUuids = parseAndValidateTapIds(authenticatedUser, nzyme, taps);
+        TimeRange timeRange = parseTimeRangeQueryParameter(timeRangeParameter);
+
+        if (!Tools.isValidMacAddress(bssidParam)) {
+            return Response.status(Response.Status.BAD_REQUEST).build();
+        }
+
+        AccessPointSiblings.Siblings found = nzyme.getDot11().accessPointSiblings()
+                .findOf(bssidParam, timeRange, tapUuids, withoutSsidOnly);
+
+        List<AccessPointSiblingResponse> siblings = Lists.newArrayList();
+        for (AccessPointSiblings.Sibling sibling : found.siblings()) {
+            siblings.add(AccessPointSiblingResponse.create(
+                    Dot11MacAddressResponse.create(
+                            sibling.bssid(),
+                            nzyme.getOuiService().lookup(sibling.bssid()).orElse(null),
+                            null,
+                            nzyme.getContextService()
+                                    .findMacAddressContext(sibling.bssid(), authenticatedUser.getOrganizationId(),
+                                            authenticatedUser.getTenantId())
+                                    .map(context -> Dot11MacAddressContextResponse.create(
+                                            context.name(), context.description(), context.notes()
+                                    ))
+                                    .orElse(null)
+                    ),
+                    sibling.ssids(),
+                    sibling.lastSeen()
+            ));
+        }
+
+        return Response.ok(AccessPointSiblingsResponse.create(siblings, found.limited())).build();
     }
 
     @GET
@@ -194,7 +289,8 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
                 bssid.fingerprints(),
                 bssid.ssids(),
                 bssid.hiddenSSIDFrames() > 0,
-                bssid.infrastructureTypes()
+                bssid.infrastructureTypes(),
+                List.of()
         );
 
         List<BSSIDClientDetails> clients = Lists.newArrayList();
@@ -225,11 +321,16 @@ public class Dot11NetworksResource extends TapDataHandlingResource {
             signalStrength.add(TapBasedSignalStrengthResponse.create(ss.tapUuid(), ss.tapName(), ss.signalStrength()));
         }
 
+        Set<Integer> frequencies = Sets.newTreeSet();
+        bssid.frequencies().stream().filter(Objects::nonNull).forEach(frequencies::add);
+        frequencies.addAll(nzyme.getDot11()
+                .findTapFrequenciesOfHiddenNetwork(bssid.bssid(), TimeRangeFactory.allTime(), tapUuids));
+
         return Response.ok(BSSIDDetailsResponse.create(
                 summary,
                 clients,
                 signalStrength,
-                bssid.frequencies(),
+                Lists.newArrayList(frequencies),
                 nzyme.getDot11().findDeclaredChannelsOfBSSID(bssidParam, TimeRangeFactory.allTime(), tapUuids)
                         .stream()
                         .map(DeclaredChannel::frequency)

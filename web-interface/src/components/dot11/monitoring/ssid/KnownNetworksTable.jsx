@@ -6,11 +6,9 @@ import {toast} from "react-toastify";
 import GenericWidgetLoadingSpinner from "../../../widgets/GenericWidgetLoadingSpinner";
 import ColumnSorting from "../../../shared/ColumnSorting";
 import numeral from "numeral";
-import ApiRoutes from "../../../../util/ApiRoutes";
 import useSelectedTenant from "../../../system/tenantselector/useSelectedTenant";
-import {Presets} from "../../../shared/timerange/TimeRange";
-import {serializeTimeRange} from "../../../shared/timerange/TimeRangeUrl";
-import {filteredLink} from "../../../ethernet/assets/details/AssetProfileHelpers";
+import ApprovalStatus from "./ApprovalStatus";
+import accessPointsOfSsidLink from "./accessPointsOfSsidLink";
 import FindingsBulkActions from "../../../ethernet/assets/identity/FindingsBulkActions";
 import useRowSelection from "../../../ethernet/assets/identity/useRowSelection";
 import PivotLink from "../../../shared/PivotLink";
@@ -53,23 +51,6 @@ const BULK_ACTIONS = [
     }
 ];
 
-// The access points page shows the last 24 hours by default, which would be empty for a network last seen earlier.
-const accessPointsLink = (network) => {
-    const age = moment().diff(moment(network.last_seen), "minutes");
-
-    let timeRange = Presets.ALL_TIME;
-    if (age < Presets.RELATIVE_HOURS_24.minutes) {
-        timeRange = Presets.RELATIVE_HOURS_24;
-    } else if (age < Presets.RELATIVE_DAYS_7.minutes) {
-        timeRange = Presets.RELATIVE_DAYS_7;
-    }
-
-    const filters = {advertised_ssid: [{field: "advertised_ssid", operator: "equals", value: network.ssid}]};
-
-    return filteredLink(ApiRoutes.DOT11.NETWORKS.BSSIDS.INDEX, filters)
-        + "&tr_timerange=" + encodeURIComponent(JSON.stringify(serializeTimeRange(timeRange)));
-}
-
 export default function KnownNetworksTable(props) {
 
     const networks = props.networks;
@@ -93,30 +74,6 @@ export default function KnownNetworksTable(props) {
                               setOrderColumn={setOrderColumn}
                               orderDirection={orderDirection}
                               setOrderDirection={setOrderDirection} />
-    }
-
-    const status = (network) => {
-        if (network.is_approved) {
-            return (
-                <span>
-                    <i className="fa fa-check text-success"/> Approved
-                </span>
-            )
-        } else {
-            if (network.is_ignored) {
-                return (
-                    <span>
-                        <i className="fa fa-info-circle text-primary" /> Ignored
-                    </span>
-                )
-            } else {
-                return (
-                    <span>
-                        <i className="fa fa-warning text-warning"/> Not Approved
-                    </span>
-                )
-            }
-        }
     }
 
     const changeStatusLink = (network) => {
@@ -298,12 +255,12 @@ export default function KnownNetworksTable(props) {
                             <td>
                                 {net.ssid}
                                 { onChange ?
-                                    <PivotLink to={accessPointsLink(net)}
+                                    <PivotLink to={accessPointsOfSsidLink(net.ssid, net.last_seen)}
                                                title="Access points that advertise this SSID"
                                                className="ms-2 small"
                                                icon={true} /> : null }
                             </td>
-                            <td>{status(net)}</td>
+                            <td><ApprovalStatus approved={net.is_approved} ignored={net.is_ignored} /></td>
                             <td title={moment(net.last_seen).format()}>{moment(net.last_seen).fromNow()}</td>
                             { onChange ? <>
                             <td>{changeStatusLink(net)}</td>

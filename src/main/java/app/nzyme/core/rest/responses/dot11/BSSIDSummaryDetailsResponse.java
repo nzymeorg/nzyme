@@ -2,6 +2,7 @@ package app.nzyme.core.rest.responses.dot11;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.auto.value.AutoValue;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -41,7 +42,13 @@ public abstract class BSSIDSummaryDetailsResponse {
     @JsonProperty("infrastructure_types")
     public abstract List<String> infrastructureTypes();
 
-    public static BSSIDSummaryDetailsResponse create(Dot11MacAddressResponse bssid, List<String> securityProtocols, float signalStrengthAverage, DateTime firstSeen, DateTime lastSeen, long clientCount, List<String> fingerprints, List<String> advertisedSSIDNames, boolean hasHiddenSSIDAdvertisements, List<String> infrastructureTypes) {
+    @Schema(description = "Up to 5 SSIDs advertised by access points with a neighboring address, which are likely "
+            + "the same device. Only filled in the list of BSSIDs, and there only for BSSIDs without an SSID of "
+            + "their own. A hint only.")
+    @JsonProperty("likely_same_device_ssids")
+    public abstract List<String> likelySameDeviceSsids();
+
+    public static BSSIDSummaryDetailsResponse create(Dot11MacAddressResponse bssid, List<String> securityProtocols, float signalStrengthAverage, DateTime firstSeen, DateTime lastSeen, long clientCount, List<String> fingerprints, List<String> advertisedSSIDNames, boolean hasHiddenSSIDAdvertisements, List<String> infrastructureTypes, List<String> likelySameDeviceSsids) {
         return builder()
                 .bssid(bssid)
                 .securityProtocols(securityProtocols)
@@ -53,6 +60,7 @@ public abstract class BSSIDSummaryDetailsResponse {
                 .advertisedSSIDNames(advertisedSSIDNames)
                 .hasHiddenSSIDAdvertisements(hasHiddenSSIDAdvertisements)
                 .infrastructureTypes(infrastructureTypes)
+                .likelySameDeviceSsids(likelySameDeviceSsids)
                 .build();
     }
 
@@ -81,6 +89,8 @@ public abstract class BSSIDSummaryDetailsResponse {
         public abstract Builder hasHiddenSSIDAdvertisements(boolean hasHiddenSSIDAdvertisements);
 
         public abstract Builder infrastructureTypes(List<String> infrastructureTypes);
+
+        public abstract Builder likelySameDeviceSsids(List<String> likelySameDeviceSsids);
 
         public abstract BSSIDSummaryDetailsResponse build();
     }

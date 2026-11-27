@@ -128,6 +128,32 @@ const AlertActionDefinitions = {
       t.known_network_uuid, alert.organization_id, alert.tenant_id, onSuccess, onError)
   },
 
+  DOT11_APPROVE_HIDDEN_ACCESS_POINT: {
+    kind: "call",
+    title: "Approve Hidden Access Point",
+    description: (t) => <span>Approve hidden access point {value(t.bssid)}. Approved access points do not raise
+      this alert.</span>,
+    doneDescription: (t) => <span>Hidden access point {value(t.bssid)} is approved.</span>,
+    confirmation: (t) => "Approve hidden access point " + t.bssid + "?",
+    success: "Hidden access point approved.",
+    run: (t, alert, onSuccess, onError) => dot11Service.applyToHiddenAccessPoints(
+      "approve", [t.hidden_access_point_uuid], alert.organization_id, alert.tenant_id, onSuccess, onError),
+    changedNothing: (result) => result.affected === 0
+  },
+
+  DOT11_IGNORE_HIDDEN_ACCESS_POINT: {
+    kind: "call",
+    title: "Ignore Hidden Access Point",
+    description: (t) => <span>Ignore hidden access point {value(t.bssid)}. Ignored access points do not raise this
+      alert and stay unapproved.</span>,
+    doneDescription: (t) => <span>Hidden access point {value(t.bssid)} is ignored.</span>,
+    confirmation: (t) => "Ignore hidden access point " + t.bssid + "?",
+    success: "Hidden access point ignored.",
+    run: (t, alert, onSuccess, onError) => dot11Service.applyToHiddenAccessPoints(
+      "ignore", [t.hidden_access_point_uuid], alert.organization_id, alert.tenant_id, onSuccess, onError),
+    changedNothing: (result) => result.affected === 0
+  },
+
   DOT11_APPROVE_CLIENT: {
     kind: "call",
     title: "Approve Client",
@@ -210,6 +236,11 @@ const AlertActionDefinitions = {
     "Open SSID Monitoring",
     () => "Review all discovered SSIDs.",
     () => ApiRoutes.DOT11.MONITORING.SSIDS.INDEX),
+
+  DOT11_OPEN_HIDDEN_ACCESS_POINTS: link(
+    "Open Hidden Access Points",
+    () => "Review all recorded hidden access points.",
+    () => ApiRoutes.DOT11.MONITORING.SSIDS.HIDDEN_ACCESS_POINTS),
 
   DOT11_OPEN_PROBE_REQUESTS: link(
     "Open Monitored Probe Requests",

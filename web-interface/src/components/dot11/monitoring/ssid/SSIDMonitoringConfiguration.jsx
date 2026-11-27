@@ -10,15 +10,26 @@ export default function SSIDMonitoringConfiguration(props) {
 
   const organizationUUID = props.organizationUUID;
   const tenantUUID = props.tenantUUID;
+  const onLoaded = props.onLoaded;
 
   const [configuration, setConfiguration] = useState(null);
   const [localRevision, setLocalRevision] = useState(0);
 
   useEffect(() => {
+    let current = true;
+
     setConfiguration(null);
-    dot11Service.getSSIDMonitoringConfiguration(
-        organizationUUID, tenantUUID, setConfiguration
-    );
+    dot11Service.getSSIDMonitoringConfiguration(organizationUUID, tenantUUID, (response) => {
+      if (current) {
+        setConfiguration(response);
+
+        if (onLoaded) {
+          onLoaded(response);
+        }
+      }
+    });
+
+    return () => { current = false; }
   }, [localRevision, organizationUUID, tenantUUID]);
 
   if (!configuration) {
@@ -77,6 +88,23 @@ export default function SSIDMonitoringConfiguration(props) {
           </td>
           <td>
             <ConfigurationModal config={configuration.dwell_time_minutes}
+                                setGlobalConfig={setConfiguration}
+                                setLocalRevision={setLocalRevision}
+                                organizationId={organizationUUID}
+                                tenantId={tenantUUID}
+                                dbUpdateCallback={dot11Service.updateSSIDMonitoringConfiguration}/>
+          </td>
+        </tr>
+
+        <tr>
+          <td>Record hidden access points</td>
+          <td>
+            <ConfigurationValue value={configuration.hidden_access_points_enabled.value}
+                                configKey={configuration.hidden_access_points_enabled.key}
+                                boolean={true}/>
+          </td>
+          <td>
+            <ConfigurationModal config={configuration.hidden_access_points_enabled}
                                 setGlobalConfig={setConfiguration}
                                 setLocalRevision={setLocalRevision}
                                 organizationId={organizationUUID}

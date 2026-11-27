@@ -9,7 +9,9 @@ import SSIDMonitoringConfiguration from "./SSIDMonitoringConfiguration";
 import KnownNetworksTable from "./KnownNetworksTable";
 import usePageTitle from "../../../../util/UsePageTitle";
 import ApproveKnownNetworksDialog from "./ApproveKnownNetworksDialog";
+import HiddenAccessPoints from "./HiddenAccessPoints";
 import {isBehindLastPage} from "../../../ethernet/segmentation/SegmentationBulkActions";
+import CardTitleWithControls from "../../../shared/CardTitleWithControls";
 
 const dot11Service = new Dot11Service();
 
@@ -20,6 +22,7 @@ export default function SSIDMonitoringPage() {
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [networks, setNetworks] = useState(null);
+  const [configuration, setConfiguration] = useState(null);
 
   const [revision, setRevision] = useState(new Date());
 
@@ -33,6 +36,7 @@ export default function SSIDMonitoringPage() {
 
   useEffect(() => {
     setNetworks(null);
+    setConfiguration(null);
   }, [organizationId, tenantId]);
 
   // Not reset while loading again: a spinner in place of the table changes the page height and moves the scroll position.
@@ -86,43 +90,9 @@ export default function SSIDMonitoringPage() {
   return (
       <React.Fragment>
         <div className="row">
-          <div className="col-md-10">
+          <div className="col-md-12">
             <SectionMenuBar items={MONITORING_MENU_ITEMS}
                             activeRoute={ApiRoutes.DOT11.MONITORING.SSIDS.INDEX}/>
-          </div>
-
-          <div className="col-md-2">
-            <a href="https://go.nzyme.org/wifi-ssid-monitoring" className="btn btn-secondary float-end">Help</a>
-          </div>
-        </div>
-
-        <div className="row mt-3">
-          <div className="col-xl-12 col-xxl-6">
-            <div className="card">
-              <div className="card-body">
-                <h3>SSID / Network Name Monitoring</h3>
-
-                <p className="text-muted">
-                  Monitoring SSIDs (wireless network names) in range provides situational awareness, allowing you to
-                  manually verify that no potentially malicious networks are nearby—especially those that
-                  similar-sounding or restricted SSID monitoring might miss. It also enables you to detect new,
-                  unexpected networks, such as a printer automatically starting its own network for device
-                  adoption, or unauthorized mobile hotspots which could introduce vulnerabilities without your
-                  knowledge.
-                </p>
-
-                <p className="text-muted">
-                  The <i>minimum dwell time</i> sets how many minutes a SSID must be observed within the past 24 hours
-                  before it is considered active. This prevents alerts for SSIDs of passing devices that were only
-                  briefly visible. Set it to <i>0</i> to alert on any SSID, no matter how long it has been seen.
-                </p>
-
-                <p className="text-muted mb-0">
-                  Newly detected networks should be treated as informational, not as critical alerts, until further
-                  investigated and properly classified to ensure they don&apos;t pose a security risk.
-                </p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -131,33 +101,25 @@ export default function SSIDMonitoringPage() {
             <div className="col-xl-12 col-xxl-6">
               <div className="card">
                 <div className="card-body">
-                  <h3>Monitor Configuration</h3>
+                  <CardTitleWithControls title="Monitor Configuration"
+                                         helpLink="https://go.nzyme.org/wifi-ssid-monitoring-configuration" />
 
                   <SSIDMonitoringConfiguration organizationUUID={organizationId}
-                                               tenantUUID={tenantId} />
+                                               tenantUUID={tenantId}
+                                               onLoaded={setConfiguration} />
                 </div>
               </div>
             </div>
           </div>
 
           <div className="row mt-3">
-            <div className="col-xl-12 col-xxl-6">
+            <div className="col-12">
               <div className="card">
                 <div className="card-body">
-                  <h3 style={{display: "inline-block"}}>Known SSIDs/Networks</h3>
+                  <CardTitleWithControls title="Known SSIDs/Networks"
+                                         helpLink="https://go.nzyme.org/wifi-ssid-monitoring-networks" />
 
-                  <span className="float-end">
-                    <button className="btn btn-secondary btn-sm me-1"
-                            onClick={() => setApprovalDialogShown(true)}>
-                      Approve by Pattern
-                    </button>
-                    <button className="btn btn-secondary btn-sm me-1" onClick={onApproveAll}>Approve All</button>
-                    <button className="btn btn-danger btn-sm" onClick={onDeleteAll}>Delete All</button>
-                  </span>
-
-                  <br style={{clear: "both"}}/>
-
-                  <div className="row">
+                  <div className="row align-items-center">
                     <div className="col-auto">
                       <label className="col-form-label">Per Page:</label>
                     </div>
@@ -169,6 +131,14 @@ export default function SSIDMonitoringPage() {
                         <option value={100}>100</option>
                         <option value={250}>250</option>
                       </select>
+                    </div>
+                    <div className="col text-end">
+                      <button className="btn btn-secondary btn-sm me-1"
+                              onClick={() => setApprovalDialogShown(true)}>
+                        Approve by Pattern
+                      </button>
+                      <button className="btn btn-secondary btn-sm me-1" onClick={onApproveAll}>Approve All</button>
+                      <button className="btn btn-danger btn-sm" onClick={onDeleteAll}>Delete All</button>
                     </div>
                   </div>
 
@@ -188,6 +158,12 @@ export default function SSIDMonitoringPage() {
                     : null }
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="row mt-3">
+            <div className="col-12">
+              <HiddenAccessPoints configuration={configuration} cardsAboveLoaded={networks !== null} />
             </div>
           </div>
         </React.Fragment>

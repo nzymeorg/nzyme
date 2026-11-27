@@ -60,6 +60,14 @@ class Dot11Service {
     })
   }
 
+  findSiblingsOfBSSID(bssid, timeRange, withoutSsidOnly, taps, successCallback, errorCallback) {
+    const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
+
+    RESTClient.get("/dot11/networks/bssids/show/" + bssid + "/siblings",
+        { time_range: timeRange, without_ssid_only: withoutSsidOnly, taps: tapsList },
+        (response) => successCallback(response.data), errorCallback)
+  }
+
   getBSSIDAndSSIDHistogram(timeRange, filters, taps, setBSSIDAndSSIDHistogram) {
     const tapsList = Array.isArray(taps) ? taps.join(",") : (taps === "*" ? "*" : null)
 
@@ -771,6 +779,40 @@ class Dot11Service {
         `/dot11/monitoring/networks/organization/${organizationUUID}/tenant/${tenantUUID}/show/${uuid}/unignore`,
         {},
         onSuccess
+    )
+  }
+
+  findAllHiddenAccessPoints(organizationUUID, tenantUUID, orderColumn, orderDirection, limit, offset, setAccessPoints, signal = undefined) {
+    RESTClient.get(
+        `/dot11/monitoring/hiddenaccesspoints/organization/${organizationUUID}/tenant/${tenantUUID}`,
+        {limit: limit, offset: offset, order_column: orderColumn, order_direction: orderDirection},
+        (response) => setAccessPoints(response.data),
+        undefined,
+        signal
+    )
+  }
+
+  applyToHiddenAccessPoints(action, uuids, organizationUUID, tenantUUID, onSuccess, onError = undefined) {
+    RESTClient.put(
+        `/dot11/monitoring/hiddenaccesspoints/organization/${organizationUUID}/tenant/${tenantUUID}/many/${action}`,
+        {uuids: uuids},
+        (response) => onSuccess(response.data),
+        onError
+    )
+  }
+
+  approveAllHiddenAccessPoints(organizationUUID, tenantUUID, onSuccess) {
+    RESTClient.put(
+        `/dot11/monitoring/hiddenaccesspoints/organization/${organizationUUID}/tenant/${tenantUUID}/approve`,
+        {},
+        (response) => onSuccess(response.data)
+    )
+  }
+
+  deleteAllHiddenAccessPoints(organizationUUID, tenantUUID, onSuccess) {
+    RESTClient.delete(
+        `/dot11/monitoring/hiddenaccesspoints/organization/${organizationUUID}/tenant/${tenantUUID}`,
+        (response) => onSuccess(response.data)
     )
   }
 

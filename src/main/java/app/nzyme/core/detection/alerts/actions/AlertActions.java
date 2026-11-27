@@ -11,6 +11,7 @@ import app.nzyme.core.detection.alerts.db.DetectionAlertEntry;
 import app.nzyme.core.dot11.Dot11;
 import app.nzyme.core.dot11.db.Dot11KnownClient;
 import app.nzyme.core.dot11.db.Dot11KnownNetwork;
+import app.nzyme.core.dot11.hidden.HiddenAccessPoints;
 import app.nzyme.core.dot11.db.monitoring.CustomBanditDescription;
 import app.nzyme.core.dot11.db.monitoring.MonitoredBSSID;
 import app.nzyme.core.dot11.db.monitoring.MonitoredChannel;
@@ -87,7 +88,8 @@ public class AlertActions {
                  DOT11_MONITOR_FINGERPRINT, DOT11_MONITOR_SIGNAL_TRACK, DOT11_MONITOR_DISCO_ANOMALIES,
                  DOT11_MONITOR_CHANNEL_SWITCH_ANOMALIES, DOT11_MONITOR_MULTIPLE_CHANNELS,
                  DOT11_MONITOR_SIMILAR_LOOKING_SSID, DOT11_MONITOR_SSID_SUBSTRING, DOT11_UNAPPROVED_CLIENT,
-                 DOT11_UNAPPROVED_SSID, DOT11_PROBEREQ, DOT11_BANDIT_CONTACT, DOT11_CHANNEL_SWITCH_ANOMALIES -> {
+                 DOT11_UNAPPROVED_SSID, DOT11_UNAPPROVED_HIDDEN_ACCESS_POINT, DOT11_PROBEREQ, DOT11_BANDIT_CONTACT,
+                 DOT11_CHANNEL_SWITCH_ANOMALIES -> {
                 if (allowed(scope, DOT11_PERMISSION, Subsystem.DOT11)) {
                     dot11(type, scope, actions);
                 }
@@ -128,6 +130,7 @@ public class AlertActions {
     private void dot11(DetectionType type, Scope scope, List<AlertAction> actions) {
         switch (type) {
             case DOT11_UNAPPROVED_SSID -> unapprovedSsid(scope, actions);
+            case DOT11_UNAPPROVED_HIDDEN_ACCESS_POINT -> unapprovedHiddenAccessPoint(scope, actions);
             case DOT11_PROBEREQ -> actions.add(AlertAction.available(DOT11_OPEN_PROBE_REQUESTS));
             case DOT11_BANDIT_CONTACT -> customBandit(scope, actions);
             case DOT11_CHANNEL_SWITCH_ANOMALIES ->
@@ -310,6 +313,27 @@ public class AlertActions {
         }
 
         actions.add(AlertAction.available(DOT11_OPEN_SSID_MONITORING));
+    }
+
+    private void unapprovedHiddenAccessPoint(Scope scope, List<AlertAction> actions) {
+        String bssid = scope.attribute("bssid");
+        Optional<HiddenAccessPoints.Entry> found = bssid == null ? Optional.empty()
+                : nzyme.getDot11().hiddenAccessPoints().findByBssid(bssid, scope.organizationId(), scope.tenantId());
+
+        if (found.isPresent()) {
+            HiddenAccessPoints.Entry entry = found.get();
+            String uuid = entry.uuid().toString();
+            if (!entry.isIgnored()) {
+                actions.add(AlertAction.of(DOT11_APPROVE_HIDDEN_ACCESS_POINT, entry.isApproved(),
+                        "hidden_access_point_uuid", uuid, "bssid", bssid));
+            }
+            if (!entry.isApproved()) {
+                actions.add(AlertAction.of(DOT11_IGNORE_HIDDEN_ACCESS_POINT, entry.isIgnored(),
+                        "hidden_access_point_uuid", uuid, "bssid", bssid));
+            }
+        }
+
+        actions.add(AlertAction.available(DOT11_OPEN_HIDDEN_ACCESS_POINTS));
     }
 
     private void customBandit(Scope scope, List<AlertAction> actions) {

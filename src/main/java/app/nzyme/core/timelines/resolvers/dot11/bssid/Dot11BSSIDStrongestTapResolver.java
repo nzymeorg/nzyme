@@ -7,14 +7,10 @@ import app.nzyme.core.timelines.TimelineEventType;
 import app.nzyme.core.timelines.Timelines;
 import app.nzyme.core.timelines.resolvers.ResolverResult;
 import app.nzyme.core.timelines.resolvers.TimelineResolver;
-import app.nzyme.core.util.TimeRange;
 import com.google.common.collect.Maps;
-import org.joda.time.DateTime;
 import tools.jackson.core.type.TypeReference;
 
 import java.util.*;
-
-import static app.nzyme.core.timelines.Timelines.EVENT_HORIZON_MINUTES;
 
 public class Dot11BSSIDStrongestTapResolver extends TimelineResolver {
 
@@ -22,12 +18,8 @@ public class Dot11BSSIDStrongestTapResolver extends TimelineResolver {
         super(nzyme, organizationId, tenantId);
     }
 
-    public Optional<ResolverResult> resolve(String bssid, List<UUID> taps) {
-        DateTime now = DateTime.now();
-
-        Optional<TapBasedSignalStrengthResult> currentStrongest = nzyme.getDot11()
-                .findBSSIDSignalStrengthPerTap(bssid, TimeRange.create(now.minusMinutes(EVENT_HORIZON_MINUTES), now, false), taps)
-                .stream()
+    public Optional<ResolverResult> resolve(String bssid, List<TapBasedSignalStrengthResult> recordedBy) {
+        Optional<TapBasedSignalStrengthResult> currentStrongest = recordedBy.stream()
                 .max(Comparator.comparingDouble(TapBasedSignalStrengthResult::signalStrength));
 
         if (currentStrongest.isEmpty()) {

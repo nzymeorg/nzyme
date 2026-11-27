@@ -417,6 +417,8 @@ public class NodeManager {
                     metrics.getTimers().get(MetricNames.DOT11_CHANNEL_SWITCH_MONITOR_RUN_TIMER));
             writeTimer(MetricExternalName.DOT11_MULTIPLE_CHANNELS_MONITOR_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.DOT11_MULTIPLE_CHANNELS_MONITOR_RUN_TIMER));
+            writeTimer(MetricExternalName.DOT11_HIDDEN_ACCESS_POINT_MONITOR_RUN_TIMER.database_label,
+                    metrics.getTimers().get(MetricNames.DOT11_HIDDEN_ACCESS_POINT_MONITOR_RUN_TIMER));
             writeTimer(MetricExternalName.DOT11_DISCO_ANOMALY_DETECTION_RUN_TIMER.database_label,
                     metrics.getTimers().get(MetricNames.DOT11_DISCO_ANOMALY_DETECTION_RUN_TIMER));
             writeTimer(MetricExternalName.RECON_DETECTION_RUN_TIMER.database_label,

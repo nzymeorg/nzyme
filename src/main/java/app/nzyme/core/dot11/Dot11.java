@@ -9,6 +9,7 @@ import app.nzyme.core.dot11.channelswitches.ChannelSwitchOutcome;
 import app.nzyme.core.dot11.channelswitches.ChannelSwitchRules;
 import app.nzyme.core.dot11.db.*;
 import app.nzyme.core.dot11.disco.DiscoAnomalies;
+import app.nzyme.core.dot11.hidden.HiddenAccessPoints;
 import app.nzyme.core.dot11.signal.FrameSignalAnalysis;
 import app.nzyme.core.dot11.db.filters.Dot11BSSIDFilters;
 import app.nzyme.core.dot11.db.filters.Dot11ChannelSwitchFilters;
@@ -73,6 +74,8 @@ public class Dot11 {
 
     private final NzymeNode nzyme;
     private final DiscoAnomalies discoAnomalies;
+    private final HiddenAccessPoints hiddenAccessPoints;
+    private final AccessPointSiblings accessPointSiblings;
     private final FrameSignalAnalysis frameSignalAnalysis;
 
     public enum BssidOrderColumn {
@@ -132,11 +135,11 @@ public class Dot11 {
 
     public enum KnownNetworkBulkAction {
 
-        APPROVE("UPDATE dot11_known_networks SET is_approved = true", "AND NOT is_approved AND NOT is_ignored"),
-        REVOKE("UPDATE dot11_known_networks SET is_approved = false", "AND is_approved"),
-        IGNORE("UPDATE dot11_known_networks SET is_ignored = true", "AND NOT is_ignored AND NOT is_approved"),
-        UNIGNORE("UPDATE dot11_known_networks SET is_ignored = false", "AND is_ignored"),
-        DELETE("DELETE FROM dot11_known_networks", "");
+        APPROVE("UPDATE %s SET is_approved = true", "AND NOT is_approved AND NOT is_ignored"),
+        REVOKE("UPDATE %s SET is_approved = false", "AND is_approved"),
+        IGNORE("UPDATE %s SET is_ignored = true", "AND NOT is_ignored AND NOT is_approved"),
+        UNIGNORE("UPDATE %s SET is_ignored = false", "AND is_ignored"),
+        DELETE("DELETE FROM %s", "");
 
         private final String statement;
         private final String condition;
@@ -144,6 +147,13 @@ public class Dot11 {
         KnownNetworkBulkAction(String statement, String condition) {
             this.statement = statement;
             this.condition = condition;
+        }
+
+        // Rows are locked in the order of their ID, like the monitor does it, so that the two cannot deadlock.
+        public String sql(String table) {
+            return String.format(statement, table) + " WHERE id IN (SELECT id FROM " + table + " " +
+                    "WHERE uuid IN (<uuids>) AND organization_id = :organization_id AND tenant_id = :tenant_id " +
+                    condition + " ORDER BY id FOR UPDATE)";
         }
 
     }
@@ -268,6 +278,8 @@ public class Dot11 {
     public Dot11(NzymeNode nzyme) {
         this.nzyme = nzyme;
         this.discoAnomalies = new DiscoAnomalies(nzyme);
+        this.hiddenAccessPoints = new HiddenAccessPoints(nzyme);
+        this.accessPointSiblings = new AccessPointSiblings(nzyme);
         this.frameSignalAnalysis = new FrameSignalAnalysis(nzyme);
     }
 
@@ -277,6 +289,14 @@ public class Dot11 {
 
     public DiscoAnomalies discoAnomalies() {
         return discoAnomalies;
+    }
+
+    public HiddenAccessPoints hiddenAccessPoints() {
+        return hiddenAccessPoints;
+    }
+
+    public AccessPointSiblings accessPointSiblings() {
+        return accessPointSiblings;
     }
 
     public Dot11MacAddressMetadata getMacAddressMetadata(String macAddress, List<UUID> taps) {
@@ -340,53 +360,6 @@ public class Dot11 {
         );
     }
 
-    public List<SSIDWithOrganizationAndTenant> findAllSSIDsAndOwner(DateTime since) {
-        List<SSIDWithOrganizationAndTenant> result = Lists.newArrayList();
-
-        /*
-         * One row for each location an SSID was seen at, followed by one row for the SSID as a whole. Streamed,
-         * because the number of SSIDs is not bounded. The fetch size only applies inside a transaction.
-         */
-        nzyme.getDatabase().useTransaction(handle -> {
-            List<SSIDWithOrganizationAndTenant.Sighting> sightings = Lists.newArrayList();
-
-            try (Stream<Map.Entry<Boolean, SSIDWithOrganizationAndTenant>> rows = handle.createQuery(
-                            "SELECT s.ssid, t.organization_id, t.tenant_id, GROUPING(t.location_uuid) = 1 AS is_total, " +
-                                    "COUNT(DISTINCT date_trunc('minute', s.created_at)) AS active_minutes, " +
-                                    "MAX(s.created_at) AS last_seen, " +
-                                    "string_agg(DISTINCT s.tap_uuid::text, ',') AS taps FROM dot11_ssids AS s " +
-                                    "JOIN taps AS t ON s.tap_uuid = t.uuid " +
-                                    "WHERE s.created_at >= :since " +
-                                    "GROUP BY GROUPING SETS ((s.ssid, t.organization_id, t.tenant_id), " +
-                                    "(s.ssid, t.organization_id, t.tenant_id, t.location_uuid)) " +
-                                    "ORDER BY s.ssid, t.organization_id, t.tenant_id, GROUPING(t.location_uuid)")
-                    .bind("since", since)
-                    .setFetchSize(1000)
-                    .map((rs, ctx) -> Map.entry(rs.getBoolean("is_total"), SSIDWithOrganizationAndTenant.create(
-                            rs.getString("ssid"),
-                            UUID.fromString(rs.getString("organization_id")),
-                            UUID.fromString(rs.getString("tenant_id")),
-                            new DateTime(rs.getTimestamp("last_seen")),
-                            rs.getInt("active_minutes"),
-                            Arrays.stream(rs.getString("taps").split(",")).map(UUID::fromString).toList(),
-                            Collections.emptyList()
-                    )))
-                    .stream()) {
-                rows.forEach(row -> {
-                    SSIDWithOrganizationAndTenant ssid = row.getValue();
-                    if (row.getKey()) {
-                        result.add(ssid.toBuilder().sightings(Lists.newArrayList(sightings)).build());
-                        sightings.clear();
-                    } else {
-                        sightings.add(new SSIDWithOrganizationAndTenant.Sighting(ssid.activeMinutes(), ssid.taps()));
-                    }
-                });
-            }
-        });
-
-        return result;
-    }
-
     public Optional<BSSIDSummary> findBSSID(String bssid, TimeRange timeRange, List<UUID> taps) {
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT b.bssid, AVG(b.signal_strength_average) AS signal_strength_average, " +
@@ -403,7 +376,7 @@ public class Dot11 {
                                 "FROM dot11_bssids AS b " +
                                 "LEFT JOIN dot11_ssids AS s ON b.id = s.bssid_id " +
                                 "LEFT JOIN dot11_channels AS ch ON s.id = ch.ssid_id " +
-                                "LEFT JOIN LATERAL UNNEST(s.fingerprints) AS fingerprints_elem ON TRUE " +
+                                "LEFT JOIN LATERAL UNNEST(b.fingerprints) AS fingerprints_elem ON TRUE " +
                                 "LEFT JOIN LATERAL UNNEST(s.infrastructure_types) AS infratypes_elem ON TRUE " +
                                 "LEFT JOIN LATERAL JSONB_ARRAY_ELEMENTS(s.security_settings) AS security_elem ON TRUE " +
                                 "LEFT JOIN LATERAL JSONB_ARRAY_ELEMENTS_TEXT(security_elem->'protocols') AS protocol_elem ON TRUE " +
@@ -428,11 +401,17 @@ public class Dot11 {
         }
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT SUM(beacon_advertisements) AS beacons, " +
-                                "SUM(proberesp_advertisements) AS proberesponses, " +
-                                "DATE_TRUNC(:date_trunc, created_at) AS bucket FROM dot11_ssids " +
+                handle.createQuery("SELECT SUM(beacons) AS beacons, SUM(proberesponses) AS proberesponses, " +
+                                "DATE_TRUNC(:date_trunc, created_at) AS bucket FROM (" +
+                                "SELECT beacon_advertisements AS beacons, proberesp_advertisements AS proberesponses, " +
+                                "created_at FROM dot11_ssids " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) AND bssid = :bssid " +
+                                "UNION ALL " +
+                                "SELECT hidden_beacon_advertisements, hidden_proberesp_advertisements, created_at " +
+                                "FROM dot11_bssids WHERE created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) AND bssid = :bssid " +
+                                "AND hidden_beacon_advertisements IS NOT NULL) AS advertisements " +
                                 "GROUP BY bucket ORDER BY bucket DESC")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
@@ -451,17 +430,44 @@ public class Dot11 {
         }
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT c.frequency, sum(c.stats_frames) AS frames, sum(c.stats_bytes) AS bytes " +
+                handle.createQuery("SELECT frequency, sum(frames) AS frames, sum(bytes) AS bytes FROM (" +
+                                "SELECT c.frequency, c.stats_frames AS frames, c.stats_bytes AS bytes " +
                                 "FROM dot11_ssids AS s " +
                                 "LEFT JOIN dot11_channels c on s.id = c.ssid_id " +
                                 "WHERE created_at >= :tr_from AND created_at <= :tr_to " +
                                 "AND tap_uuid IN (<taps>) AND s.bssid = :bssid " +
-                                "GROUP BY c.frequency")
+                                "UNION ALL " +
+                                HIDDEN_NETWORK_CHANNEL_STATISTICS + ") AS statistics " +
+                                "GROUP BY frequency")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
                         .bindList("taps", taps)
                         .bind("bssid", bssid)
                         .mapTo(ActiveChannel.class)
+                        .list()
+        );
+    }
+
+    private static final String HIDDEN_NETWORK_CHANNEL_STATISTICS = "SELECT f.frequency::integer AS frequency, " +
+            "(f.statistics ->> 'frames')::bigint AS frames, (f.statistics ->> 'bytes')::bigint AS bytes " +
+            "FROM dot11_bssids AS b " +
+            "CROSS JOIN LATERAL jsonb_each(b.hidden_channel_statistics) AS f(frequency, statistics) " +
+            "WHERE b.created_at >= :tr_from AND b.created_at <= :tr_to " +
+            "AND b.tap_uuid IN (<taps>) AND b.bssid = :bssid AND b.hidden_channel_statistics IS NOT NULL";
+
+    public List<Integer> findTapFrequenciesOfHiddenNetwork(String bssid, TimeRange timeRange, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT DISTINCT frequency FROM (" + HIDDEN_NETWORK_CHANNEL_STATISTICS + ") AS f " +
+                                "ORDER BY frequency")
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindList("taps", taps)
+                        .bind("bssid", bssid)
+                        .mapTo(Integer.class)
                         .list()
         );
     }
@@ -549,6 +555,24 @@ public class Dot11 {
         );
     }
 
+    public boolean bssidAdvertisedWithoutSsid(String bssid, TimeRange timeRange, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return false;
+        }
+
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT EXISTS (SELECT 1 FROM dot11_bssids " +
+                                "WHERE bssid = :bssid AND created_at >= :tr_from AND created_at <= :tr_to " +
+                                "AND tap_uuid IN (<taps>) AND hidden_ssid_frames > 0)")
+                        .bind("bssid", bssid)
+                        .bind("tr_from", timeRange.from())
+                        .bind("tr_to", timeRange.to())
+                        .bindList("taps", taps)
+                        .mapTo(Boolean.class)
+                        .one()
+        );
+    }
+
     public boolean bssidExist(String bssid, TimeRange timeRange, List<UUID> taps) {
         if (taps.isEmpty()) {
             return false;
@@ -623,14 +647,23 @@ public class Dot11 {
         }
 
         return nzyme.getDatabase().withHandle(handle -> {
-            Query query = handle.createQuery("SELECT f.frequency::integer AS frequency, " +
-                            "SUM(f.frames::bigint) AS frames FROM dot11_ssids AS s " +
+            // Frames without a network name belong to the BSSID, not to one of its SSIDs.
+            String hiddenNetwork = ssid != null ? "" : "UNION ALL SELECT f.frequency::integer, f.frames::bigint " +
+                    "FROM dot11_bssids AS b " +
+                    "CROSS JOIN LATERAL jsonb_each_text(b.hidden_declared_frequencies) AS f(frequency, frames) " +
+                    "WHERE b.bssid = :bssid AND b.tap_uuid IN (<taps>) " +
+                    "AND b.created_at >= :tr_from AND b.created_at <= :tr_to " +
+                    "AND b.hidden_declared_frequencies IS NOT NULL ";
+
+            Query query = handle.createQuery("SELECT frequency, SUM(frames) AS frames FROM (" +
+                            "SELECT f.frequency::integer AS frequency, f.frames::bigint AS frames FROM dot11_ssids AS s " +
                             "CROSS JOIN LATERAL jsonb_each_text(s.declared_frequencies) AS f(frequency, frames) " +
                             "WHERE s.bssid = :bssid AND s.tap_uuid IN (<taps>) " +
                             (ssid == null ? "" : "AND s.ssid = :ssid ") +
                             "AND s.created_at >= :tr_from AND s.created_at <= :tr_to " +
                             "AND s.declared_frequencies IS NOT NULL " +
-                            "GROUP BY f.frequency ORDER BY frames DESC, frequency ASC")
+                            hiddenNetwork + ") AS declared " +
+                            "GROUP BY frequency ORDER BY frames DESC, frequency ASC")
                     .bind("bssid", bssid)
                     .bind("tr_from", timeRange.from())
                     .bind("tr_to", timeRange.to())
@@ -915,13 +948,20 @@ public class Dot11 {
                                                                            TimeRange timeRange,
                                                                            UUID tapId) {
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT DATE_TRUNC('minute', s.created_at) AS bucket, " +
-                                "h.signal_strength AS signal_strength, SUM(h.frame_count) AS frame_count " +
-                                "FROM dot11_ssids AS s " +
+                handle.createQuery("SELECT DATE_TRUNC('minute', created_at) AS bucket, signal_strength, " +
+                                "SUM(frame_count) AS frame_count FROM (" +
+                                "SELECT s.created_at, h.signal_strength, h.frame_count FROM dot11_ssids AS s " +
                                 "LEFT JOIN dot11_channel_histograms h on s.id = h.ssid_id " +
                                 "WHERE h.frequency = :frequency " +
                                 "AND s.created_at >= :tr_from AND s.created_at <= :tr_to " +
                                 "AND s.tap_uuid = :tap_id AND s.bssid = :bssid " +
+                                "UNION ALL " +
+                                "SELECT b.created_at, h.signal::integer, h.frames::bigint FROM dot11_bssids AS b " +
+                                "CROSS JOIN LATERAL jsonb_each_text(b.hidden_signal_histogram -> CAST(:frequency AS text)) " +
+                                "AS h(signal, frames) " +
+                                "WHERE b.created_at >= :tr_from AND b.created_at <= :tr_to " +
+                                "AND b.tap_uuid = :tap_id AND b.bssid = :bssid " +
+                                "AND b.hidden_signal_histogram IS NOT NULL) AS signals " +
                                 "GROUP BY bucket, signal_strength ORDER BY bucket DESC")
                         .bind("tr_from", timeRange.from())
                         .bind("tr_to", timeRange.to())
@@ -3263,9 +3303,13 @@ public class Dot11 {
     }
 
     public List<String> findFingerprintsOfBSSID(String bssid, TimeRange timeRange, List<UUID> taps) {
+        if (taps.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         return nzyme.getDatabase().withHandle(handle ->
                 handle.createQuery("SELECT DISTINCT fingerprints_elem FROM dot11_bssids " +
-                                "LEFT JOIN LATERAL UNNEST(fingerprints) AS fingerprints_elem ON TRUE " +
+                                "CROSS JOIN LATERAL UNNEST(fingerprints) AS fingerprints_elem " +
                                 "WHERE bssid = :bssid AND tap_uuid IN (<taps>) " +
                                 "AND created_at >= :tr_from AND created_at <= :tr_to")
                         .bind("bssid", bssid)
@@ -3614,9 +3658,7 @@ public class Dot11 {
         }
 
         return nzyme.getDatabase().withHandle(handle ->
-                handle.createUpdate(action.statement + " WHERE uuid IN (<uuids>) " +
-                                "AND organization_id = :organization_id AND tenant_id = :tenant_id " +
-                                action.condition)
+                handle.createUpdate(action.sql("dot11_known_networks"))
                         .bindList("uuids", uuids)
                         .bind("organization_id", organizationId)
                         .bind("tenant_id", tenantId)
@@ -3658,28 +3700,10 @@ public class Dot11 {
         );
     }
 
-    public void createKnownNetwork(Handle handle, String ssid, UUID organizationId, UUID tenantId) {
-        handle.createUpdate("INSERT INTO dot11_known_networks(uuid, ssid, is_approved, is_ignored, " +
-                        "organization_id, tenant_id, first_seen, last_seen) VALUES(:uuid, :ssid, :is_approved, " +
-                        ":is_ignored, :organization_id, :tenant_id, NOW(), NOW())")
-                .bind("uuid", UUID.randomUUID())
-                .bind("ssid", ssid)
-                .bind("is_approved", false)
-                .bind("is_ignored", false)
-                .bind("organization_id", organizationId)
-                .bind("tenant_id", tenantId)
-                .execute();
-    }
-
-    public void touchKnownNetwork(Handle handle, long id) {
-        handle.createUpdate("UPDATE dot11_known_networks SET last_seen = NOW() WHERE id = :id")
-                .bind("id", id)
-                .execute();
-    }
-
     public void retentionCleanKnownNetworks(DateTime since) {
         nzyme.getDatabase().useHandle(handle ->
-                handle.createUpdate("DELETE FROM dot11_known_networks WHERE last_seen < :since")
+                handle.createUpdate("DELETE FROM dot11_known_networks WHERE id IN (SELECT id " +
+                                "FROM dot11_known_networks WHERE last_seen < :since ORDER BY id FOR UPDATE)")
                         .bind("since", since)
                         .execute()
         );
