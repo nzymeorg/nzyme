@@ -81,7 +81,10 @@ public class EventActionsResource extends UserAuthenticatedResource {
             List<DetectionType> subscribedDetectionEvents = eventEngine
                     .findAllDetectionEventTypesActionIsSubscribedTo(ea.uuid());
             events.add(EventActionUtilities.eventActionEntryToResponse(
-                    ea, subscribedSystemEvents, subscribedDetectionEvents
+                    ea,
+                    subscribedSystemEvents,
+                    eventEngine.isActionSubscribedToAllSystemEvents(ea.uuid()),
+                    subscribedDetectionEvents
             ));
         }
 
@@ -114,6 +117,7 @@ public class EventActionsResource extends UserAuthenticatedResource {
         return Response.ok(EventActionUtilities.eventActionEntryToResponse(
                 ea.get(),
                 subscribedSystemEvents,
+                eventEngine.isActionSubscribedToAllSystemEvents(ea.get().uuid()),
                 subscribedDetectionEvents
         )).build();
     }
@@ -154,7 +158,8 @@ public class EventActionsResource extends UserAuthenticatedResource {
         List<DetectionType> subscribedDetectionEvents = eventEngine
                 .findAllDetectionEventTypesActionIsSubscribedTo(action.get().uuid());
 
-        if (!subscribedSystemEvents.isEmpty() || !subscribedDetectionEvents.isEmpty()) {
+        if (!subscribedSystemEvents.isEmpty() || !subscribedDetectionEvents.isEmpty()
+                || eventEngine.isActionSubscribedToAllSystemEvents(action.get().uuid())) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 

@@ -22,6 +22,7 @@ public class EventActionUtilities {
 
     public static EventActionDetailsResponse eventActionEntryToResponse(EventActionEntry ea,
                                                                         List<SystemEventType> subscribedSystemEvents,
+                                                                        boolean subscribedToAllSystemEvents,
                                                                         List<DetectionType> subscribedDetectionEvents) {
         Map<String, Object> configuration;
 
@@ -33,6 +34,17 @@ public class EventActionUtilities {
         }
 
         List<SystemEventTypeDetailsResponse> systemEventSubscriptions = Lists.newArrayList();
+        if (subscribedToAllSystemEvents) {
+            systemEventSubscriptions.add(SystemEventTypeDetailsResponse.create(
+                    "WILDCARD",
+                    "WILDCARD",
+                    "All Categories",
+                    "Subscribed to all system events. (Wildcard)",
+                    "The action runs for every system event of its scope.",
+                    Collections.emptyList()
+            ));
+        }
+
         for (SystemEventType subscription : subscribedSystemEvents) {
             systemEventSubscriptions.add(SystemEventTypeDetailsResponse.create(
                     subscription.name(),

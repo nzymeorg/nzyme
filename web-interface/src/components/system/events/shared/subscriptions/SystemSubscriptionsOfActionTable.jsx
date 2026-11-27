@@ -24,11 +24,13 @@ function SystemSubscriptionsOfActionTable(props) {
           return (
               <tr key={"eventtype-" + i}>
                 <td title={type.id}>
-                  <Link to={organizationId ?
-                      ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.SUBSCRIPTIONS.DETAILS(organizationId, type.id)
-                      : ApiRoutes.SYSTEM.EVENTS.SUBSCRIPTIONS.DETAILS(type.id)}>
-                    {type.name}
-                  </Link>
+                  { type.id === "WILDCARD" ? type.name :
+                    <Link to={organizationId ?
+                        ApiRoutes.SYSTEM.AUTHENTICATION.MANAGEMENT.ORGANIZATIONS.EVENTS.SUBSCRIPTIONS.DETAILS(organizationId, type.id)
+                        : ApiRoutes.SYSTEM.EVENTS.SUBSCRIPTIONS.DETAILS(type.id)}>
+                      {type.name}
+                    </Link>
+                  }
                 </td>
                 <td title={type.category_id}>{type.category_name}</td>
               </tr>

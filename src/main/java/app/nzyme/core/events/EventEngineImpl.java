@@ -20,6 +20,8 @@ public class EventEngineImpl implements EventEngine {
 
     private static final Logger LOG = LogManager.getLogger(EventEngineImpl.class);
 
+    public static final String WILDCARD_REFERENCE = "*";
+
     private final NzymeNode nzyme;
 
     public EventEngineImpl(NzymeNode nzyme) {
@@ -46,23 +48,27 @@ public class EventEngineImpl implements EventEngine {
         if (organizationId == null && tenantId == null) {
             // Superadmin System Event.
             actionIds = nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT action_id FROM event_subscriptions " +
-                                    "WHERE event_type = :event_type AND reference = :reference " +
+                    handle.createQuery("SELECT DISTINCT action_id FROM event_subscriptions " +
+                                    "WHERE event_type = :event_type " +
+                                    "AND (reference = :reference OR reference = :wildcard) " +
                                     "AND organization_id IS NULL")
                             .bind("event_type", EventType.SYSTEM)
                             .bind("reference", event.type())
+                            .bind("wildcard", WILDCARD_REFERENCE)
                             .mapTo(UUID.class)
                             .list()
             );
         } else {
             // Organization System Event.
             actionIds = nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT action_id FROM event_subscriptions " +
-                                    "WHERE event_type = :event_type AND reference = :reference " +
+                    handle.createQuery("SELECT DISTINCT action_id FROM event_subscriptions " +
+                                    "WHERE event_type = :event_type " +
+                                    "AND (reference = :reference OR reference = :wildcard) " +
                                     "AND organization_id = :organization_id")
                             .bind("organization_id", organizationId)
                             .bind("event_type", EventType.SYSTEM)
                             .bind("reference", event.type())
+                            .bind("wildcard", WILDCARD_REFERENCE)
                             .mapTo(UUID.class)
                             .list()
             );
@@ -105,12 +111,13 @@ public class EventEngineImpl implements EventEngine {
 
         // Find all subscribers of event.
         List<UUID> actionIds = nzyme.getDatabase().withHandle(handle ->
-                handle.createQuery("SELECT action_id FROM event_subscriptions " +
+                handle.createQuery("SELECT DISTINCT action_id FROM event_subscriptions " +
                                 "WHERE event_type = :event_type " +
-                                "AND (reference = :reference OR reference = '*') " +
+                                "AND (reference = :reference OR reference = :wildcard) " +
                                 "AND organization_id = :organization_id")
                         .bind("event_type", EventType.DETECTION)
                         .bind("reference", event.detectionType())
+                        .bind("wildcard", WILDCARD_REFERENCE)
                         .bind("organization_id", organizationId)
                         .mapTo(UUID.class)
                         .list()
@@ -312,19 +319,23 @@ public class EventEngineImpl implements EventEngine {
         );
     }
 
-    public List<SubscriptionEntry> findAllActionsOfSubscription(@Nullable UUID organizationId, String reference) {
+    public List<SubscriptionEntry> findAllActionsOfSubscription(@Nullable UUID organizationId,
+                                                                EventType eventType,
+                                                                String reference) {
         if (organizationId == null) {
             return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT * FROM event_subscriptions " +
-                                    "WHERE reference = :reference AND organization_id IS NULL")
+                    handle.createQuery("SELECT * FROM event_subscriptions WHERE event_type = :event_type " +
+                                    "AND reference = :reference AND organization_id IS NULL")
+                            .bind("event_type", eventType)
                             .bind("reference", reference)
                             .mapTo(SubscriptionEntry.class)
                             .list()
             );
         } else {
             return nzyme.getDatabase().withHandle(handle ->
-                    handle.createQuery("SELECT * FROM event_subscriptions " +
-                                    "WHERE reference = :reference AND organization_id = :organization_id")
+                    handle.createQuery("SELECT * FROM event_subscriptions WHERE event_type = :event_type " +
+                                    "AND reference = :reference AND organization_id = :organization_id")
+                            .bind("event_type", eventType)
                             .bind("reference", reference)
                             .bind("organization_id", organizationId)
                             .mapTo(SubscriptionEntry.class)
@@ -345,6 +356,10 @@ public class EventEngineImpl implements EventEngine {
 
         List<SystemEventType> result = Lists.newArrayList();
         for (String type : systemEventTypes) {
+            if (type.equals(WILDCARD_REFERENCE)) {
+                continue;
+            }
+
             try {
                 result.add(SystemEventType.valueOf(type));
             } catch(IllegalArgumentException e) {
@@ -353,6 +368,18 @@ public class EventEngineImpl implements EventEngine {
         }
 
         return result;
+    }
+
+    public boolean isActionSubscribedToAllSystemEvents(UUID actionId) {
+        return nzyme.getDatabase().withHandle(handle ->
+                handle.createQuery("SELECT EXISTS(SELECT 1 FROM event_subscriptions WHERE action_id = :action_id " +
+                                "AND event_type = :event_type AND reference = :wildcard)")
+                        .bind("action_id", actionId)
+                        .bind("event_type", EventType.SYSTEM)
+                        .bind("wildcard", WILDCARD_REFERENCE)
+                        .mapTo(Boolean.class)
+                        .one()
+        );
     }
 
     public List<DetectionType> findAllDetectionEventTypesActionIsSubscribedTo(UUID actionId) {
@@ -367,7 +394,7 @@ public class EventEngineImpl implements EventEngine {
 
         List<DetectionType> result = Lists.newArrayList();
         for (String type : detectionEventTypes) {
-            if (type.equals("*")) {
+            if (type.equals(WILDCARD_REFERENCE)) {
                 result.add(DetectionType.WILDCARD);
                 continue;
             }

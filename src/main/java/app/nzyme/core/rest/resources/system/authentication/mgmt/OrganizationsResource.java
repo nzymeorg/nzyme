@@ -3346,6 +3346,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
             events.add(EventActionUtilities.eventActionEntryToResponse(
                     ea,
                     subscribedSystemEvents,
+                    eventEngine.isActionSubscribedToAllSystemEvents(ea.uuid()),
                     subscribedDetectionEvents
             ));
         }
@@ -3390,6 +3391,7 @@ public class OrganizationsResource extends UserAuthenticatedResource {
         return Response.ok(EventActionUtilities.eventActionEntryToResponse(
                 ea.get(),
                 subscribedSystemEvents,
+                eventEngine.isActionSubscribedToAllSystemEvents(ea.get().uuid()),
                 subscribedDetectionEvents
         )).build();
     }

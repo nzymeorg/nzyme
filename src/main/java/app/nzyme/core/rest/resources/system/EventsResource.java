@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -29,6 +30,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -41,6 +43,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -177,7 +180,8 @@ public class EventsResource extends UserAuthenticatedResource {
         List<SystemEventTypeDetailsResponse> result = Lists.newArrayList();
         for (SystemEventType entry : page) {
             List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
-            for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(organizationId, entry.name())) {
+            for (SubscriptionEntry sub : eventEngine
+                    .findAllActionsOfSubscription(organizationId, EventType.SYSTEM, entry.name())) {
                 eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
                     subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
                 );
@@ -231,7 +235,8 @@ public class EventsResource extends UserAuthenticatedResource {
 
         EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());
         List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
-        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(organizationId, eventType.name())) {
+        for (SubscriptionEntry sub : eventEngine
+                .findAllActionsOfSubscription(organizationId, EventType.SYSTEM, eventType.name())) {
             eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
                     subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
             );
@@ -302,7 +307,7 @@ public class EventsResource extends UserAuthenticatedResource {
 
         // Check if this event already has this action ID subscribed to it.
         for (SubscriptionEntry sub : eventEngine
-                .findAllActionsOfSubscription(req.organizationId(), eventType.name())) {
+                .findAllActionsOfSubscription(req.organizationId(), EventType.SYSTEM, eventType.name())) {
             if (sub.actionId().equals(action.get().uuid())) {
                 return Response
                         .status(Response.Status.UNAUTHORIZED)
@@ -356,6 +361,145 @@ public class EventsResource extends UserAuthenticatedResource {
         }
 
         // Delete subscription.
+        eventEngine.unsubscribeActionFromEvent(subscriptionId);
+
+        return Response.ok().build();
+    }
+
+    @GET
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/types/system/wildcard/subscriptions")
+    @Operation(operationId = "findSystemEventWildcardSubscriptions", summary = "List system event wildcard subscriptions",
+            description = "Returns the event actions that are subscribed to all system event types of a scope. Passing "
+                    + "organization_id returns the wildcard subscriptions of the organization, which run for every "
+                    + "system event of that organization. Omitting it returns the wildcard subscriptions of the "
+                    + "cluster level, which run for every system event that does not belong to an organization, and "
+                    + "is reserved for super administrators. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Wildcard subscriptions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/system-events-wildcard-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Subscriptions found.",
+            content = @Content(array = @ArraySchema(
+                    schema = @Schema(implementation = SubscriptionDetailsResponse.class))))
+    @ApiResponse(responseCode = "403", description = "The requested organization is not administered by the calling user.", content = @Content)
+    public Response findAllSystemEventWildcardSubscriptions(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                            @Parameter(description = "Organization UUID. Super administrators can omit this for the cluster level.") @QueryParam("organization_id") @Nullable UUID organizationId) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        if (!authenticatedUser.isSuperAdministrator()) {
+            if (organizationId == null || !organizationId.equals(authenticatedUser.getOrganizationId())) {
+                return Response.status(Response.Status.FORBIDDEN).build();
+            }
+        }
+
+        EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());
+        List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
+        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(
+                organizationId, EventType.SYSTEM, EventEngineImpl.WILDCARD_REFERENCE)) {
+            eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
+                    subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
+            );
+        }
+
+        return Response.ok(subscriptions).build();
+    }
+
+    @POST
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/types/system/wildcard/subscriptions")
+    @Operation(operationId = "createSystemEventWildcardSubscription", summary = "Subscribe an action to all system event types",
+            description = "The action runs for every system event of its scope, including event types that are added "
+                    + "to Nzyme later. An action of an organization runs for every system event of that organization. "
+                    + "An action of the cluster level runs for every system event that does not belong to an "
+                    + "organization and can only be subscribed by super administrators. The organization in the "
+                    + "request has to be the organization of the action. An action can only be subscribed once. An "
+                    + "action that is also subscribed to an individual event type runs once per event. Requires "
+                    + "organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Wildcard subscriptions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/system-events-wildcard-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Action subscribed.", content = @Content)
+    @ApiResponse(responseCode = "401", description = "The action is already subscribed.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "The event action is not accessible by the calling user, or it does "
+            + "not belong to the organization in the request. The latter case carries an error message.",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "Event action not found.", content = @Content)
+    public Response subscribeActionToAllSystemEvents(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                     @RequestBody(description = "UUID of the event action to subscribe and the organization it belongs to.", required = true, content = @Content(mediaType = "application/json"))
+                                                     @Valid SystemEventSubscriptionRequest req) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());
+
+        Optional<EventActionEntry> action = eventEngine.findEventAction(req.actionId());
+
+        if (action.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        UUID actionOrganizationId = action.get().organizationId();
+
+        if (!authenticatedUser.isSuperAdministrator()
+                && !authenticatedUser.getOrganizationId().equals(actionOrganizationId)) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
+        if (!Objects.equals(actionOrganizationId, req.organizationId())) {
+            return Response
+                    .status(Response.Status.FORBIDDEN)
+                    .entity(ErrorResponse.create("Only event actions of the same scope can be subscribed."))
+                    .build();
+        }
+
+        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(
+                actionOrganizationId, EventType.SYSTEM, EventEngineImpl.WILDCARD_REFERENCE)) {
+            if (sub.actionId().equals(action.get().uuid())) {
+                return Response
+                        .status(Response.Status.UNAUTHORIZED)
+                        .entity(ErrorResponse.create("Action is already subscribed."))
+                        .build();
+            }
+        }
+
+        eventEngine.subscribeActionToEvent(
+                actionOrganizationId, EventType.SYSTEM, EventEngineImpl.WILDCARD_REFERENCE, action.get().uuid());
+
+        return Response.ok().build();
+    }
+
+    @DELETE
+    @RESTSecured(PermissionLevel.ORGADMINISTRATOR)
+    @Path("/types/system/wildcard/subscriptions/show/{subscriptionId}")
+    @Operation(operationId = "deleteSystemEventWildcardSubscription", summary = "Delete a system event wildcard subscription",
+            description = "Deletes the subscription. The event action itself and its subscriptions to individual event "
+                    + "types are kept. Requires organization administrator permissions.",
+            externalDocs = @ExternalDocumentation(description = "Wildcard subscriptions in the Nzyme documentation",
+                    url = "https://go.nzyme.org/system-events-wildcard-subscriptions"))
+    @ApiResponse(responseCode = "200", description = "Action unsubscribed.", content = @Content)
+    @ApiResponse(responseCode = "403", description = "The subscribed event action belongs to another organization.", content = @Content)
+    @ApiResponse(responseCode = "404", description = "Subscription or event action not found.", content = @Content)
+    public Response unsubscribeActionFromAllSystemEvents(@Parameter(hidden = true) @Context SecurityContext sc,
+                                                         @Parameter(description = "Subscription UUID.") @PathParam("subscriptionId") @NotNull UUID subscriptionId) {
+        AuthenticatedUser authenticatedUser = getAuthenticatedUser(sc);
+
+        EventEngineImpl eventEngine = ((EventEngineImpl) nzyme.getEventEngine());
+
+        Optional<UUID> actionUuid = eventEngine.findActionOfSubscription(subscriptionId);
+
+        if (actionUuid.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        Optional<EventActionEntry> action = eventEngine.findEventAction(actionUuid.get());
+
+        if (action.isEmpty()) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+
+        if (!authenticatedUser.isSuperAdministrator()
+                && !authenticatedUser.getOrganizationId().equals(action.get().organizationId())) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+
         eventEngine.unsubscribeActionFromEvent(subscriptionId);
 
         return Response.ok().build();

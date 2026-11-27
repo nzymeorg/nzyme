@@ -11,7 +11,7 @@ function EventSubscriptionsTable(props) {
   if (!subscriptions || subscriptions.length === 0) {
     return (
         <div className="alert alert-info mb-0">
-          There are no actions subscribed to this event type.
+          There are no subscribed actions.
         </div>
     )
   }

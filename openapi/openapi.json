@@ -42506,6 +42506,145 @@
         "tags" : [ "Events" ]
       }
     },
+    "/api/system/events/types/system/wildcard/subscriptions" : {
+      "get" : {
+        "description" : "Returns the event actions that are subscribed to all system event types of a scope. Passing organization_id returns the wildcard subscriptions of the organization, which run for every system event of that organization. Omitting it returns the wildcard subscriptions of the cluster level, which run for every system event that does not belong to an organization, and is reserved for super administrators. Requires organization administrator permissions.",
+        "externalDocs" : {
+          "description" : "Wildcard subscriptions in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/system-events-wildcard-subscriptions"
+        },
+        "operationId" : "findSystemEventWildcardSubscriptions",
+        "parameters" : [ {
+          "description" : "Organization UUID. Super administrators can omit this for the cluster level.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SubscriptionDetailsResponse"
+                  }
+                }
+              }
+            },
+            "description" : "Subscriptions found."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The requested organization is not administered by the calling user."
+          }
+        },
+        "summary" : "List system event wildcard subscriptions",
+        "tags" : [ "Events" ]
+      },
+      "post" : {
+        "description" : "The action runs for every system event of its scope, including event types that are added to Nzyme later. An action of an organization runs for every system event of that organization. An action of the cluster level runs for every system event that does not belong to an organization and can only be subscribed by super administrators. The organization in the request has to be the organization of the action. An action can only be subscribed once. An action that is also subscribed to an individual event type runs once per event. Requires organization administrator permissions.",
+        "externalDocs" : {
+          "description" : "Wildcard subscriptions in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/system-events-wildcard-subscriptions"
+        },
+        "operationId" : "createSystemEventWildcardSubscription",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SystemEventSubscriptionRequest"
+              }
+            }
+          },
+          "description" : "UUID of the event action to subscribe and the organization it belongs to.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Action subscribed."
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The action is already subscribed."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The event action is not accessible by the calling user, or it does not belong to the organization in the request. The latter case carries an error message."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Event action not found."
+          }
+        },
+        "summary" : "Subscribe an action to all system event types",
+        "tags" : [ "Events" ]
+      }
+    },
+    "/api/system/events/types/system/wildcard/subscriptions/show/{subscriptionId}" : {
+      "delete" : {
+        "description" : "Deletes the subscription. The event action itself and its subscriptions to individual event types are kept. Requires organization administrator permissions.",
+        "externalDocs" : {
+          "description" : "Wildcard subscriptions in the Nzyme documentation",
+          "url" : "https://go.nzyme.org/system-events-wildcard-subscriptions"
+        },
+        "operationId" : "deleteSystemEventWildcardSubscription",
+        "parameters" : [ {
+          "description" : "Subscription UUID.",
+          "in" : "path",
+          "name" : "subscriptionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Action unsubscribed."
+          },
+          "403" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "The subscribed event action belongs to another organization."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Subscription or event action not found."
+          }
+        },
+        "summary" : "Delete a system event wildcard subscription",
+        "tags" : [ "Events" ]
+      }
+    },
     "/api/system/health/indicators" : {
       "get" : {
         "description" : "Returns the most recent result of every health indicator, keyed by indicator ID. An indicator that was last checked more than two minutes ago is flagged as stale. Requires super administrator permissions.",

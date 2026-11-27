@@ -8,6 +8,7 @@ import {ORGANIZATION_MENU_ITEMS} from "./OrganizationMenuItems";
 import ApiRoutes from "../../../../../util/ApiRoutes";
 import OrganizationEventSubscriptions from "./events/subscriptions/OrganizationEventSubscriptions";
 import OrganizationActions from "./events/actions/OrganizationActions";
+import WildcardEventSubscriptions from "../../../events/shared/subscriptions/WildcardEventSubscriptions";
 import OrganizationEvents from "./events/OrganizationEvents";
 import CardTitleWithControls from "../../../../shared/CardTitleWithControls";
 import usePageTitle from "../../../../../util/UsePageTitle";
@@ -61,6 +62,24 @@ export default function OrganizationEventsAndActionsPage() {
                     </p>
 
                     <OrganizationEventSubscriptions organizationId={organizationId}/>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="row mt-3">
+              <div className="col-12">
+                <div className="card">
+                  <div className="card-body">
+                    <CardTitleWithControls title="Organization Wildcard Event Subscriptions"
+                                           slim={true}
+                                           helpLink="https://go.nzyme.org/system-events-wildcard-subscriptions" />
+
+                    <p>
+                      Actions subscribed here are triggered by every system event of this organization.
+                    </p>
+
+                    <WildcardEventSubscriptions organizationId={organizationId} />
                   </div>
                 </div>
               </div>

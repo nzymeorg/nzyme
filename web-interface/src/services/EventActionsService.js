@@ -85,6 +85,23 @@ class EventActionsService {
         successCallback);
   }
 
+  findAllSystemEventWildcardSubscriptions(organizationId, setSubscriptions) {
+    const params = organizationId ? {organization_id: organizationId} : {};
+    RESTClient.get("/system/events/types/system/wildcard/subscriptions", params, (response) => {
+      setSubscriptions(response.data);
+    })
+  }
+
+  subscribeActionToAllSystemEvents(actionId, organizationId, successCallback, errorCallback) {
+    const data = organizationId ? {organization_id: organizationId, action_id: actionId} : {action_id: actionId};
+
+    RESTClient.post("/system/events/types/system/wildcard/subscriptions", data, successCallback, errorCallback);
+  }
+
+  unsubscribeActionFromAllSystemEvents(subscriptionId, successCallback) {
+    RESTClient.delete("/system/events/types/system/wildcard/subscriptions/show/" + subscriptionId, successCallback);
+  }
+
   createEmailAction(organizationId, name, description, subjectPrefix, receivers, successCallback) {
     RESTClient.post("/system/events/actions/email", {
       "organization_id": organizationId,

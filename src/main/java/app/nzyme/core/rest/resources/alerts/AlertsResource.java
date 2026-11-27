@@ -715,7 +715,8 @@ public class AlertsResource extends UserAuthenticatedResource {
             }
 
             List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
-            for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(organizationId, type.name())) {
+            for (SubscriptionEntry sub : eventEngine
+                    .findAllActionsOfSubscription(organizationId, EventType.DETECTION, type.name())) {
                 eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
                         subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
                 );
@@ -765,7 +766,8 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         EventEngineImpl eventEngine = (EventEngineImpl) nzyme.getEventEngine();
         List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
-        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(organizationId, "*")) {
+        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(
+                organizationId, EventType.DETECTION, EventEngineImpl.WILDCARD_REFERENCE)) {
             eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
                     subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
             );
@@ -817,8 +819,8 @@ public class AlertsResource extends UserAuthenticatedResource {
         }
 
         // Check if this event already has this action ID subscribed to it.
-        for (SubscriptionEntry sub : eventEngine
-                .findAllActionsOfSubscription(req.organizationId(), "*")) {
+        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(
+                req.organizationId(), EventType.DETECTION, EventEngineImpl.WILDCARD_REFERENCE)) {
             if (sub.actionId().equals(action.get().uuid())) {
                 return Response
                         .status(Response.Status.UNAUTHORIZED)
@@ -827,7 +829,8 @@ public class AlertsResource extends UserAuthenticatedResource {
             }
         }
 
-        eventEngine.subscribeActionToEvent(req.organizationId(), EventType.DETECTION, "*", action.get().uuid());
+        eventEngine.subscribeActionToEvent(
+                req.organizationId(), EventType.DETECTION, EventEngineImpl.WILDCARD_REFERENCE, action.get().uuid());
 
         return Response.ok().build();
     }
@@ -918,7 +921,8 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         EventEngineImpl eventEngine = (EventEngineImpl) nzyme.getEventEngine();
         List<SubscriptionDetailsResponse> subscriptions = Lists.newArrayList();
-        for (SubscriptionEntry sub : eventEngine.findAllActionsOfSubscription(organizationId, requestedType.name())) {
+        for (SubscriptionEntry sub : eventEngine
+                .findAllActionsOfSubscription(organizationId, EventType.DETECTION, requestedType.name())) {
             eventEngine.findEventAction(sub.actionId()).ifPresent(eventActionEntry ->
                     subscriptions.add(buildSubscriptionDetailsResponse(sub, eventActionEntry))
             );
@@ -986,7 +990,7 @@ public class AlertsResource extends UserAuthenticatedResource {
 
         // Check if this event already has this action ID subscribed to it.
         for (SubscriptionEntry sub : eventEngine
-                .findAllActionsOfSubscription(req.organizationId(), detectionType.name())) {
+                .findAllActionsOfSubscription(req.organizationId(), EventType.DETECTION, detectionType.name())) {
             if (sub.actionId().equals(action.get().uuid())) {
                 return Response
                         .status(Response.Status.UNAUTHORIZED)

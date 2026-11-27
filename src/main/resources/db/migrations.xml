@@ -14355,4 +14355,12 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="remove_organization_subscriptions_of_superadmin_mfa_disabled_event" author="lennartkoopmann">
+        <!-- The event type was offered to organizations by mistake. It only fires on the cluster level. -->
+        <sql>
+            DELETE FROM event_subscriptions WHERE event_type = 'SYSTEM'
+                AND reference = 'AUTHENTICATION_SUPERADMIN_MFA_DISABLED' AND organization_id IS NOT NULL
+        </sql>
+    </changeSet>
+
 </databaseChangeLog>

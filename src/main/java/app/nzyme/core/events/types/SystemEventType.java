@@ -94,7 +94,7 @@ public enum SystemEventType {
 
     AUTHENTICATION_SUPERADMIN_MFA_DISABLED(
             SystemEventCategory.AUTHENTICATION,
-            SystemEventScope.ORGANIZATION,
+            SystemEventScope.SYSTEM,
             "A super administrator MFA was disabled",
             "A super administrator MFA requirement was disabled."
     ),
