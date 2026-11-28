@@ -21,7 +21,7 @@
 
         <!-- Default to x64. -->
         <jre.arch>x64</jre.arch>
-        <jre.release>jdk-25.0.5+8</jre.release>
+        <jre.release>jdk-25.0.5.1+2</jre.release>
 
         <log4j.version>2.26.1</log4j.version>
         <guava.version>33.5.0-jre</guava.version>
