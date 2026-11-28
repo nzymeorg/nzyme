@@ -35,6 +35,12 @@ public enum DetectionType {
     SEGMENTATION_POLICY_CROSSED("Connection across a segmentation policy", Subsystem.ETHERNET),
     SEGMENTATION_POLICY_ATTEMPT("Connection attempt across a segmentation policy", Subsystem.ETHERNET),
 
+    PORTAL_INTEGRITY_PORTAL_MISSING("Expected captive portal not presented", Subsystem.ETHERNET),
+    PORTAL_INTEGRITY_PORTAL_UNEXPECTED("Unexpected captive portal presented", Subsystem.ETHERNET),
+    PORTAL_INTEGRITY_PORTAL_WRONG("Wrong captive portal presented", Subsystem.ETHERNET),
+    PORTAL_INTEGRITY_REQUEST_FAILED("Captive portal probe request failed", Subsystem.ETHERNET),
+    PORTAL_INTEGRITY_PROBE_SILENT("Captive portal probe stopped reporting", Subsystem.ETHERNET),
+
     // Monitors.
     MONITOR_TRIGGERED_ETHERNET("Ethernet Monitor triggered", Subsystem.ETHERNET),
     MONITOR_TRIGGERED_DOT11("WiFi Monitor triggered", Subsystem.DOT11),

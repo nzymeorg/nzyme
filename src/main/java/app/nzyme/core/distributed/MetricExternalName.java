@@ -28,6 +28,7 @@ public enum MetricExternalName {
     DOT11_CHANNEL_SWITCH_MONITOR_RUN_TIMER("dot11_channel_switch_monitor_run_timer"),
     DOT11_MULTIPLE_CHANNELS_MONITOR_RUN_TIMER("dot11_multiple_channels_monitor_run_timer"),
     DOT11_HIDDEN_ACCESS_POINT_MONITOR_RUN_TIMER("dot11_hidden_access_point_monitor_run_timer"),
+    PORTAL_INTEGRITY_MONITOR_RUN_TIMER("portal_integrity_monitor_run_timer"),
     DOT11_DISCO_ANOMALY_DETECTION_RUN_TIMER("dot11_disco_anomaly_detection_run_timer"),
     BEACON_DETECTION_RUN_TIMER("beacon_detection_run_timer"),
     BEACON_CANDIDATE_DISCOVERY_TIMER("beacon_candidate_discovery_timer"),

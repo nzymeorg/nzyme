@@ -1,9 +1,7 @@
-import React, {useContext, useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import usePageTitle from "../../../util/UsePageTitle";
 import {Link, useParams} from "react-router-dom";
-import {TapContext} from "../../../App";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
-import {disableTapSelector, enableTapSelector} from "../../misc/TapSelector";
 import PortalIntegrityService from "../../../services/ethernet/PortalIntegrityService";
 import ApiRoutes from "../../../util/ApiRoutes";
 import FullCopyShortenedId from "../../shared/FullCopyShortenedId";
@@ -22,25 +20,31 @@ export default function PortalIntegrityReportDetailsPage() {
 
   const { uuid } = useParams();
 
-  const tapContext = useContext(TapContext);
-  const selectedTaps = tapContext.taps;
-
   const [organizationId, tenantId] = useSelectedTenant();
 
   const [report, setReport] = useState(null);
+  const [notFound, setNotFound] = useState(false);
 
+  // A report is opened by its ID from alerts and control URLs, whichever taps are selected.
   useEffect(() => {
-    enableTapSelector(tapContext);
+    let current = true;
+
+    setReport(null);
+    setNotFound(false);
+    portalIntegrityService.findOneReport(uuid, organizationId, tenantId, "*", (response) => {
+      if (current) {
+        setReport(response);
+      }
+    }, () => {
+      if (current) {
+        setNotFound(true);
+      }
+    });
 
     return () => {
-      disableTapSelector(tapContext);
+      current = false;
     }
-  }, [tapContext]);
-
-  useEffect(() => {
-    setReport(null);
-    portalIntegrityService.findOneReport(uuid, organizationId, tenantId, selectedTaps, setReport);
-  }, [uuid, organizationId, tenantId, selectedTaps])
+  }, [uuid, organizationId, tenantId])
 
   const lastHopUrl = () => {
     if (!report.last_hop_url) {
@@ -106,6 +110,14 @@ export default function PortalIntegrityReportDetailsPage() {
     )
   }
 
+  if (notFound) {
+    return (
+      <div className="alert alert-warning">
+        Report not found. <Link to={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX}>Back to Portal Integrity</Link>
+      </div>
+    )
+  }
+
   if (report === null) {
     return <LoadingSpinner />
   }
@@ -148,6 +160,11 @@ export default function PortalIntegrityReportDetailsPage() {
                 <dd>{report.control_url}</dd>
                 <dt>Hop Count</dt>
                 <dd>{numeral(report.hop_count).format("0,0")}</dd>
+                {report.error ?
+                  <>
+                    <dt>Error</dt>
+                    <dd className="text-break">{report.error}</dd>
+                  </> : null}
                 <dt>Probed At</dt>
                 <dd title={moment(report.probed_at).fromNow()}>
                   {moment(report.probed_at).format()}

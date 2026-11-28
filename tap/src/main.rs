@@ -41,7 +41,7 @@ use wired::ethernet::ethernet_broker::EthernetBroker;
 use wireless::{bluetooth, dot11};
 use crate::android::debug::android_debug::AndroidDebugListener;
 use crate::helpers::network::Channel;
-use crate::link::payloads::ConfigurationReport;
+use crate::link::payloads::{ConfigurationReport, PrintedConfiguration};
 use crate::log_buffer::LogBuffer;
 use crate::log_monitor::LogMonitor;
 use crate::peripherals::limina::limina::Limina;
@@ -174,8 +174,13 @@ fn main() {
     if args.print_configuration {
         info!("Printing configuration.");
 
-        let configuration_report = ConfigurationReport::try_from(configuration).unwrap();
-        serde_json::to_writer_pretty(std::io::stdout(), &configuration_report).unwrap();
+        let printed = PrintedConfiguration {
+            portal_integrity_checks: configuration.portal_integrity_checks.clone().unwrap_or_default()
+                .into_iter()
+                .collect(),
+            configuration: ConfigurationReport::try_from(configuration).unwrap()
+        };
+        serde_json::to_writer_pretty(std::io::stdout(), &printed).unwrap();
 
         exit(exit_code::EX_OK);
     }

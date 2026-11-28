@@ -21,6 +21,9 @@ import app.nzyme.core.dot11.db.monitoring.MonitoredSecuritySuite;
 import app.nzyme.core.ethernet.beacons.db.BeaconEntry;
 import app.nzyme.core.ethernet.dhcp.DHCPFingerprintExclusionMatcher;
 import app.nzyme.core.ethernet.icmp.IcmpDetectionType;
+import app.nzyme.core.ethernet.portalintegrity.PortalExpectation;
+import app.nzyme.core.ethernet.portalintegrity.PortalIntegrity;
+import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityControlUrlEntry;
 import app.nzyme.core.ethernet.spoofing.DhcpOfferedParameters;
 import app.nzyme.core.ethernet.spoofing.DhcpSpoofingFindingType;
 import app.nzyme.core.ethernet.spoofing.db.DhcpSpoofingFindingEntry;
@@ -30,6 +33,7 @@ import app.nzyme.core.uav.db.UavEntry;
 import app.nzyme.core.util.TimeRangeFactory;
 import app.nzyme.plugin.Subsystem;
 import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -98,7 +102,9 @@ public class AlertActions {
                  RECON_SCAN_NEW, RECON_FINGERPRINTING_NEW, SPOOFING_ARP_NEW, SPOOFING_NDP_NEW,
                  SPOOFING_DHCP_ROGUE_SERVER, SPOOFING_DHCP_PARAMETERS_CHANGED, SPOOFING_RA_ROGUE_ROUTER,
                  SPOOFING_RA_PARAMETERS_CHANGED, SPOOFING_NAME_RESOLUTION_POISONING, SPOOFING_DNS_NEW,
-                 DNS_TUNNEL, ICMP_REDIRECT, ICMP_TRACEROUTE, ICMP_TUNNEL -> {
+                 DNS_TUNNEL, ICMP_REDIRECT, ICMP_TRACEROUTE, ICMP_TUNNEL, PORTAL_INTEGRITY_PORTAL_MISSING,
+                 PORTAL_INTEGRITY_PORTAL_UNEXPECTED, PORTAL_INTEGRITY_PORTAL_WRONG,
+                 PORTAL_INTEGRITY_REQUEST_FAILED, PORTAL_INTEGRITY_PROBE_SILENT -> {
                 if (allowed(scope, ETHERNET_PERMISSION, Subsystem.ETHERNET)) {
                     ethernetMonitoring(type, scope, actions);
                 }
@@ -409,8 +415,65 @@ public class AlertActions {
                     "detection_type", IcmpDetectionType.TUNNEL.name(),
                     "source", scope.attribute("source_address"),
                     "source_mac", scope.attribute("source_mac")));
+            case PORTAL_INTEGRITY_PORTAL_MISSING, PORTAL_INTEGRITY_PORTAL_UNEXPECTED, PORTAL_INTEGRITY_PORTAL_WRONG,
+                 PORTAL_INTEGRITY_REQUEST_FAILED -> portalIntegrity(type, scope, actions);
+            case PORTAL_INTEGRITY_PROBE_SILENT -> {
+                UUID tap = scope.uuidAttribute("tap_uuid");
+                if (tap != null && nzyme.getTapManager().allTapUUIDsAccessibleByUser(scope.user()).contains(tap)) {
+                    actions.add(AlertAction.available(PORTAL_INTEGRITY_OPEN_CONTROL_URLS,
+                            "tap_name", scope.attribute("tap_name")));
+                }
+            }
             default -> { }
         }
+    }
+
+    private void portalIntegrity(DetectionType type, Scope scope, List<AlertAction> actions) {
+        UUID uuid = scope.uuidAttribute("control_url_uuid");
+        Optional<PortalIntegrityControlUrlEntry> entry = uuid == null ? Optional.empty()
+                : nzyme.getEthernet().portalIntegrity().findControlUrl(uuid, scope.organizationId(), scope.tenantId());
+        if (entry.isEmpty()
+                || !nzyme.getTapManager().allTapUUIDsAccessibleByUser(scope.user()).contains(entry.get().tapUuid())) {
+            return;
+        }
+
+        // Offers what the alert saw of the properties that differ, never a property that is not checked.
+        if (type == DetectionType.PORTAL_INTEGRITY_PORTAL_WRONG
+                && entry.get().expectation() == PortalExpectation.PORTAL) {
+            List<String> reasons = Splitter.on(",").omitEmptyStrings()
+                    .splitToList(Strings.nullToEmpty(scope.attribute("reasons")));
+            String url = reasons.contains("URL") ? scope.attribute("final_url") : null;
+            String address = reasons.contains("ADDRESS") ? scope.attribute("final_address") : null;
+            String certificate = reasons.contains("CERTIFICATE") ? scope.attribute("final_certificate") : null;
+
+            if (url != null || address != null || certificate != null) {
+                boolean expected = (url == null || entry.get().expectedFinalUrls().contains(url))
+                        && (address == null || entry.get().expectedAddresses().contains(address))
+                        && (certificate == null || entry.get().expectedCertificates().contains(certificate));
+
+                // Not offered if a list has no room for the value. The control URL page says what to do then.
+                boolean fits = fits(entry.get().expectedFinalUrls(), url)
+                        && fits(entry.get().expectedAddresses(), address)
+                        && fits(entry.get().expectedCertificates(), certificate);
+                if (!expected && !fits) {
+                    actions.add(AlertAction.available(PORTAL_INTEGRITY_OPEN_CONTROL_URL,
+                            "control_url_uuid", uuid.toString()));
+                    return;
+                }
+
+                actions.add(AlertAction.of(PORTAL_INTEGRITY_EXPECT_PORTAL, expected,
+                        "control_url_uuid", uuid.toString(),
+                        "final_url", url,
+                        "address", address,
+                        "certificate", certificate));
+            }
+        }
+
+        actions.add(AlertAction.available(PORTAL_INTEGRITY_OPEN_CONTROL_URL, "control_url_uuid", uuid.toString()));
+    }
+
+    private static boolean fits(List<String> expected, @Nullable String value) {
+        return value == null || expected.contains(value) || expected.size() < PortalIntegrity.MAX_EXPECTED_VALUES;
     }
 
     private AlertAction spoofingExclusion(String parameter, UUID findingUuid) {

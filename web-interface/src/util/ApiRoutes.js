@@ -319,7 +319,8 @@ const ApiRoutes = {
     },
     PORTAL_INTEGRITY: {
       INDEX: '/ethernet/portalintegrity',
-      REPORT_DETAILS: (uuid) => `/ethernet/portalintegrity/show/${uuid}`
+      REPORT_DETAILS: (uuid) => `/ethernet/portalintegrity/show/${uuid}`,
+      CONTROL_URL_DETAILS: (uuid) => `/ethernet/portalintegrity/controlurls/show/${uuid}`
     },
     MONITORING: {
       MONITORS: {

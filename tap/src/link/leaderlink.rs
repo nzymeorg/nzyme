@@ -14,7 +14,7 @@ use crate::metrics::ChannelUtilization;
 use crate::rpi::rpi_model::detect_pi_model;
 use crate::rpi::rpi_temperature;
 use crate::telemetry::{EventLog, TelemetryEvent};
-use super::{payloads::{StatusReport, SystemMetricsReport, TotalWithAverage, ChannelReport, CaptureReport}};
+use super::{payloads::{StatusReport, SystemMetricsReport, TotalWithAverage, ChannelReport, CaptureReport, PortalIntegrityProbeReport}};
 
 pub struct CpuLoadSample {
     pub aggregate: f32,
@@ -306,6 +306,16 @@ impl Leaderlink {
         let configuration = ConfigurationReport::try_from(self.configuration.clone())
             .unwrap();
 
+        let portal_integrity_probes = self.configuration.portal_integrity_checks.clone().unwrap_or_default()
+            .into_iter()
+            .map(|(name, check)| (name, PortalIntegrityProbeReport {
+                active: check.active,
+                interval_minutes: check.interval_minutes,
+                control_urls: check.control_urls,
+                ipv6: check.ipv6
+            }))
+            .collect();
+
         let status = StatusReport {
             version: env!("CARGO_PKG_VERSION").to_string(),
             timestamp: Utc::now(),
@@ -339,6 +349,7 @@ impl Leaderlink {
             log_counts,
             engagement_logs,
             configuration,
+            portal_integrity_probes,
             rpi: detect_pi_model()
         };
         

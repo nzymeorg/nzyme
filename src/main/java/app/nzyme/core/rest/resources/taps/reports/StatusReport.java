@@ -43,6 +43,9 @@ public abstract class StatusReport {
     public abstract Map<String, Object> configuration();
 
     @Nullable
+    public abstract Map<String, Object> portalIntegrityProbes();
+
+    @Nullable
     public abstract String rpi();
 
     @JsonCreator
@@ -58,6 +61,7 @@ public abstract class StatusReport {
                                       @JsonProperty("log_counts") Map<String, Long> logCounts,
                                       @JsonProperty("engagement_logs") List<EngagementLogReport> engagementLogs,
                                       @JsonProperty("configuration") Map<String, Object> configuration,
+                                      @JsonProperty("portal_integrity_probes") Map<String, Object> portalIntegrityProbes,
                                       @JsonProperty("rpi") String rpi) {
         return builder()
                 .version(version)
@@ -71,6 +75,7 @@ public abstract class StatusReport {
                 .timers(timers)
                 .logCounts(logCounts)
                 .configuration(configuration)
+                .portalIntegrityProbes(portalIntegrityProbes)
                 .engagementLogs(engagementLogs)
                 .rpi(rpi)
                 .build();
@@ -103,6 +108,8 @@ public abstract class StatusReport {
         public abstract Builder logCounts(Map<String, Long> logCounts);
 
         public abstract Builder configuration(Map<String, Object> configuration);
+
+        public abstract Builder portalIntegrityProbes(Map<String, Object> portalIntegrityProbes);
 
         public abstract Builder engagementLogs(List<EngagementLogReport> engagementLogs);
 

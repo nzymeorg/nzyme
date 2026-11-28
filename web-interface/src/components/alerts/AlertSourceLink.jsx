@@ -49,6 +49,15 @@ export default function AlertSourceLink({alert}) {
     case "SEGMENTATION_POLICY_ATTEMPT":
       return a.policy_uuid ? link(ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.DETAILS(a.policy_uuid), "Policy")
           : link(ApiRoutes.ETHERNET.SEGMENTATION.POLICIES.INDEX, "Policies");
+    case "PORTAL_INTEGRITY_PORTAL_MISSING":
+    case "PORTAL_INTEGRITY_PORTAL_UNEXPECTED":
+    case "PORTAL_INTEGRITY_PORTAL_WRONG":
+    case "PORTAL_INTEGRITY_REQUEST_FAILED":
+      return a.control_url_uuid
+          ? link(ApiRoutes.ETHERNET.PORTAL_INTEGRITY.CONTROL_URL_DETAILS(a.control_url_uuid), "Control URL")
+          : link(ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX, "Portal Integrity");
+    case "PORTAL_INTEGRITY_PROBE_SILENT":
+      return link(ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX, "Portal Integrity");
     case "ICMP_TUNNEL":
       return a.tunnel_uuid ? link(ApiRoutes.ETHERNET.ICMP.TUNNELS.DETAILS(a.tunnel_uuid), "Tunnel")
           : link(ApiRoutes.ETHERNET.ICMP.TUNNELS.INDEX, "Tunnels");

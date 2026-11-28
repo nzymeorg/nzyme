@@ -14363,4 +14363,129 @@
         </sql>
     </changeSet>
 
+    <changeSet id="create_portal_integrity_control_urls" author="lennartkoopmann">
+        <createTable tableName="portal_integrity_control_urls">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" />
+            </column>
+
+            <column name="uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="organization_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="tap_uuid" type="uuid">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="probe_name" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="control_url" type="text">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="ip_version" type="smallint">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="expectation" type="text" defaultValue="NOT_MONITORED">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="expected_final_urls" type="text[]" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="expected_addresses" type="text[]" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="expected_certificates" type="text[]" defaultValue="{}">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_report_uuid" type="uuid" />
+
+            <column name="last_probed_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="report_interval_seconds" type="integer" />
+
+            <column name="last_error" type="text" />
+
+            <column name="last_hop_count" type="integer">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="last_portal_presented" type="boolean" />
+
+            <column name="last_final_url" type="text" />
+
+            <column name="last_final_address" type="text" />
+
+            <column name="last_final_certificate" type="text" />
+
+            <column name="created_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+
+            <column name="updated_at" type="timestamp with time zone">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+
+        <createIndex tableName="portal_integrity_control_urls"
+                     indexName="portal_integrity_control_urls_uuid_key" unique="true">
+            <column name="uuid" />
+        </createIndex>
+
+        <createIndex tableName="portal_integrity_control_urls"
+                     indexName="portal_integrity_control_urls_tap_probe_url_ip_version_key" unique="true">
+            <column name="tap_uuid" />
+            <column name="probe_name" />
+            <column name="control_url" />
+            <column name="ip_version" />
+        </createIndex>
+
+        <createIndex tableName="portal_integrity_control_urls"
+                     indexName="portal_integrity_control_urls_org_tenant_id_idx">
+            <column name="organization_id" />
+            <column name="tenant_id" />
+        </createIndex>
+
+        <addForeignKeyConstraint baseTableName="portal_integrity_control_urls"
+                                 baseColumnNames="tenant_id"
+                                 constraintName="portal_integrity_control_urls_tenant_id_fkey"
+                                 referencedTableName="auth_tenants"
+                                 referencedColumnNames="uuid"
+                                 onDelete="CASCADE" />
+    </changeSet>
+
+    <changeSet id="add_in_tap_configuration_since_to_portal_integrity_control_urls" author="lennartkoopmann">
+        <addColumn tableName="portal_integrity_control_urls">
+            <column name="in_tap_configuration_since" type="timestamp with time zone" />
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="rename_last_probed_at_of_portal_integrity_control_urls" author="lennartkoopmann">
+        <renameColumn tableName="portal_integrity_control_urls"
+                      oldColumnName="last_probed_at" newColumnName="last_report_at" />
+    </changeSet>
+
+    <changeSet id="add_portal_integrity_probes_to_taps" author="lennartkoopmann">
+        <addColumn tableName="taps">
+            <column name="portal_integrity_probes" type="jsonb" />
+        </addColumn>
+    </changeSet>
+
 </databaseChangeLog>

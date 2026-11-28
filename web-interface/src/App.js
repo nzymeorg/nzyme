@@ -279,6 +279,7 @@ import STUNConnectionsPage from "./components/ethernet/nat/traversal/stun_connec
 import STUNConnectionDetailsPage from "./components/ethernet/nat/traversal/stun_connections/STUNConnectionDetailsPage";
 import PortalIntegrityPage from "./components/ethernet/portalintegrity/PortalIntegrityPage";
 import PortalIntegrityReportDetailsPage from "./components/ethernet/portalintegrity/PortalIntegrityReportDetailsPage";
+import PortalIntegrityControlUrlDetailsPage from "./components/ethernet/portalintegrity/PortalIntegrityControlUrlDetailsPage";
 import RTSPStreamDetailsPage from "./components/ethernet/streams/rtsp/RTSPStreamDetailsPage";
 import BluetoothMonitorsPage from "./components/bluetooth/monitoring/BluetoothMonitorsPage";
 import EthernetMonitorsPage from "./components/ethernet/monitoring/EthernetMonitorsPage";
@@ -889,6 +890,7 @@ function App() {
                                 { /* Ethernet/Portal Integrity */ }
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX} element={<PortalIntegrityPage />}/>
                                 <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(':uuid')} element={<PortalIntegrityReportDetailsPage />}/>
+                                <Route path={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.CONTROL_URL_DETAILS(':uuid')} element={<PortalIntegrityControlUrlDetailsPage />}/>
 
                                 { /* Ethernet Monitoring. */}
                                 <Route path={ApiRoutes.ETHERNET.MONITORING.MONITORS.INDEX} element={<EthernetMonitorsPage />}/>

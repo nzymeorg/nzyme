@@ -18,6 +18,7 @@
 package app.nzyme.core.util;
 
 import app.nzyme.core.ethernet.InternalAddressRewrites;
+import app.nzyme.core.ethernet.portalintegrity.PortalIntegrityMonitor;
 import app.nzyme.core.dashboards.DashboardContent;
 import app.nzyme.core.dashboards.DashboardTopology;
 import app.nzyme.core.database.maintenance.DatabaseMaintenance;
@@ -141,6 +142,7 @@ public class MetricNames {
     public static final String WEBRTC_CONVERSATIONS_REPORT_PROCESSING_TIMER = name(WebRTCTable.class, "conversations-report-processing-timing");
 
     public static final String PORTAL_INTEGRITY_URL_REPORT_PROCESSING_TIMER = name(PortalIntegrityTable.class, "url-report-processing-timing");
+    public static final String PORTAL_INTEGRITY_MONITOR_RUN_TIMER = name(PortalIntegrityMonitor.class, "run-timing");
 
     public static final String UAV_TOTAL_REPORT_PROCESSING_TIMER = name(UAVTable.class, "total-report-processing-timing");
 

@@ -388,7 +388,8 @@ public class TablesResource {
         }
 
         LOG.debug("Received portal integrity URL report from tap [{}]: {}", tap.getUuid(), report);
-        nzyme.getTablesService().portalIntegrity().handleUrlReport(tap.getUuid(), DateTime.now(), report);
+        nzyme.getTablesService().portalIntegrity().handleUrlReport(
+                tap.getUuid(), tap.getOrganizationId(), tap.getTenantId(), report);
 
         return Response.status(Response.Status.CREATED).build();
     }

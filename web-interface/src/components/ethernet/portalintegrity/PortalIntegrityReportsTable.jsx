@@ -16,7 +16,7 @@ import ApiRoutes from "../../../util/ApiRoutes";
 
 const portalIntegrityService = new PortalIntegrityService();
 
-export default function PortalIntegrityReportsTable({timeRange, filters, setFilters, revision, perPage}) {
+export default function PortalIntegrityReportsTable({timeRange, filters, setFilters, revision, perPage, taps}) {
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -26,14 +26,29 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
   const [data, setData] = useState(null);
 
   const tapContext = useContext(TapContext);
-  const selectedTaps = tapContext.taps;
+  // The reports of one probe are asked for by its tap, whatever the tap selector says.
+  const selectedTaps = taps ? taps : tapContext.taps;
 
   const perPageSel = perPage ? perPage : 25;
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    setPage(1);
+  }, [organizationId, tenantId, selectedTaps, timeRange, filters]);
+
+  useEffect(() => {
+    let current = true;
+
     setData(null);
-    portalIntegrityService.findAllReports(organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, selectedTaps, perPageSel, (page-1)*perPageSel, setData);
+    portalIntegrityService.findAllReports(organizationId, tenantId, timeRange, filters, orderColumn, orderDirection, selectedTaps, perPageSel, (page-1)*perPageSel, (response) => {
+      if (current) {
+        setData(response);
+      }
+    });
+
+    return () => {
+      current = false;
+    }
   }, [organizationId, tenantId, selectedTaps, timeRange, filters, orderColumn, orderDirection, page, revision]);
 
   const columnSorting = (columnName) => {
@@ -42,6 +57,13 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
                           setOrderColumn={setOrderColumn}
                           orderDirection={orderDirection}
                           setOrderDirection={setOrderDirection} />
+  }
+
+  const filterIcon = (field, value) => {
+    return <FilterValueIcon setFilters={setFilters}
+                            fields={PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS}
+                            field={field}
+                            value={value} />
   }
 
   if (!data) {
@@ -70,22 +92,27 @@ export default function PortalIntegrityReportsTable({timeRange, filters, setFilt
         </thead>
         <tbody>
         {data.reports.map((r, i) => {
+          const ipVersion = String(r.assigned_address).includes(":") ? 6 : 4;
+
           return (
             <tr key={i}>
               <td>
                 <Link to={ApiRoutes.ETHERNET.PORTAL_INTEGRITY.REPORT_DETAILS(r.uuid)}>
                   <FullCopyShortenedId value={r.uuid} />
                 </Link>
+
+                {filterIcon("uuid", r.uuid)}
               </td>
-              <td>{r.probe_name}</td>
-              <td>{String(r.assigned_address).includes(":") ? "IPv6" : "IPv4"}</td>
-              <td>{r.control_url}</td>
+              <td className="text-break">{r.probe_name}{filterIcon("probe_name", r.probe_name)}</td>
+              <td>IPv{ipVersion}{filterIcon("ip_version", ipVersion)}</td>
+              <td title={r.control_url}>{truncate(r.control_url, 80, false)}{filterIcon("control_url", r.control_url)}</td>
               <td title={r.last_hop_url ? r.last_hop_url : null}>
                 {r.last_hop_url ?
                   truncate(r.last_hop_url, 35, false)
                   : <span className="text-muted">n/a</span>}
+                {filterIcon("last_hop_url", r.last_hop_url)}
               </td>
-              <td>{numeral(r.hop_count).format("0,0")}</td>
+              <td>{numeral(r.hop_count).format("0,0")}{filterIcon("hop_count", r.hop_count)}</td>
               <td title={moment(r.probed_at).format()}>{moment(r.probed_at).fromNow()}</td>
             </tr>
           )

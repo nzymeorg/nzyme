@@ -5,6 +5,7 @@ import SpoofingService from "../../../services/ethernet/SpoofingService";
 import AssetsService from "../../../services/ethernet/AssetsService";
 import BeaconsService from "../../../services/ethernet/BeaconsService";
 import UavService from "../../../services/UavService";
+import PortalIntegrityService from "../../../services/ethernet/PortalIntegrityService";
 import {beaconClassificationToName} from "../../ethernet/beacons/BeaconClassification";
 import {capitalizeFirstLetter} from "../../../util/Tools";
 
@@ -13,6 +14,7 @@ const spoofingService = new SpoofingService();
 const assetsService = new AssetsService();
 const beaconsService = new BeaconsService();
 const uavService = new UavService();
+const portalIntegrityService = new PortalIntegrityService();
 
 const BEACON_CLASSIFICATIONS = ["UNKNOWN", "BENIGN", "SUSPICIOUS", "MALICIOUS"]
   .map((c) => ({value: c, title: beaconClassificationToName(c)}));
@@ -23,6 +25,16 @@ const UAV_CLASSIFICATIONS = ["UNKNOWN", "FRIENDLY", "NEUTRAL", "HOSTILE"]
   .map((c) => ({value: c, title: uavClassificationToName(c)}));
 
 const value = (v) => <span className="machine-data">{v}</span>
+
+const portalValuesOf = (target) => [target.final_url, target.address, target.certificate].filter((v) => v);
+
+const portalValues = (target) => {
+  const values = portalValuesOf(target);
+
+  return values.map((v, i) => (
+    <span key={v}>{i === 0 ? "" : (i === values.length - 1 ? " and " : ", ")}{value(v)}</span>
+  ));
+}
 
 const fingerprintsOf = (target) => target.fingerprints ? target.fingerprints.split(",") : [];
 
@@ -313,6 +325,30 @@ const AlertActionDefinitions = {
     () => "An exclusion keeps this device from raising this ICMP alert again.",
     (t) => withParameters(ApiRoutes.ETHERNET.ICMP.EXCLUSIONS.CREATE,
       {type: t.detection_type, source: t.source, source_mac: t.source_mac, gateway: t.gateway})),
+
+  PORTAL_INTEGRITY_EXPECT_PORTAL: {
+    kind: "call",
+    title: "Add Presented Portal to Expected Portal of Control URL",
+    description: (t) => <span>Expect {portalValues(t)} for this control URL from now on.</span>,
+    doneDescription: (t) => <span>{portalValues(t)} {portalValuesOf(t).length === 1 ? "is" : "are"} expected for
+      this control URL.</span>,
+    confirmation: (t) => "Add " + portalValuesOf(t).join(" and ") + " to the expected portal of this control URL?",
+    success: "Portal expected.",
+    run: (t, alert, onSuccess, onError) => portalIntegrityService.addExpectedValues(
+      t.control_url_uuid, alert.organization_id, alert.tenant_id,
+      {final_url: t.final_url, address: t.address, certificate: t.certificate}, onSuccess, onError)
+  },
+
+  PORTAL_INTEGRITY_OPEN_CONTROL_URL: link(
+    "Open Portal Expectation of Control URL",
+    () => "Change what the captive portal probe is expected to be presented for this control URL.",
+    (t) => ApiRoutes.ETHERNET.PORTAL_INTEGRITY.CONTROL_URL_DETAILS(t.control_url_uuid)),
+
+  PORTAL_INTEGRITY_OPEN_CONTROL_URLS: link(
+    "Open Control URLs of Captive Portal Probes",
+    (t) => <span>The control URLs are listed per tap. Select tap {value(t.tap_name)} in the header of the page to
+      see the ones that stopped reporting.</span>,
+    () => ApiRoutes.ETHERNET.PORTAL_INTEGRITY.INDEX),
 
   DHCP_FINGERPRINT_ACCEPT: {
     kind: "call",

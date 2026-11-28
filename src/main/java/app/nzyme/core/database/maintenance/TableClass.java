@@ -51,7 +51,7 @@ public enum TableClass {
                     "dot11_disco_anomalies",
                     "detection_alerts", "detection_alert_attributes", "detection_alert_timeline", "certificates",
                     "spoofing_dhcp_detection_state", "dashboard_displays", "segmentation_findings",
-                    "segmentation_engine_state", "segmentation_exclusions")
+                    "segmentation_engine_state", "segmentation_exclusions", "portal_integrity_control_urls")
     );
 
     private final String key;

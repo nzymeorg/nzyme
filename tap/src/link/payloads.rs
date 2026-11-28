@@ -3,7 +3,8 @@ use serde::{Serialize, ser::SerializeStruct};
 use chrono::{Utc, DateTime};
 use sha2::{Sha256, Digest};
 use crate::alerting::alert_types::{AlertAttribute, Dot11AlertType};
-use crate::configuration::Configuration;
+use std::collections::BTreeMap;
+use crate::configuration::{Configuration, PortalIntegrityConfiguration};
 
 #[derive(Serialize)]
 pub struct StatusReport {
@@ -19,7 +20,31 @@ pub struct StatusReport {
     pub log_counts: HashMap<String, u128>,
     pub engagement_logs: Vec<EngagementLogReport>,
     pub rpi: Option<String>,
-    pub configuration: ConfigurationReport
+    pub configuration: ConfigurationReport,
+    pub portal_integrity_probes: HashMap<String, PortalIntegrityProbeReport>
+}
+
+/*
+ * The node tells a probe that stopped reporting from one that was removed here by what is listed. This is not
+ * part of the configuration report, which the node passes on to Nzyme Connect.
+ */
+#[derive(Serialize)]
+pub struct PortalIntegrityProbeReport {
+    pub active: bool,
+    pub interval_minutes: u64,
+    pub control_urls: Vec<String>,
+    pub ipv6: bool
+}
+
+/*
+ * What the configuration print CLI flag shows: the configuration report and the portal integrity probes. The
+ * report itself leaves the probes out, because the node passes it on to Nzyme Connect.
+ */
+#[derive(Serialize)]
+pub struct PrintedConfiguration {
+    #[serde(flatten)]
+    pub configuration: ConfigurationReport,
+    pub portal_integrity_checks: BTreeMap<String, PortalIntegrityConfiguration>
 }
 
 // Note that this is also used for the configuration print CLI flag.

@@ -292,7 +292,7 @@ public class EthernetCollector {
             }
         }
 
-        // Taps do not report whether portal integrity is configured, so missing probes are never a warning.
+        // A probe that stopped reporting raises its own alert, for the control URLs that have an expectation.
         if (!portalIntegrityLastReport.isEmpty()) {
             checks.add(BriefingItems.ok("portal_integrity",
                     "Portal integrity probes report from " + portalIntegrityLastReport.size() + " "

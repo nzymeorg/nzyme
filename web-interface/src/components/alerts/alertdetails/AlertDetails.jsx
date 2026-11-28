@@ -26,6 +26,7 @@ import DhcpSpoofingAlertDetails from "./ethernet/DhcpSpoofingAlertDetails";
 import NameResolutionSpoofingAlertDetails from "./ethernet/NameResolutionSpoofingAlertDetails";
 import DnsSpoofingAlertDetails from "./ethernet/DnsSpoofingAlertDetails";
 import DnsTunnelAlertDetails from "./ethernet/DnsTunnelAlertDetails";
+import PortalIntegrityAlertDetails from "./ethernet/PortalIntegrityAlertDetails";
 import IcmpAlertDetails from "./ethernet/IcmpAlertDetails";
 import AssetNewAlertDetails from "./ethernet/AssetNewAlertDetails";
 import AssetDhcpFingerprintAlertDetails from "./ethernet/AssetDhcpFingerprintAlertDetails";
@@ -110,6 +111,12 @@ function AlertDetails(props) {
     case "ICMP_TRACEROUTE":
     case "ICMP_TUNNEL":
       return <IcmpAlertDetails alert={alert} />
+    case "PORTAL_INTEGRITY_PORTAL_MISSING":
+    case "PORTAL_INTEGRITY_PORTAL_UNEXPECTED":
+    case "PORTAL_INTEGRITY_PORTAL_WRONG":
+    case "PORTAL_INTEGRITY_REQUEST_FAILED":
+    case "PORTAL_INTEGRITY_PROBE_SILENT":
+      return <PortalIntegrityAlertDetails alert={alert} />
     case "ASSETS_NEW":
       return <AssetNewAlertDetails alert={alert} />
     case "ASSETS_DHCP_FINGERPRINT_NEW":

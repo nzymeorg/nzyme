@@ -9,13 +9,14 @@ import {PORTAL_INTEGRITY_REPORTS_FILTER_FIELDS} from "./PortalIntegrityReportsFi
 import CardTitleWithControls from "../../shared/CardTitleWithControls";
 import Filters from "../../shared/filtering/Filters";
 import PortalIntegrityReportsTable from "./PortalIntegrityReportsTable";
+import PortalIntegrityControlUrlsTable from "./PortalIntegrityControlUrlsTable";
 import onSaveFiltersAsMonitor from "../../shared/filtering/monitors/SaveMonitorCallback";
 import RenderConditionally from "../../misc/RenderConditionally";
 import useSelectedTenant from "../../system/tenantselector/useSelectedTenant";
 
 export default function PortalIntegrityPage() {
 
-  usePageTitle("Portal Integrity Reports");
+  usePageTitle("Portal Integrity");
 
   const [organizationId, tenantId] = useSelectedTenant();
 
@@ -28,6 +29,7 @@ export default function PortalIntegrityPage() {
   const [histogram, setHistogram] = useState(null);
 
   const [revision, setRevision] = useState(new Date());
+  const [controlUrlsRevision, setControlUrlsRevision] = useState(new Date());
 
   useEffect(() => {
     enableTapSelector(tapContext);
@@ -41,7 +43,21 @@ export default function PortalIntegrityPage() {
     <>
       <div className="row">
         <div className="col-md-12">
-          <h1>Portal Integrity Reports</h1>
+          <h1>Portal Integrity</h1>
+        </div>
+      </div>
+
+      <div className="row mt-3">
+        <div className="col-md-12">
+          <div className="card">
+            <div className="card-body">
+              <CardTitleWithControls title="Control URLs"
+                                     helpLink="https://go.nzyme.org/portal-integrity-control-urls"
+                                     refreshAction={() => setControlUrlsRevision(new Date())} />
+
+              <PortalIntegrityControlUrlsTable revision={controlUrlsRevision} />
+            </div>
+          </div>
         </div>
       </div>
 

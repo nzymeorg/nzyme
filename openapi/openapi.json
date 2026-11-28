@@ -167,7 +167,7 @@
     "description" : "IPv6 neighbor discovery that taps recorded on the Ethernet network: neighbor and router solicitations, neighbor advertisements and router advertisements. It is what ARP is for IPv4. Identical messages are counted together per report of a tap.",
     "name" : "NDP"
   }, {
-    "description" : "Portal integrity reports record what a tap received when it probed a control URL, including every redirect hop and a verdict with the reasons behind it. Use them to detect captive portals, redirects and tampered responses on a network.",
+    "description" : "Portal integrity reports record what a tap received when it probed a control URL, including every redirect hop. Use them to detect captive portals, redirects and tampered responses on a network. Every control URL a probe requests is kept with what its last report showed and can be given an expectation: a captive portal, a certain captive portal, or none. A last report that does not meet the expectation raises an alert.",
     "name" : "Portal Integrity"
   }, {
     "description" : "RTSP streams that Nzyme taps observed on the network. RTSP is what cameras, network video recorders and streaming appliances use to negotiate live audio and video. Nzyme reads the clear text control connection and links the media flow back to it, so a stream reports its negotiation state, its authentication posture and the devices on both ends.",
@@ -24015,6 +24015,393 @@
         },
         "summary" : "List NDP router advertisements",
         "tags" : [ "NDP" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls" : {
+      "get" : {
+        "description" : "Returns every control URL the probes of the selected taps have requested, per IP version, with the expectation, what the last report showed and how that compares to the expectation. Sorted by probe name. At most 200 control URLs are recorded per tap. Results are paginated with a page size of up to 250.",
+        "operationId" : "findPortalIntegrityControlUrls",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page size.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Page offset.",
+          "in" : "query",
+          "name" : "offset",
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "Comma separated list of tap UUIDs to include. Use * for all taps the user can access. Without the parameter, no taps are selected and the result is empty.",
+          "in" : "query",
+          "name" : "taps",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortalIntegrityControlUrlsListResponse"
+                }
+              }
+            },
+            "description" : "Control URLs found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "List the control URLs of portal integrity probes",
+        "tags" : [ "Portal Integrity" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}" : {
+      "delete" : {
+        "description" : "Removes a control URL with its expectation, for example after it was taken out of the probe configuration. Reports are kept. If the probe requests the URL again, it is recorded anew and not monitored. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "deletePortalIntegrityControlUrl",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Control URL UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL deleted."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Forget a control URL of a portal integrity probe",
+        "tags" : [ "Portal Integrity" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/expectation" : {
+      "put" : {
+        "description" : "Sets the expectation and replaces the three lists that describe the expected portal. With PORTAL, a last report without a captive portal, or with one that is not in the lists, raises an alert. With NO_PORTAL, a last report with any captive portal raises an alert. With either, a failed request raises an alert. NOT_MONITORED raises none. The lists take up to 25 values each. Takes effect within a minute. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "setPortalIntegrityExpectation",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Control URL UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PortalIntegrityExpectationRequest"
+              }
+            }
+          },
+          "description" : "The expectation.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortalIntegrityControlUrlResponse"
+                }
+              }
+            },
+            "description" : "Expectation set."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Unknown expectation or invalid value. The response body contains the reason."
+          }
+        },
+        "summary" : "Set what a probe is expected to see for a control URL",
+        "tags" : [ "Portal Integrity" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls/organization/{organization_id}/tenant/{tenant_id}/show/{uuid}/expected" : {
+      "put" : {
+        "description" : "Adds a final URL, an address or a certificate fingerprint to the lists that describe the expected portal, for example the values of a portal that raised an alert and turned out to be legitimate. Values that are already expected are ignored. Only for a control URL that expects a portal. Requires the ethernet_monitoring_manage feature permission.",
+        "operationId" : "addPortalIntegrityExpectedValues",
+        "parameters" : [ {
+          "description" : "Organization UUID.",
+          "in" : "path",
+          "name" : "organization_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "path",
+          "name" : "tenant_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Control URL UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PortalIntegrityExpectedValuesRequest"
+              }
+            }
+          },
+          "description" : "The values to add.",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortalIntegrityControlUrlResponse"
+                }
+              }
+            },
+            "description" : "Values added."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No or invalid value, the control URL does not expect a portal, or a list is full. The response body contains the reason."
+          }
+        },
+        "summary" : "Add values to the expected portal of a control URL",
+        "tags" : [ "Portal Integrity" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls/show/{uuid}" : {
+      "get" : {
+        "description" : "Returns one control URL with its expectation and what its last report showed.",
+        "operationId" : "findPortalIntegrityControlUrl",
+        "parameters" : [ {
+          "description" : "Control URL UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortalIntegrityControlUrlResponse"
+                }
+              }
+            },
+            "description" : "Control URL found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL, organization or tenant not found, or not accessible by the calling user."
+          }
+        },
+        "summary" : "Get a control URL of a portal integrity probe",
+        "tags" : [ "Portal Integrity" ]
+      }
+    },
+    "/api/ethernet/portalintegrity/controlurls/show/{uuid}/observed" : {
+      "get" : {
+        "description" : "Summarizes the reports of a control URL in the time range: every captive portal the probe was presented, by final URL, address and certificate, whether requests were not intercepted, and how many failed. Each outcome is compared to the current expectation, so the values of an outcome that is not expected yet can be taken over with the expectation endpoint. Looks at the latest 1000 reports the probe sent for the control URL in the time range, over both IP versions together, and returns the 50 outcomes seen last, next to the failed requests. The response says if either limit was reached.",
+        "operationId" : "findPortalIntegrityObservedState",
+        "parameters" : [ {
+          "description" : "Control URL UUID.",
+          "in" : "path",
+          "name" : "uuid",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Organization UUID.",
+          "in" : "query",
+          "name" : "organization_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Tenant UUID.",
+          "in" : "query",
+          "name" : "tenant_id",
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Time range selector. Accepts the same format as the web interface time range picker.",
+          "in" : "query",
+          "name" : "time_range",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PortalIntegrityObservedStateResponse"
+                }
+              }
+            },
+            "description" : "Observed state found."
+          },
+          "404" : {
+            "content" : {
+              "application/json" : { }
+            },
+            "description" : "Control URL, organization or tenant not found, or not accessible by the calling user."
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The reports of the time range took too long to read. The response body says so."
+          }
+        },
+        "summary" : "Get what the reports of a control URL showed",
+        "tags" : [ "Portal Integrity" ]
       }
     },
     "/api/ethernet/portalintegrity/reports" : {
@@ -57262,6 +57649,302 @@
             "items" : {
               "$ref" : "#/components/schemas/Selector"
             }
+          }
+        }
+      },
+      "PortalIntegrityControlUrlResponse" : {
+        "type" : "object",
+        "properties" : {
+          "control_url" : {
+            "type" : "string"
+          },
+          "created_at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expectation" : {
+            "type" : "string",
+            "description" : "NOT_MONITORED, PORTAL or NO_PORTAL."
+          },
+          "expected_addresses" : {
+            "type" : "array",
+            "description" : "Addresses the host of the expected portal may resolve to. Empty if the address is not checked.",
+            "items" : {
+              "type" : "string",
+              "description" : "Addresses the host of the expected portal may resolve to. Empty if the address is not checked."
+            }
+          },
+          "expected_certificates" : {
+            "type" : "array",
+            "description" : "SHA-256 fingerprints of the certificates the expected portal may present. Empty if the certificate is not checked.",
+            "items" : {
+              "type" : "string",
+              "description" : "SHA-256 fingerprints of the certificates the expected portal may present. Empty if the certificate is not checked."
+            }
+          },
+          "expected_final_urls" : {
+            "type" : "array",
+            "description" : "Final URLs of the expected portal, without query string.",
+            "items" : {
+              "type" : "string",
+              "description" : "Final URLs of the expected portal, without query string."
+            }
+          },
+          "expected_values_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many values each of the three lists of an expected portal takes."
+          },
+          "in_tap_configuration" : {
+            "type" : "boolean",
+            "description" : "Whether the tap says that it runs a probe of this name that requests the control URL over the IP version. Not set if the tap has not reported which probes it runs."
+          },
+          "ip_version" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "IP version the probe requests the control URL over, 4 or 6."
+          },
+          "last_error" : {
+            "type" : "string",
+            "description" : "Why the last request failed, if it did."
+          },
+          "last_final_address" : {
+            "type" : "string",
+            "description" : "Address the host of the last hop resolved to."
+          },
+          "last_final_certificate" : {
+            "type" : "string",
+            "description" : "SHA-256 fingerprint of the certificate the last hop presented, if it was served over TLS."
+          },
+          "last_final_url" : {
+            "type" : "string",
+            "description" : "URL of the last hop of the last report, without query string."
+          },
+          "last_hop_count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "last_portal_presented" : {
+            "type" : "boolean",
+            "description" : "Whether the last request was intercepted. Not set for a failed request."
+          },
+          "last_report_at" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the node received the last report for this control URL."
+          },
+          "last_report_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "probe_name" : {
+            "type" : "string"
+          },
+          "reasons" : {
+            "type" : "array",
+            "description" : "For PORTAL_WRONG, what differs from the expected portal: URL, ADDRESS, CERTIFICATE.",
+            "items" : {
+              "type" : "string",
+              "description" : "For PORTAL_WRONG, what differs from the expected portal: URL, ADDRESS, CERTIFICATE."
+            }
+          },
+          "result" : {
+            "type" : "string",
+            "description" : "What the last report shows against the expectation: NOT_MONITORED, AS_EXPECTED, PORTAL_MISSING, PORTAL_UNEXPECTED, PORTAL_WRONG or REQUEST_FAILED. For a monitored control URL whose probe has missed several cycles: NOT_REPORTING, or NOT_IN_TAP_CONFIGURATION if the tap says that it no longer runs the probe."
+          },
+          "stale" : {
+            "type" : "boolean",
+            "description" : "True if the probe has missed several cycles."
+          },
+          "tap_name" : {
+            "type" : "string",
+            "description" : "Name of the tap the probe runs on."
+          },
+          "tap_uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "updated_at" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the expectation was last changed."
+          },
+          "uuid" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "PortalIntegrityControlUrlsListResponse" : {
+        "type" : "object",
+        "properties" : {
+          "control_urls" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PortalIntegrityControlUrlResponse"
+            }
+          },
+          "maximum_per_tap" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "How many control URLs are recorded per tap. New control URLs of a tap at the limit are not recorded."
+          },
+          "taps_at_limit" : {
+            "type" : "array",
+            "description" : "Names of the selected taps that are at the limit.",
+            "items" : {
+              "type" : "string",
+              "description" : "Names of the selected taps that are at the limit."
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "PortalIntegrityExpectationRequest" : {
+        "type" : "object",
+        "description" : "Body for setting what a probe is expected to see when it requests a control URL.",
+        "properties" : {
+          "expectation" : {
+            "type" : "string",
+            "description" : "NOT_MONITORED, PORTAL or NO_PORTAL.",
+            "writeOnly" : true
+          },
+          "expected_addresses" : {
+            "type" : "array",
+            "description" : "Addresses the host of the expected portal may resolve to. Leave empty to not check the address.",
+            "items" : {
+              "type" : "string",
+              "description" : "Addresses the host of the expected portal may resolve to. Leave empty to not check the address."
+            },
+            "writeOnly" : true
+          },
+          "expected_certificates" : {
+            "type" : "array",
+            "description" : "SHA-256 fingerprints of the certificates the expected portal may present. Leave empty to not check the certificate.",
+            "items" : {
+              "type" : "string",
+              "description" : "SHA-256 fingerprints of the certificates the expected portal may present. Leave empty to not check the certificate."
+            },
+            "writeOnly" : true
+          },
+          "expected_final_urls" : {
+            "type" : "array",
+            "description" : "Final URLs of the expected portal. The query string is ignored. At least one is required to expect a portal.",
+            "items" : {
+              "type" : "string",
+              "description" : "Final URLs of the expected portal. The query string is ignored. At least one is required to expect a portal."
+            },
+            "writeOnly" : true
+          }
+        }
+      },
+      "PortalIntegrityExpectedValuesRequest" : {
+        "type" : "object",
+        "description" : "Body for adding values to the expected portal of a control URL. Every field is optional, but at least one must be set.",
+        "properties" : {
+          "address" : {
+            "type" : "string",
+            "description" : "Address to add.",
+            "writeOnly" : true
+          },
+          "certificate" : {
+            "type" : "string",
+            "description" : "SHA-256 certificate fingerprint to add.",
+            "writeOnly" : true
+          },
+          "final_url" : {
+            "type" : "string",
+            "description" : "Final URL to add. The query string is ignored.",
+            "writeOnly" : true
+          }
+        }
+      },
+      "PortalIntegrityObservedOutcomeResponse" : {
+        "type" : "object",
+        "description" : "What the reports showed, most recently seen first.",
+        "properties" : {
+          "error" : {
+            "type" : "string",
+            "description" : "For failed requests, the error of the latest one."
+          },
+          "final_address" : {
+            "type" : "string",
+            "description" : "Address the host of the last hop resolved to."
+          },
+          "final_certificate" : {
+            "type" : "string",
+            "description" : "SHA-256 fingerprint of the certificate the last hop presented, if it was served over TLS."
+          },
+          "final_url" : {
+            "type" : "string",
+            "description" : "URL of the last hop, without query string. Not set for failed requests."
+          },
+          "first_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "PORTAL for a captive portal, NO_PORTAL for a request that was not intercepted, FAILED for all failed requests together."
+          },
+          "last_seen" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reasons" : {
+            "type" : "array",
+            "description" : "For PORTAL_WRONG, what differs from the expected portal: URL, ADDRESS, CERTIFICATE.",
+            "items" : {
+              "type" : "string",
+              "description" : "For PORTAL_WRONG, what differs from the expected portal: URL, ADDRESS, CERTIFICATE."
+            }
+          },
+          "report_count" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Number of reports that showed this."
+          },
+          "result" : {
+            "type" : "string",
+            "description" : "How this compares to the expectation of the control URL: NOT_MONITORED, AS_EXPECTED, PORTAL_MISSING, PORTAL_UNEXPECTED, PORTAL_WRONG or REQUEST_FAILED."
+          }
+        }
+      },
+      "PortalIntegrityObservedStateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "outcome_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Only this many different outcomes are returned, the ones seen last. Failed requests do not count."
+          },
+          "outcomes" : {
+            "type" : "array",
+            "description" : "What the reports showed, most recently seen first.",
+            "items" : {
+              "$ref" : "#/components/schemas/PortalIntegrityObservedOutcomeResponse"
+            }
+          },
+          "outcomes_limited" : {
+            "type" : "boolean",
+            "description" : "True if the reports showed more different outcomes than are returned."
+          },
+          "report_count" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Number of reports that were looked at."
+          },
+          "report_limit" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Only this many of the latest reports the probe sent for the control URL in the time range are looked at, over both IP versions together."
+          },
+          "reports_limited" : {
+            "type" : "boolean",
+            "description" : "True if the time range has more reports than were looked at."
           }
         }
       },

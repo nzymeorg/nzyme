@@ -7,7 +7,7 @@ use anyhow::{Result, bail, Error};
 use cidr::{Ipv4Cidr, Ipv6Cidr};
 use regex::Regex;
 use reqwest::Url;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use crate::wireless::bluetooth::adapter::AdapterSelector;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -116,7 +116,7 @@ pub struct BluetoothInterface {
     pub dbus_method_call_timeout_seconds: i32
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PortalIntegrityConfiguration {
     pub active: bool,
     pub interface: String,

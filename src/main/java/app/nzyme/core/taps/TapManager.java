@@ -140,9 +140,12 @@ public class TapManager {
 
         String cpuCoresLoadJson;
         String configurationJson;
+        String portalIntegrityProbesJson;
         try {
             cpuCoresLoadJson = this.om.writeValueAsString(report.systemMetrics().cpuCoresLoad());
             configurationJson = this.om.writeValueAsString(report.configuration());
+            portalIntegrityProbesJson = report.portalIntegrityProbes() == null
+                    ? null : this.om.writeValueAsString(report.portalIntegrityProbes());
         } catch (JacksonException e) {
             throw new RuntimeException("Could not serialize tap report JSON.", e);
         }
@@ -154,7 +157,8 @@ public class TapManager {
                                 "memory_free = :memory_free, memory_used = :memory_used, cpu_load = :cpu_load, " +
                                 "cpu_cores_load = :cpu_cores_load::jsonb, remote_address = :remote_address, " +
                                 "rpi = :rpi, rpi_temperature = :rpi_temperature, " +
-                                "configuration = :configuration::jsonb, last_report = NOW() " +
+                                "configuration = :configuration::jsonb, " +
+                                "portal_integrity_probes = :portal_integrity_probes::jsonb, last_report = NOW() " +
                                 "WHERE deleted = false AND uuid = :uuid")
                         .bind("version", report.version())
                         .bind("clock", report.timestamp())
@@ -169,6 +173,7 @@ public class TapManager {
                         .bind("rpi", report.rpi())
                         .bind("rpi_temperature", report.systemMetrics().rpiTemperature())
                         .bind("configuration", configurationJson)
+                        .bind("portal_integrity_probes", portalIntegrityProbesJson)
                         .bind("uuid", tapUUID)
                         .execute();
 

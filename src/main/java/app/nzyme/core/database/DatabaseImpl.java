@@ -46,6 +46,7 @@ import app.nzyme.core.ethernet.l4.db.L4StatisticsBucketMapper;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryEntryMapper;
 import app.nzyme.core.ethernet.nat.db.NATTraversalDiscoveryHistogramBucketMapper;
 import app.nzyme.core.ethernet.nat.db.STUNNegotiationEntryMapper;
+import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityControlUrlEntryMapper;
 import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportEntryMapper;
 import app.nzyme.core.ethernet.portalintegrity.db.PortalIntegrityReportHopEntryMapper;
 import app.nzyme.core.ethernet.rtsp.db.RTSPStreamEntryMapper;
@@ -359,6 +360,7 @@ public class DatabaseImpl implements Database {
                 .registerRowMapper(new NATTraversalDiscoveryHistogramBucketMapper())
                 .registerRowMapper(new STUNNegotiationEntryMapper())
                 .registerRowMapper(new PortalIntegrityReportEntryMapper())
+                .registerRowMapper(new PortalIntegrityControlUrlEntryMapper())
                 .registerRowMapper(new PortalIntegrityReportHopEntryMapper())
                 .registerRowMapper(new WebRTCSessionEntryMapper())
                 .registerRowMapper(new AssetPairNumberAggregationResultMapper())
@@ -734,6 +736,16 @@ public class DatabaseImpl implements Database {
                         "portal_integrity_reports",
                         "SELECT COUNT(*) FROM portal_integrity_reports WHERE tap_uuid IN (<taps>)",
                         "DELETE FROM portal_integrity_reports WHERE probed_at < :since AND tap_uuid IN (<taps>)"
+                ));
+
+                // Control URLs with an expectation are configuration and stay, unless their tap was deleted.
+                tables.add(new DataTableInformation(
+                        "portal_integrity_control_urls",
+                        "SELECT COUNT(*) FROM portal_integrity_control_urls WHERE <scope>",
+                        "DELETE FROM portal_integrity_control_urls WHERE <scope> AND last_report_at < :since " +
+                                "AND (expectation = 'NOT_MONITORED' " +
+                                "OR tap_uuid IN (SELECT uuid FROM taps WHERE deleted = true))",
+                        true
                 ));
             }
             case TLS_CERTIFICATES -> {
